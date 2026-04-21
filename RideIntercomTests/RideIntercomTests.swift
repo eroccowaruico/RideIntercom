@@ -70,6 +70,17 @@ struct RideIntercomTests {
         }
     }
 
+    private static func workspaceRoot() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private static func source(_ relativePath: String) throws -> String {
+        let fileURL = workspaceRoot().appendingPathComponent(relativePath)
+        return try String(contentsOf: fileURL, encoding: .utf8)
+    }
+
     @Test func defaultAudioInputMonitorUsesSystemMonitorWhenAvailable() {
         #if canImport(AVFAudio)
         #expect(AudioInputMonitorFactory.makeDefault() is SystemAudioInputMonitor)
@@ -3545,6 +3556,16 @@ struct RideIntercomTests {
             InternetTransportEndpointConfig.environmentKey: "wss://example.com/intercom"
         ])
         #expect(remote is URLSessionInternetTransportAdapter)
+    }
+
+    @Test func applicationAndUISourcesDoNotContainOSConditionalCompilationBranches() throws {
+        let contentViewSource = try Self.source("RideIntercom/ContentView.swift")
+        let intercomCoreSource = try Self.source("RideIntercom/IntercomCore.swift")
+
+        #expect(contentViewSource.contains("#if os(") == false)
+        #expect(contentViewSource.contains("#if canImport(") == false)
+        #expect(intercomCoreSource.contains("#if os(") == false)
+        #expect(intercomCoreSource.contains("#if canImport(") == false)
     }
 
     @Test func internetTransportAcceptsOnlyMatchingGroupIncomingEnvelope() throws {
