@@ -8,9 +8,12 @@ import AudioToolbox
 enum DefaultOpusCodecBackendFactory {
     static let environmentKey = "RIDEINTERCOM_ENABLE_SYSTEM_OPUS"
 
-    static func installIfEnabled(environment: [String: String] = ProcessInfo.processInfo.environment) {
+    static func installIfEnabled(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        backendFactory: () -> (any OpusCodecBackend)? = { makeBackendIfAvailable() }
+    ) {
         guard environment[environmentKey] == "1" else { return }
-        guard let backend = makeBackendIfAvailable() else { return }
+        guard let backend = backendFactory() else { return }
         OpusCodecBackendRegistry.install(backend)
     }
 

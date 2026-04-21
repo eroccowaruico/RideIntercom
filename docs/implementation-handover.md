@@ -49,6 +49,7 @@
 
 - Internet relay 接続先:
   - 環境変数 RIDEINTERCOM_INTERNET_URL に WebSocket URL を設定すると InternetTransport が URLSession adapter を利用する。
+  - URL は ws/wss スキームかつ host 必須。条件を満たさない値は無効として Loopback adapter にフォールバックする。
   - 未設定時は Loopback adapter を使う。
 
 - Opus backend:

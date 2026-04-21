@@ -3080,6 +3080,39 @@ struct RideIntercomTests {
     }
 
     @MainActor
+    @Test func acceptingInvitePersistsMetadataAndSecretSeparately() throws {
+        let groupStore = InMemoryGroupStore()
+        let credentialStore = InMemoryGroupCredentialStore()
+        let viewModel = IntercomViewModel(
+            groups: [],
+            credentialStore: credentialStore,
+            groupStore: groupStore,
+            localMemberIdentityStore: InMemoryLocalMemberIdentityStore(
+                identity: LocalMemberIdentity(memberID: "member-local", displayName: "Local")
+            ),
+            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
+            audioInputMonitor: NoOpAudioInputMonitor()
+        )
+
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let token = try GroupInviteToken.make(
+            groupID: groupID,
+            groupName: "Trail Group",
+            groupSecret: "secret-joined",
+            inviterMemberID: "member-host",
+            expiresAt: 500
+        )
+        let url = try GroupInviteTokenCodec.joinURL(for: token)
+
+        try viewModel.acceptInviteURL(url, now: 100)
+
+        let persistedGroup = try #require(groupStore.loadGroups().first(where: { $0.id == groupID }))
+        #expect(persistedGroup.accessSecret == nil)
+        #expect(persistedGroup.members.map(\.id) == ["member-local", "member-host"])
+        #expect(credentialStore.credential(for: groupID)?.secret == "secret-joined")
+    }
+
+    @MainActor
     @Test func discoveredPeerReplacesReservedInviteSlotWhenGroupIsFull() throws {
         let localTransport = LocalTransport()
         let groupStore = InMemoryGroupStore()
@@ -3552,10 +3585,35 @@ struct RideIntercomTests {
         let loopback = DefaultInternetTransportAdapterFactory.make(environment: [:])
         #expect(loopback is LoopbackInternetTransportAdapter)
 
+        let invalid = DefaultInternetTransportAdapterFactory.make(environment: [
+            InternetTransportEndpointConfig.environmentKey: "not-a-url"
+        ])
+        #expect(invalid is LoopbackInternetTransportAdapter)
+
         let remote = DefaultInternetTransportAdapterFactory.make(environment: [
             InternetTransportEndpointConfig.environmentKey: "wss://example.com/intercom"
         ])
         #expect(remote is URLSessionInternetTransportAdapter)
+    }
+
+    @Test func defaultOpusBackendInstallerRespectsEnvironmentToggle() throws {
+        OpusCodecBackendRegistry.uninstall()
+        defer { OpusCodecBackendRegistry.uninstall() }
+
+        DefaultOpusCodecBackendFactory.installIfEnabled(
+            environment: [:],
+            backendFactory: { TestOpusBackend() }
+        )
+        #expect(throws: AudioCodecError.codecUnavailable(.opus)) {
+            try OpusAudioEncoding().encode([0.1, -0.1])
+        }
+
+        DefaultOpusCodecBackendFactory.installIfEnabled(
+            environment: [DefaultOpusCodecBackendFactory.environmentKey: "1"],
+            backendFactory: { TestOpusBackend() }
+        )
+        let encoded = try OpusAudioEncoding().encode([0.1, -0.1])
+        #expect(encoded.isEmpty == false)
     }
 
     @Test func applicationAndUISourcesDoNotContainOSConditionalCompilationBranches() throws {

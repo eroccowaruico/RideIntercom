@@ -7,7 +7,10 @@ struct InternetTransportEndpointConfig {
 enum DefaultInternetTransportAdapterFactory {
     static func make(environment: [String: String] = ProcessInfo.processInfo.environment) -> any InternetTransportAdapting {
         guard let endpoint = environment[InternetTransportEndpointConfig.environmentKey],
-              let url = URL(string: endpoint) else {
+              let url = URL(string: endpoint),
+              let scheme = url.scheme?.lowercased(),
+              ["ws", "wss"].contains(scheme),
+              url.host?.isEmpty == false else {
             return LoopbackInternetTransportAdapter()
         }
         return URLSessionInternetTransportAdapter(baseURL: url)

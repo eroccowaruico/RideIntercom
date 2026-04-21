@@ -14,7 +14,7 @@
 | A-F-005 | IntercomViewModel.markConnectedMembers | viewModelUpdatesConnectionStateFromTransportEvents, remoteMuteStateEventUpdatesOnlyTargetParticipant | covered |
 | A-F-006 | LocalTransport, LocalNetworkConfiguration | localNetworkConfigurationUsesValidBonjourServiceValues, localTransportEmitsConnectedAndRecordsPackets | covered |
 | A-F-007 | MultipeerPayloadBuilder.makePayload(mode: unreliable) | multipeerPayloadBuilderEncodesVoiceWithEnvelopeMetadata | covered |
-| A-F-008 | IntercomViewModel.handleTransportEvent(.linkFailed), InternetTransport.connect, InternetTransportAdapter | viewModelUpdatesConnectionStateFromTransportEvents, internetTransportForwardsAudioPayloadToAdapter, internetTransportMapsAdapterIncomingPayloadToReceivedPacketEvent | covered |
+| A-F-008 | IntercomViewModel.handleTransportEvent(.linkFailed), InternetTransport.connect, InternetTransportAdapter, DefaultInternetTransportAdapterFactory.make | viewModelUpdatesConnectionStateFromTransportEvents, internetTransportForwardsAudioPayloadToAdapter, internetTransportMapsAdapterIncomingPayloadToReceivedPacketEvent, defaultInternetTransportAdapterFactorySelectsAdapterFromEnvironment | covered |
 | A-F-009 | IntercomViewModel.connectionState, localNetworkStatus | viewModelMovesToOfflineReconnectStateWhenLocalFailsWithoutInternet | covered |
 | A-F-010 | HandoverController.localCandidateDidPassProbe | handoverMovesFromLocalToInternetOrOffline | covered |
 | A-F-011 | HandoverController (state machine for probing-ready architecture) | handoverMovesFromLocalToInternetOrOffline | covered |
@@ -26,7 +26,7 @@
 | A-F-017 | IntercomViewModel.createTrailGroup, reserveInviteMemberSlot | inviteReservationAddsPendingMemberSlotsUpToSix, discoveredPeerReplacesReservedInviteSlotWhenGroupIsFull | covered |
 | A-F-018 | LocalDiscoveryInfo.groupHash, ReceivedAudioPacketFilter.groupID | localDiscoveryInfoUsesGroupHashForMatching, receivedPacketFilterRejectsOtherGroupsAndMalformedVoicePackets | covered |
 | A-F-019 | HandshakeRegistry.accept, credential verification | handshakeRegistryAcceptsValidPeerAndRejectsInvalidPeer, viewModelShowsGroupMismatchAsLocalNetworkRejectReason | covered |
-| A-F-020 | GroupInviteTokenCodec.decodeJoinURL, IntercomViewModel.acceptInviteURL | groupInviteTokenRoundTripsAsJoinURLAndRejectsTampering, viewModelBuildsInviteURLForSelectedGroup | covered |
+| A-F-020 | GroupInviteTokenCodec.decodeJoinURL, IntercomViewModel.acceptInviteURL, AcceptInviteUseCase.execute | groupInviteTokenRoundTripsAsJoinURLAndRejectsTampering, viewModelBuildsInviteURLForSelectedGroup, acceptingInvitePersistsMetadataAndSecretSeparately | covered |
 | A-F-021 | GroupInviteTokenCodec QR-compatible join URL payload | groupInviteTokenRoundTripsAsJoinURLAndRejectsTampering | covered |
 | A-F-022 | GroupInviteTokenCodec shared URL payload | groupInviteTokenRoundTripsAsJoinURLAndRejectsTampering | covered |
 | A-F-023 | IntercomGroup.ownerMemberID | ownerElectionUsesLexicographicallySmallestMemberIDAndReelectsAfterLeave | covered |
@@ -35,6 +35,7 @@
 | A-NF-002 | GroupInviteToken signature verification | groupInviteTokenRoundTripsAsJoinURLAndRejectsTampering | covered |
 | A-NF-003 | EncryptedAudioPacketCodec.decode validation | encryptedAudioPacketCodecRoundTripsWithMatchingCredentialOnly | covered |
 | A-NF-004 | Application/UI 層への OS 分岐逆流防止 | applicationAndUISourcesDoNotContainOSConditionalCompilationBranches | covered |
+| A-NF-005 | DefaultOpusCodecBackendFactory.installIfEnabled env toggle contract | defaultOpusBackendInstallerRespectsEnvironmentToggle | covered |
 
 ## Operational Rule
 
