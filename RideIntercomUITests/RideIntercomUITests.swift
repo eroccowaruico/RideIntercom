@@ -79,12 +79,12 @@ final class RideIntercomUITests: XCTestCase {
     func testDiagnosticsShowRealDeviceSetupIdentifiers() throws {
         openDiagnosticsTab()
 
-        XCTAssertTrue(app.otherElements["liveAudioPanel"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.otherElements["diagnosticsInputMeter"].exists)
-        XCTAssertTrue(app.otherElements["diagnosticsOutputMeter"].exists)
         XCTAssertTrue(app.otherElements["audioIOPanel"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["liveAudioStateLabel"].exists)
         XCTAssertTrue(app.staticTexts["audioIOApplyStateLabel"].exists)
         XCTAssertTrue(app.otherElements["audioCheckPanel"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.otherElements["audioCheckInputMeter"].exists)
+        XCTAssertTrue(app.otherElements["audioCheckOutputMeter"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["audioCheckOutputPicker"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["audioCheckInputPicker"].exists)
     }

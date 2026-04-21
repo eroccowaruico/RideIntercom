@@ -77,11 +77,6 @@ enum VoiceLevelIntensity: Equatable {
     case high
 }
 
-enum AudioCheckCodecMode: String, CaseIterable {
-    case direct = "Direct"
-    case pcm16 = "PCM 16-bit"
-}
-
 enum AudioCheckPhase: String, Equatable {
     case idle = "Audio Check Idle"
     case recording = "Recording"
@@ -2633,7 +2628,6 @@ final class IntercomViewModel {
     private(set) var selectedOutputPort: AudioPortInfo = .systemDefault
     private(set) var voiceActivityDetectionThreshold: Float = AudioTransmissionController.defaultVoiceActivityThreshold
     private(set) var isSoundIsolationEnabled = false
-    private(set) var audioCheckCodecMode: AudioCheckCodecMode = .direct
     private(set) var preferredTransmitCodec: AudioCodecIdentifier = .pcm16
     private(set) var heAACv2Quality: HEAACv2Quality = .medium
 
@@ -3195,10 +3189,6 @@ final class IntercomViewModel {
         handleMicrophoneLevel(level)
     }
 
-    func setAudioCheckCodecMode(_ mode: AudioCheckCodecMode) {
-        audioCheckCodecMode = mode
-    }
-
     func setPreferredTransmitCodec(_ codec: AudioCodecIdentifier) {
         preferredTransmitCodec = codec
         localTransport.setPreferredAudioCodec(codec)
@@ -3361,19 +3351,18 @@ final class IntercomViewModel {
             return
         }
 
-        let playbackSamples: [Float]
-        switch audioCheckCodecMode {
-        case .direct:
-            playbackSamples = recordedSamples
-        case .pcm16:
-            playbackSamples = (try? PCMAudioCodec.decode(PCMAudioCodec.encode(recordedSamples))) ?? recordedSamples
-        }
+        let playbackCodec = audioCheckPlaybackCodec()
+        let playbackSamples = makeAudioCheckPlaybackSamples(
+            from: recordedSamples,
+            codec: playbackCodec,
+            heAACv2Quality: heAACv2Quality
+        )
 
         let outputLevel = AudioLevelMeter.rmsLevel(samples: playbackSamples)
         audioCheckOutputLevel = min(1, max(0, outputLevel))
         audioCheckOutputPeakLevel = audioCheckOutputPeakWindow.record(audioCheckOutputLevel)
         audioCheckPhase = .playing
-        audioCheckStatusMessage = "Playing recorded audio for 5 seconds"
+        audioCheckStatusMessage = "Playing recorded audio for 5 seconds (\(audioCodecDisplayName(playbackCodec)))"
         audioFramePlayer.play(JitterBufferedAudioFrame(
             peerID: "audio-check",
             streamID: UUID(),
@@ -3417,6 +3406,47 @@ final class IntercomViewModel {
         audioCheckOutputPeakLevel = 0
         audioCheckInputPeakWindow = VoicePeakWindow()
         audioCheckOutputPeakWindow = VoicePeakWindow()
+    }
+
+    private func audioCheckPlaybackCodec() -> AudioCodecIdentifier {
+        switch preferredTransmitCodec {
+        case .pcm16, .heAACv2:
+            preferredTransmitCodec
+        case .opus:
+            .pcm16
+        }
+    }
+
+    private func makeAudioCheckPlaybackSamples(
+        from samples: [Float],
+        codec: AudioCodecIdentifier,
+        heAACv2Quality: HEAACv2Quality
+    ) -> [Float] {
+        guard let packet = try? EncodedVoicePacket.make(
+            frameID: 1,
+            samples: samples,
+            codec: codec,
+            heAACv2Quality: heAACv2Quality
+        ) else {
+            return samples
+        }
+
+        let decoder = AudioCodecSessionFactory.makeDecoderSession(codec: packet.codec, heAACv2Quality: heAACv2Quality)
+        guard let decodedSamples = try? packet.decodeSamples(using: decoder), !decodedSamples.isEmpty else {
+            return samples
+        }
+        return decodedSamples
+    }
+
+    private func audioCodecDisplayName(_ codec: AudioCodecIdentifier) -> String {
+        switch codec {
+        case .pcm16:
+            "PCM 16-bit"
+        case .heAACv2:
+            "HE-AAC v2 VBR"
+        case .opus:
+            "Opus"
+        }
     }
 
     private func send(_ packet: OutboundAudioPacket) {

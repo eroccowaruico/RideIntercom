@@ -312,7 +312,6 @@ private struct DiagnosticsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    LiveAudioPanel(viewModel: viewModel)
                     AudioIOPanel(viewModel: viewModel)
                     TransmitCodecPanel(viewModel: viewModel)
                     AudioCheckPanel(viewModel: viewModel)
@@ -360,54 +359,6 @@ private struct DiagnosticsView: View {
             }
             .accessibilityIdentifier("diagnosticsScrollView")
         }
-    }
-}
-
-private struct LiveAudioPanel: View {
-    @Bindable var viewModel: IntercomViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Live Audio", systemImage: "waveform")
-                    .font(.headline)
-                Spacer()
-                Text(viewModel.isAudioReady ? "Call" : viewModel.audioCheckPhase.rawValue)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(viewModel.isAudioReady ? .green : .secondary)
-                    .accessibilityIdentifier("liveAudioStateLabel")
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Microphone", systemImage: "mic.fill")
-                    .font(.subheadline)
-                VoiceMeterView(
-                    level: viewModel.diagnosticsInputLevel,
-                    peakLevel: viewModel.diagnosticsInputPeakLevel,
-                    isMuted: viewModel.isMuted
-                )
-                .accessibilityIdentifier("diagnosticsInputMeter")
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Speaker", systemImage: "speaker.wave.2.fill")
-                    .font(.subheadline)
-                VoiceMeterView(
-                    level: viewModel.diagnosticsOutputLevel,
-                    peakLevel: viewModel.diagnosticsOutputPeakLevel,
-                    isMuted: false
-                )
-                .accessibilityIdentifier("diagnosticsOutputMeter")
-            }
-        }
-        .padding(12)
-        .background(.background)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .accessibilityIdentifier("liveAudioPanel")
     }
 }
 
@@ -525,19 +476,25 @@ private struct AudioCheckPanel: View {
                 Label("Audio Check", systemImage: "waveform")
                     .font(.headline)
                 Spacer()
-                Text(viewModel.audioCheckPhase.rawValue)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(statusColor)
-                    .accessibilityIdentifier("audioCheckPhaseLabel")
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(viewModel.isAudioReady ? "Call Live" : "Call Idle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(viewModel.isAudioReady ? .green : .secondary)
+                        .accessibilityIdentifier("liveAudioStateLabel")
+                    Text(viewModel.audioCheckPhase.rawValue)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(statusColor)
+                        .accessibilityIdentifier("audioCheckPhaseLabel")
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Label("Microphone Input", systemImage: "mic.fill")
                     .font(.subheadline)
                 VoiceMeterView(
-                    level: viewModel.audioCheckInputLevel,
-                    peakLevel: viewModel.audioCheckInputPeakLevel,
-                    isMuted: false
+                    level: viewModel.diagnosticsInputLevel,
+                    peakLevel: viewModel.diagnosticsInputPeakLevel,
+                    isMuted: viewModel.isMuted
                 )
                 .accessibilityIdentifier("audioCheckInputMeter")
             }
@@ -546,8 +503,8 @@ private struct AudioCheckPanel: View {
                 Label("Speaker Output", systemImage: "speaker.wave.2.fill")
                     .font(.subheadline)
                 VoiceMeterView(
-                    level: viewModel.audioCheckOutputLevel,
-                    peakLevel: viewModel.audioCheckOutputPeakLevel,
+                    level: viewModel.diagnosticsOutputLevel,
+                    peakLevel: viewModel.diagnosticsOutputPeakLevel,
                     isMuted: false
                 )
                 .accessibilityIdentifier("audioCheckOutputMeter")
@@ -587,18 +544,6 @@ private struct AudioCheckPanel: View {
                 )
                 .accessibilityIdentifier("soundIsolationToggle")
             }
-
-            Picker("Codec", selection: Binding(
-                get: { viewModel.audioCheckCodecMode },
-                set: { viewModel.setAudioCheckCodecMode($0) }
-            )) {
-                ForEach(AudioCheckCodecMode.allCases, id: \.self) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .disabled(viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing)
-            .accessibilityIdentifier("audioCheckCodecPicker")
 
             Button {
                 viewModel.startAudioCheck()

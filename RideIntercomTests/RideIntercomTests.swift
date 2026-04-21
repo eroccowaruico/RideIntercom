@@ -235,7 +235,12 @@ struct RideIntercomTests {
 
         #expect(viewModel.audioCheckPhase == .playing)
         #expect(viewModel.audioCheckOutputLevel > 0.49)
-        #expect(audioFramePlayer.playedFrames.map(\.samples) == [[0.5, -0.5, 0.5, -0.5]])
+        let playedSamples = audioFramePlayer.playedFrames.first?.samples ?? []
+        let originalSamples: [Float] = [0.5, -0.5, 0.5, -0.5]
+        #expect(playedSamples.count == originalSamples.count)
+        for (played, original) in zip(playedSamples, originalSamples) {
+            #expect(abs(played - original) < 0.0001)
+        }
     }
 
     @MainActor
@@ -3881,10 +3886,10 @@ struct RideIntercomTests {
         }
     }
 
-    // MARK: - AudioCheckCodecMode
+    // MARK: - AudioCheck codec selection
 
     @MainActor
-    @Test func audioCheckWithDirectCodecModePlaysSamplesWithoutModification() {
+    @Test func audioCheckUsesPreferredTransmitCodecForPlaybackRoundTrip() {
         let audioInputMonitor = NoOpAudioInputMonitor()
         let audioFramePlayer = NoOpAudioFramePlayer()
         let viewModel = IntercomViewModel(
@@ -3893,17 +3898,21 @@ struct RideIntercomTests {
             audioFramePlayer: audioFramePlayer
         )
 
-        viewModel.setAudioCheckCodecMode(.direct)
+        viewModel.setPreferredTransmitCodec(.pcm16)
         viewModel.startAudioCheck()
         let originalSamples: [Float] = [0.5, -0.5, 0.25, -0.25]
         audioInputMonitor.simulate(samples: originalSamples)
         viewModel.finishAudioCheckRecordingForDebug()
 
-        #expect(audioFramePlayer.playedFrames.map(\.samples) == [originalSamples])
+        let playedSamples = audioFramePlayer.playedFrames.first?.samples ?? []
+        #expect(playedSamples.count == originalSamples.count)
+        for (played, original) in zip(playedSamples, originalSamples) {
+            #expect(abs(played - original) < 0.0001)
+        }
     }
 
     @MainActor
-    @Test func audioCheckWithPCM16CodecModeAppliesRoundTripEncodingBeforePlayback() {
+    @Test func audioCheckFallsBackFromUnsupportedPreferredCodecToPCM16() {
         let audioInputMonitor = NoOpAudioInputMonitor()
         let audioFramePlayer = NoOpAudioFramePlayer()
         let viewModel = IntercomViewModel(
@@ -3912,7 +3921,7 @@ struct RideIntercomTests {
             audioFramePlayer: audioFramePlayer
         )
 
-        viewModel.setAudioCheckCodecMode(.pcm16)
+        viewModel.setPreferredTransmitCodec(.opus)
         viewModel.startAudioCheck()
         audioInputMonitor.simulate(samples: [0.5, -0.5, 0.25, -0.25])
         viewModel.finishAudioCheckRecordingForDebug()
@@ -3923,16 +3932,6 @@ struct RideIntercomTests {
         for (played, original) in zip(playedSamples, originalSamples) {
             #expect(abs(played - original) < 0.0001)
         }
-    }
-
-    @MainActor
-    @Test func audioCheckDefaultCodecModeIsDirect() {
-        let viewModel = IntercomViewModel(
-            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
-            audioInputMonitor: NoOpAudioInputMonitor(),
-            audioFramePlayer: NoOpAudioFramePlayer()
-        )
-        #expect(viewModel.audioCheckCodecMode == .direct)
     }
 
     private func maxAbsoluteDifference(_ left: [Float], _ right: [Float]) -> Float {
