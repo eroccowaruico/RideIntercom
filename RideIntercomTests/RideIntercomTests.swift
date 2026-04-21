@@ -805,6 +805,65 @@ struct RideIntercomTests {
         #expect(buffer.drainReadyFrames(now: 10.50).isEmpty)
     }
 
+    @Test func remoteAudioPipelineServiceProcessesAuthorizedVoicePacket() throws {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        var jitterBuffer = JitterBuffer(playoutDelay: 0.08, packetLifetime: 1.0)
+        let packet = ReceivedAudioPacket(
+            peerID: "peer-a",
+            envelope: AudioPacketEnvelope(
+                groupID: groupID,
+                streamID: streamID,
+                sequenceNumber: 1,
+                sentAt: 10,
+                packet: .voice(frameID: 101, samples: [0.25, -0.25])
+            ),
+            packet: .voice(frameID: 101, samples: [0.25, -0.25])
+        )
+
+        let ingressResult = RemoteAudioPipelineService.processReceivedPacket(
+            packet,
+            isAuthorized: true,
+            receivedAt: 10.01,
+            jitterBuffer: &jitterBuffer
+        )
+
+        #expect(ingressResult != nil)
+        #expect(ingressResult?.receivedVoicePacketCountIncrement == 1)
+        #expect(ingressResult?.lastReceivedAudioAt == 10.01)
+        #expect(ingressResult?.jitterQueuedFrameCount == 1)
+
+        let drainResult = RemoteAudioPipelineService.drainReadyAudioFrames(now: 10.10, jitterBuffer: &jitterBuffer)
+        #expect(drainResult.readyFrames.map(\.frameID) == [101])
+    }
+
+    @Test func remoteAudioPipelineServiceIgnoresUnauthorizedPacket() throws {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        var jitterBuffer = JitterBuffer(playoutDelay: 0.08, packetLifetime: 1.0)
+        let packet = ReceivedAudioPacket(
+            peerID: "peer-a",
+            envelope: AudioPacketEnvelope(
+                groupID: groupID,
+                streamID: streamID,
+                sequenceNumber: 1,
+                sentAt: 10,
+                packet: .voice(frameID: 101)
+            ),
+            packet: .voice(frameID: 101)
+        )
+
+        let ingressResult = RemoteAudioPipelineService.processReceivedPacket(
+            packet,
+            isAuthorized: false,
+            receivedAt: 10.01,
+            jitterBuffer: &jitterBuffer
+        )
+
+        #expect(ingressResult == nil)
+        #expect(jitterBuffer.queuedFrameCount == 0)
+    }
+
     @Test func audioFramePlayerStartsStopsAndSchedulesNonEmptySamples() throws {
         let renderer = NoOpAudioOutputRenderer()
         let player = BufferedAudioFramePlayer(renderer: renderer)

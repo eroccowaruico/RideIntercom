@@ -2811,12 +2811,12 @@ final class IntercomViewModel {
     }
 
     private func drainJitterBuffer(now: TimeInterval) {
-        let frames = jitterBuffer.drainReadyFrames(now: now)
-        playedAudioFrameCount += frames.count
-        droppedAudioPacketCount = jitterBuffer.droppedFrameCount
-        jitterQueuedFrameCount = jitterBuffer.queuedFrameCount
-        markPlayedAudioFrames(frames)
-        audioFramePlayer.play(frames)
+        let drainResult = RemoteAudioPipelineService.drainReadyAudioFrames(now: now, jitterBuffer: &jitterBuffer)
+        playedAudioFrameCount += drainResult.readyFrames.count
+        droppedAudioPacketCount = drainResult.droppedAudioPacketCount
+        jitterQueuedFrameCount = drainResult.jitterQueuedFrameCount
+        markPlayedAudioFrames(drainResult.readyFrames)
+        audioFramePlayer.play(drainResult.readyFrames)
     }
 
     private func handleMicrophoneLevel(_ level: Float) {
@@ -3021,24 +3021,33 @@ final class IntercomViewModel {
     }
 
     private func handleReceivedPacket(_ packet: ReceivedAudioPacket) {
-        guard isAuthorizedAudioPeer(packet.peerID) else { return }
+        let isAuthorizedPeer = isAuthorizedAudioPeer(packet.peerID)
+        guard isAuthorizedPeer else { return }
+
         let receivedAt = localReceiveTimestamp(for: packet.envelope.sentAt)
         if let codec = packet.envelope.encodedVoice?.codec {
             setRemotePeerCodec(packet.peerID, codec: codec)
         }
 
-        switch packet.packet {
-        case .voice(_, let samples):
-            receivedVoicePacketCount += 1
-            jitterBuffer.enqueue(packet, receivedAt: receivedAt)
-            lastReceivedAudioAt = receivedAt
-            droppedAudioPacketCount = jitterBuffer.droppedFrameCount
-            jitterQueuedFrameCount = jitterBuffer.queuedFrameCount
-            remoteVoiceReceivedAt[packet.peerID] = receivedAt
-            setRemotePeer(packet.peerID, isTalking: true, voiceLevel: AudioLevelMeter.rmsLevel(samples: samples))
+        guard let ingressResult = RemoteAudioPipelineService.processReceivedPacket(
+            packet,
+            isAuthorized: isAuthorizedPeer,
+            receivedAt: receivedAt,
+            jitterBuffer: &jitterBuffer
+        ) else {
+            return
+        }
+
+        receivedVoicePacketCount += ingressResult.receivedVoicePacketCountIncrement
+        if let lastReceivedAudioAt = ingressResult.lastReceivedAudioAt {
+            self.lastReceivedAudioAt = lastReceivedAudioAt
+            remoteVoiceReceivedAt[packet.peerID] = lastReceivedAudioAt
+        }
+        droppedAudioPacketCount = ingressResult.droppedAudioPacketCount
+        jitterQueuedFrameCount = ingressResult.jitterQueuedFrameCount
+        if let remoteVoiceLevel = ingressResult.remoteVoiceLevel {
+            setRemotePeer(packet.peerID, isTalking: true, voiceLevel: remoteVoiceLevel)
             incrementReceivedAudio(for: packet.peerID)
-        case .keepalive:
-            break
         }
     }
 
