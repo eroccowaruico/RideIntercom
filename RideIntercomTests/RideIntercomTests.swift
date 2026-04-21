@@ -864,6 +864,93 @@ struct RideIntercomTests {
         #expect(jitterBuffer.queuedFrameCount == 0)
     }
 
+    @Test func remoteMemberAudioStateServiceAppliesReceivedVoiceCountersAndLevels() throws {
+        let group = try IntercomGroup(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "Team",
+            members: [
+                GroupMember(id: "member-local", displayName: "Local"),
+                GroupMember(id: "member-remote", displayName: "Remote")
+            ]
+        )
+        var peakWindows: [String: VoicePeakWindow] = [:]
+
+        let updated = RemoteMemberAudioStateService.applyReceivedVoice(
+            to: group,
+            peerID: "member-remote",
+            voiceLevel: 0.42,
+            peakWindows: &peakWindows
+        )
+
+        let remoteMember = try #require(updated.members.first(where: { $0.id == "member-remote" }))
+        #expect(remoteMember.isTalking)
+        #expect(remoteMember.voiceLevel == 0.42)
+        #expect(remoteMember.voicePeakLevel > 0)
+        #expect(remoteMember.receivedAudioPacketCount == 1)
+        #expect(remoteMember.queuedAudioFrameCount == 1)
+    }
+
+    @Test func remoteMemberAudioStateServiceAppliesPlayedFrameCountsPerPeer() throws {
+        let group = try IntercomGroup(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "Team",
+            members: [
+                GroupMember(id: "member-local", displayName: "Local"),
+                GroupMember(id: "member-a", displayName: "A", queuedAudioFrameCount: 2),
+                GroupMember(id: "member-b", displayName: "B", queuedAudioFrameCount: 1)
+            ]
+        )
+        let streamA = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        let streamB = UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!
+        let frames = [
+            JitterBufferedAudioFrame(peerID: "member-a", streamID: streamA, sequenceNumber: 1, frameID: 11, samples: [0.1]),
+            JitterBufferedAudioFrame(peerID: "member-a", streamID: streamA, sequenceNumber: 2, frameID: 12, samples: [0.2]),
+            JitterBufferedAudioFrame(peerID: "member-b", streamID: streamB, sequenceNumber: 1, frameID: 21, samples: [0.3])
+        ]
+
+        let updated = RemoteMemberAudioStateService.applyPlayedFrames(frames, to: group)
+
+        let memberA = try #require(updated.members.first(where: { $0.id == "member-a" }))
+        let memberB = try #require(updated.members.first(where: { $0.id == "member-b" }))
+        #expect(memberA.playedAudioFrameCount == 2)
+        #expect(memberA.queuedAudioFrameCount == 0)
+        #expect(memberB.playedAudioFrameCount == 1)
+        #expect(memberB.queuedAudioFrameCount == 0)
+    }
+
+    @Test func remoteAudioPacketAcceptanceServiceRejectsUnauthorizedPeer() {
+        let receivedAt = RemoteAudioPacketAcceptanceService.acceptedReceiveTimestamp(
+            peerID: "member-x",
+            authenticatedPeerIDs: ["member-a", "member-b"],
+            packetSentAt: 100,
+            now: 200
+        )
+
+        #expect(receivedAt == nil)
+    }
+
+    @Test func remoteAudioPacketAcceptanceServiceUsesSyntheticTimestampForTests() {
+        let receivedAt = RemoteAudioPacketAcceptanceService.acceptedReceiveTimestamp(
+            peerID: "member-a",
+            authenticatedPeerIDs: ["member-a"],
+            packetSentAt: 123,
+            now: 999
+        )
+
+        #expect(receivedAt == 123)
+    }
+
+    @Test func remoteAudioPacketAcceptanceServiceUsesLocalNowForRealtimePackets() {
+        let receivedAt = RemoteAudioPacketAcceptanceService.acceptedReceiveTimestamp(
+            peerID: "member-a",
+            authenticatedPeerIDs: ["member-a"],
+            packetSentAt: 1_700_000_000,
+            now: 555
+        )
+
+        #expect(receivedAt == 555)
+    }
+
     @Test func audioFramePlayerStartsStopsAndSchedulesNonEmptySamples() throws {
         let renderer = NoOpAudioOutputRenderer()
         let player = BufferedAudioFramePlayer(renderer: renderer)

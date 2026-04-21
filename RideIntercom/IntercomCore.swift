@@ -3021,17 +3021,20 @@ final class IntercomViewModel {
     }
 
     private func handleReceivedPacket(_ packet: ReceivedAudioPacket) {
-        let isAuthorizedPeer = isAuthorizedAudioPeer(packet.peerID)
-        guard isAuthorizedPeer else { return }
-
-        let receivedAt = localReceiveTimestamp(for: packet.envelope.sentAt)
+        guard let receivedAt = RemoteAudioPacketAcceptanceService.acceptedReceiveTimestamp(
+            peerID: packet.peerID,
+            authenticatedPeerIDs: authenticatedPeerIDs,
+            packetSentAt: packet.envelope.sentAt
+        ) else {
+            return
+        }
         if let codec = packet.envelope.encodedVoice?.codec {
             setRemotePeerCodec(packet.peerID, codec: codec)
         }
 
         guard let ingressResult = RemoteAudioPipelineService.processReceivedPacket(
             packet,
-            isAuthorized: isAuthorizedPeer,
+            isAuthorized: true,
             receivedAt: receivedAt,
             jitterBuffer: &jitterBuffer
         ) else {
@@ -3046,22 +3049,21 @@ final class IntercomViewModel {
         droppedAudioPacketCount = ingressResult.droppedAudioPacketCount
         jitterQueuedFrameCount = ingressResult.jitterQueuedFrameCount
         if let remoteVoiceLevel = ingressResult.remoteVoiceLevel {
-            setRemotePeer(packet.peerID, isTalking: true, voiceLevel: remoteVoiceLevel)
-            incrementReceivedAudio(for: packet.peerID)
+            applyReceivedVoiceMemberState(peerID: packet.peerID, voiceLevel: remoteVoiceLevel)
         }
     }
 
-    private func localReceiveTimestamp(for packetSentAt: TimeInterval) -> TimeInterval {
-        // Unit tests use a synthetic timeline (e.g. 10, 20, 200). Keep that behavior
-        // deterministic without making production audio depend on remote device clocks.
-        if packetSentAt < 1_000_000 {
-            return packetSentAt
-        }
-        return Date().timeIntervalSince1970
-    }
+    private func applyReceivedVoiceMemberState(peerID: String, voiceLevel: Float) {
+        guard var group = selectedGroup else { return }
 
-    private func isAuthorizedAudioPeer(_ peerID: String) -> Bool {
-        authenticatedPeerIDs.isEmpty || authenticatedPeerIDs.contains(peerID)
+        group = RemoteMemberAudioStateService.applyReceivedVoice(
+            to: group,
+            peerID: peerID,
+            voiceLevel: voiceLevel,
+            peakWindows: &remoteVoicePeakWindows
+        )
+        selectedGroup = group
+        replaceSelectedGroup(group)
     }
 
     private func resetAudioDebugCounters() {
@@ -3138,25 +3140,10 @@ final class IntercomViewModel {
         replaceSelectedGroup(group)
     }
 
-    private func incrementReceivedAudio(for peerID: String) {
-        guard var group = selectedGroup,
-              let memberIndex = group.members.firstIndex(where: { $0.id == peerID }) else { return }
-
-        group.members[memberIndex].receivedAudioPacketCount += 1
-        group.members[memberIndex].queuedAudioFrameCount += 1
-        selectedGroup = group
-        replaceSelectedGroup(group)
-    }
-
     private func markPlayedAudioFrames(_ frames: [JitterBufferedAudioFrame]) {
         guard var group = selectedGroup, !frames.isEmpty else { return }
 
-        let playedByPeer = Dictionary(grouping: frames, by: \.peerID).mapValues(\.count)
-        for (peerID, count) in playedByPeer {
-            guard let memberIndex = group.members.firstIndex(where: { $0.id == peerID }) else { continue }
-            group.members[memberIndex].playedAudioFrameCount += count
-            group.members[memberIndex].queuedAudioFrameCount = max(0, group.members[memberIndex].queuedAudioFrameCount - count)
-        }
+        group = RemoteMemberAudioStateService.applyPlayedFrames(frames, to: group)
         selectedGroup = group
         replaceSelectedGroup(group)
     }
