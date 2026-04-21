@@ -2,14 +2,14 @@
 
 RideIntercom全体に対して、方針逸脱を「発見して直す」運用から「逸脱が入らない」構造へ移行する。中核は、機能契約の固定、共通経路の単一化、Adapter境界の明文化、テスト先行ゲート、設計責務の再配置の5本柱とする。既存の抽象化基盤（Transport/AudioEncoding/RuntimeFactory）を再利用しつつ、未完了境界（Opus/GK/macOS実経路）と不十分な抽象境界を設計段階で閉じる。
 
-**Current Position (2026-04-21)**
+**Current Position (2026-04-22)**
 - 現在フェーズ: Phase D の Step 24（Domain service / UseCase への段階移設）に着手中
 - 完了済み（Step 16 先行実施）: Diagnostics を構造化 snapshot 化し、UI は snapshot 表示へ移行
 - 完了済み（Step 24 の一部）: 受信 packet 受理ルール、jitter drain、member state 更新を Domain service へ抽出
 - 完了済み（Step 13/26 の一部）: `RouteCoordinator`/`RoutePolicy` 導入、InternetTransport を共通 packet contract 化
-- 完了済み（Step 25/28 の一部）: stateful codec session 境界導入、credential/handshake/packet crypto 責務分離
-- 進捗コミット: `98e3f23` `c32ac93` `4bcdb7d` `58edd0f` `70f76d1` `036eafb` `ddf6093` `38cb5d5` `209a7f6` `252d8eb` `d06422a` `e35fa0b`
-- 次アクション: Step 25-28 の未達（Opus実体実装、Internet実運用経路、OS差分統合、招待/永続化の最終責務分離）を順次実装
+- 完了済み（Step 25/28 の一部）: stateful codec session 境界導入、credential/handshake/packet crypto 責務分離、invite 生成/受理の UseCase 分離
+- 進捗コミット: `98e3f23` `c32ac93` `4bcdb7d` `58edd0f` `70f76d1` `036eafb` `ddf6093` `38cb5d5` `209a7f6` `252d8eb` `d06422a` `e35fa0b` `f82f1cc`
+- 次アクション: Step 25-28 の未達（Opus実体実装、Internet実運用経路、OS差分統合、永続化責務の最終分離）を順次実装
 - 完了判定の見方: Step 30 の4条件を全て満たすまで「設計移行中」。現時点は未達
 
 **Execution Policy (Completion-first)**
