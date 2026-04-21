@@ -1210,6 +1210,40 @@ extension Transport {
     func setHEAACv2Quality(_ quality: HEAACv2Quality) {}
 }
 
+enum InternetTransportAdapterEvent: Equatable {
+    case connected(peerIDs: [String])
+    case authenticated(peerIDs: [String])
+    case remotePeerMuteState(peerID: String, isMuted: Bool)
+    case disconnected
+    case linkFailed(internetAvailable: Bool)
+    case receivedAudioPayload(data: Data, peerID: String)
+}
+
+protocol InternetTransportAdapting: AnyObject {
+    var onEvent: (@MainActor (InternetTransportAdapterEvent) -> Void)? { get set }
+
+    func connect(group: IntercomGroup)
+    func disconnect()
+    func sendAudioPayload(_ data: Data)
+    func sendControlMessage(_ message: ControlMessage)
+}
+
+final class LoopbackInternetTransportAdapter: InternetTransportAdapting {
+    var onEvent: (@MainActor (InternetTransportAdapterEvent) -> Void)?
+
+    func connect(group: IntercomGroup) {
+        onEvent?(.connected(peerIDs: group.members.map(\.id)))
+    }
+
+    func disconnect() {
+        onEvent?(.disconnected)
+    }
+
+    func sendAudioPayload(_ data: Data) {}
+
+    func sendControlMessage(_ message: ControlMessage) {}
+}
+
 final class LocalTransport: Transport {
     let route: TransportRoute = .local
     var onEvent: (@MainActor (TransportEvent) -> Void)?
@@ -1282,6 +1316,14 @@ final class InternetTransport: Transport {
     private var receivedPacketFilter: ReceivedAudioPacketFilter?
     private var preferredAudioCodec: AudioCodecIdentifier = .pcm16
     private var heAACv2Quality: HEAACv2Quality = .medium
+    private let adapter: any InternetTransportAdapting
+
+    init(adapter: any InternetTransportAdapting = LoopbackInternetTransportAdapter()) {
+        self.adapter = adapter
+        self.adapter.onEvent = { [weak self] event in
+            self?.handleAdapterEvent(event)
+        }
+    }
 
     func connect(group: IntercomGroup) {
         connectedGroup = group
@@ -1291,7 +1333,7 @@ final class InternetTransport: Transport {
             heAACv2Quality: heAACv2Quality
         )
         receivedPacketFilter = ReceivedAudioPacketFilter(groupID: group.id)
-        emit(.connected(peerIDs: group.members.map(\.id)))
+        adapter.connect(group: group)
     }
 
     func disconnect() {
@@ -1299,7 +1341,7 @@ final class InternetTransport: Transport {
         sequencer = nil
         receivedPacketFilter = nil
         sentAudioEnvelopes.removeAll()
-        emit(.disconnected)
+        adapter.disconnect()
     }
 
     func sendAudioFrame(_ frame: OutboundAudioPacket) {
@@ -1310,10 +1352,14 @@ final class InternetTransport: Transport {
         let envelope = sequencer.makeEnvelope(for: frame)
         self.sequencer = sequencer
         sentAudioEnvelopes.append(envelope)
+        if let data = try? AudioPacketCodec.encode(envelope) {
+            adapter.sendAudioPayload(data)
+        }
     }
 
     func sendControl(_ message: ControlMessage) {
         sentControlMessages.append(message)
+        adapter.sendControlMessage(message)
     }
 
     func setPreferredAudioCodec(_ codec: AudioCodecIdentifier) {
@@ -1329,6 +1375,28 @@ final class InternetTransport: Transport {
     }
 
     func simulateReceivedEnvelope(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) {
+        handleReceivedEnvelope(envelope, fromPeerID: peerID)
+    }
+
+    private func handleAdapterEvent(_ event: InternetTransportAdapterEvent) {
+        switch event {
+        case .connected(let peerIDs):
+            emit(.connected(peerIDs: peerIDs))
+        case .authenticated(let peerIDs):
+            emit(.authenticated(peerIDs: peerIDs))
+        case .remotePeerMuteState(let peerID, let isMuted):
+            emit(.remotePeerMuteState(peerID: peerID, isMuted: isMuted))
+        case .disconnected:
+            emit(.disconnected)
+        case .linkFailed(let internetAvailable):
+            emit(.linkFailed(internetAvailable: internetAvailable))
+        case .receivedAudioPayload(let data, let peerID):
+            guard let envelope = try? AudioPacketCodec.decode(data) else { return }
+            handleReceivedEnvelope(envelope, fromPeerID: peerID)
+        }
+    }
+
+    private func handleReceivedEnvelope(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) {
         guard var receivedPacketFilter else { return }
         guard let packet = receivedPacketFilter.accept(envelope, fromPeerID: peerID) else {
             self.receivedPacketFilter = receivedPacketFilter
@@ -2329,6 +2397,7 @@ enum CurrentProcessRuntimeFactory {
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         return IntercomViewModel(
             localTransport: DefaultLocalTransportFactory.make(displayName: localMemberIdentity.memberID),
+            internetTransport: InternetTransport(adapter: DefaultInternetTransportAdapterFactory.make()),
             credentialStore: DefaultGroupCredentialStoreFactory.make(),
             groupStore: DefaultGroupStoreFactory.make(),
             localMemberIdentityStore: localMemberIdentityStore,

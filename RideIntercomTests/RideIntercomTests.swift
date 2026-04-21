@@ -34,6 +34,42 @@ struct RideIntercomTests {
         }
     }
 
+    @MainActor
+    private final class TestInternetTransportAdapter: InternetTransportAdapting {
+        var onEvent: (@MainActor (InternetTransportAdapterEvent) -> Void)?
+        private(set) var connectedGroup: IntercomGroup?
+        private(set) var disconnectCallCount = 0
+        private(set) var sentAudioPayloads: [Data] = []
+        private(set) var sentControlMessages: [ControlMessage] = []
+
+        func connect(group: IntercomGroup) {
+            connectedGroup = group
+            onEvent?(.connected(peerIDs: group.members.map(\.id)))
+        }
+
+        func disconnect() {
+            disconnectCallCount += 1
+            connectedGroup = nil
+            onEvent?(.disconnected)
+        }
+
+        func sendAudioPayload(_ data: Data) {
+            sentAudioPayloads.append(data)
+        }
+
+        func sendControlMessage(_ message: ControlMessage) {
+            sentControlMessages.append(message)
+        }
+
+        func simulateAuthenticated(peerIDs: [String]) {
+            onEvent?(.authenticated(peerIDs: peerIDs))
+        }
+
+        func simulateIncomingAudioPayload(_ payload: Data, peerID: String) {
+            onEvent?(.receivedAudioPayload(data: payload, peerID: peerID))
+        }
+    }
+
     @Test func defaultAudioInputMonitorUsesSystemMonitorWhenAvailable() {
         #if canImport(AVFAudio)
         #expect(AudioInputMonitorFactory.makeDefault() is SystemAudioInputMonitor)
@@ -3440,6 +3476,75 @@ struct RideIntercomTests {
         #expect(envelope.sequenceNumber == 1)
         #expect(envelope.kind == .voice)
         #expect(envelope.encodedVoice?.codec == .pcm16)
+    }
+
+    @Test func internetTransportForwardsAudioPayloadToAdapter() throws {
+        let group = try IntercomGroup(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "Pair",
+            members: [
+                GroupMember(id: "member-001", displayName: "You"),
+                GroupMember(id: "member-002", displayName: "Partner")
+            ]
+        )
+        let adapter = TestInternetTransportAdapter()
+        let transport = InternetTransport(adapter: adapter)
+
+        transport.connect(group: group)
+        transport.sendAudioFrame(.voice(frameID: 42, samples: [0.1]))
+
+        let payload = try #require(adapter.sentAudioPayloads.first)
+        let envelope = try AudioPacketCodec.decode(payload)
+        #expect(envelope.groupID == group.id)
+        #expect(envelope.kind == .voice)
+        #expect(envelope.frameID == 42)
+    }
+
+    @Test func internetTransportMapsAdapterIncomingPayloadToReceivedPacketEvent() throws {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        let group = try IntercomGroup(
+            id: groupID,
+            name: "Pair",
+            members: [
+                GroupMember(id: "member-001", displayName: "You"),
+                GroupMember(id: "member-002", displayName: "Partner")
+            ]
+        )
+        let adapter = TestInternetTransportAdapter()
+        let transport = InternetTransport(adapter: adapter)
+        var receivedPackets: [ReceivedAudioPacket] = []
+
+        transport.onEvent = { event in
+            if case .receivedPacket(let packet) = event {
+                receivedPackets.append(packet)
+            }
+        }
+
+        transport.connect(group: group)
+        let envelope = AudioPacketEnvelope(
+            groupID: groupID,
+            streamID: streamID,
+            sequenceNumber: 1,
+            sentAt: 50,
+            packet: .voice(frameID: 1)
+        )
+        let payload = try AudioPacketCodec.encode(envelope)
+        adapter.simulateIncomingAudioPayload(payload, peerID: "member-002")
+
+        #expect(receivedPackets.count == 1)
+        #expect(receivedPackets.first?.peerID == "member-002")
+        #expect(receivedPackets.first?.envelope.groupID == groupID)
+    }
+
+    @Test func defaultInternetTransportAdapterFactorySelectsAdapterFromEnvironment() {
+        let loopback = DefaultInternetTransportAdapterFactory.make(environment: [:])
+        #expect(loopback is LoopbackInternetTransportAdapter)
+
+        let remote = DefaultInternetTransportAdapterFactory.make(environment: [
+            InternetTransportEndpointConfig.environmentKey: "wss://example.com/intercom"
+        ])
+        #expect(remote is URLSessionInternetTransportAdapter)
     }
 
     @Test func internetTransportAcceptsOnlyMatchingGroupIncomingEnvelope() throws {
