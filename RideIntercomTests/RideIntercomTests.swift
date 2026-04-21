@@ -1420,6 +1420,32 @@ struct RideIntercomTests {
     }
 
     @MainActor
+    @Test func viewModelReportsAudioDeviceSelectionLiveOnlyWhileSessionIsConfigured() {
+        let session = NoOpAudioSession()
+        let viewModel = IntercomViewModel(
+            audioSessionManager: AudioSessionManager(session: session),
+            audioInputMonitor: NoOpAudioInputMonitor(),
+            audioFramePlayer: NoOpAudioFramePlayer()
+        )
+
+        #expect(viewModel.isAudioDeviceSelectionLive == false)
+
+        viewModel.startAudioCheck()
+        #expect(viewModel.isAudioDeviceSelectionLive == true)
+    }
+
+    @MainActor
+    @Test func diagnosticsInputMeterUsesLiveLocalVoiceLevel() {
+        let viewModel = IntercomViewModel(groups: IntercomSeedData.recentGroups)
+
+        viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        viewModel.processMicrophoneLevelForDebug(0.42)
+
+        #expect(viewModel.diagnosticsInputLevel > 0.41)
+        #expect(viewModel.diagnosticsInputPeakLevel >= viewModel.diagnosticsInputLevel)
+    }
+
+    @MainActor
     @Test func viewModelAppliesOutputPortImmediatelyDuringActiveCall() {
         let session = NoOpAudioSession()
         let viewModel = IntercomViewModel(

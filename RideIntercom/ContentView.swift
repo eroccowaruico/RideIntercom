@@ -306,55 +306,171 @@ private struct DiagnosticsView: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
-        let snapshot = viewModel.diagnosticsSnapshot
+        TimelineView(.periodic(from: .now, by: 0.5)) { context in
+            let snapshot = viewModel.diagnosticsSnapshot
+            let now = context.date.timeIntervalSince1970
 
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                TransmitCodecPanel(viewModel: viewModel)
-                AudioCheckPanel(viewModel: viewModel)
-                DiagnosticRow(icon: "waveform.path.ecg", value: snapshot.audio.summary)
-                    .accessibilityIdentifier("audioDebugSummaryLabel")
-                DiagnosticRow(icon: "slider.horizontal.3", value: viewModel.audioInputProcessingSummary)
-                    .accessibilityIdentifier("audioInputProcessingSummaryLabel")
-                DiagnosticRow(icon: "waveform.badge.magnifyingglass", value: viewModel.audioCheckSummary)
-                    .accessibilityIdentifier("audioCheckSummaryLabel")
-                DiagnosticRow(icon: "person.2.fill", value: snapshot.connectionSummary)
-                    .accessibilityIdentifier("connectionDebugSummaryLabel")
-                DiagnosticRow(icon: "checkmark.seal.fill", value: snapshot.authenticationSummary)
-                    .accessibilityIdentifier("authenticationDebugSummaryLabel")
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    DiagnosticRow(
-                        icon: "checklist",
-                        value: snapshot.realDeviceCallSummary(
-                            connectionLabel: viewModel.connectionLabel,
-                            isAudioReady: viewModel.isAudioReady,
-                            now: context.date.timeIntervalSince1970
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    LiveAudioPanel(viewModel: viewModel)
+                    AudioIOPanel(viewModel: viewModel)
+                    TransmitCodecPanel(viewModel: viewModel)
+                    AudioCheckPanel(viewModel: viewModel)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Live Status")
+                            .font(.headline)
+                        DiagnosticRow(
+                            icon: "checklist",
+                            value: snapshot.realDeviceCallSummary(
+                                connectionLabel: viewModel.connectionLabel,
+                                isAudioReady: viewModel.isAudioReady,
+                                now: now
+                            )
                         )
-                    )
-                        .accessibilityIdentifier("realDeviceCallDebugSummaryLabel")
+                            .accessibilityIdentifier("realDeviceCallDebugSummaryLabel")
+                        DiagnosticRow(icon: "waveform.path.ecg", value: snapshot.audio.summary)
+                            .accessibilityIdentifier("audioDebugSummaryLabel")
+                        DiagnosticRow(icon: "person.2.fill", value: snapshot.connectionSummary)
+                            .accessibilityIdentifier("connectionDebugSummaryLabel")
+                        DiagnosticRow(icon: "checkmark.seal.fill", value: snapshot.authenticationSummary)
+                            .accessibilityIdentifier("authenticationDebugSummaryLabel")
+                        DiagnosticRow(icon: "clock.arrow.circlepath", value: snapshot.reception.summary(now: now))
+                            .accessibilityIdentifier("receptionDebugSummaryLabel")
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Identity & Route")
+                            .font(.headline)
+                        DiagnosticRow(icon: "network", value: snapshot.transportSummary)
+                            .accessibilityIdentifier("transportDebugSummaryLabel")
+                        DiagnosticRow(icon: "antenna.radiowaves.left.and.right", value: snapshot.localNetwork.summary(now: now))
+                            .accessibilityIdentifier("localNetworkDebugSummaryLabel")
+                        DiagnosticRow(icon: "person.text.rectangle.fill", value: snapshot.localMemberSummary)
+                            .accessibilityIdentifier("localMemberDebugSummaryLabel")
+                        DiagnosticRow(icon: "person.3.sequence.fill", value: snapshot.selectedGroupSummary)
+                            .accessibilityIdentifier("selectedGroupDebugSummaryLabel")
+                        DiagnosticRow(icon: "number", value: snapshot.groupHashSummary)
+                            .accessibilityIdentifier("groupHashDebugSummaryLabel")
+                        DiagnosticRow(icon: "square.and.arrow.up", value: snapshot.inviteSummary)
+                            .accessibilityIdentifier("inviteDebugSummaryLabel")
+                    }
                 }
-                DiagnosticRow(icon: "person.text.rectangle.fill", value: snapshot.localMemberSummary)
-                    .accessibilityIdentifier("localMemberDebugSummaryLabel")
-                DiagnosticRow(icon: "network", value: snapshot.transportSummary)
-                    .accessibilityIdentifier("transportDebugSummaryLabel")
-                DiagnosticRow(icon: "person.3.sequence.fill", value: snapshot.selectedGroupSummary)
-                    .accessibilityIdentifier("selectedGroupDebugSummaryLabel")
-                DiagnosticRow(icon: "number", value: snapshot.groupHashSummary)
-                    .accessibilityIdentifier("groupHashDebugSummaryLabel")
-                DiagnosticRow(icon: "square.and.arrow.up", value: snapshot.inviteSummary)
-                    .accessibilityIdentifier("inviteDebugSummaryLabel")
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    DiagnosticRow(icon: "antenna.radiowaves.left.and.right", value: snapshot.localNetwork.summary(now: context.date.timeIntervalSince1970))
-                        .accessibilityIdentifier("localNetworkDebugSummaryLabel")
-                }
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    DiagnosticRow(icon: "clock.arrow.circlepath", value: snapshot.reception.summary(now: context.date.timeIntervalSince1970))
-                        .accessibilityIdentifier("receptionDebugSummaryLabel")
-                }
+                .padding()
             }
-            .padding()
+            .accessibilityIdentifier("diagnosticsScrollView")
         }
-        .accessibilityIdentifier("diagnosticsScrollView")
+    }
+}
+
+private struct LiveAudioPanel: View {
+    @Bindable var viewModel: IntercomViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Live Audio", systemImage: "waveform")
+                    .font(.headline)
+                Spacer()
+                Text(viewModel.isAudioReady ? "Call" : viewModel.audioCheckPhase.rawValue)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(viewModel.isAudioReady ? .green : .secondary)
+                    .accessibilityIdentifier("liveAudioStateLabel")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Microphone", systemImage: "mic.fill")
+                    .font(.subheadline)
+                VoiceMeterView(
+                    level: viewModel.diagnosticsInputLevel,
+                    peakLevel: viewModel.diagnosticsInputPeakLevel,
+                    isMuted: viewModel.isMuted
+                )
+                .accessibilityIdentifier("diagnosticsInputMeter")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Speaker", systemImage: "speaker.wave.2.fill")
+                    .font(.subheadline)
+                VoiceMeterView(
+                    level: viewModel.diagnosticsOutputLevel,
+                    peakLevel: viewModel.diagnosticsOutputPeakLevel,
+                    isMuted: false
+                )
+                .accessibilityIdentifier("diagnosticsOutputMeter")
+            }
+        }
+        .padding(12)
+        .background(.background)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityIdentifier("liveAudioPanel")
+    }
+}
+
+private struct AudioIOPanel: View {
+    @Bindable var viewModel: IntercomViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Audio I/O", systemImage: "slider.horizontal.3")
+                    .font(.headline)
+                Spacer()
+                Text(viewModel.isAudioDeviceSelectionLive ? "Live" : "Next start")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(viewModel.isAudioDeviceSelectionLive ? .green : .secondary)
+                    .accessibilityIdentifier("audioIOApplyStateLabel")
+            }
+
+            if viewModel.availableOutputPorts.count > 1 {
+                Picker("Output", selection: Binding(
+                    get: { viewModel.selectedOutputPort },
+                    set: { viewModel.setOutputPort($0) }
+                )) {
+                    ForEach(viewModel.availableOutputPorts) { port in
+                        Text(port.name).tag(port)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("audioCheckOutputPicker")
+            }
+
+            if viewModel.availableInputPorts.count > 1 {
+                Picker("Input", selection: Binding(
+                    get: { viewModel.selectedInputPort },
+                    set: { viewModel.setInputPort($0) }
+                )) {
+                    ForEach(viewModel.availableInputPorts) { port in
+                        Text(port.name).tag(port)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("audioCheckInputPicker")
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "slider.horizontal.3")
+                    .frame(width: 24)
+                    .foregroundStyle(.secondary)
+                Text(viewModel.audioInputProcessingSummary)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+                .accessibilityIdentifier("audioInputProcessingSummaryLabel")
+        }
+        .padding(12)
+        .background(.background)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityIdentifier("audioIOPanel")
     }
 }
 
@@ -483,31 +599,6 @@ private struct AudioCheckPanel: View {
             .pickerStyle(.segmented)
             .disabled(viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing)
             .accessibilityIdentifier("audioCheckCodecPicker")
-
-            if viewModel.availableOutputPorts.count > 1 {
-                Picker("Output", selection: Binding(
-                    get: { viewModel.selectedOutputPort },
-                    set: { viewModel.setOutputPort($0) }
-                )) {
-                    ForEach(viewModel.availableOutputPorts) { port in
-                        Text(port.name).tag(port)
-                    }
-                }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("audioCheckOutputPicker")
-            }
-            if viewModel.availableInputPorts.count > 1 {
-                Picker("Input", selection: Binding(
-                    get: { viewModel.selectedInputPort },
-                    set: { viewModel.setInputPort($0) }
-                )) {
-                    ForEach(viewModel.availableInputPorts) { port in
-                        Text(port.name).tag(port)
-                    }
-                }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("audioCheckInputPicker")
-            }
 
             Button {
                 viewModel.startAudioCheck()

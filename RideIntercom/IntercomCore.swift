@@ -2639,6 +2639,33 @@ final class IntercomViewModel {
 
     var availableInputPorts: [AudioPortInfo] { audioSessionManager.availableInputPorts }
     var availableOutputPorts: [AudioPortInfo] { audioSessionManager.availableOutputPorts }
+    var isAudioDeviceSelectionLive: Bool { audioSessionManager.isConfigured }
+    var diagnosticsInputLevel: Float {
+        if audioCheckPhase == .recording {
+            return audioCheckInputLevel
+        }
+        guard let localMember = selectedGroup?.members.first, !isMuted else { return 0 }
+        return localMember.voiceLevel
+    }
+    var diagnosticsInputPeakLevel: Float {
+        if audioCheckPhase == .recording {
+            return audioCheckInputPeakLevel
+        }
+        guard let localMember = selectedGroup?.members.first, !isMuted else { return 0 }
+        return localMember.voicePeakLevel
+    }
+    var diagnosticsOutputLevel: Float {
+        if audioCheckPhase == .playing {
+            return audioCheckOutputLevel
+        }
+        return selectedGroup?.members.dropFirst().map(\.voiceLevel).max() ?? 0
+    }
+    var diagnosticsOutputPeakLevel: Float {
+        if audioCheckPhase == .playing {
+            return audioCheckOutputPeakLevel
+        }
+        return selectedGroup?.members.dropFirst().map(\.voicePeakLevel).max() ?? 0
+    }
     private(set) var audioCheckPhase: AudioCheckPhase = .idle
     private(set) var audioCheckInputLevel: Float = 0
     private(set) var audioCheckInputPeakLevel: Float = 0
