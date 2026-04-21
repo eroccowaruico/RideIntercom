@@ -306,40 +306,49 @@ private struct DiagnosticsView: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
+        let snapshot = viewModel.diagnosticsSnapshot
+
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 TransmitCodecPanel(viewModel: viewModel)
                 AudioCheckPanel(viewModel: viewModel)
-                DiagnosticRow(icon: "waveform.path.ecg", value: viewModel.audioDebugSummary)
+                DiagnosticRow(icon: "waveform.path.ecg", value: snapshot.audio.summary)
                     .accessibilityIdentifier("audioDebugSummaryLabel")
                 DiagnosticRow(icon: "slider.horizontal.3", value: viewModel.audioInputProcessingSummary)
                     .accessibilityIdentifier("audioInputProcessingSummaryLabel")
                 DiagnosticRow(icon: "waveform.badge.magnifyingglass", value: viewModel.audioCheckSummary)
                     .accessibilityIdentifier("audioCheckSummaryLabel")
-                DiagnosticRow(icon: "person.2.fill", value: viewModel.connectionDebugSummary)
+                DiagnosticRow(icon: "person.2.fill", value: snapshot.connectionSummary)
                     .accessibilityIdentifier("connectionDebugSummaryLabel")
-                DiagnosticRow(icon: "checkmark.seal.fill", value: viewModel.authenticationDebugSummary)
+                DiagnosticRow(icon: "checkmark.seal.fill", value: snapshot.authenticationSummary)
                     .accessibilityIdentifier("authenticationDebugSummaryLabel")
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    DiagnosticRow(icon: "checklist", value: viewModel.realDeviceCallDebugSummary(now: context.date.timeIntervalSince1970))
+                    DiagnosticRow(
+                        icon: "checklist",
+                        value: snapshot.realDeviceCallSummary(
+                            connectionLabel: viewModel.connectionLabel,
+                            isAudioReady: viewModel.isAudioReady,
+                            now: context.date.timeIntervalSince1970
+                        )
+                    )
                         .accessibilityIdentifier("realDeviceCallDebugSummaryLabel")
                 }
-                DiagnosticRow(icon: "person.text.rectangle.fill", value: viewModel.localMemberDebugSummary)
+                DiagnosticRow(icon: "person.text.rectangle.fill", value: snapshot.localMemberSummary)
                     .accessibilityIdentifier("localMemberDebugSummaryLabel")
-                DiagnosticRow(icon: "network", value: viewModel.transportDebugSummary)
+                DiagnosticRow(icon: "network", value: snapshot.transportSummary)
                     .accessibilityIdentifier("transportDebugSummaryLabel")
-                DiagnosticRow(icon: "person.3.sequence.fill", value: viewModel.selectedGroupDebugSummary)
+                DiagnosticRow(icon: "person.3.sequence.fill", value: snapshot.selectedGroupSummary)
                     .accessibilityIdentifier("selectedGroupDebugSummaryLabel")
-                DiagnosticRow(icon: "number", value: viewModel.groupHashDebugSummary)
+                DiagnosticRow(icon: "number", value: snapshot.groupHashSummary)
                     .accessibilityIdentifier("groupHashDebugSummaryLabel")
-                DiagnosticRow(icon: "square.and.arrow.up", value: viewModel.inviteDebugSummary)
+                DiagnosticRow(icon: "square.and.arrow.up", value: snapshot.inviteSummary)
                     .accessibilityIdentifier("inviteDebugSummaryLabel")
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    DiagnosticRow(icon: "antenna.radiowaves.left.and.right", value: viewModel.localNetworkDebugSummary(now: context.date.timeIntervalSince1970))
+                    DiagnosticRow(icon: "antenna.radiowaves.left.and.right", value: snapshot.localNetwork.summary(now: context.date.timeIntervalSince1970))
                         .accessibilityIdentifier("localNetworkDebugSummaryLabel")
                 }
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    DiagnosticRow(icon: "clock.arrow.circlepath", value: viewModel.receptionDebugSummary(now: context.date.timeIntervalSince1970))
+                    DiagnosticRow(icon: "clock.arrow.circlepath", value: snapshot.reception.summary(now: context.date.timeIntervalSince1970))
                         .accessibilityIdentifier("receptionDebugSummaryLabel")
                 }
             }
