@@ -1108,6 +1108,39 @@ struct RideIntercomTests {
         #expect(second.packet == OutboundAudioPacket.keepalive)
     }
 
+    @Test func audioPacketSequencerFallsBackToPCMWhenPreferredCodecIsOpus() {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        var sequencer = AudioPacketSequencer(groupID: groupID, codec: .opus)
+
+        let envelope = sequencer.makeEnvelope(
+            for: OutboundAudioPacket.voice(frameID: 1, samples: [0.2, -0.2]),
+            sentAt: 10
+        )
+
+        #expect(envelope.kind == .voice)
+        #expect(envelope.encodedVoice?.codec == .pcm16)
+    }
+
+    @Test func audioPacketSequencerEventuallyProducesVoiceForHEAACOrFallbackPath() {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        var sequencer = AudioPacketSequencer(groupID: groupID, codec: .heAACv2)
+        var producedVoiceEnvelope: AudioPacketEnvelope?
+
+        for frameID in 1...24 {
+            let envelope = sequencer.makeEnvelope(
+                for: OutboundAudioPacket.voice(frameID: frameID, samples: Array(repeating: 0.1, count: 128)),
+                sentAt: TimeInterval(frameID)
+            )
+            if envelope.kind == .voice {
+                producedVoiceEnvelope = envelope
+                break
+            }
+        }
+
+        #expect(producedVoiceEnvelope != nil)
+        #expect(producedVoiceEnvelope?.encodedVoice?.codec == .heAACv2 || producedVoiceEnvelope?.encodedVoice?.codec == .pcm16)
+    }
+
     @MainActor
     @Test func audioSessionManagerUsesIntercomConfigurationAndActivates() throws {
         let session = NoOpAudioSession()

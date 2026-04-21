@@ -1415,6 +1415,21 @@ protocol AudioEncoding {
     func decode(_ data: Data) throws -> [Float]
 }
 
+protocol AudioEncoderSession {
+    var codec: AudioCodecIdentifier { get }
+
+    mutating func encodeFrame(_ samples: [Float]) throws -> Data
+    mutating func flush() throws -> [Data]
+    mutating func reset()
+}
+
+protocol AudioDecoderSession {
+    var codec: AudioCodecIdentifier { get }
+
+    func decodePacket(_ data: Data) throws -> [Float]
+    mutating func reset()
+}
+
 struct PCMAudioEncoding: AudioEncoding {
     let codec: AudioCodecIdentifier = .pcm16
 
@@ -1437,6 +1452,54 @@ struct OpusAudioEncoding: AudioEncoding {
     func decode(_ data: Data) throws -> [Float] {
         throw AudioCodecError.codecUnavailable(.opus)
     }
+}
+
+struct PCMAudioEncoderSession: AudioEncoderSession {
+    let codec: AudioCodecIdentifier = .pcm16
+
+    mutating func encodeFrame(_ samples: [Float]) throws -> Data {
+        try PCMAudioEncoding().encode(samples)
+    }
+
+    mutating func flush() throws -> [Data] {
+        []
+    }
+
+    mutating func reset() {}
+}
+
+struct OpusAudioEncoderSession: AudioEncoderSession {
+    let codec: AudioCodecIdentifier = .opus
+
+    mutating func encodeFrame(_ samples: [Float]) throws -> Data {
+        try OpusAudioEncoding().encode(samples)
+    }
+
+    mutating func flush() throws -> [Data] {
+        []
+    }
+
+    mutating func reset() {}
+}
+
+struct PCMAudioDecoderSession: AudioDecoderSession {
+    let codec: AudioCodecIdentifier = .pcm16
+
+    func decodePacket(_ data: Data) throws -> [Float] {
+        try PCMAudioEncoding().decode(data)
+    }
+
+    mutating func reset() {}
+}
+
+struct OpusAudioDecoderSession: AudioDecoderSession {
+    let codec: AudioCodecIdentifier = .opus
+
+    func decodePacket(_ data: Data) throws -> [Float] {
+        try OpusAudioEncoding().decode(data)
+    }
+
+    mutating func reset() {}
 }
 
 final class HEAACv2AudioEncoding: AudioEncoding {
@@ -1606,6 +1669,76 @@ final class HEAACv2AudioEncoding: AudioEncoding {
     }
 }
 
+struct HEAACv2AudioEncoderSession: AudioEncoderSession {
+    let codec: AudioCodecIdentifier = .heAACv2
+    private var encoding: HEAACv2AudioEncoding
+
+    init(quality: HEAACv2Quality = .medium) {
+        self.encoding = HEAACv2AudioEncoding(quality: quality)
+    }
+
+    mutating func encodeFrame(_ samples: [Float]) throws -> Data {
+        try encoding.encode(samples)
+    }
+
+    mutating func flush() throws -> [Data] {
+        []
+    }
+
+    mutating func reset() {
+        encoding = HEAACv2AudioEncoding(quality: encoding.quality)
+    }
+}
+
+struct HEAACv2AudioDecoderSession: AudioDecoderSession {
+    let codec: AudioCodecIdentifier = .heAACv2
+    private let encoding: HEAACv2AudioEncoding
+
+    init(quality: HEAACv2Quality = .medium) {
+        self.encoding = HEAACv2AudioEncoding(quality: quality)
+    }
+
+    func decodePacket(_ data: Data) throws -> [Float] {
+        try encoding.decode(data)
+    }
+
+    mutating func reset() {}
+}
+
+enum AudioCodecSessionFactory {
+    static func makeEncoderSession(
+        preferred codecs: [AudioCodecIdentifier],
+        heAACv2Quality: HEAACv2Quality = .medium
+    ) -> any AudioEncoderSession {
+        for codec in codecs {
+            switch codec {
+            case .pcm16:
+                return PCMAudioEncoderSession()
+            case .heAACv2:
+                return HEAACv2AudioEncoderSession(quality: heAACv2Quality)
+            case .opus:
+                // Opus backend is not installed yet. Keep this slot for future implementation.
+                continue
+            }
+        }
+        return PCMAudioEncoderSession()
+    }
+
+    static func makeDecoderSession(
+        codec: AudioCodecIdentifier,
+        heAACv2Quality: HEAACv2Quality = .medium
+    ) -> any AudioDecoderSession {
+        switch codec {
+        case .pcm16:
+            PCMAudioDecoderSession()
+        case .heAACv2:
+            HEAACv2AudioDecoderSession(quality: heAACv2Quality)
+        case .opus:
+            OpusAudioDecoderSession()
+        }
+    }
+}
+
 enum AudioEncodingSelector {
     static func encoder(preferred codecs: [AudioCodecIdentifier]) -> any AudioEncoding {
         for codec in codecs {
@@ -1653,18 +1786,16 @@ struct EncodedVoicePacket: Codable, Equatable {
     }
 
     func decodeSamples() throws -> [Float] {
-        switch codec {
-        case .pcm16:
-            try decodeSamples(using: PCMAudioEncoding())
-        case .heAACv2:
-            try decodeSamples(using: HEAACv2AudioEncoding())
-        case .opus:
-            try decodeSamples(using: OpusAudioEncoding())
-        }
+        let decoder = AudioCodecSessionFactory.makeDecoderSession(codec: codec)
+        return try decodeSamples(using: decoder)
     }
 
     func decodeSamples(using encoder: any AudioEncoding) throws -> [Float] {
         try encoder.decode(payload)
+    }
+
+    func decodeSamples(using decoder: any AudioDecoderSession) throws -> [Float] {
+        try decoder.decodePacket(payload)
     }
 }
 
@@ -2076,6 +2207,8 @@ struct AudioPacketSequencer {
     var codec: AudioCodecIdentifier
     var heAACv2Quality: HEAACv2Quality
     private var nextSequenceNumber = 1
+    private var encoderSession: any AudioEncoderSession
+    private var encoderSessionHEAACv2Quality: HEAACv2Quality?
 
     init(
         groupID: UUID,
@@ -2087,20 +2220,89 @@ struct AudioPacketSequencer {
         self.streamID = streamID
         self.codec = codec
         self.heAACv2Quality = heAACv2Quality
+        self.encoderSession = AudioCodecSessionFactory.makeEncoderSession(
+            preferred: [codec, .pcm16],
+            heAACv2Quality: heAACv2Quality
+        )
+        self.encoderSessionHEAACv2Quality = codec == .heAACv2 ? heAACv2Quality : nil
     }
 
     mutating func makeEnvelope(for packet: OutboundAudioPacket, sentAt: TimeInterval = Date().timeIntervalSince1970) -> AudioPacketEnvelope {
-        let envelope = AudioPacketEnvelope(
-            groupID: groupID,
-            streamID: streamID,
-            sequenceNumber: nextSequenceNumber,
-            sentAt: sentAt,
-            packet: packet,
-            codec: codec,
-            heAACv2Quality: heAACv2Quality
-        )
+        if encoderSession.codec != codec
+            || (codec == .heAACv2 && encoderSessionHEAACv2Quality != heAACv2Quality) {
+            encoderSession = AudioCodecSessionFactory.makeEncoderSession(
+                preferred: [codec, .pcm16],
+                heAACv2Quality: heAACv2Quality
+            )
+            encoderSessionHEAACv2Quality = codec == .heAACv2 ? heAACv2Quality : nil
+        }
+
+        let envelope: AudioPacketEnvelope
+        switch packet {
+        case .voice(let frameID, let samples):
+            envelope = makeVoiceEnvelope(frameID: frameID, samples: samples, sentAt: sentAt)
+        case .keepalive:
+            envelope = AudioPacketEnvelope(
+                groupID: groupID,
+                streamID: streamID,
+                sequenceNumber: nextSequenceNumber,
+                sentAt: sentAt,
+                packet: .keepalive,
+                codec: encoderSession.codec,
+                heAACv2Quality: heAACv2Quality
+            )
+        }
+
         nextSequenceNumber += 1
         return envelope
+    }
+
+    private mutating func makeVoiceEnvelope(frameID: Int, samples: [Float], sentAt: TimeInterval) -> AudioPacketEnvelope {
+        do {
+            let payload = try encoderSession.encodeFrame(samples)
+            guard !(payload.isEmpty && encoderSession.codec == .heAACv2) else {
+                return AudioPacketEnvelope(
+                    groupID: groupID,
+                    streamID: streamID,
+                    sequenceNumber: nextSequenceNumber,
+                    sentAt: sentAt,
+                    packet: .keepalive,
+                    codec: encoderSession.codec,
+                    heAACv2Quality: heAACv2Quality
+                )
+            }
+
+            let encodedVoice = EncodedVoicePacket(
+                frameID: frameID,
+                codec: encoderSession.codec,
+                payload: payload
+            )
+            return AudioPacketEnvelope(
+                groupID: groupID,
+                streamID: streamID,
+                sequenceNumber: nextSequenceNumber,
+                sentAt: sentAt,
+                encodedVoice: encodedVoice
+            )
+        } catch AudioCodecError.codecUnavailable where encoderSession.codec != .pcm16 {
+            codec = .pcm16
+            encoderSession = AudioCodecSessionFactory.makeEncoderSession(
+                preferred: [.pcm16],
+                heAACv2Quality: heAACv2Quality
+            )
+            encoderSessionHEAACv2Quality = nil
+            return makeVoiceEnvelope(frameID: frameID, samples: samples, sentAt: sentAt)
+        } catch {
+            return AudioPacketEnvelope(
+                groupID: groupID,
+                streamID: streamID,
+                sequenceNumber: nextSequenceNumber,
+                sentAt: sentAt,
+                packet: .keepalive,
+                codec: encoderSession.codec,
+                heAACv2Quality: heAACv2Quality
+            )
+        }
     }
 }
 
