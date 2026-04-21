@@ -495,6 +495,42 @@ struct RideIntercomTests {
         #expect(registry.authenticatedPeerIDs == ["peer-a"])
     }
 
+    @Test func defaultGroupCredentialProviderUsesStoreThenFallsBackToGroupSecret() throws {
+        let provider = DefaultGroupCredentialProvider()
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let group = try IntercomGroup(
+            id: groupID,
+            name: "Trail Group",
+            members: [
+                GroupMember(id: "member-local", displayName: "Local"),
+                GroupMember(id: "member-remote", displayName: "Remote")
+            ],
+            accessSecret: "group-secret"
+        )
+
+        let store = InMemoryGroupCredentialStore()
+        store.save(GroupAccessCredential(groupID: groupID, secret: "stored-secret"))
+
+        let fromStore = provider.credential(for: group, store: store)
+        #expect(fromStore.secret == "stored-secret")
+
+        let withoutStore = provider.credential(for: group, store: nil)
+        #expect(withoutStore.secret == "group-secret")
+    }
+
+    @Test func handshakeServiceBuildsAndVerifiesMatchingMessage() {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let credential = GroupAccessCredential(groupID: groupID, secret: "trail-secret")
+        let message = HandshakeService.makeMessage(
+            credential: credential,
+            memberID: "member-001",
+            nonce: "nonce-001"
+        )
+
+        #expect(HandshakeService.verifyMessage(message, credential: credential))
+        #expect(!HandshakeService.verifyMessage(message, credential: GroupAccessCredential(groupID: groupID, secret: "other")))
+    }
+
     @Test func encryptedAudioPacketCodecRoundTripsWithMatchingCredentialOnly() throws {
         let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
         let credential = GroupAccessCredential(groupID: groupID, secret: "trail-secret")
@@ -515,6 +551,23 @@ struct RideIntercomTests {
         #expect(throws: (any Error).self) {
             try EncryptedAudioPacketCodec.decode(encrypted, credential: otherCredential)
         }
+    }
+
+    @Test func packetCryptoServiceRoundTripsEncryptedEnvelope() throws {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let credential = GroupAccessCredential(groupID: groupID, secret: "trail-secret")
+        let envelope = AudioPacketEnvelope(
+            groupID: groupID,
+            streamID: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+            sequenceNumber: 1,
+            sentAt: 200,
+            packet: .voice(frameID: 42, samples: [0.1, -0.2])
+        )
+
+        let encrypted = try PacketCryptoService.encrypt(envelope, credential: credential)
+        let decrypted = try PacketCryptoService.decrypt(encrypted, credential: credential)
+
+        #expect(decrypted == envelope)
     }
 
     @Test func groupInviteTokenRoundTripsAsJoinURLAndRejectsTampering() throws {

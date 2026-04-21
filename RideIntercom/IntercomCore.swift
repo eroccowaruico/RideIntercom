@@ -225,6 +225,19 @@ protocol GroupCredentialStoring: AnyObject {
     func credential(for groupID: UUID) -> GroupAccessCredential?
 }
 
+protocol GroupCredentialProviding {
+    func credential(for group: IntercomGroup, store: GroupCredentialStoring?) -> GroupAccessCredential
+}
+
+struct DefaultGroupCredentialProvider: GroupCredentialProviding {
+    func credential(for group: IntercomGroup, store: GroupCredentialStoring?) -> GroupAccessCredential {
+        if let stored = store?.credential(for: group.id) {
+            return stored
+        }
+        return GroupAccessCredential(groupID: group.id, secret: group.accessSecret ?? "local-dev-\(group.id.uuidString)")
+    }
+}
+
 final class InMemoryGroupCredentialStore: GroupCredentialStoring {
     private var credentialsByGroupID: [UUID: GroupAccessCredential] = [:]
 
@@ -598,6 +611,30 @@ struct HandshakeMessage: Codable, Equatable {
     }
 }
 
+enum HandshakeService {
+    static func makeMessage(
+        credential: GroupAccessCredential,
+        memberID: String,
+        nonce: String = UUID().uuidString
+    ) -> HandshakeMessage {
+        HandshakeMessage.make(credential: credential, memberID: memberID, nonce: nonce)
+    }
+
+    static func verifyMessage(_ message: HandshakeMessage, credential: GroupAccessCredential) -> Bool {
+        message.verify(credential: credential)
+    }
+}
+
+enum PacketCryptoService {
+    static func encrypt(_ envelope: AudioPacketEnvelope, credential: GroupAccessCredential) throws -> Data {
+        try EncryptedAudioPacketCodec.encode(envelope, credential: credential)
+    }
+
+    static func decrypt(_ data: Data, credential: GroupAccessCredential) throws -> AudioPacketEnvelope {
+        try EncryptedAudioPacketCodec.decode(data, credential: credential)
+    }
+}
+
 struct HandshakeRegistry {
     enum Result: Equatable {
         case accepted
@@ -612,7 +649,7 @@ struct HandshakeRegistry {
     }
 
     nonisolated mutating func accept(_ message: HandshakeMessage, fromPeerID peerID: String) -> Result {
-        guard message.verify(credential: credential) else { return .rejected }
+        guard HandshakeService.verifyMessage(message, credential: credential) else { return .rejected }
 
         if !authenticatedPeerIDs.contains(peerID) {
             authenticatedPeerIDs.append(peerID)
@@ -627,9 +664,10 @@ struct HandshakeRegistry {
 
 enum LocalDiscoveryInfo {
     nonisolated static let groupHashKey = "groupHash"
+    private nonisolated static let credentialProvider: any GroupCredentialProviding = DefaultGroupCredentialProvider()
 
     nonisolated static func credential(for group: IntercomGroup) -> GroupAccessCredential {
-        GroupAccessCredential(groupID: group.id, secret: group.accessSecret ?? "local-dev-\(group.id.uuidString)")
+        credentialProvider.credential(for: group, store: nil)
     }
 
     nonisolated static func makeDiscoveryInfo(for credential: GroupAccessCredential) -> [String: String] {
@@ -1114,7 +1152,7 @@ enum MultipeerPayloadBuilder {
         let envelope = sequencer.makeEnvelope(for: packet, sentAt: sentAt)
         let data: Data
         if let credential {
-            data = try EncryptedAudioPacketCodec.encode(envelope, credential: credential)
+            data = try PacketCryptoService.encrypt(envelope, credential: credential)
         } else {
             data = try AudioPacketCodec.encode(envelope)
         }
@@ -1139,7 +1177,7 @@ enum MultipeerPayloadBuilder {
 
     static func decodeAudioPayload(_ data: Data, credential: GroupAccessCredential? = nil) throws -> AudioPacketEnvelope {
         if let credential {
-            return try EncryptedAudioPacketCodec.decode(data, credential: credential)
+            return try PacketCryptoService.decrypt(data, credential: credential)
         }
         return try AudioPacketCodec.decode(data)
     }
@@ -2526,6 +2564,7 @@ final class IntercomViewModel {
     private let callTicker: CallTicking
     private let audioFramePlayer: AudioFramePlaying
     private let credentialStore: GroupCredentialStoring
+    private let credentialProvider: any GroupCredentialProviding
     private let groupStore: GroupStoring
     private let localMemberIdentity: LocalMemberIdentity
     private let remoteTalkerTimeout: TimeInterval
@@ -2583,6 +2622,7 @@ final class IntercomViewModel {
         self.callTicker = callTicker ?? RepeatingCallTicker()
         self.audioFramePlayer = audioFramePlayer ?? AudioFramePlayerFactory.makeDefault()
         self.credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
+        self.credentialProvider = DefaultGroupCredentialProvider()
         self.groupStore = groupStore
         self.localMemberIdentity = (localMemberIdentityStore ?? InMemoryLocalMemberIdentityStore()).loadOrCreate()
         self.jitterBuffer = jitterBuffer ?? JitterBuffer()
@@ -3594,7 +3634,7 @@ final class IntercomViewModel {
     }
 
     private func credential(for group: IntercomGroup) -> GroupAccessCredential {
-        credentialStore.credential(for: group.id) ?? LocalDiscoveryInfo.credential(for: group)
+        credentialProvider.credential(for: group, store: credentialStore)
     }
 
     private func groupForTransport(_ group: IntercomGroup) -> IntercomGroup {

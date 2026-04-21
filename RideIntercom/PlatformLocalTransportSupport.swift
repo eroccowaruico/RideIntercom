@@ -203,7 +203,7 @@ extension MultipeerLocalTransport: MCSessionDelegate {
         case .connected:
             if let credential {
                 send(
-                    .handshake(HandshakeMessage.make(credential: credential, memberID: localPeerID.displayName)),
+                    .handshake(HandshakeService.makeMessage(credential: credential, memberID: localPeerID.displayName)),
                     toPeers: [peerID]
                 )
             }
