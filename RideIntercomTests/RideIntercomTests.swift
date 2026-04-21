@@ -4,6 +4,36 @@ import Testing
 
 @MainActor
 struct RideIntercomTests {
+    private struct TestOpusBackend: OpusCodecBackend {
+        func encode(_ samples: [Float]) throws -> Data {
+            var bytes = Data()
+            bytes.reserveCapacity(samples.count * MemoryLayout<Float>.size)
+            for sample in samples {
+                var value = sample.bitPattern.littleEndian
+                withUnsafeBytes(of: &value) { buffer in
+                    bytes.append(contentsOf: buffer)
+                }
+            }
+            return bytes
+        }
+
+        func decode(_ data: Data) throws -> [Float] {
+            var decoded: [Float] = []
+            decoded.reserveCapacity(data.count / MemoryLayout<Float>.size)
+
+            for offset in stride(from: 0, to: data.count, by: MemoryLayout<Float>.size) {
+                guard offset + MemoryLayout<Float>.size <= data.count else { break }
+                var value: UInt32 = 0
+                _ = withUnsafeMutableBytes(of: &value) { destination in
+                    data.copyBytes(to: destination, from: offset..<(offset + MemoryLayout<Float>.size))
+                }
+                decoded.append(Float(bitPattern: UInt32(littleEndian: value)))
+            }
+
+            return decoded
+        }
+    }
+
     @Test func defaultAudioInputMonitorUsesSystemMonitorWhenAvailable() {
         #if canImport(AVFAudio)
         #expect(AudioInputMonitorFactory.makeDefault() is SystemAudioInputMonitor)
@@ -248,7 +278,7 @@ struct RideIntercomTests {
     }
 
     @Test func opusAudioEncodingReportsUnavailableUntilBackendIsInstalled() throws {
-        let encoder = OpusAudioEncoding()
+        let encoder = OpusAudioEncoding(backend: nil)
 
         #expect(encoder.codec == .opus)
         #expect(throws: AudioCodecError.codecUnavailable(.opus)) {
@@ -260,6 +290,17 @@ struct RideIntercomTests {
         #expect(throws: AudioCodecError.codecUnavailable(.opus)) {
             try EncodedVoicePacket.make(frameID: 1, samples: [0.1], codec: .opus)
         }
+    }
+
+    @Test func opusAudioEncodingUsesInjectedBackendWhenAvailable() throws {
+        let samples: [Float] = [0.1, -0.3, 0.25, -0.9]
+        let encoder = OpusAudioEncoding(backend: TestOpusBackend())
+
+        let encoded = try encoder.encode(samples)
+        let decoded = try encoder.decode(encoded)
+
+        #expect(encoded.isEmpty == false)
+        #expect(maxAbsoluteDifference(samples, decoded) < 0.0001)
     }
 
     @Test func heAACv2EncodingReturnsCodecAndBuffersUntilFrameIsReady() throws {

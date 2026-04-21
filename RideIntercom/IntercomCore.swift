@@ -1562,6 +1562,27 @@ protocol AudioEncoding {
     func decode(_ data: Data) throws -> [Float]
 }
 
+protocol OpusCodecBackend {
+    func encode(_ samples: [Float]) throws -> Data
+    func decode(_ data: Data) throws -> [Float]
+}
+
+enum OpusCodecBackendRegistry {
+    private static var backend: (any OpusCodecBackend)?
+
+    static func install(_ backend: any OpusCodecBackend) {
+        self.backend = backend
+    }
+
+    static func uninstall() {
+        backend = nil
+    }
+
+    static func current() -> (any OpusCodecBackend)? {
+        backend
+    }
+}
+
 protocol AudioEncoderSession {
     var codec: AudioCodecIdentifier { get }
 
@@ -1591,13 +1612,24 @@ struct PCMAudioEncoding: AudioEncoding {
 
 struct OpusAudioEncoding: AudioEncoding {
     let codec: AudioCodecIdentifier = .opus
+    private let backend: (any OpusCodecBackend)?
+
+    init(backend: (any OpusCodecBackend)? = OpusCodecBackendRegistry.current()) {
+        self.backend = backend
+    }
 
     func encode(_ samples: [Float]) throws -> Data {
-        throw AudioCodecError.codecUnavailable(.opus)
+        guard let backend else {
+            throw AudioCodecError.codecUnavailable(.opus)
+        }
+        return try backend.encode(samples)
     }
 
     func decode(_ data: Data) throws -> [Float] {
-        throw AudioCodecError.codecUnavailable(.opus)
+        guard let backend else {
+            throw AudioCodecError.codecUnavailable(.opus)
+        }
+        return try backend.decode(data)
     }
 }
 
