@@ -1,4 +1,5 @@
 import CryptoKit
+import AVFoundation
 import Foundation
 import Observation
 
@@ -12,6 +13,7 @@ struct GroupMember: Identifiable, Equatable, Hashable, Codable {
     var receivedAudioPacketCount: Int
     var playedAudioFrameCount: Int
     var queuedAudioFrameCount: Int
+    var activeCodec: AudioCodecIdentifier?
     var authenticationState: PeerAuthenticationState
     var connectionState: PeerConnectionState
 
@@ -25,6 +27,7 @@ struct GroupMember: Identifiable, Equatable, Hashable, Codable {
         receivedAudioPacketCount: Int = 0,
         playedAudioFrameCount: Int = 0,
         queuedAudioFrameCount: Int = 0,
+        activeCodec: AudioCodecIdentifier? = nil,
         authenticationState: PeerAuthenticationState = .open,
         connectionState: PeerConnectionState = .offline
     ) {
@@ -37,6 +40,7 @@ struct GroupMember: Identifiable, Equatable, Hashable, Codable {
         self.receivedAudioPacketCount = receivedAudioPacketCount
         self.playedAudioFrameCount = playedAudioFrameCount
         self.queuedAudioFrameCount = queuedAudioFrameCount
+        self.activeCodec = activeCodec
         self.authenticationState = authenticationState
         self.connectionState = connectionState
     }
@@ -1159,6 +1163,13 @@ protocol Transport: AnyObject {
     func disconnect()
     func sendAudioFrame(_ frame: OutboundAudioPacket)
     func sendControl(_ message: ControlMessage)
+    func setPreferredAudioCodec(_ codec: AudioCodecIdentifier)
+    func setHEAACv2Quality(_ quality: HEAACv2Quality)
+}
+
+extension Transport {
+    func setPreferredAudioCodec(_ codec: AudioCodecIdentifier) {}
+    func setHEAACv2Quality(_ quality: HEAACv2Quality) {}
 }
 
 final class LocalTransport: Transport {
@@ -1368,7 +1379,25 @@ enum OutboundAudioPacket: Equatable {
 
 enum AudioCodecIdentifier: String, Codable {
     case pcm16
+    case heAACv2
     case opus
+}
+
+enum HEAACv2Quality: String, CaseIterable, Codable {
+    case low = "Low"
+    case medium = "Medium"
+    case high = "High"
+
+    var bitRate: Int {
+        switch self {
+        case .low:
+            16_000
+        case .medium:
+            24_000
+        case .high:
+            40_000
+        }
+    }
 }
 
 enum AudioCodecError: Error, Equatable {
@@ -1406,12 +1435,181 @@ struct OpusAudioEncoding: AudioEncoding {
     }
 }
 
+final class HEAACv2AudioEncoding: AudioEncoding {
+    let codec: AudioCodecIdentifier = .heAACv2
+    let quality: HEAACv2Quality
+
+    private static let sampleRate: Double = 16_000
+    private static let frameSize = 2_048
+    private static let channelCount: AVAudioChannelCount = 2
+
+    private var bufferedSamples: [Float] = []
+
+    private lazy var stereoPCMFormat: AVAudioFormat? = {
+        AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: Self.sampleRate,
+            channels: Self.channelCount,
+            interleaved: false
+        )
+    }()
+
+    private lazy var compressedFormat: AVAudioFormat? = {
+        AVAudioFormat(settings: [
+            AVFormatIDKey: kAudioFormatMPEG4AAC_HE_V2,
+            AVSampleRateKey: Self.sampleRate,
+            AVNumberOfChannelsKey: Int(Self.channelCount),
+            AVEncoderBitRateKey: quality.bitRate,
+            AVEncoderBitRateStrategyKey: AVAudioBitRateStrategy_Variable
+        ])
+    }()
+
+    private lazy var encoder: AVAudioConverter? = {
+        guard let stereoPCMFormat, let compressedFormat else { return nil }
+        guard let converter = AVAudioConverter(from: stereoPCMFormat, to: compressedFormat) else {
+            return nil
+        }
+        converter.bitRate = quality.bitRate
+        converter.bitRateStrategy = AVAudioBitRateStrategy_Variable
+        return converter
+    }()
+
+    private lazy var decoder: AVAudioConverter? = {
+        guard let stereoPCMFormat, let compressedFormat else { return nil }
+        return AVAudioConverter(from: compressedFormat, to: stereoPCMFormat)
+    }()
+
+    init(quality: HEAACv2Quality = .medium) {
+        self.quality = quality
+    }
+
+    func encode(_ samples: [Float]) throws -> Data {
+        bufferedSamples.append(contentsOf: samples)
+        guard bufferedSamples.count >= Self.frameSize else { return Data() }
+
+        guard let encoder,
+              let stereoPCMFormat else {
+            throw AudioCodecError.codecUnavailable(.heAACv2)
+        }
+
+        let frameSamples = Array(bufferedSamples.prefix(Self.frameSize))
+        bufferedSamples.removeFirst(Self.frameSize)
+
+        guard let inputBuffer = AVAudioPCMBuffer(
+            pcmFormat: stereoPCMFormat,
+            frameCapacity: AVAudioFrameCount(Self.frameSize)
+        ),
+        let left = inputBuffer.floatChannelData?[0],
+        let right = inputBuffer.floatChannelData?[1] else {
+            throw AudioCodecError.codecUnavailable(.heAACv2)
+        }
+
+        inputBuffer.frameLength = AVAudioFrameCount(Self.frameSize)
+        for index in 0..<Self.frameSize {
+            left[index] = frameSamples[index]
+            right[index] = frameSamples[index]
+        }
+
+        let maximumPacketSize = max(1, Int(encoder.maximumOutputPacketSize))
+        let outputBuffer = AVAudioCompressedBuffer(
+            format: encoder.outputFormat,
+            packetCapacity: 1,
+            maximumPacketSize: maximumPacketSize
+        )
+
+        var isConsumed = false
+        var conversionError: NSError?
+        let status = encoder.convert(to: outputBuffer, error: &conversionError) { _, status in
+            if isConsumed {
+                status.pointee = .noDataNow
+                return nil
+            }
+            isConsumed = true
+            status.pointee = .haveData
+            return inputBuffer
+        }
+
+        if let conversionError {
+            throw conversionError
+        }
+
+        guard status == .haveData, outputBuffer.byteLength > 0 else {
+            return Data()
+        }
+
+        return Data(bytes: outputBuffer.data, count: Int(outputBuffer.byteLength))
+    }
+
+    func decode(_ data: Data) throws -> [Float] {
+        guard !data.isEmpty else { return [] }
+
+        guard let decoder,
+              let stereoPCMFormat else {
+            throw AudioCodecError.codecUnavailable(.heAACv2)
+        }
+
+        let inputBuffer = AVAudioCompressedBuffer(
+            format: decoder.inputFormat,
+            packetCapacity: 1,
+            maximumPacketSize: data.count
+        )
+
+        inputBuffer.packetCount = 1
+        inputBuffer.byteLength = UInt32(data.count)
+        data.withUnsafeBytes { source in
+            guard let sourceBaseAddress = source.baseAddress else { return }
+            memcpy(inputBuffer.data, sourceBaseAddress, data.count)
+        }
+        if let packetDescriptions = inputBuffer.packetDescriptions {
+            packetDescriptions[0] = AudioStreamPacketDescription(
+                mStartOffset: 0,
+                mVariableFramesInPacket: 0,
+                mDataByteSize: UInt32(data.count)
+            )
+        }
+
+        guard let outputBuffer = AVAudioPCMBuffer(
+            pcmFormat: stereoPCMFormat,
+            frameCapacity: AVAudioFrameCount(Self.frameSize * 2)
+        ) else {
+            throw AudioCodecError.codecUnavailable(.heAACv2)
+        }
+
+        var isConsumed = false
+        var conversionError: NSError?
+        let status = decoder.convert(to: outputBuffer, error: &conversionError) { _, status in
+            if isConsumed {
+                status.pointee = .noDataNow
+                return nil
+            }
+            isConsumed = true
+            status.pointee = .haveData
+            return inputBuffer
+        }
+
+        if let conversionError {
+            throw conversionError
+        }
+
+        guard status == .haveData,
+              outputBuffer.frameLength > 0,
+              let leftChannel = outputBuffer.floatChannelData?[0] else {
+            return []
+        }
+
+        let frameCount = Int(outputBuffer.frameLength)
+        return Array(UnsafeBufferPointer(start: leftChannel, count: frameCount))
+    }
+}
+
 enum AudioEncodingSelector {
     static func encoder(preferred codecs: [AudioCodecIdentifier]) -> any AudioEncoding {
         for codec in codecs {
             switch codec {
             case .pcm16:
                 return PCMAudioEncoding()
+            case .heAACv2:
+                return HEAACv2AudioEncoding()
             case .opus:
                 continue
             }
@@ -1429,11 +1627,14 @@ struct EncodedVoicePacket: Codable, Equatable {
     static func make(
         frameID: Int,
         samples: [Float],
-        codec: AudioCodecIdentifier = .pcm16
+        codec: AudioCodecIdentifier = .pcm16,
+        heAACv2Quality: HEAACv2Quality = .medium
     ) throws -> EncodedVoicePacket {
         switch codec {
         case .pcm16:
             try make(frameID: frameID, samples: samples, encoder: PCMAudioEncoding())
+        case .heAACv2:
+            try make(frameID: frameID, samples: samples, encoder: HEAACv2AudioEncoding(quality: heAACv2Quality))
         case .opus:
             try make(frameID: frameID, samples: samples, encoder: OpusAudioEncoding())
         }
@@ -1451,6 +1652,8 @@ struct EncodedVoicePacket: Codable, Equatable {
         switch codec {
         case .pcm16:
             try decodeSamples(using: PCMAudioEncoding())
+        case .heAACv2:
+            try decodeSamples(using: HEAACv2AudioEncoding())
         case .opus:
             try decodeSamples(using: OpusAudioEncoding())
         }
@@ -1518,7 +1721,9 @@ struct AudioPacketEnvelope: Codable, Equatable {
         streamID: UUID,
         sequenceNumber: Int,
         sentAt: TimeInterval,
-        packet: OutboundAudioPacket
+        packet: OutboundAudioPacket,
+        codec: AudioCodecIdentifier = .pcm16,
+        heAACv2Quality: HEAACv2Quality = .medium
     ) {
         self.groupID = groupID
         self.streamID = streamID
@@ -1527,10 +1732,24 @@ struct AudioPacketEnvelope: Codable, Equatable {
 
         switch packet {
         case .voice(let frameID, let samples):
-            self.kind = .voice
-            self.frameID = frameID
-            self.samples = []
-            self.encodedVoice = try? EncodedVoicePacket.make(frameID: frameID, samples: samples)
+            let encodedVoice = try? EncodedVoicePacket.make(
+                frameID: frameID,
+                samples: samples,
+                codec: codec,
+                heAACv2Quality: heAACv2Quality
+            )
+            if let encodedVoice,
+               !(codec == .heAACv2 && encodedVoice.payload.isEmpty) {
+                self.kind = .voice
+                self.frameID = frameID
+                self.samples = []
+                self.encodedVoice = encodedVoice
+            } else {
+                self.kind = .keepalive
+                self.frameID = nil
+                self.samples = []
+                self.encodedVoice = nil
+            }
         case .keepalive:
             self.kind = .keepalive
             self.frameID = nil
@@ -1850,11 +2069,20 @@ enum EncryptedAudioPacketCodec {
 struct AudioPacketSequencer {
     let groupID: UUID
     let streamID: UUID
+    var codec: AudioCodecIdentifier
+    var heAACv2Quality: HEAACv2Quality
     private var nextSequenceNumber = 1
 
-    init(groupID: UUID, streamID: UUID = UUID()) {
+    init(
+        groupID: UUID,
+        streamID: UUID = UUID(),
+        codec: AudioCodecIdentifier = .pcm16,
+        heAACv2Quality: HEAACv2Quality = .medium
+    ) {
         self.groupID = groupID
         self.streamID = streamID
+        self.codec = codec
+        self.heAACv2Quality = heAACv2Quality
     }
 
     mutating func makeEnvelope(for packet: OutboundAudioPacket, sentAt: TimeInterval = Date().timeIntervalSince1970) -> AudioPacketEnvelope {
@@ -1863,7 +2091,9 @@ struct AudioPacketSequencer {
             streamID: streamID,
             sequenceNumber: nextSequenceNumber,
             sentAt: sentAt,
-            packet: packet
+            packet: packet,
+            codec: codec,
+            heAACv2Quality: heAACv2Quality
         )
         nextSequenceNumber += 1
         return envelope
@@ -1950,6 +2180,8 @@ final class IntercomViewModel {
     private(set) var voiceActivityDetectionThreshold: Float = AudioTransmissionController.defaultVoiceActivityThreshold
     private(set) var isSoundIsolationEnabled = false
     private(set) var audioCheckCodecMode: AudioCheckCodecMode = .direct
+    private(set) var preferredTransmitCodec: AudioCodecIdentifier = .pcm16
+    private(set) var heAACv2Quality: HEAACv2Quality = .medium
 
     var availableInputPorts: [AudioPortInfo] { audioSessionManager.availableInputPorts }
     var availableOutputPorts: [AudioPortInfo] { audioSessionManager.availableOutputPorts }
@@ -2057,6 +2289,10 @@ final class IntercomViewModel {
             self?.handleCallTick(now: now)
         }
         self.isSoundIsolationEnabled = self.audioInputMonitor.isSoundIsolationEnabled
+        self.localTransport.setPreferredAudioCodec(preferredTransmitCodec)
+        self.localTransport.setHEAACv2Quality(heAACv2Quality)
+        self.internetTransport.setPreferredAudioCodec(preferredTransmitCodec)
+        self.internetTransport.setHEAACv2Quality(heAACv2Quality)
     }
 
     var selectedGroupSlots: [GroupMember?] {
@@ -2478,6 +2714,18 @@ final class IntercomViewModel {
         audioCheckCodecMode = mode
     }
 
+    func setPreferredTransmitCodec(_ codec: AudioCodecIdentifier) {
+        preferredTransmitCodec = codec
+        localTransport.setPreferredAudioCodec(codec)
+        internetTransport.setPreferredAudioCodec(codec)
+    }
+
+    func setHEAACv2Quality(_ quality: HEAACv2Quality) {
+        heAACv2Quality = quality
+        localTransport.setHEAACv2Quality(quality)
+        internetTransport.setHEAACv2Quality(quality)
+    }
+
     func setVoiceActivityDetectionThreshold(_ value: Float) {
         let clamped = min(VoiceActivityDetector.maxThreshold, max(VoiceActivityDetector.minThreshold, value))
         voiceActivityDetectionThreshold = clamped
@@ -2690,6 +2938,7 @@ final class IntercomViewModel {
         switch packet {
         case .voice:
             sentVoicePacketCount += 1
+            setLocalActiveCodec(preferredTransmitCodec)
             activeTransport?.sendAudioFrame(packet)
         case .keepalive:
             activeTransport?.sendControl(.keepalive)
@@ -2777,6 +3026,9 @@ final class IntercomViewModel {
     private func handleReceivedPacket(_ packet: ReceivedAudioPacket) {
         guard isAuthorizedAudioPeer(packet.peerID) else { return }
         let receivedAt = localReceiveTimestamp(for: packet.envelope.sentAt)
+        if let codec = packet.envelope.encodedVoice?.codec {
+            setRemotePeerCodec(packet.peerID, codec: codec)
+        }
 
         switch packet.packet {
         case .voice(_, let samples):
@@ -2858,6 +3110,24 @@ final class IntercomViewModel {
             group.members[memberIndex].voiceLevel = 0
             group.members[memberIndex].voicePeakLevel = 0
         }
+        selectedGroup = group
+        replaceSelectedGroup(group)
+    }
+
+    private func setLocalActiveCodec(_ codec: AudioCodecIdentifier) {
+        guard var group = selectedGroup,
+              !group.members.isEmpty else { return }
+
+        group.members[0].activeCodec = codec
+        selectedGroup = group
+        replaceSelectedGroup(group)
+    }
+
+    private func setRemotePeerCodec(_ peerID: String, codec: AudioCodecIdentifier) {
+        guard var group = selectedGroup,
+              let memberIndex = group.members.firstIndex(where: { $0.id == peerID }) else { return }
+
+        group.members[memberIndex].activeCodec = codec
         selectedGroup = group
         replaceSelectedGroup(group)
     }

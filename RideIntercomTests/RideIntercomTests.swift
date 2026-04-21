@@ -262,6 +262,40 @@ struct RideIntercomTests {
         }
     }
 
+    @Test func heAACv2EncodingReturnsCodecAndBuffersUntilFrameIsReady() throws {
+        let encoder = HEAACv2AudioEncoding()
+
+        #expect(encoder.codec == .heAACv2)
+        #expect(try encoder.encode([0.1, -0.1, 0.1, -0.1]).isEmpty)
+    }
+
+    @Test func heAACv2AudioEncodingRoundTripsGeneratedSineWave() throws {
+        let encoder = HEAACv2AudioEncoding(quality: .medium)
+        let samples = TestAudioSamples.sineWave(
+            frequency: 440,
+            sampleRate: 16_000,
+            duration: 0.128,
+            amplitude: 0.4
+        )
+
+        do {
+            let encoded = try encoder.encode(samples)
+            #expect(!encoded.isEmpty)
+
+            let decoded = try encoder.decode(encoded)
+            #expect(!decoded.isEmpty)
+            #expect(abs(AudioLevelMeter.rmsLevel(samples: decoded) - AudioLevelMeter.rmsLevel(samples: samples)) < 0.2)
+        } catch AudioCodecError.codecUnavailable(.heAACv2) {
+            #expect(true)
+        }
+    }
+
+    @Test func audioEncodingSelectorSelectsHEAACv2WhenPreferredFirst() {
+        let encoder = AudioEncodingSelector.encoder(preferred: [.heAACv2, .pcm16])
+
+        #expect(encoder.codec == .heAACv2)
+    }
+
     @Test func audioEncodingSelectorFallsBackToPCMWhenOpusIsUnavailable() throws {
         let samples = TestAudioSamples.sineWave(
             frequency: 440,
@@ -1533,6 +1567,45 @@ struct RideIntercomTests {
         }
         let settledPeer = viewModel.selectedGroup?.members.first(where: { $0.id == "member-002" })
         #expect(abs((settledPeer?.voicePeakLevel ?? 0) - 0.3) < 0.0001)
+    }
+
+    @MainActor
+    @Test func receivedEncodedVoiceUpdatesMemberActiveCodec() throws {
+        let localTransport = LocalTransport()
+        let group = try IntercomGroup(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "Pair",
+            members: [
+                GroupMember(id: "member-001", displayName: "You"),
+                GroupMember(id: "member-002", displayName: "Partner")
+            ]
+        )
+        let encodedVoice = EncodedVoicePacket(frameID: 10, codec: .heAACv2, payload: Data([0x11, 0x22, 0x33]))
+        let envelope = AudioPacketEnvelope(
+            groupID: group.id,
+            streamID: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+            sequenceNumber: 1,
+            sentAt: 20,
+            encodedVoice: encodedVoice
+        )
+        let packet = ReceivedAudioPacket(
+            peerID: "member-002",
+            envelope: envelope,
+            packet: .voice(frameID: 10, samples: [0.1, -0.1])
+        )
+        let viewModel = IntercomViewModel(
+            groups: [group],
+            localTransport: localTransport,
+            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
+            audioInputMonitor: NoOpAudioInputMonitor()
+        )
+
+        viewModel.selectGroup(group)
+        viewModel.connectLocal()
+        localTransport.simulateAuthenticatedPeers(["member-002"])
+        localTransport.simulateReceivedPacket(packet)
+
+        #expect(viewModel.selectedGroup?.members.first(where: { $0.id == "member-002" })?.activeCodec == .heAACv2)
     }
 
     @MainActor

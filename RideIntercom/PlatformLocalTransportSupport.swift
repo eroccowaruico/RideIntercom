@@ -20,6 +20,8 @@ final class MultipeerLocalTransport: NSObject, Transport {
     private var handshakeRegistry: HandshakeRegistry?
     private var sequencer: AudioPacketSequencer?
     private var receivedPacketFilter: ReceivedAudioPacketFilter?
+    private var preferredAudioCodec: AudioCodecIdentifier = .pcm16
+    private var heAACv2Quality: HEAACv2Quality = .medium
     private(set) var receivedPackets: [ReceivedAudioPacket] = []
 
     init(displayName: String = MultipeerLocalTransport.defaultDisplayName) {
@@ -89,6 +91,14 @@ final class MultipeerLocalTransport: NSObject, Transport {
         }
     }
 
+    func setPreferredAudioCodec(_ codec: AudioCodecIdentifier) {
+        preferredAudioCodec = codec
+    }
+
+    func setHEAACv2Quality(_ quality: HEAACv2Quality) {
+        heAACv2Quality = quality
+    }
+
     private func send(_ message: ControlMessage, toPeers peers: [MCPeerID]? = nil) {
         let targetPeers = peers ?? session.connectedPeers
         guard !targetPeers.isEmpty else { return }
@@ -102,6 +112,8 @@ final class MultipeerLocalTransport: NSObject, Transport {
 
     private func send(_ packet: OutboundAudioPacket) {
         guard !session.connectedPeers.isEmpty, var sequencer else { return }
+        sequencer.codec = preferredAudioCodec
+        sequencer.heAACv2Quality = heAACv2Quality
 
         do {
             let payload = try MultipeerPayloadBuilder.makePayload(

@@ -266,11 +266,11 @@ private struct CallView: View {
     private var connectionIconName: String {
         switch viewModel.connectionState {
         case .idle:
-            "circle"
+            "wifi.slash"
         case .localConnecting, .internetConnecting:
-            "antenna.radiowaves.left.and.right"
+            "wifi.exclamationmark"
         case .localConnected, .internetConnected:
-            "checkmark.circle.fill"
+            "wifi"
         case .reconnectingOffline:
             "exclamationmark.triangle.fill"
         }
@@ -308,6 +308,7 @@ private struct DiagnosticsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                TransmitCodecPanel(viewModel: viewModel)
                 AudioCheckPanel(viewModel: viewModel)
                 DiagnosticRow(icon: "waveform.path.ecg", value: viewModel.audioDebugSummary)
                     .accessibilityIdentifier("audioDebugSummaryLabel")
@@ -345,6 +346,48 @@ private struct DiagnosticsView: View {
             .padding()
         }
         .accessibilityIdentifier("diagnosticsScrollView")
+    }
+}
+
+private struct TransmitCodecPanel: View {
+    @Bindable var viewModel: IntercomViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Transmit Codec", systemImage: "antenna.radiowaves.left.and.right")
+                .font(.headline)
+
+            Picker("Codec", selection: Binding(
+                get: { viewModel.preferredTransmitCodec },
+                set: { viewModel.setPreferredTransmitCodec($0) }
+            )) {
+                Text("PCM 16-bit").tag(AudioCodecIdentifier.pcm16)
+                Text("HE-AAC v2 VBR").tag(AudioCodecIdentifier.heAACv2)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("transmitCodecPicker")
+
+            if viewModel.preferredTransmitCodec == .heAACv2 {
+                Picker("HE-AAC v2 Quality", selection: Binding(
+                    get: { viewModel.heAACv2Quality },
+                    set: { viewModel.setHEAACv2Quality($0) }
+                )) {
+                    ForEach(HEAACv2Quality.allCases, id: \.self) { quality in
+                        Text(quality.rawValue).tag(quality)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("heAACv2QualityPicker")
+            }
+        }
+        .padding(12)
+        .background(.background)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityIdentifier("transmitCodecPanel")
     }
 }
 
@@ -669,6 +712,13 @@ private struct ParticipantSlotView: View {
                 isMuted: member?.isMuted == true
             )
             .accessibilityIdentifier("participantVoiceLevel\(index)")
+
+            if member != nil {
+                Text("Codec: \(codecLabel)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("participantCodec\(index)")
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 154, alignment: .topLeading)
         .padding(12)
@@ -697,13 +747,26 @@ private struct ParticipantSlotView: View {
     private var statusIconName: String {
         switch member?.connectionState {
         case .connected:
-            "checkmark.circle.fill"
+            "wifi"
         case .connecting:
-            "clock.fill"
+            "wifi.exclamationmark"
         case .offline:
-            "circle"
+            "wifi.slash"
         case nil:
-            "plus.circle"
+            "person.badge.plus"
+        }
+    }
+
+    private var codecLabel: String {
+        switch member?.activeCodec {
+        case .pcm16:
+            "PCM 16-bit"
+        case .heAACv2:
+            "HE-AAC v2"
+        case .opus:
+            "Opus"
+        case nil:
+            "--"
         }
     }
 
