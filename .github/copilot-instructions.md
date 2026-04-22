@@ -28,11 +28,22 @@
 - 抽象化は増やすこと自体を目的にせず、重複削減・変更容易性・テスト容易性の向上が確認できる場合のみ導入する。
 
 ## 3. UI・UX方針
-- UIは最新のiOS HIGに準拠する。
-- macOSでも可能な限り同一の構造・状態管理・アクセシビリティIDを利用する。
+- UIは最新のApple Human Interface Guidelinesに準拠し、実装前にAccessibility、Layout、Iconsの該当箇所を確認する。
+- iOSはHIG準拠を必須とし、標準SwiftUIコンポーネント、safe area、Dynamic Type、VoiceOver、ライト/ダークモード、Reduce Motionを前提に設計する。
+- macOSはiOSの単純移植で済ませず、同一の構造・状態管理・アクセシビリティIDを維持しながら、ウィンドウサイズ変更、キーボード操作、VoiceOver、macOSのクリック対象サイズ、下端に重要操作を固定しない配置を最低条件として満たす。
+- すべてのアイコン単体ボタンにVoiceOverで意味が分かるaccessibility labelを付け、状態を持つ操作にはaccessibility valueも付ける。accessibilityIdentifierはUIテスト用であり、VoiceOver文言の代替にしない。
+- 状態表示は色だけに依存せず、テキスト、SF Symbols、accessibility label/valueでも同じ意味を伝える。音量メーター、通信状態、ミュート状態、エラー状態は必ず色以外でも判別可能にする。
+- 主要操作のタップ/クリック対象はiOSで44pt以上、macOSで28pt以上を下限とし、隣接コントロールには誤操作を避ける余白を確保する。
+- 文字サイズ変更で表示が切れないよう、固定高さを避け、必要な箇所は複数行表示とする。長い診断値は通常UIに混ぜずDiagnosticsへ分離する。
+- レイアウトはsafe areaとシステム余白に従い、端に張り付いた全幅ボタンを避ける。iPhone portrait/landscape、iPad regular width、macOS window resizeで操作不能や重なりが起きないことを確認する。
+- UIアイコンはSF Symbolsを優先し、outline/fillなど用途に合うvariantを選ぶ。SF Symbolsはアプリアイコン、ロゴ、商標的表現として使わない。
+- Call画面は通話に必要な状態と操作に限定し、TX/RX/JIT、ID、groupHash、transport詳細などの診断情報はDiagnosticsへ集約する。
+- SettingsはForm/Sectionなどプラットフォーム標準の設定UIに寄せ、Audio I/O、Codec、Audio Checkなどを意味単位で分ける。
 - 体験を最優先し、UIの使いやすさと音声品質を継続的に改善する。
 - レイテンシ最小化、ノイズ低減、VAD調整など、体験に直結する要素を優先する。
-- 参照: https://developer.apple.com/jp/design/human-interface-guidelines/getting-started
+- 参照: https://developer.apple.com/design/human-interface-guidelines/accessibility
+- 参照: https://developer.apple.com/design/human-interface-guidelines/layout
+- 参照: https://developer.apple.com/design/Human-Interface-Guidelines/sf-symbols
 
 ## 4. UIテスト方針
 - UIテストは毎回アプリを再起動せず、1回起動で複数ケースを実行できる構成を基本とする。
@@ -91,4 +102,3 @@
 - 背景、理由、現状との違い、明確な仕様、体験の差、実装方針、注意点などをできる限り詳細に説明する。
 - プランは作業手順や指示だけではなく、設計書や仕様書のような形式で、実装者が完了条件を理解できるように記述する。
 - 実装者が判断に迷わない、実装をストレートに進められる内容とする。
-

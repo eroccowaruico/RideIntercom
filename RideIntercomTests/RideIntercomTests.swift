@@ -3888,6 +3888,24 @@ struct RideIntercomTests {
         #expect(intercomCoreSource.contains("#if canImport(") == false)
     }
 
+    @Test func macOSSingleWindowPolicyUsesSingleWindowSceneWithoutRestoration() throws {
+        let appSource = try Self.source("RideIntercom/RideIntercomApp.swift")
+        let windowPolicySource = try Self.source("RideIntercom/PlatformSingleWindowSupport.swift")
+
+        #expect(appSource.contains("WindowGroup(id: SingleWindowPolicy.mainWindowID)"))
+        #expect(appSource.contains("configureOpenWindowBridge()"))
+        #expect(appSource.contains("openWindow(id: SingleWindowPolicy.mainWindowID)"))
+        #expect(appSource.contains("CommandGroup(replacing: .newItem)"))
+        #expect(appSource.contains("EmptyView()"))
+        #expect(windowPolicySource.contains("applicationShouldTerminateAfterLastWindowClosed"))
+        #expect(windowPolicySource.contains("applicationDidFinishLaunching"))
+        #expect(windowPolicySource.contains("applicationDidBecomeActive"))
+        #expect(windowPolicySource.contains("applicationShouldHandleReopen"))
+        #expect(windowPolicySource.contains("openMainWindowWhenNeeded"))
+        #expect(windowPolicySource.contains("applicationShouldSaveApplicationState"))
+        #expect(windowPolicySource.contains("applicationShouldRestoreApplicationState"))
+    }
+
     @Test func internetTransportAcceptsOnlyMatchingGroupIncomingEnvelope() throws {
         let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
         let otherGroupID = UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!

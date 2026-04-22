@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var viewModel = IntercomViewModel.makeForCurrentProcess()
-    @State private var selectedTab: AppTab = AppTab.initialForCurrentProcess
+    @State private var selectedTab: AppTab = .groups
 
     var body: some View {
         let _ = viewModel.uiEventRevision
@@ -73,13 +73,6 @@ private enum AppTab: Hashable {
     case call
     case diagnostics
     case settings
-
-    static var initialForCurrentProcess: AppTab {
-        if ProcessInfo.processInfo.arguments.contains("--start-on-diagnostics") {
-            return .diagnostics
-        }
-        return .groups
-    }
 }
 
 private struct GroupSelectionView: View {
@@ -87,48 +80,44 @@ private struct GroupSelectionView: View {
     let onGroupSelected: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button {
-                viewModel.createTrailGroup()
-                onGroupSelected()
-            } label: {
-                Label("Create Trail Group", systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .accessibilityIdentifier("createGroupButton")
+        List {
+            Section("Recent Groups") {
+                if viewModel.groups.isEmpty {
+                    Text("Create a group to start a call.")
+                        .foregroundStyle(.secondary)
+                }
 
-            Text("Recent Groups")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
-
-            List {
                 ForEach(viewModel.groups) { group in
                     Button {
                         viewModel.selectGroup(group)
                         onGroupSelected()
                     } label: {
-                        HStack {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.3")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28)
+
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(group.name)
                                     .font(.headline)
+                                    .lineLimit(2)
                                 Text("\(group.members.count) members")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
 
-                            Spacer()
+                            Spacer(minLength: 12)
 
                             Image(systemName: "chevron.right")
                                 .font(.footnote.weight(.semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.tertiary)
                         }
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(group.name)
+                    .accessibilityValue("\(group.members.count) members")
+                    .accessibilityHint("Opens the call screen for this group.")
                     .accessibilityIdentifier("groupRow-\(group.name)")
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
@@ -146,7 +135,18 @@ private struct GroupSelectionView: View {
                     }
                 }
             }
-            .listStyle(.plain)
+        }
+        .listStyle(.automatic)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    viewModel.createTrailGroup()
+                    onGroupSelected()
+                } label: {
+                    Label("Create Trail Group", systemImage: "plus")
+                }
+                .accessibilityIdentifier("createGroupButton")
+            }
         }
         .accessibilityIdentifier("groupSelectionList")
     }
@@ -230,25 +230,28 @@ private struct CallView: View {
 
     private var statusHeader: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
                 HStack(spacing: 10) {
-                    ZStack {
-                        Image(systemName: connectionIconName)
-                            .imageScale(.large)
-                    }
+                    Image(systemName: connectionIconName)
+                        .imageScale(.large)
+                        .foregroundStyle(connectionStatusColor)
+                        .frame(width: 28)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(viewModel.callPresenceLabel)
                             .font(.headline)
+                            .lineLimit(2)
                             .accessibilityIdentifier("callPresenceLabel")
                         Text(viewModel.routeLabel)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
+                            .lineLimit(2)
                             .accessibilityIdentifier("routeLabel")
                     }
                 }
                 .accessibilityElement(children: .contain)
-                .accessibilityLabel(viewModel.callPresenceLabel)
+                .accessibilityLabel("Call status")
+                .accessibilityValue("\(viewModel.callPresenceLabel), \(viewModel.routeLabel)")
                 .accessibilityIdentifier("connectionStatusIcon")
 
                 Spacer()
@@ -272,11 +275,12 @@ private struct CallView: View {
                     viewModel.toggleOutputMute()
                 } label: {
                     Image(systemName: viewModel.isOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.bordered)
                 .tint(viewModel.isOutputMuted ? .red : .accentColor)
                 .accessibilityLabel(viewModel.isOutputMuted ? "Unmute Output" : "Mute Output")
+                .accessibilityValue(outputPercentLabel)
                 .accessibilityIdentifier("masterOutputMuteButton")
 
                 Slider(
@@ -286,6 +290,8 @@ private struct CallView: View {
                     ),
                     in: 0...1
                 )
+                .accessibilityLabel("Output Volume")
+                .accessibilityValue(outputPercentLabel)
                 .accessibilityIdentifier("masterOutputVolumeSlider")
             }
         }
@@ -313,15 +319,33 @@ private struct CallView: View {
     }
 
     private var controls: some View {
-        HStack(spacing: 10) {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                primaryConnectionButton
+
+                if let inviteURL = viewModel.selectedGroupInviteURL {
+                    inviteLink(inviteURL)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                primaryConnectionButton
+
+                if let inviteURL = viewModel.selectedGroupInviteURL {
+                    inviteLink(inviteURL)
+                }
+            }
+        }
+    }
+
+    private var primaryConnectionButton: some View {
+        Group {
             if viewModel.canDisconnectCall {
                 Button {
                     viewModel.disconnect()
                 } label: {
                     Label("Disconnect", systemImage: "xmark.circle.fill")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .accessibilityIdentifier("disconnectButton")
             } else {
                 Button {
@@ -329,28 +353,30 @@ private struct CallView: View {
                 } label: {
                     Label("Connect", systemImage: "antenna.radiowaves.left.and.right")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .accessibilityIdentifier("connectButton")
             }
-
-            if let inviteURL = viewModel.selectedGroupInviteURL {
-                ShareLink(
-                    item: inviteURL,
-                    subject: Text("RideIntercom Invite"),
-                    message: Text("Join \(viewModel.selectedGroup?.name ?? "RideIntercom")")
-                ) {
-                    Label("Invite", systemImage: "square.and.arrow.up")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .simultaneousGesture(TapGesture().onEnded {
-                    viewModel.reserveInviteMemberSlot()
-                })
-                .accessibilityLabel("Invite Group")
-                .accessibilityIdentifier("inviteButton")
-            }
         }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .accessibilityValue(viewModel.callPresenceLabel)
+    }
+
+    private func inviteLink(_ inviteURL: URL) -> some View {
+        ShareLink(
+            item: inviteURL,
+            subject: Text("RideIntercom Invite"),
+            message: Text("Join \(viewModel.selectedGroup?.name ?? "RideIntercom")")
+        ) {
+            Label("Invite", systemImage: "square.and.arrow.up")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .simultaneousGesture(TapGesture().onEnded {
+            viewModel.reserveInviteMemberSlot()
+        })
+        .accessibilityLabel("Invite Group")
+        .accessibilityHint("Opens sharing options for this group invite.")
+        .accessibilityIdentifier("inviteButton")
     }
 
     private var connectionIconName: String {
@@ -363,6 +389,19 @@ private struct CallView: View {
             "wifi"
         case .reconnectingOffline:
             "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var connectionStatusColor: Color {
+        switch viewModel.connectionState {
+        case .idle:
+            .secondary
+        case .localConnecting, .internetConnecting:
+            .orange
+        case .localConnected, .internetConnected:
+            .green
+        case .reconnectingOffline:
+            .red
         }
     }
 }
@@ -454,14 +493,12 @@ private struct SettingsView: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                AudioIOPanel(viewModel: viewModel)
-                TransmitCodecPanel(viewModel: viewModel)
-                AudioCheckPanel(viewModel: viewModel)
-            }
-            .padding()
+        Form {
+            AudioIOPanel(viewModel: viewModel)
+            TransmitCodecPanel(viewModel: viewModel)
+            AudioCheckPanel(viewModel: viewModel)
         }
+        .formStyle(.grouped)
         .accessibilityIdentifier("settingsScrollView")
     }
 }
@@ -470,13 +507,12 @@ private struct AudioIOPanel: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Audio I/O", systemImage: "slider.horizontal.3")
-                    .font(.headline)
+        Section {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Apply")
                 Spacer()
                 Text(viewModel.isAudioDeviceSelectionLive ? "Live" : "Next start")
-                    .font(.caption.weight(.semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(viewModel.isAudioDeviceSelectionLive ? .green : .secondary)
                     .accessibilityIdentifier("audioIOApplyStateLabel")
             }
@@ -515,16 +551,15 @@ private struct AudioIOPanel: View {
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(nil)
             }
-                .accessibilityIdentifier("audioInputProcessingSummaryLabel")
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Audio input processing")
+            .accessibilityValue(viewModel.audioInputProcessingSummary)
+            .accessibilityIdentifier("audioInputProcessingSummaryLabel")
+        } header: {
+            Label("Audio I/O", systemImage: "slider.horizontal.3")
         }
-        .padding(12)
-        .background(.background)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityIdentifier("audioIOPanel")
     }
 }
@@ -533,10 +568,7 @@ private struct TransmitCodecPanel: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Transmit Codec", systemImage: "antenna.radiowaves.left.and.right")
-                .font(.headline)
-
+        Section {
             Picker("Codec", selection: Binding(
                 get: { viewModel.preferredTransmitCodec },
                 set: { viewModel.setPreferredTransmitCodec($0) }
@@ -559,14 +591,9 @@ private struct TransmitCodecPanel: View {
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("heAACv2QualityPicker")
             }
+        } header: {
+            Label("Transmit Codec", systemImage: "antenna.radiowaves.left.and.right")
         }
-        .padding(12)
-        .background(.background)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityIdentifier("transmitCodecPanel")
     }
 }
@@ -575,14 +602,13 @@ private struct AudioCheckPanel: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Audio Check", systemImage: "waveform")
-                    .font(.headline)
+        Section {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Call")
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(viewModel.isAudioReady ? "Call Live" : "Call Idle")
-                        .font(.caption.weight(.semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(viewModel.isAudioReady ? .green : .secondary)
                         .accessibilityIdentifier("liveAudioStateLabel")
                     Text(viewModel.audioCheckPhase.rawValue)
@@ -617,6 +643,7 @@ private struct AudioCheckPanel: View {
             Text(viewModel.audioCheckStatusMessage)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                .lineLimit(nil)
                 .accessibilityIdentifier("audioCheckStatusLabel")
 
             VStack(alignment: .leading, spacing: 8) {
@@ -653,19 +680,15 @@ private struct AudioCheckPanel: View {
                 viewModel.startAudioCheck()
             } label: {
                 Label("Record 5s and Play", systemImage: "record.circle")
-                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing)
+            .accessibilityValue(viewModel.audioCheckPhase.rawValue)
             .accessibilityIdentifier("audioCheckButton")
+        } header: {
+            Label("Audio Check", systemImage: "waveform")
         }
-        .padding(12)
-        .background(.background)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityIdentifier("audioCheckPanel")
     }
 
@@ -926,9 +949,12 @@ private struct LocalMicrophoneHeaderControl: View {
             .buttonStyle(.bordered)
             .tint(isMuted ? .red : .accentColor)
             .accessibilityLabel(isMuted ? "Unmute" : "Mute")
+            .accessibilityValue(isMuted ? "Muted" : "Live")
             .accessibilityIdentifier("localMicrophoneMuteButton")
         }
         .accessibilityElement(children: .contain)
+        .accessibilityLabel("Your microphone")
+        .accessibilityValue(isMuted ? "Muted" : "Live")
         .accessibilityIdentifier("localMicrophoneHeaderControl")
     }
 }
@@ -967,6 +993,7 @@ private struct LocalMicrophonePanel: View {
                 .buttonStyle(.bordered)
                 .tint(isMuted ? .red : .accentColor)
                 .accessibilityLabel(isMuted ? "Unmute" : "Mute")
+                .accessibilityValue(isMuted ? "Muted" : "Live")
                 .accessibilityIdentifier("localMicrophoneMuteButton")
             }
         }
@@ -1013,6 +1040,15 @@ private struct VoiceMeterView: View {
                 .accessibilityIdentifier("voiceMeterValueLabel")
         }
         .accessibilityElement(children: .contain)
+        .accessibilityLabel("Audio level")
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var accessibilityValue: String {
+        if isMuted {
+            return "Muted"
+        }
+        return "Level \(indicator.levelPercent), peak \(indicator.peakPercent)"
     }
 
     private var meterColor: Color {
@@ -1044,12 +1080,12 @@ private struct RemoteParticipantRowView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(member.displayName)
                         .font(.headline)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .lineLimit(2)
                         .accessibilityIdentifier("participantName\(index)")
                     Text(statusSummary)
                         .font(.caption)
                         .foregroundStyle(statusColor)
+                        .lineLimit(2)
                         .accessibilityIdentifier("participantStatusSummary\(index)")
                 }
 
@@ -1061,29 +1097,17 @@ private struct RemoteParticipantRowView: View {
                     .accessibilityIdentifier("participantAudioPipelineState\(index)")
             }
 
-            HStack(alignment: .center, spacing: 12) {
-                VoiceMeterView(
-                    level: member.isMuted ? 0 : member.voiceLevel,
-                    peakLevel: member.isMuted ? 0 : member.voicePeakLevel,
-                    isMuted: member.isMuted
-                )
-                .accessibilityIdentifier("participantVoiceLevel\(index)")
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "speaker.wave.2.fill")
-                            .foregroundStyle(.secondary)
-                        Text("Output")
-                            .font(.caption)
-                        Spacer()
-                        Text("\(Int((outputVolume * 100).rounded()))%")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(value: $outputVolume, in: 0...1)
-                        .accessibilityIdentifier("participantOutputVolumeSlider\(index)")
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    participantMeter
+                    participantOutputControl
+                        .frame(minWidth: 150)
                 }
-                .frame(minWidth: 150)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    participantMeter
+                    participantOutputControl
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1094,6 +1118,41 @@ private struct RemoteParticipantRowView: View {
                 .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(member.displayName)
+        .accessibilityValue("\(statusSummary), \(codecLabel), output \(outputPercentLabel)")
+    }
+
+    private var participantMeter: some View {
+        VoiceMeterView(
+            level: member.isMuted ? 0 : member.voiceLevel,
+            peakLevel: member.isMuted ? 0 : member.voicePeakLevel,
+            isMuted: member.isMuted
+        )
+        .accessibilityIdentifier("participantVoiceLevel\(index)")
+    }
+
+    private var participantOutputControl: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: "speaker.wave.2.fill")
+                    .foregroundStyle(.secondary)
+                Text("Output")
+                    .font(.caption)
+                Spacer()
+                Text(outputPercentLabel)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: $outputVolume, in: 0...1)
+                .accessibilityLabel("\(member.displayName) Output")
+                .accessibilityValue(outputPercentLabel)
+                .accessibilityIdentifier("participantOutputVolumeSlider\(index)")
+        }
+    }
+
+    private var outputPercentLabel: String {
+        "\(Int((outputVolume * 100).rounded()))%"
     }
 
     private var statusSummary: String {

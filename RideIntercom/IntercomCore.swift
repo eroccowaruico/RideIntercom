@@ -2516,16 +2516,6 @@ enum CurrentProcessRuntimeFactory {
             audioFramePlayer: AudioFramePlayerFactory.makeDefault()
         )
     }
-
-    static func makeUITesting(defaults: UserDefaults) -> IntercomViewModel {
-        IntercomViewModel(
-            groupStore: DefaultGroupStoreFactory.make(defaults: defaults),
-            localMemberIdentityStore: UserDefaultsLocalMemberIdentityStore(defaults: defaults),
-            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
-            audioInputMonitor: NoOpAudioInputMonitor(),
-            audioFramePlayer: NoOpAudioFramePlayer()
-        )
-    }
 }
 
 enum AudioPacketCodec {
@@ -2825,14 +2815,6 @@ final class IntercomViewModel {
     private var routeCoordinator = RouteCoordinator()
 
     static func makeForCurrentProcess() -> IntercomViewModel {
-        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
-            let defaults = UserDefaults(suiteName: "RideIntercomUITests") ?? .standard
-            if ProcessInfo.processInfo.arguments.contains("--reset-ui-testing-data") {
-                defaults.removePersistentDomain(forName: "RideIntercomUITests")
-            }
-            return CurrentProcessRuntimeFactory.makeUITesting(defaults: defaults)
-        }
-
         return CurrentProcessRuntimeFactory.makeLive()
     }
 

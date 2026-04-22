@@ -5,31 +5,68 @@ import AppKit
 
 @MainActor
 enum SingleWindowPolicy {
+    static let mainWindowID = "main"
+
     static func enforce() {
         NSWindow.allowsAutomaticWindowTabbing = false
+    }
+
+    static func openMainWindowWhenNeeded(using opener: (() -> Void)?) {
         DispatchQueue.main.async {
-            closeDuplicateApplicationWindows()
+            if visibleApplicationWindows().isEmpty {
+                opener?()
+            }
         }
     }
 
-    private static func closeDuplicateApplicationWindows() {
-        let applicationWindows = NSApplication.shared.windows.filter { window in
+    private static func visibleApplicationWindows() -> [NSWindow] {
+        NSApplication.shared.windows.filter { window in
             window.isVisible && window.styleMask.contains(.titled)
         }
-        guard applicationWindows.count > 1 else { return }
+    }
+}
 
-        let keeper = NSApplication.shared.keyWindow
-            ?? NSApplication.shared.mainWindow
-            ?? applicationWindows.first
+@MainActor
+final class RideIntercomApplicationDelegate: NSObject, NSApplicationDelegate {
+    var openMainWindow: (() -> Void)?
 
-        for window in applicationWindows where window !== keeper {
-            window.close()
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        SingleWindowPolicy.openMainWindowWhenNeeded(using: openMainWindow)
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        SingleWindowPolicy.openMainWindowWhenNeeded(using: openMainWindow)
+    }
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            SingleWindowPolicy.openMainWindowWhenNeeded(using: openMainWindow)
         }
+
+        return true
     }
 }
 #else
 @MainActor
 enum SingleWindowPolicy {
+    static let mainWindowID = "main"
+
     static func enforce() {}
 }
 #endif

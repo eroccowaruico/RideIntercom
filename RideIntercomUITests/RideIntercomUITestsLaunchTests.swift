@@ -16,8 +16,9 @@ final class RideIntercomUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--reset-ui-testing-data"]
+        app.launchArguments = []
         app.launch()
+        app.activate()
         defer { app.terminate() }
 
         XCTAssertTrue(
@@ -27,13 +28,8 @@ final class RideIntercomUITestsLaunchTests: XCTestCase {
     }
 
     private func waitForVisibleRoot(in app: XCUIApplication) -> Bool {
-        app.buttons["createGroupButton"].firstMatch.waitForExistence(timeout: 2)
-            || app.buttons["Create Trail Group"].firstMatch.waitForExistence(timeout: 2)
-            || app.descendants(matching: .any)["liveTransmitPipelineView"].firstMatch.waitForExistence(timeout: 2)
-            || app.descendants(matching: .any)["settingsScrollView"].firstMatch.waitForExistence(timeout: 2)
-            || app.buttons["diagnosticsTab"].firstMatch.waitForExistence(timeout: 2)
-            || app.buttons["Diagnostics"].firstMatch.waitForExistence(timeout: 2)
-            || app.radioButtons["diagnosticsTab"].firstMatch.waitForExistence(timeout: 2)
-            || app.staticTexts["Recent Groups"].firstMatch.waitForExistence(timeout: 2)
+        app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3)
+            || app.buttons["createGroupButton"].firstMatch.waitForExistence(timeout: 3)
+            || app.staticTexts["Recent Groups"].firstMatch.waitForExistence(timeout: 3)
     }
 }
