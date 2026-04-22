@@ -47,7 +47,7 @@
   - `AVAudioEngine` input tap `bufferSize = 128`
 - ジッタバッファ既定:
   - `playoutDelay = 0.015s`
-  - `packetLifetime = 0.40s`
+  - `packetLifetime = 2.0s`
 
 補足:
 - `playoutDelay` を下げる際に `packetLifetime` を過小化すると、受信済みフレームの期限切れ破棄が増え、

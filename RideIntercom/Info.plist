@@ -17,9 +17,13 @@
 		<array>
 			<string>_ride-intercom._tcp</string>
 		</array>
-		<key>NSLocalNetworkUsageDescription</key>
-		<string>RideIntercom uses the local network to discover and connect nearby riders in your group.</string>
-		<key>NSMicrophoneUsageDescription</key>
-		<string>RideIntercom uses the microphone so riders in your group can hear your voice.</string>
-</dict>
+			<key>NSLocalNetworkUsageDescription</key>
+			<string>RideIntercom uses the local network to discover and connect nearby riders in your group.</string>
+			<key>NSMicrophoneUsageDescription</key>
+			<string>RideIntercom uses the microphone so riders in your group can hear your voice.</string>
+			<key>UIBackgroundModes</key>
+			<array>
+				<string>audio</string>
+			</array>
+	</dict>
 </plist>

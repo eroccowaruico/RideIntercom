@@ -48,7 +48,7 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
     private let microphonePermission: MicrophonePermissionAuthorizing
     private let bus: AVAudioNodeBus = 0
     private var isRunning = false
-    private var soundIsolationEnabled = false
+    private var soundIsolationEnabled = SoundIsolationBackend.isSupported
 
     init(
         engine: AVAudioEngine = AVAudioEngine(),

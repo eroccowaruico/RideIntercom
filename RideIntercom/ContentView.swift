@@ -519,7 +519,7 @@ private struct AudioCheckPanel: View {
                 HStack {
                     Text("Voice Activity Detection Threshold")
                     Spacer()
-                    Text(String(format: "%.2f", viewModel.voiceActivityDetectionThreshold))
+                    Text(String(format: "%.4f", viewModel.voiceActivityDetectionThreshold))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
@@ -529,7 +529,7 @@ private struct AudioCheckPanel: View {
                         set: { viewModel.setVoiceActivityDetectionThreshold(Float($0)) }
                     ),
                     in: Double(VoiceActivityDetector.minThreshold)...Double(VoiceActivityDetector.maxThreshold),
-                    step: 0.01
+                    step: 0.00025
                 )
                 .accessibilityIdentifier("voiceActivityDetectionThresholdSlider")
             }

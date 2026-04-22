@@ -100,6 +100,17 @@ struct RideIntercomTests {
         #endif
     }
 
+    @Test func appInfoPlistEnablesBackgroundAudioMode() throws {
+        let plistURL = Self.workspaceRoot().appendingPathComponent("RideIntercom/Info.plist")
+        let plistData = try Data(contentsOf: plistURL)
+        let plist = try #require(
+            PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any]
+        )
+        let backgroundModes = try #require(plist["UIBackgroundModes"] as? [String])
+
+        #expect(backgroundModes.contains("audio"))
+    }
+
     @Test func systemAudioInputMonitorRequestsMicrophonePermissionBeforeStartingCapture() {
         #if canImport(AVFAudio)
         let permission = FakeMicrophonePermissionAuthorizer(state: .notDetermined)
@@ -187,19 +198,19 @@ struct RideIntercomTests {
         )
 
         #expect(viewModel.supportsSoundIsolation == true)
-        #expect(viewModel.isSoundIsolationEnabled == false)
-
-        viewModel.setSoundIsolationEnabled(true)
-
-        #expect(audioInputMonitor.setSoundIsolationCallCount == 1)
-        #expect(audioInputMonitor.lastSetSoundIsolationValue == true)
         #expect(viewModel.isSoundIsolationEnabled == true)
 
         viewModel.setSoundIsolationEnabled(false)
 
-        #expect(audioInputMonitor.setSoundIsolationCallCount == 2)
+        #expect(audioInputMonitor.setSoundIsolationCallCount == 1)
         #expect(audioInputMonitor.lastSetSoundIsolationValue == false)
         #expect(viewModel.isSoundIsolationEnabled == false)
+
+        viewModel.setSoundIsolationEnabled(true)
+
+        #expect(audioInputMonitor.setSoundIsolationCallCount == 2)
+        #expect(audioInputMonitor.lastSetSoundIsolationValue == true)
+        #expect(viewModel.isSoundIsolationEnabled == true)
     }
 
     @MainActor
@@ -3501,9 +3512,23 @@ struct RideIntercomTests {
         )
 
         for _ in 0..<120 {
-            let state = detector.process(level: 0.0045)
+            let state = detector.process(level: 0.0003)
             #expect(state == .idle)
         }
+    }
+
+    @Test func vadMinimumThresholdCanDetectVeryQuietSpeech() {
+        var detector = VoiceActivityDetector(
+            threshold: VoiceActivityDetector.minThreshold,
+            attackFrames: 1,
+            releaseFrames: 8
+        )
+
+        for _ in 0..<20 {
+            _ = detector.process(level: 0.0002)
+        }
+
+        #expect(detector.process(level: 0.0008) == .talking)
     }
 
     @Test func vadReleaseStateKeepsSendingAcrossBriefDips() {
@@ -4242,6 +4267,7 @@ private final class SoundIsolationTestInputMonitor: AudioInputMonitoring {
 
     init(supportsSoundIsolation: Bool) {
         self.supportsSoundIsolation = supportsSoundIsolation
+        self.isSoundIsolationEnabled = supportsSoundIsolation
     }
 
     func start() throws {}

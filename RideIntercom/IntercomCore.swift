@@ -1613,9 +1613,9 @@ enum VoiceActivityState: Equatable {
 }
 
 struct VoiceActivityDetector {
-    static let minThreshold: Float = 0.006
+    static let minThreshold: Float = 0.00025
     static let maxThreshold: Float = 0.12
-    static let defaultThreshold: Float = 0.012
+    static let defaultThreshold: Float = 0.003
 
     private(set) var state: VoiceActivityState = .idle
     private var threshold: Float
@@ -1623,7 +1623,7 @@ struct VoiceActivityDetector {
     private let releaseFrames: Int
     private var speechFrames = 0
     private var silenceFrames = 0
-    private var noiseFloor: Float = 0.001
+    private var noiseFloor: Float = VoiceActivityDetector.minThreshold
 
     init(threshold: Float = VoiceActivityDetector.defaultThreshold, attackFrames: Int = 1, releaseFrames: Int = 40) {
         self.threshold = min(Self.maxThreshold, max(Self.minThreshold, threshold))
@@ -2301,6 +2301,11 @@ struct JitterBufferedAudioFrame: Equatable {
     let samples: [Float]
 }
 
+enum RemoteAudioJitterBufferDefaults {
+    static let playoutDelay: TimeInterval = 0.015
+    static let packetLifetime: TimeInterval = 2.0
+}
+
 struct JitterBuffer {
     private let playoutDelay: TimeInterval
     private let packetLifetime: TimeInterval
@@ -2312,7 +2317,10 @@ struct JitterBuffer {
         queuedPackets.count
     }
 
-    init(playoutDelay: TimeInterval = 0.015, packetLifetime: TimeInterval = 0.40) {
+    init(
+        playoutDelay: TimeInterval = RemoteAudioJitterBufferDefaults.playoutDelay,
+        packetLifetime: TimeInterval = RemoteAudioJitterBufferDefaults.packetLifetime
+    ) {
         self.playoutDelay = playoutDelay
         self.packetLifetime = packetLifetime
     }
@@ -2966,7 +2974,7 @@ final class IntercomViewModel {
         } else {
             isolationLabel = "N/A"
         }
-        return String(format: "VOICE ACTIVITY DETECTION THRESHOLD %.2f / SOUND ISOLATION %@", voiceActivityDetectionThreshold, isolationLabel)
+        return String(format: "VOICE ACTIVITY DETECTION THRESHOLD %.4f / SOUND ISOLATION %@", voiceActivityDetectionThreshold, isolationLabel)
     }
 
     var supportsSoundIsolation: Bool {
