@@ -628,10 +628,9 @@ private struct AudioCheckPanel: View {
                 Slider(
                     value: Binding(
                         get: { Double(viewModel.voiceActivityDetectionThreshold) },
-                        set: { viewModel.setVoiceActivityDetectionThreshold(Float($0)) }
+                        set: { viewModel.setVoiceActivityDetectionThreshold(Float(snappedThreshold($0))) }
                     ),
-                    in: Double(VoiceActivityDetector.minThreshold)...Double(VoiceActivityDetector.maxThreshold),
-                    step: 0.00025
+                    in: Double(VoiceActivityDetector.minThreshold)...Double(VoiceActivityDetector.maxThreshold)
                 )
                 .accessibilityIdentifier("voiceActivityDetectionThresholdSlider")
 
@@ -676,6 +675,15 @@ private struct AudioCheckPanel: View {
         case .failed:
             AppColorPalette.danger
         }
+    }
+
+    private func snappedThreshold(_ value: Double) -> Double {
+        let minValue = Double(VoiceActivityDetector.minThreshold)
+        let maxValue = Double(VoiceActivityDetector.maxThreshold)
+        let clamped = min(max(minValue, value), maxValue)
+        let step = 0.00025
+        let snapped = (clamped / step).rounded() * step
+        return min(max(minValue, snapped), maxValue)
     }
 }
 
