@@ -16,4 +16,7 @@ enum AppColorPalette {
 
     static let meterTrack: Color = Color.secondary.opacity(0.16)
     static let connectorNeutral: Color = Color.secondary.opacity(0.5)
+
+    static let buttonProminentBackground: Color = .accentColor
+    static let buttonProminentForeground: Color = .white
 }

@@ -2,37 +2,14 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var viewModel = IntercomViewModel.makeForCurrentProcess()
-    @State private var selectedTab: AppTab = .groups
+    @State private var selectedTab: AppTab = .call
 
     var body: some View {
         let _ = viewModel.uiEventRevision
 
         TabView(selection: $selectedTab) {
             NavigationStack {
-                GroupSelectionView(viewModel: viewModel) {
-                    selectedTab = .call
-                }
-                .navigationTitle("Groups")
-            }
-            .tabItem {
-                Label("Groups", systemImage: "person.3.fill")
-                    .accessibilityIdentifier("groupsTab")
-            }
-            .tag(AppTab.groups)
-
-            NavigationStack {
-                CallView(viewModel: viewModel)
-                    .navigationTitle(viewModel.selectedGroup?.name ?? "Call")
-                    .toolbar {
-                        ToolbarItem(placement: .navigation) {
-                            Button {
-                                selectedTab = .groups
-                            } label: {
-                                Label("Groups", systemImage: "person.3.fill")
-                            }
-                            .accessibilityIdentifier("showGroupsButton")
-                        }
-                    }
+                CallEntryView(viewModel: viewModel)
             }
             .tabItem {
                 Label("Call", systemImage: "waveform.circle.fill")
@@ -69,15 +46,39 @@ struct ContentView: View {
 }
 
 private enum AppTab: Hashable {
-    case groups
     case call
     case diagnostics
     case settings
 }
 
+private struct CallEntryView: View {
+    @Bindable var viewModel: IntercomViewModel
+
+    var body: some View {
+        Group {
+            if viewModel.selectedGroup == nil {
+                GroupSelectionView(viewModel: viewModel)
+                    .navigationTitle("Groups")
+            } else {
+                CallView(viewModel: viewModel)
+                    .navigationTitle(viewModel.selectedGroup?.name ?? "Call")
+                    .toolbar {
+                        ToolbarItem(placement: .navigation) {
+                            Button {
+                                viewModel.showGroupSelection()
+                            } label: {
+                                Label("Groups", systemImage: "person.3.fill")
+                            }
+                            .accessibilityIdentifier("showGroupsButton")
+                        }
+                    }
+            }
+        }
+    }
+}
+
 private struct GroupSelectionView: View {
     @Bindable var viewModel: IntercomViewModel
-    let onGroupSelected: () -> Void
 
     var body: some View {
         List {
@@ -90,7 +91,6 @@ private struct GroupSelectionView: View {
                 ForEach(viewModel.groups) { group in
                     Button {
                         viewModel.selectGroup(group)
-                        onGroupSelected()
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "person.3")
@@ -141,7 +141,6 @@ private struct GroupSelectionView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     viewModel.createTrailGroup()
-                    onGroupSelected()
                 } label: {
                     Label("Create Trail Group", systemImage: "plus")
                 }
@@ -156,76 +155,70 @@ private struct CallView: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
-        Group {
-            if viewModel.selectedGroup == nil {
-                CallPlaceholderView(viewModel: viewModel)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        statusHeader
-                        controls
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                statusHeader
+                controls
 
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Participants")
-                                .font(.headline)
-                                .foregroundStyle(AppColorPalette.textSecondary)
-                        }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Participants")
+                        .font(.headline)
+                        .foregroundStyle(AppColorPalette.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if remoteMembers.isEmpty {
+                    Text("No remote riders")
+                        .font(.subheadline)
+                        .foregroundStyle(AppColorPalette.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-
-                        if remoteMembers.isEmpty {
-                            Text("No remote riders")
-                                .font(.subheadline)
-                                .foregroundStyle(AppColorPalette.textSecondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12)
-                                .background(AppColorPalette.cardMaterial)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .accessibilityIdentifier("emptyRemoteParticipantsLabel")
-                        } else {
-                            VStack(spacing: 10) {
-                                ForEach(Array(remoteMembers.enumerated()), id: \.element.id) { index, member in
-                                    RemoteParticipantRowView(
-                                        index: index,
-                                        member: member,
-                                        outputVolume: Binding(
-                                            get: { Double(viewModel.remoteOutputVolume(for: member.id)) },
-                                            set: { viewModel.setRemoteOutputVolume(peerID: member.id, value: Float($0)) }
-                                        )
-                                    )
-                                    .accessibilityIdentifier("remoteParticipantRow\(index)")
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        Button(role: .destructive) {
-                                            guard let selectedGroup = viewModel.selectedGroup else { return }
-                                            viewModel.removeMember(member.id, from: selectedGroup.id)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                                    .contextMenu {
-                                        Button(role: .destructive) {
-                                            guard let selectedGroup = viewModel.selectedGroup else { return }
-                                            viewModel.removeMember(member.id, from: selectedGroup.id)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
+                        .padding(12)
+                        .background(AppColorPalette.cardMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .accessibilityIdentifier("emptyRemoteParticipantsLabel")
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(Array(remoteMembers.enumerated()), id: \.element.id) { index, member in
+                            RemoteParticipantRowView(
+                                index: index,
+                                member: member,
+                                outputVolume: Binding(
+                                    get: { Double(viewModel.remoteOutputVolume(for: member.id)) },
+                                    set: { viewModel.setRemoteOutputVolume(peerID: member.id, value: Float($0)) }
+                                )
+                            )
+                            .accessibilityIdentifier("remoteParticipantRow\(index)")
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    guard let selectedGroup = viewModel.selectedGroup else { return }
+                                    viewModel.removeMember(member.id, from: selectedGroup.id)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    guard let selectedGroup = viewModel.selectedGroup else { return }
+                                    viewModel.removeMember(member.id, from: selectedGroup.id)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
                             }
                         }
-
-                        if let audioErrorMessage = viewModel.audioErrorMessage {
-                            Text(audioErrorMessage)
-                                .font(.footnote)
-                                .foregroundStyle(AppColorPalette.danger)
-                                .accessibilityIdentifier("audioErrorLabel")
-                        }
                     }
-                    .padding()
                 }
-                .background(AppColorPalette.callScreenBackground)
-                .accessibilityIdentifier("callScrollView")
+
+                if let audioErrorMessage = viewModel.audioErrorMessage {
+                    Text(audioErrorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(AppColorPalette.danger)
+                        .accessibilityIdentifier("audioErrorLabel")
+                }
             }
+            .padding()
         }
+        .background(AppColorPalette.callScreenBackground)
+        .accessibilityIdentifier("callScrollView")
         .accessibilityIdentifier("callScreen")
     }
 
@@ -359,7 +352,7 @@ private struct CallView: View {
                 .accessibilityIdentifier("connectButton")
             }
         }
-        .buttonStyle(.borderedProminent)
+        .appProminentButtonStyle()
         .controlSize(.large)
         .accessibilityValue(viewModel.callPresenceLabel)
     }
@@ -406,31 +399,6 @@ private struct CallView: View {
         case .reconnectingOffline:
             AppColorPalette.danger
         }
-    }
-}
-
-private struct CallPlaceholderView: View {
-    @Bindable var viewModel: IntercomViewModel
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("No Group Selected")
-                    .font(.title2.weight(.semibold))
-                Text("Choose a group or create one to start a call.")
-                    .foregroundStyle(AppColorPalette.textSecondary)
-                Button {
-                    viewModel.createTrailGroup()
-                } label: {
-                    Label("Create Trail Group", systemImage: "plus.circle.fill")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("createGroupButton")
-            }
-            .padding()
-        }
-        .accessibilityIdentifier("callScrollView")
     }
 }
 
@@ -667,6 +635,7 @@ private struct AudioCheckPanel: View {
                 )
                 .accessibilityIdentifier("voiceActivityDetectionThresholdSlider")
             }
+            .listRowSeparator(.hidden)
 
             if viewModel.supportsSoundIsolation {
                 Toggle(
@@ -682,9 +651,9 @@ private struct AudioCheckPanel: View {
             Button {
                 viewModel.startAudioCheck()
             } label: {
-                Label("Record 5s and Play", systemImage: "record.circle")
+                Label("Record 5s and Play", systemImage: "record.circle.fill")
             }
-            .buttonStyle(.borderedProminent)
+            .appProminentButtonStyle()
             .controlSize(.large)
             .disabled(viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing)
             .accessibilityValue(viewModel.audioCheckPhase.rawValue)

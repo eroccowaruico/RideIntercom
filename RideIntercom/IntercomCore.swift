@@ -3069,6 +3069,12 @@ final class IntercomViewModel {
         startLocalStandby()
     }
 
+    func showGroupSelection() {
+        disconnect()
+        selectedGroup = nil
+        inviteStatusMessage = nil
+    }
+
     private var hasActiveConversationConnection: Bool {
         isAudioReady || connectionState == .localConnected || connectionState == .internetConnected || !authenticatedPeerIDs.isEmpty
     }
