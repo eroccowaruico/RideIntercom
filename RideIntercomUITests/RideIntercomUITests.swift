@@ -147,6 +147,65 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["VAD"].exists)
     }
 
+    @MainActor
+    func testTabNavigationShowsExpectedRootSections() throws {
+        openGroupsTab()
+        XCTAssertTrue(app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3))
+
+        openDiagnosticsTab()
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["audioIOApplyStateLabel"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["audioInputProcessingSummaryLabel"].firstMatch.waitForExistence(timeout: 3))
+
+        openSettingsTab()
+        XCTAssertTrue(app.descendants(matching: .any)["settingsScrollView"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["transmitCodecPanel"].firstMatch.waitForExistence(timeout: 3))
+        revealSettingsPanelIfNeeded(identifier: "vadThresholdPanel")
+        XCTAssertTrue(app.descendants(matching: .any)["vadThresholdPanel"].firstMatch.waitForExistence(timeout: 3))
+
+        openGroupsTab()
+        XCTAssertTrue(waitForVisibleRoot(in: app))
+    }
+
+    @MainActor
+    func testShowGroupsButtonReturnsFromCallToGroupSelection() throws {
+        createTrailGroupAndOpenCall()
+
+        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["showGroupsButton"].firstMatch.waitForExistence(timeout: 3))
+        app.buttons["showGroupsButton"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["createGroupButton"].firstMatch.exists)
+    }
+
+    @MainActor
+    func testConnectAndDisconnectButtonsTransitionInCall() throws {
+        createTrailGroupAndOpenCall()
+
+        let connectButton = app.buttons["connectButton"].firstMatch
+        XCTAssertTrue(connectButton.waitForExistence(timeout: 3))
+        connectButton.tap()
+
+        let disconnectButton = app.buttons["disconnectButton"].firstMatch
+        XCTAssertTrue(disconnectButton.waitForExistence(timeout: 5))
+        disconnectButton.tap()
+
+        XCTAssertTrue(app.buttons["connectButton"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testSettingsShowsConfigPanelsWithoutDiagnosticsRows() throws {
+        openSettingsTab()
+
+        XCTAssertTrue(app.descendants(matching: .any)["audioIOPanel"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["audioCheckPanel"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["transmitCodecPanel"].firstMatch.waitForExistence(timeout: 3))
+        revealSettingsPanelIfNeeded(identifier: "vadThresholdPanel")
+        XCTAssertTrue(app.descendants(matching: .any)["vadThresholdPanel"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["audioIOApplyStateLabel"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any)["audioInputProcessingSummaryLabel"].firstMatch.exists)
+    }
+
     private func createTrailGroupAndOpenCall() {
         openGroupsTab()
         removeExistingTrailGroups()
@@ -167,6 +226,30 @@ final class RideIntercomUITests: XCTestCase {
     private func openGroupsTab() {
         if app.staticTexts["Recent Groups"].firstMatch.exists {
             return
+        }
+        if app.tabBars.buttons["Call"].firstMatch.exists {
+            app.tabBars.buttons["Call"].firstMatch.tap()
+            if app.staticTexts["Recent Groups"].firstMatch.exists {
+                return
+            }
+        }
+        if app.buttons["Call"].firstMatch.exists {
+            app.buttons["Call"].firstMatch.tap()
+            if app.staticTexts["Recent Groups"].firstMatch.exists {
+                return
+            }
+        }
+        if app.radioButtons["callTab"].firstMatch.exists {
+            app.radioButtons["callTab"].firstMatch.tap()
+            if app.staticTexts["Recent Groups"].firstMatch.exists {
+                return
+            }
+        }
+        if app.buttons["callTab"].firstMatch.exists {
+            app.buttons["callTab"].firstMatch.tap()
+            if app.staticTexts["Recent Groups"].firstMatch.exists {
+                return
+            }
         }
         if app.buttons["showGroupsButton"].firstMatch.exists {
             app.buttons["showGroupsButton"].firstMatch.tap()
@@ -239,6 +322,21 @@ final class RideIntercomUITests: XCTestCase {
         let settingsView = app.descendants(matching: .any)["settingsScrollView"].firstMatch
         for _ in 0..<5 {
             if audioCheckButton.exists && audioCheckPanel.exists {
+                return
+            }
+            settingsView.swipeUp()
+        }
+    }
+
+    private func revealSettingsPanelIfNeeded(identifier: String) {
+        let targetPanel = app.descendants(matching: .any)[identifier].firstMatch
+        if targetPanel.exists {
+            return
+        }
+
+        let settingsView = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        for _ in 0..<6 {
+            if targetPanel.exists {
                 return
             }
             settingsView.swipeUp()
