@@ -139,7 +139,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 ## サーバー機能
 - サーバー機能は原則実装しない。
-- 例外として、Apple提供基盤（GameKit / APNsペイロード等）に必要最小限の情報を載せることは許容する。
+- 例外として、Apple提供基盤（APNsペイロード等）に必要最小限の情報を載せることは許容する。
 - サーバー機能が必要な場合は、Apple提供基盤を利用するか、将来の要件で必要になったときに改めて検討する。
 - それでも必要な場合は、cloudflare の無料範囲で構築することを検討する。
 

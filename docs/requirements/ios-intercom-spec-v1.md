@@ -3,7 +3,7 @@
 ## 0. 概要
 
 登山（近距離～中距離）での利用を想定し、**音楽を聴きながら気軽に会話できる**インカム体験を提供する。
-基本は **サーバーを立てずにP2P中心**で動作し、近距離は **MultipeerConnectivity（以下MC）**、接続断時は **キャリア/インターネット経由（GameKit real-time、以下GK）**へ移行する。
+基本は **P2P中心**で動作し、近距離は **MultipeerConnectivity（以下MC）**、接続断時は **キャリア/インターネット経由**へ移行する。
 グループは2〜6名。参加者は一度登録したら記憶し、起動時にグループ選択または新規作成・追加ができる。
 
 ---
@@ -11,7 +11,7 @@
 ## 1. 用語
 
 * **Local**：MCを用いた近距離P2P通信（Bluetooth/Wi-Fi Direct等）
-* **Internet**：GK real-timeを用いたインターネット経由通信（キャリア/Wi-Fi）
+* **Internet**：インターネット経由通信（キャリア/Wi-Fi）
 * **Group**：同時通話する固定最大6名の集合
 * **Owner**：グループ内の暗黙的管理者（最小ID）。不在時は次点が自動繰上げ
 * **VAD**：Voice Activity Detection（発話検出）。無音時は送信抑制
@@ -25,9 +25,7 @@
 
 * [C-OS-001] **iOS 26以降のみ**対応
 * [C-UI-001] UIは **SwiftUI**（最新OS前提のAPI利用可）
-* [C-SRV-001] **自前の常設サーバーは立てない**
-
-  * 例外として、Apple提供基盤（GameKit / APNsペイロード等）に必要最小限の情報を載せることは許容
+* [C-SRV-001] Internet経路の基盤はクライアント実装と整合する方式を採用する
 
 ### 2.2 利用環境想定
 
@@ -101,9 +99,7 @@
 
   * 送信は基本 `unreliable`（遅延優先）
 
-* [S-ARCH-003] InternetTransport は **GameKit real-time（GKMatch）**
-
-  * NAT越え等はApple基盤に委任（自前サーバー不要）
+* [S-ARCH-003] InternetTransport は **InternetTransportAdapter** で抽象化し、WebSocket等の経路へ差し替え可能にする
 
 ## 5.2 グループモデル・永続化
 
@@ -221,7 +217,7 @@
 * [A-F-006] 圏外状態（機内モード＋Wi-Fi/BT等の条件で可能な範囲）で、近距離端末同士が接続できる
 * [A-F-007] Localでは音声フレーム送信が `unreliable` で行われ、遅延が過度に増えない
 
-## 6.4 断→Internet移行（GK）
+## 6.4 断→Internet移行
 
 * [A-F-008] Localを意図的に切断（距離/設定）したとき、Internetが利用可能なら自動で通話が復帰する
 * [A-F-009] Internetが利用不可なら「再接続試行中/圏外」等の状態がUIで分かる
@@ -313,11 +309,11 @@
 
   * [A-F-020][A-F-021][A-F-022]
 
-## Phase 5: Internet移行（Local断→GK）
+## Phase 5: Internet移行（Local断）
 
 * 実装対象
 
-  * [S-ARCH-003] GK Transport
+  * [S-ARCH-003] Internet Transport
   * [S-HO-001] Local断時にInternet起動
   * 重複排除のための frame metadata（streamID/seq）
 * 受け入れ

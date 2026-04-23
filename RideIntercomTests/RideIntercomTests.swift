@@ -3939,23 +3939,14 @@ struct RideIntercomTests {
 
     @Test func defaultInternetTransportAdapterFactorySelectsAdapterFromEnvironment() {
         let preferred = DefaultInternetTransportAdapterFactory.make(environment: [:])
-        #if canImport(GameKit)
-        #expect(preferred is GameKitInternetTransportAdapter)
-        #else
         #expect(preferred is LoopbackInternetTransportAdapter)
-        #endif
 
         let invalid = DefaultInternetTransportAdapterFactory.make(environment: [
             InternetTransportEndpointConfig.environmentKey: "not-a-url"
         ])
-        #if canImport(GameKit)
-        #expect(invalid is GameKitInternetTransportAdapter)
-        #else
         #expect(invalid is LoopbackInternetTransportAdapter)
-        #endif
 
         let remote = DefaultInternetTransportAdapterFactory.make(environment: [
-            InternetTransportEndpointConfig.forceLegacyAdapterEnvironmentKey: "1",
             InternetTransportEndpointConfig.environmentKey: "wss://example.com/intercom"
         ])
         #expect(remote is URLSessionInternetTransportAdapter)
