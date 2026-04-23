@@ -1,10 +1,24 @@
 import SwiftUI
 
 extension View {
+    private var appPlatformButtonMinHeight: CGFloat {
+        #if canImport(AppKit)
+        return AppSize.buttonMacMinHeight
+        #else
+        return AppSize.buttonPrimaryMinHeight
+        #endif
+    }
+
     func appProminentButtonStyle() -> some View {
         buttonStyle(.borderedProminent)
             .tint(AppColorPalette.buttonProminentBackground)
             .foregroundStyle(AppColorPalette.buttonProminentForeground)
+            .frame(minHeight: max(AppSize.buttonPrimaryMinHeight, appPlatformButtonMinHeight))
+    }
+
+    func appSecondaryButtonStyle() -> some View {
+        buttonStyle(.bordered)
+            .frame(minHeight: max(AppSize.buttonSecondaryMinHeight, appPlatformButtonMinHeight))
     }
 
     func appCallCardStyle() -> some View {

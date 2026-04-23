@@ -51,6 +51,9 @@ enum AppBorderWidth {
 
 enum AppSize {
     static let tapPrimary = CGSize(width: 44, height: 44)
+    static let buttonPrimaryMinHeight: CGFloat = 44
+    static let buttonSecondaryMinHeight: CGFloat = 36
+    static let buttonMacMinHeight: CGFloat = 28
     static let iconS: CGFloat = 24
     static let iconM: CGFloat = 28
     static let iconL: CGFloat = 32

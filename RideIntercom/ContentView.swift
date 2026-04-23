@@ -90,7 +90,12 @@ private struct GroupSelectionView: View {
             Section("Recent Groups") {
                 if viewModel.groups.isEmpty {
                     Text("Create a group to start a call.")
+                        .font(AppTypography.subheadline)
                         .foregroundStyle(AppColorPalette.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .appCallCardStyle()
+                        .listRowInsets(EdgeInsets(top: AppSpacing.m, leading: AppSpacing.screen, bottom: AppSpacing.m, trailing: AppSpacing.screen))
+                        .listRowBackground(Color.clear)
                 }
 
                 ForEach(viewModel.groups) { group in
@@ -117,9 +122,12 @@ private struct GroupSelectionView: View {
                                 .font(AppTypography.footnoteStrong)
                                 .foregroundStyle(AppColorPalette.textTertiary)
                         }
+                        .appCallCardStyle()
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: AppSpacing.m, leading: AppSpacing.screen, bottom: AppSpacing.m, trailing: AppSpacing.screen))
+                    .listRowBackground(Color.clear)
                     .accessibilityLabel(group.name)
                     .accessibilityValue("\(group.members.count) members")
                     .accessibilityHint("Opens the call screen for this group.")
@@ -142,6 +150,8 @@ private struct GroupSelectionView: View {
             }
         }
         .listStyle(.automatic)
+        .scrollContentBackground(.hidden)
+        .background(AppColorPalette.callScreenBackground)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -287,7 +297,7 @@ private struct CallView: View {
                     Image(systemName: viewModel.isOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                         .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
                 }
-                .buttonStyle(.bordered)
+                .appSecondaryButtonStyle()
                 .appStateToggleButtonTint(isActive: viewModel.isOutputMuted)
                 .accessibilityLabel(viewModel.isOutputMuted ? "Unmute Output" : "Mute Output")
                 .accessibilityValue(outputPercentLabel)
@@ -362,7 +372,7 @@ private struct CallView: View {
         ) {
             Label("Invite", systemImage: "square.and.arrow.up")
         }
-        .buttonStyle(.bordered)
+        .appSecondaryButtonStyle()
         .controlSize(.large)
         .simultaneousGesture(TapGesture().onEnded {
             viewModel.reserveInviteMemberSlot()
@@ -959,7 +969,7 @@ private struct LocalMicrophoneHeaderControl: View {
                 Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
                     .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
             }
-            .buttonStyle(.bordered)
+            .appSecondaryButtonStyle()
             .appStateToggleButtonTint(isActive: isMuted)
             .accessibilityLabel(isMuted ? "Unmute" : "Mute")
             .accessibilityValue(isMuted ? "Muted" : "Live")
@@ -1003,7 +1013,7 @@ private struct LocalMicrophonePanel: View {
                     Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
                         .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
                 }
-                .buttonStyle(.bordered)
+                .appSecondaryButtonStyle()
                 .appStateToggleButtonTint(isActive: isMuted)
                 .accessibilityLabel(isMuted ? "Unmute" : "Mute")
                 .accessibilityValue(isMuted ? "Muted" : "Live")
