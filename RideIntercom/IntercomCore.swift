@@ -2767,6 +2767,8 @@ final class IntercomViewModel {
     private static let pendingMemberPrefix = "pending-"
     private static let pendingInviteMemberPrefix = "invite-pending-"
     nonisolated static let muteAutoStopDelayDefault: Duration = .seconds(2)
+    nonisolated static let normalMasterOutputVolume: Float = 1
+    nonisolated static let maximumMasterOutputVolume: Float = 2
 
     private(set) var groups: [IntercomGroup]
     private(set) var selectedGroup: IntercomGroup?
@@ -3467,7 +3469,7 @@ final class IntercomViewModel {
     }
 
     func setMasterOutputVolume(_ value: Float) {
-        masterOutputVolume = clampedAudioGain(value)
+        masterOutputVolume = clampedMasterOutputVolume(value)
     }
 
     func toggleOutputMute() {
@@ -3988,6 +3990,10 @@ final class IntercomViewModel {
                 samples: frame.samples.map { clampedAudioSample($0 * gain) }
             )
         }
+    }
+
+    private func clampedMasterOutputVolume(_ value: Float) -> Float {
+        min(Self.maximumMasterOutputVolume, max(0, value))
     }
 
     private func clampedAudioGain(_ value: Float) -> Float {

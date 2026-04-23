@@ -2125,6 +2125,51 @@ struct RideIntercomTests {
     }
 
     @MainActor
+    @Test func masterOutputVolumeBoostsRemotePlaybackSamplesAboveNormalMaximum() throws {
+        let localTransport = LocalTransport()
+        let ticker = NoOpCallTicker()
+        let audioFramePlayer = NoOpAudioFramePlayer()
+        let group = try IntercomGroup(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "Pair",
+            members: [
+                GroupMember(id: "member-001", displayName: "You"),
+                GroupMember(id: "member-002", displayName: "Partner")
+            ]
+        )
+        let viewModel = IntercomViewModel(
+            groups: [group],
+            localTransport: localTransport,
+            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
+            audioInputMonitor: NoOpAudioInputMonitor(),
+            callTicker: ticker,
+            audioFramePlayer: audioFramePlayer
+        )
+        let received = ReceivedAudioPacket(
+            peerID: "member-002",
+            envelope: AudioPacketEnvelope(
+                groupID: group.id,
+                streamID: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+                sequenceNumber: 1,
+                sentAt: 10,
+                packet: .voice(frameID: 10, samples: [0.6, -0.4])
+            ),
+            packet: .voice(frameID: 10, samples: [0.6, -0.4])
+        )
+
+        viewModel.selectGroup(group)
+        viewModel.connectLocal()
+        viewModel.setMasterOutputVolume(1.5)
+        localTransport.simulateReceivedPacket(received)
+        ticker.simulateTick(now: 10.02)
+
+        let playedSamples = try #require(audioFramePlayer.playedFrames.first?.samples)
+        #expect(playedSamples.count == 2)
+        #expect(abs(playedSamples[0] - 0.9) < 0.0001)
+        #expect(abs(playedSamples[1] + 0.6) < 0.0001)
+    }
+
+    @MainActor
     @Test func perPeerOutputVolumeScalesOnlyMatchingRemotePlaybackSamples() throws {
         let localTransport = LocalTransport()
         let ticker = NoOpCallTicker()
@@ -2304,8 +2349,12 @@ struct RideIntercomTests {
         viewModel.selectGroup(group)
         viewModel.setMasterOutputVolume(2)
         viewModel.setRemoteOutputVolume(peerID: "member-002", value: -1)
-        #expect(viewModel.masterOutputVolume == 1)
+        #expect(viewModel.masterOutputVolume == 2)
         #expect(viewModel.remoteOutputVolume(for: "member-002") == 0)
+
+        viewModel.setMasterOutputVolume(3)
+
+        #expect(viewModel.masterOutputVolume == 2)
 
         viewModel.removeMember("member-002", from: group.id)
 
@@ -4317,6 +4366,14 @@ struct RideIntercomTests {
 
     @MainActor
     @Test func audioCheckFallsBackFromUnsupportedPreferredCodecToPCM16() {
+        let previousOpusBackend = OpusCodecBackendRegistry.current()
+        OpusCodecBackendRegistry.uninstall()
+        defer {
+            if let previousOpusBackend {
+                OpusCodecBackendRegistry.install(previousOpusBackend)
+            }
+        }
+
         let audioInputMonitor = NoOpAudioInputMonitor()
         let audioFramePlayer = NoOpAudioFramePlayer()
         let viewModel = IntercomViewModel(
@@ -4328,12 +4385,12 @@ struct RideIntercomTests {
 
         viewModel.setPreferredTransmitCodec(.opus)
         viewModel.startAudioCheck()
-        audioInputMonitor.simulate(samples: [0.5, -0.5, 0.25, -0.25])
+        let originalSamples: [Float] = [0.5, -0.5, 0.25, -0.25]
+        audioInputMonitor.simulate(samples: originalSamples)
         viewModel.finishAudioCheckRecordingForDebug()
 
         let playedSamples = audioFramePlayer.playedFrames.first?.samples ?? []
-        #expect(playedSamples.count == 4)
-        let originalSamples: [Float] = [0.5, -0.5, 0.25, -0.25]
+        #expect(playedSamples.count == originalSamples.count)
         for (played, original) in zip(playedSamples, originalSamples) {
             #expect(abs(played - original) < 0.0001)
         }

@@ -283,7 +283,7 @@ private struct CallView: View {
                             get: { Double(viewModel.masterOutputVolume) },
                             set: { viewModel.setMasterOutputVolume(Float($0)) }
                         ),
-                        in: 0...1
+                        in: 0...Double(IntercomViewModel.maximumMasterOutputVolume)
                     )
                     .accessibilityLabel("Output Volume")
                     .accessibilityValue(outputPercentLabel)
@@ -318,7 +318,8 @@ private struct CallView: View {
 
     private var outputPercentLabel: String {
         let percent = Int((viewModel.masterOutputVolume * 100).rounded())
-        return viewModel.isOutputMuted ? "Output Muted" : "Output \(percent)%"
+        let label = viewModel.masterOutputVolume > IntercomViewModel.normalMasterOutputVolume ? "Output Boost" : "Output"
+        return viewModel.isOutputMuted ? "Output Muted" : "\(label) \(percent)%"
     }
 
     private var controls: some View {
