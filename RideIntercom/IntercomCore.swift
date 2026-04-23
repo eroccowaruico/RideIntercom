@@ -1871,7 +1871,7 @@ final class HEAACv2AudioEncoding: AudioEncoding {
     let quality: HEAACv2Quality
 
     private static let sampleRate: Double = 16_000
-    private static let frameSize = 2_048
+    private static let frameSize = 1_024
     private static let channelCount: AVAudioChannelCount = 2
 
     private var bufferedSamples: [Float] = []
@@ -2287,11 +2287,21 @@ struct ReceivedAudioPacket: Equatable {
 }
 
 struct ReceivedAudioPacketFilter {
-    private let groupID: UUID
-    private var seenPacketIDs: Set<PacketID> = []
+    typealias DecoderSessionFactory = (AudioCodecIdentifier) -> any AudioDecoderSession
 
-    init(groupID: UUID) {
+    private let groupID: UUID
+    private let decoderSessionFactory: DecoderSessionFactory
+    private var seenPacketIDs: Set<PacketID> = []
+    private var decoderSessions: [DecoderSessionKey: any AudioDecoderSession] = [:]
+
+    init(
+        groupID: UUID,
+        decoderSessionFactory: @escaping DecoderSessionFactory = { codec in
+            AudioCodecSessionFactory.makeDecoderSession(codec: codec)
+        }
+    ) {
         self.groupID = groupID
+        self.decoderSessionFactory = decoderSessionFactory
     }
 
     mutating func accept(_ data: Data, fromPeerID peerID: String) throws -> ReceivedAudioPacket? {
@@ -2300,18 +2310,48 @@ struct ReceivedAudioPacketFilter {
     }
 
     mutating func accept(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) -> ReceivedAudioPacket? {
-        guard envelope.groupID == groupID,
-              let packet = envelope.packet else { return nil }
+        guard envelope.groupID == groupID else { return nil }
 
         let packetID = PacketID(streamID: envelope.streamID, sequenceNumber: envelope.sequenceNumber)
-        guard seenPacketIDs.insert(packetID).inserted else { return nil }
+        guard !seenPacketIDs.contains(packetID),
+              let packet = decodePacket(envelope, fromPeerID: peerID) else {
+            return nil
+        }
+
+        seenPacketIDs.insert(packetID)
 
         return ReceivedAudioPacket(peerID: peerID, envelope: envelope, packet: packet)
+    }
+
+    private mutating func decodePacket(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) -> OutboundAudioPacket? {
+        switch envelope.kind {
+        case .keepalive:
+            return .keepalive
+        case .voice:
+            if let encodedVoice = envelope.encodedVoice {
+                let sessionKey = DecoderSessionKey(peerID: peerID, streamID: envelope.streamID, codec: encodedVoice.codec)
+                let decoder = decoderSessions[sessionKey] ?? decoderSessionFactory(encodedVoice.codec)
+                decoderSessions[sessionKey] = decoder
+                guard let decodedSamples = try? decoder.decodePacket(encodedVoice.payload) else {
+                    return nil
+                }
+                return .voice(frameID: encodedVoice.frameID, samples: decodedSamples)
+            }
+
+            guard let frameID = envelope.frameID else { return nil }
+            return .voice(frameID: frameID, samples: envelope.samples)
+        }
     }
 
     private struct PacketID: Hashable {
         let streamID: UUID
         let sequenceNumber: Int
+    }
+
+    private struct DecoderSessionKey: Hashable {
+        let peerID: String
+        let streamID: UUID
+        let codec: AudioCodecIdentifier
     }
 }
 

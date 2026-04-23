@@ -46,6 +46,10 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
     var onSamples: (@MainActor ([Float]) -> Void)?
     private let engine: AVAudioEngine
     private let microphonePermission: MicrophonePermissionAuthorizing
+    private let soundIsolationQueue = DispatchQueue(
+        label: "RideIntercom.SystemAudioInputMonitor.soundIsolation",
+        qos: .utility
+    )
     private let bus: AVAudioNodeBus = 0
     private var isRunning = false
     private var soundIsolationEnabled = SoundIsolationBackend.isSupported
@@ -72,12 +76,15 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
             return
         }
 
-        let previous = soundIsolationEnabled
         if isRunning {
-            soundIsolationEnabled = reconfigureRunningPipeline(
-                requestedSoundIsolationEnabled: enabled,
-                previousSoundIsolationEnabled: previous
-            )
+            let requested = enabled
+            soundIsolationQueue.async { [weak self] in
+                guard let self else { return }
+                let applied = self.applySoundIsolation(requested)
+                Task { @MainActor [weak self] in
+                    self?.soundIsolationEnabled = applied
+                }
+            }
         } else {
             soundIsolationEnabled = applySoundIsolation(enabled)
         }
@@ -117,37 +124,6 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
         } catch {
             return false
         }
-    }
-
-    private func reconfigureRunningPipeline(
-        requestedSoundIsolationEnabled enabled: Bool,
-        previousSoundIsolationEnabled previous: Bool
-    ) -> Bool {
-        stopEngineAndRemoveTap()
-        let applied = applySoundIsolation(enabled)
-        installInputTap()
-
-        do {
-            try startEngine()
-            isRunning = true
-        } catch {
-            // Roll back to the previous processing mode so in-call toggles never leave
-            // the audio pipeline in a broken state that requires reconnecting.
-            stopEngineAndRemoveTap()
-            let restored = applySoundIsolation(previous)
-            installInputTap()
-
-            do {
-                try startEngine()
-                isRunning = true
-                return restored
-            } catch {
-                isRunning = false
-                return previous
-            }
-        }
-
-        return applied && isRunning
     }
 
     private func installInputTap() {

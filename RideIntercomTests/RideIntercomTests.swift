@@ -879,6 +879,57 @@ struct RideIntercomTests {
         #expect(received == ReceivedAudioPacket(peerID: "peer-b", envelope: envelope, packet: .keepalive))
     }
 
+    @Test func receivedPacketFilterReusesDecoderSessionForSamePeerStreamAndCodec() {
+        final class StatefulDecoder: AudioDecoderSession {
+            let codec: AudioCodecIdentifier
+            private var decodeCount = 0
+
+            init(codec: AudioCodecIdentifier) {
+                self.codec = codec
+            }
+
+            func decodePacket(_ data: Data) throws -> [Float] {
+                decodeCount += 1
+                return decodeCount == 1 ? [] : [0.25, -0.25]
+            }
+
+            func reset() {}
+        }
+
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        var createdDecoderCount = 0
+        var filter = ReceivedAudioPacketFilter(
+            groupID: groupID,
+            decoderSessionFactory: { codec in
+                createdDecoderCount += 1
+                return StatefulDecoder(codec: codec)
+            }
+        )
+
+        let firstEnvelope = AudioPacketEnvelope(
+            groupID: groupID,
+            streamID: streamID,
+            sequenceNumber: 1,
+            sentAt: 100,
+            encodedVoice: EncodedVoicePacket(frameID: 1, codec: .heAACv2, payload: Data([0x11]))
+        )
+        let secondEnvelope = AudioPacketEnvelope(
+            groupID: groupID,
+            streamID: streamID,
+            sequenceNumber: 2,
+            sentAt: 101,
+            encodedVoice: EncodedVoicePacket(frameID: 2, codec: .heAACv2, payload: Data([0x22]))
+        )
+
+        let first = filter.accept(firstEnvelope, fromPeerID: "peer-a")
+        let second = filter.accept(secondEnvelope, fromPeerID: "peer-a")
+
+        #expect(createdDecoderCount == 1)
+        #expect(first == ReceivedAudioPacket(peerID: "peer-a", envelope: firstEnvelope, packet: .voice(frameID: 1)))
+        #expect(second == ReceivedAudioPacket(peerID: "peer-a", envelope: secondEnvelope, packet: .voice(frameID: 2, samples: [0.25, -0.25])))
+    }
+
     @Test func jitterBufferDeliversReadyVoiceFramesInSequenceOrder() throws {
         let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
         let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
