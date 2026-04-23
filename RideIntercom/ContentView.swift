@@ -6,41 +6,46 @@ struct ContentView: View {
 
     var body: some View {
         let _ = viewModel.uiEventRevision
+        return TabView(selection: $selectedTab) {
+            Tab("Call", systemImage: "waveform.circle.fill", value: .call) {
+                callTabContent
+            }
+            .accessibilityIdentifier("callTab")
 
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                CallEntryView(viewModel: viewModel)
+            Tab("Diagnostics", systemImage: "gauge", value: .diagnostics) {
+                diagnosticsTabContent
             }
-            .tabItem {
-                Label("Call", systemImage: "waveform.circle.fill")
-                    .accessibilityIdentifier("callTab")
-            }
-            .tag(AppTab.call)
+            .accessibilityIdentifier("diagnosticsTab")
 
-            NavigationStack {
-                DiagnosticsView(viewModel: viewModel)
-                    .navigationTitle("Diagnostics")
+            Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
+                settingsTabContent
             }
-            .tabItem {
-                Label("Diagnostics", systemImage: "gauge")
-                    .accessibilityIdentifier("diagnosticsTab")
-            }
-            .tag(AppTab.diagnostics)
-
-            NavigationStack {
-                SettingsView(viewModel: viewModel)
-                    .navigationTitle("Settings")
-            }
-            .tabItem {
-                Label("Settings", systemImage: "gearshape.fill")
-                    .accessibilityIdentifier("settingsTab")
-            }
-            .tag(AppTab.settings)
+            .accessibilityIdentifier("settingsTab")
         }
-        .onOpenURL { url in
-            if (try? viewModel.acceptInviteURL(url)) != nil {
-                selectedTab = .call
+            .onOpenURL { url in
+                if (try? viewModel.acceptInviteURL(url)) != nil {
+                    selectedTab = .call
+                }
             }
+    }
+
+    private var callTabContent: some View {
+        NavigationStack {
+            CallEntryView(viewModel: viewModel)
+        }
+    }
+
+    private var diagnosticsTabContent: some View {
+        NavigationStack {
+            DiagnosticsView(viewModel: viewModel)
+                .navigationTitle("Diagnostics")
+        }
+    }
+
+    private var settingsTabContent: some View {
+        NavigationStack {
+            SettingsView(viewModel: viewModel)
+                .navigationTitle("Settings")
         }
     }
 }

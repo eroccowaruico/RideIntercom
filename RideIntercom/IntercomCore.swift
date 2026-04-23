@@ -2866,7 +2866,7 @@ final class IntercomViewModel {
         callTicker: CallTicking? = nil,
         audioFramePlayer: AudioFramePlaying? = nil,
         jitterBuffer: JitterBuffer? = nil,
-        opusBackend: (any OpusCodecBackend)? = OpusCodecBackendRegistry.current(),
+        opusBackend: (any OpusCodecBackend)? = nil,
         remoteTalkerTimeout: TimeInterval = 0.6,
         muteAutoStopDelay: Duration = IntercomViewModel.muteAutoStopDelayDefault
     ) {
@@ -2887,7 +2887,7 @@ final class IntercomViewModel {
         self.groupStore = groupStore
         self.localMemberIdentity = (localMemberIdentityStore ?? InMemoryLocalMemberIdentityStore()).loadOrCreate()
         self.jitterBuffer = jitterBuffer ?? JitterBuffer()
-        self.opusBackend = opusBackend
+        self.opusBackend = opusBackend ?? OpusCodecBackendRegistry.current()
         self.remoteTalkerTimeout = remoteTalkerTimeout
         self.muteAutoStopDelay = muteAutoStopDelay
         self.audioTransmissionController.setVoiceActivityThreshold(initialVoiceActivityDetectionThreshold)

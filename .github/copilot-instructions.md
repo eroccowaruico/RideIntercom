@@ -72,6 +72,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 抽象化は増やすこと自体を目的にせず、重複削減・変更容易性・テスト容易性の向上が確認できる場合のみ導入する。
 
 ## UI・UX方針
+- 原則Swift UIのネイティブコントロールのみを使用し、どうしても必要な場合のみその他ネイティブの標準UIを利用する。カスタムUIは使用しない。
 - UIは最新のApple Human Interface Guidelinesに準拠し、実装前にAccessibility、Layout、Iconsの該当箇所を確認する。
 - iOSはHIG準拠を必須とし、標準SwiftUIコンポーネント、safe area、Dynamic Type、VoiceOver、ライト/ダークモード、Reduce Motionを前提に設計する。
 - macOSはiOSの単純移植で済ませず、同一の構造・状態管理・アクセシビリティIDを維持しながら、ウィンドウサイズ変更、キーボード操作、VoiceOver、macOSのクリック対象サイズ、下端に重要操作を固定しない配置を最低条件として満たす。

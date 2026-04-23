@@ -6,8 +6,7 @@ import AppKit
 @MainActor
 enum SingleWindowPolicy {
     static let mainWindowID = "main"
-    private static let preferredContentSize = NSSize(width: 390, height: 844)
-    private static let minimumWindowSize = NSSize(width: 360, height: 700)
+    private static let preferredContentSize = NSSize(width: 585, height: 844)
 
     static func enforce() {
         NSWindow.allowsAutomaticWindowTabbing = false
@@ -30,7 +29,6 @@ enum SingleWindowPolicy {
 
     private static func applyCompactPortraitLayoutIfNeeded() {
         for window in NSApplication.shared.windows where window.styleMask.contains(.titled) {
-            window.minSize = minimumWindowSize
             window.setContentSize(preferredContentSize)
             window.center()
         }
