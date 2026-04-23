@@ -1379,6 +1379,31 @@ struct RideIntercomTests {
         #expect(producedVoiceEnvelope?.encodedVoice?.codec == .heAACv2 || producedVoiceEnvelope?.encodedVoice?.codec == .pcm16)
     }
 
+    @Test func audioPacketSequencerRotatesStreamIDWhenCodecChanges() {
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let initialStreamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        var sequencer = AudioPacketSequencer(groupID: groupID, streamID: initialStreamID, codec: .pcm16)
+
+        let first = sequencer.makeEnvelope(
+            for: OutboundAudioPacket.voice(frameID: 1, samples: [0.1]),
+            sentAt: 10
+        )
+
+        sequencer.codec = .heAACv2
+        _ = sequencer.makeEnvelope(
+            for: OutboundAudioPacket.voice(frameID: 2, samples: Array(repeating: 0.1, count: 128)),
+            sentAt: 11
+        )
+        let afterSwitch = sequencer.makeEnvelope(
+            for: OutboundAudioPacket.keepalive,
+            sentAt: 12
+        )
+
+        #expect(first.streamID == initialStreamID)
+        #expect(afterSwitch.streamID != initialStreamID)
+        #expect(afterSwitch.sequenceNumber == 2)
+    }
+
     @MainActor
     @Test func audioSessionManagerUsesIntercomConfigurationAndActivates() throws {
         let session = NoOpAudioSession()
@@ -1808,6 +1833,42 @@ struct RideIntercomTests {
 
         #expect(localTransport.sentAudioPackets == [.voice(frameID: 1), .voice(frameID: 2), .voice(frameID: 3)])
         #expect(localTransport.sentControlMessages.isEmpty)
+    }
+
+    @MainActor
+    @Test func authenticatedEventSendsStateMetadataSnapshot() throws {
+        let localTransport = LocalTransport()
+        let viewModel = IntercomViewModel(
+            groups: IntercomSeedData.recentGroups,
+            localTransport: localTransport,
+            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
+            audioInputMonitor: NoOpAudioInputMonitor()
+        )
+
+        viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        viewModel.connectLocal()
+        localTransport.simulateAuthenticatedPeers(["member-002"])
+
+        #expect(localTransport.sentControlMessages.contains(.peerMuteState(isMuted: false)))
+        #expect(localTransport.sentAudioPackets.contains(.keepalive))
+    }
+
+    @MainActor
+    @Test func toggleMuteSendsPeerMuteStateAndMetadataKeepalive() throws {
+        let localTransport = LocalTransport()
+        let viewModel = IntercomViewModel(
+            groups: IntercomSeedData.recentGroups,
+            localTransport: localTransport,
+            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
+            audioInputMonitor: NoOpAudioInputMonitor()
+        )
+
+        viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        viewModel.connectLocal()
+        viewModel.toggleMute()
+
+        #expect(localTransport.sentControlMessages.last == .peerMuteState(isMuted: true))
+        #expect(localTransport.sentAudioPackets.last == .keepalive)
     }
 
     @MainActor
@@ -3329,13 +3390,18 @@ struct RideIntercomTests {
             lastLocalNetworkEventAt: nil,
             lastReceivedAudioAt: nil,
             droppedAudioPacketCount: 0,
-            jitterQueuedFrameCount: 0
+            jitterQueuedFrameCount: 0,
+            transmitFallbackCount: 0,
+            receiveMetadataMismatchCount: 0,
+            lastTransmitFallbackSummary: nil,
+            lastReceiveMetadataMismatchSummary: nil
         )
 
         #expect(snapshot.audio.summary == "TX 0 / RX 0 / PLAY 0")
         #expect(snapshot.selectedGroupSummary == "GROUP -- / MEMBERS 0")
         #expect(snapshot.groupHashSummary == "HASH --")
         #expect(snapshot.inviteSummary == "INVITE NONE")
+        #expect(snapshot.codecSafetySummary == "TX FB #0 / RX META #0")
         #expect(snapshot.localNetwork.summary(now: 10) == "MC idle")
         #expect(snapshot.realDeviceCallSummary(connectionLabel: "Idle", isAudioReady: false, now: 10) == "CALL Idle / AUDIO IDLE / TX 0 / RX 0 / PLAY 0 / AUTH 0 / LAST RX -- / DROP 0 / JIT 0")
     }
@@ -4045,12 +4111,82 @@ struct RideIntercomTests {
         transport.sendAudioFrame(.voice(frameID: 42))
         transport.sendControl(.keepalive)
 
-        #expect(events == [
+        #expect(Array(events.prefix(2)) == [
             .localNetworkStatus(LocalNetworkEvent(status: .advertisingBrowsing)),
             .connected(peerIDs: ["member-001", "member-002"])
         ])
+        #expect(events.contains(where: { event in
+            if case .outboundPacketBuilt(let diagnostics) = event {
+                return diagnostics.packetKind == .voice && diagnostics.metadata?.requestedCodec == .pcm16
+            }
+            return false
+        }))
         #expect(transport.sentAudioPackets == [.voice(frameID: 42)])
         #expect(transport.sentControlMessages == [.keepalive])
+    }
+
+    @MainActor
+    @Test func viewModelCapturesOutboundCodecFallbackInDiagnostics() throws {
+        let localTransport = LocalTransport()
+        let viewModel = IntercomViewModel(
+            groups: IntercomSeedData.recentGroups,
+            localTransport: localTransport,
+            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
+            audioInputMonitor: NoOpAudioInputMonitor()
+        )
+
+        localTransport.setPreferredAudioCodec(.opus)
+        localTransport.sendAudioFrame(.voice(frameID: 1, samples: [0.1]))
+
+        #expect(viewModel.transmitFallbackCount == 1)
+        #expect(viewModel.diagnosticsSnapshot.codecSafetySummary.contains("TX FB #1"))
+    }
+
+    @MainActor
+    @Test func viewModelCapturesReceivedCodecMetadataMismatchInDiagnostics() throws {
+        let localTransport = LocalTransport()
+        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let group = try IntercomGroup(
+            id: groupID,
+            name: "Pair",
+            members: [
+                GroupMember(id: "member-001", displayName: "You"),
+                GroupMember(id: "member-002", displayName: "Partner")
+            ]
+        )
+        let viewModel = IntercomViewModel(
+            groups: [group],
+            localTransport: localTransport,
+            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
+            audioInputMonitor: NoOpAudioInputMonitor()
+        )
+        let payload = try PCMAudioEncoding().encode([0.2, -0.2])
+        let envelope = AudioPacketEnvelope(
+            groupID: groupID,
+            streamID: UUID(),
+            sequenceNumber: 1,
+            sentAt: 100,
+            encodedVoice: EncodedVoicePacket(frameID: 1, codec: .pcm16, payload: payload),
+            transmitMetadata: AudioTransmitMetadata(
+                requestedCodec: .heAACv2,
+                encodedCodec: .heAACv2,
+                fallbackReason: nil
+            )
+        )
+
+        viewModel.selectGroup(group)
+        viewModel.connectLocal()
+        localTransport.simulateAuthenticatedPeers(["member-002"])
+        localTransport.simulateReceivedPacket(
+            ReceivedAudioPacket(
+                peerID: "member-002",
+                envelope: envelope,
+                packet: .voice(frameID: 1, samples: [0.2, -0.2])
+            )
+        )
+
+        #expect(viewModel.receiveMetadataMismatchCount == 1)
+        #expect(viewModel.diagnosticsSnapshot.codecSafetySummary.contains("RX META #1"))
     }
 
     @Test func internetTransportBuildsAudioEnvelopeUsingSharedPacketContract() throws {
@@ -4094,6 +4230,30 @@ struct RideIntercomTests {
         #expect(envelope.groupID == group.id)
         #expect(envelope.kind == .voice)
         #expect(envelope.frameID == 42)
+    }
+
+    @Test func internetTransportRotatesStreamIDAfterPreferredCodecSwitch() throws {
+        let group = try IntercomGroup(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "Pair",
+            members: [
+                GroupMember(id: "member-001", displayName: "You"),
+                GroupMember(id: "member-002", displayName: "Partner")
+            ]
+        )
+        let transport = InternetTransport()
+
+        transport.connect(group: group)
+        transport.sendAudioFrame(.voice(frameID: 1, samples: [0.1]))
+        let pcmEnvelope = try #require(transport.sentAudioEnvelopes.last)
+
+        transport.setPreferredAudioCodec(.heAACv2)
+        transport.sendAudioFrame(.voice(frameID: 2, samples: Array(repeating: 0.1, count: 128)))
+        transport.sendAudioFrame(.keepalive)
+        let switchedEnvelope = try #require(transport.sentAudioEnvelopes.last)
+
+        #expect(switchedEnvelope.streamID != pcmEnvelope.streamID)
+        #expect(switchedEnvelope.sequenceNumber >= 2)
     }
 
     @Test func internetTransportMapsAdapterIncomingPayloadToReceivedPacketEvent() throws {

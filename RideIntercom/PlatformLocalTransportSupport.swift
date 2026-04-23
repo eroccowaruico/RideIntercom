@@ -121,7 +121,15 @@ final class MultipeerLocalTransport: NSObject, Transport {
                 sequencer: &sequencer,
                 credential: credential
             )
+            let envelope = try MultipeerPayloadBuilder.decodeAudioPayload(payload.data, credential: credential)
             self.sequencer = sequencer
+            notify(.outboundPacketBuilt(OutboundPacketDiagnostics(
+                route: route,
+                streamID: envelope.streamID,
+                sequenceNumber: envelope.sequenceNumber,
+                packetKind: envelope.kind,
+                metadata: envelope.transmitMetadata
+            )))
             try session.send(payload.data, toPeers: session.connectedPeers, with: payload.mcMode)
         } catch {
         }

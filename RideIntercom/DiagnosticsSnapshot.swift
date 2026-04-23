@@ -72,6 +72,10 @@ struct DiagnosticsSnapshot: Equatable {
     let hasInviteURL: Bool
     let localNetwork: LocalNetworkDebugSnapshot
     let reception: ReceptionDebugSnapshot
+    let transmitFallbackCount: Int
+    let receiveMetadataMismatchCount: Int
+    let lastTransmitFallbackSummary: String?
+    let lastReceiveMetadataMismatchSummary: String?
 
     var connectionSummary: String {
         "PEERS \(connectedPeerCount)"
@@ -110,6 +114,12 @@ struct DiagnosticsSnapshot: Equatable {
         return hasInviteURL ? "INVITE READY" : "INVITE NONE"
     }
 
+    var codecSafetySummary: String {
+        let txSummary = lastTransmitFallbackSummary ?? "TX FB #0"
+        let rxSummary = lastReceiveMetadataMismatchSummary ?? "RX META #0"
+        return "\(txSummary) / \(rxSummary)"
+    }
+
     func realDeviceCallSummary(connectionLabel: String, isAudioReady: Bool, now: TimeInterval) -> String {
         let audioState = isAudioReady ? "AUDIO READY" : "AUDIO IDLE"
         return "CALL \(connectionLabel) / \(audioState) / \(audio.summary) / \(authenticationSummary) / \(reception.summary(now: now))"
@@ -138,7 +148,11 @@ enum DiagnosticsSnapshotBuilder {
         lastLocalNetworkEventAt: TimeInterval?,
         lastReceivedAudioAt: TimeInterval?,
         droppedAudioPacketCount: Int,
-        jitterQueuedFrameCount: Int
+        jitterQueuedFrameCount: Int,
+        transmitFallbackCount: Int,
+        receiveMetadataMismatchCount: Int,
+        lastTransmitFallbackSummary: String?,
+        lastReceiveMetadataMismatchSummary: String?
     ) -> DiagnosticsSnapshot {
         DiagnosticsSnapshot(
             audio: AudioDebugSnapshot(
@@ -169,7 +183,11 @@ enum DiagnosticsSnapshotBuilder {
                 lastReceivedAudioAt: lastReceivedAudioAt,
                 droppedAudioPacketCount: droppedAudioPacketCount,
                 jitterQueuedFrameCount: jitterQueuedFrameCount
-            )
+            ),
+            transmitFallbackCount: transmitFallbackCount,
+            receiveMetadataMismatchCount: receiveMetadataMismatchCount,
+            lastTransmitFallbackSummary: lastTransmitFallbackSummary,
+            lastReceiveMetadataMismatchSummary: lastReceiveMetadataMismatchSummary
         )
     }
 }

@@ -436,6 +436,8 @@ private struct DiagnosticsView: View {
                             .accessibilityIdentifier("audioDebugSummaryLabel")
                         DiagnosticRow(icon: "speaker.wave.2.fill", value: snapshot.playback.summary)
                             .accessibilityIdentifier("playbackDebugSummaryLabel")
+                        DiagnosticRow(icon: "exclamationmark.triangle.fill", value: snapshot.codecSafetySummary)
+                            .accessibilityIdentifier("codecSafetyDebugSummaryLabel")
                         DiagnosticRow(icon: "person.2.fill", value: snapshot.connectionSummary)
                             .accessibilityIdentifier("connectionDebugSummaryLabel")
                         DiagnosticRow(icon: "checkmark.seal.fill", value: snapshot.authenticationSummary)

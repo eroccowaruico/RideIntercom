@@ -2,6 +2,7 @@ import CryptoKit
 import AVFoundation
 import Foundation
 import Observation
+import OSLog
 
 struct GroupMember: Identifiable, Equatable, Hashable, Codable {
     let id: String
@@ -1221,6 +1222,15 @@ enum TransportEvent: Equatable {
     case disconnected
     case linkFailed(internetAvailable: Bool)
     case receivedPacket(ReceivedAudioPacket)
+    case outboundPacketBuilt(OutboundPacketDiagnostics)
+}
+
+struct OutboundPacketDiagnostics: Equatable {
+    let route: TransportRoute
+    let streamID: UUID
+    let sequenceNumber: Int
+    let packetKind: AudioPacketEnvelope.PacketKind
+    let metadata: AudioTransmitMetadata?
 }
 
 protocol Transport: AnyObject {
@@ -1280,6 +1290,8 @@ final class LocalTransport: Transport {
     private(set) var connectedGroup: IntercomGroup?
     private(set) var sentAudioPackets: [OutboundAudioPacket] = []
     private(set) var sentControlMessages: [ControlMessage] = []
+    private var preferredAudioCodec: AudioCodecIdentifier = .pcm16
+    private var heAACv2Quality: HEAACv2Quality = .medium
 
     func connect(group: IntercomGroup) {
         connectedGroup = group
@@ -1294,10 +1306,42 @@ final class LocalTransport: Transport {
 
     func sendAudioFrame(_ frame: OutboundAudioPacket) {
         sentAudioPackets.append(frame)
+        let packetKind: AudioPacketEnvelope.PacketKind
+        switch frame {
+        case .voice:
+            packetKind = .voice
+        case .keepalive:
+            packetKind = .keepalive
+        }
+        let fallbackReason: AudioCodecFallbackReason?
+        if preferredAudioCodec == .opus && !OpusAudioEncoding.isAvailable() {
+            fallbackReason = .codecUnavailable
+        } else {
+            fallbackReason = nil
+        }
+        emit(.outboundPacketBuilt(OutboundPacketDiagnostics(
+            route: route,
+            streamID: UUID(),
+            sequenceNumber: sentAudioPackets.count,
+            packetKind: packetKind,
+            metadata: AudioTransmitMetadata(
+                requestedCodec: preferredAudioCodec,
+                encodedCodec: fallbackReason == nil ? preferredAudioCodec : .pcm16,
+                fallbackReason: fallbackReason
+            )
+        )))
     }
 
     func sendControl(_ message: ControlMessage) {
         sentControlMessages.append(message)
+    }
+
+    func setPreferredAudioCodec(_ codec: AudioCodecIdentifier) {
+        preferredAudioCodec = codec
+    }
+
+    func setHEAACv2Quality(_ quality: HEAACv2Quality) {
+        heAACv2Quality = quality
     }
 
     func simulateLinkFailure(internetAvailable: Bool) {
@@ -1382,6 +1426,13 @@ final class InternetTransport: Transport {
         let envelope = sequencer.makeEnvelope(for: frame)
         self.sequencer = sequencer
         sentAudioEnvelopes.append(envelope)
+        emit(.outboundPacketBuilt(OutboundPacketDiagnostics(
+            route: route,
+            streamID: envelope.streamID,
+            sequenceNumber: envelope.sequenceNumber,
+            packetKind: envelope.kind,
+            metadata: envelope.transmitMetadata
+        )))
         if let data = try? AudioPacketCodec.encode(envelope) {
             adapter.sendAudioPayload(data)
         }
@@ -2171,6 +2222,18 @@ struct EncodedVoicePacket: Codable, Equatable {
     }
 }
 
+enum AudioCodecFallbackReason: String, Codable, Equatable {
+    case codecUnavailable
+    case encoderReturnedEmptyPayload
+    case encodingFailed
+}
+
+struct AudioTransmitMetadata: Codable, Equatable {
+    let requestedCodec: AudioCodecIdentifier
+    let encodedCodec: AudioCodecIdentifier
+    let fallbackReason: AudioCodecFallbackReason?
+}
+
 struct AudioPacketEnvelope: Codable, Equatable {
     enum PacketKind: String, Codable {
         case voice
@@ -2185,6 +2248,7 @@ struct AudioPacketEnvelope: Codable, Equatable {
     let frameID: Int?
     let samples: [Float]
     let encodedVoice: EncodedVoicePacket?
+    let transmitMetadata: AudioTransmitMetadata?
 
     init(
         groupID: UUID,
@@ -2194,7 +2258,8 @@ struct AudioPacketEnvelope: Codable, Equatable {
         kind: PacketKind,
         frameID: Int?,
         samples: [Float] = [],
-        encodedVoice: EncodedVoicePacket? = nil
+        encodedVoice: EncodedVoicePacket? = nil,
+        transmitMetadata: AudioTransmitMetadata? = nil
     ) {
         self.groupID = groupID
         self.streamID = streamID
@@ -2204,6 +2269,7 @@ struct AudioPacketEnvelope: Codable, Equatable {
         self.frameID = frameID
         self.samples = samples
         self.encodedVoice = encodedVoice
+        self.transmitMetadata = transmitMetadata
     }
 
     init(
@@ -2211,7 +2277,8 @@ struct AudioPacketEnvelope: Codable, Equatable {
         streamID: UUID,
         sequenceNumber: Int,
         sentAt: TimeInterval,
-        encodedVoice: EncodedVoicePacket
+        encodedVoice: EncodedVoicePacket,
+        transmitMetadata: AudioTransmitMetadata? = nil
     ) {
         self.groupID = groupID
         self.streamID = streamID
@@ -2221,6 +2288,7 @@ struct AudioPacketEnvelope: Codable, Equatable {
         self.frameID = encodedVoice.frameID
         self.samples = []
         self.encodedVoice = encodedVoice
+        self.transmitMetadata = transmitMetadata
     }
 
     init(
@@ -2251,17 +2319,32 @@ struct AudioPacketEnvelope: Codable, Equatable {
                 self.frameID = frameID
                 self.samples = []
                 self.encodedVoice = encodedVoice
+                self.transmitMetadata = AudioTransmitMetadata(
+                    requestedCodec: codec,
+                    encodedCodec: encodedVoice.codec,
+                    fallbackReason: codec == encodedVoice.codec ? nil : .codecUnavailable
+                )
             } else {
                 self.kind = .keepalive
                 self.frameID = nil
                 self.samples = []
                 self.encodedVoice = nil
+                self.transmitMetadata = AudioTransmitMetadata(
+                    requestedCodec: codec,
+                    encodedCodec: codec,
+                    fallbackReason: codec == .heAACv2 ? .encoderReturnedEmptyPayload : nil
+                )
             }
         case .keepalive:
             self.kind = .keepalive
             self.frameID = nil
             self.samples = []
             self.encodedVoice = nil
+            self.transmitMetadata = AudioTransmitMetadata(
+                requestedCodec: codec,
+                encodedCodec: codec,
+                fallbackReason: nil
+            )
         }
     }
 
@@ -2631,7 +2714,7 @@ enum EncryptedAudioPacketCodec {
 
 struct AudioPacketSequencer {
     let groupID: UUID
-    let streamID: UUID
+    private(set) var streamID: UUID
     var codec: AudioCodecIdentifier
     var heAACv2Quality: HEAACv2Quality
     private let opusBackend: (any OpusCodecBackend)?
@@ -2668,6 +2751,7 @@ struct AudioPacketSequencer {
                 heAACv2Quality: heAACv2Quality
             )
             encoderSessionHEAACv2Quality = codec == .heAACv2 ? heAACv2Quality : nil
+            rotateStreamForCodecSwitch()
         }
 
         let envelope: AudioPacketEnvelope
@@ -2691,7 +2775,17 @@ struct AudioPacketSequencer {
     }
 
     private mutating func makeVoiceEnvelope(frameID: Int, samples: [Float], sentAt: TimeInterval) -> AudioPacketEnvelope {
+        makeVoiceEnvelope(frameID: frameID, samples: samples, sentAt: sentAt, forcedFallbackReason: nil)
+    }
+
+    private mutating func makeVoiceEnvelope(
+        frameID: Int,
+        samples: [Float],
+        sentAt: TimeInterval,
+        forcedFallbackReason: AudioCodecFallbackReason?
+    ) -> AudioPacketEnvelope {
         do {
+            let requestedCodec = codec
             let payload = try encoderSession.encodeFrame(samples)
             guard !(payload.isEmpty && encoderSession.codec == .heAACv2) else {
                 return AudioPacketEnvelope(
@@ -2715,7 +2809,12 @@ struct AudioPacketSequencer {
                 streamID: streamID,
                 sequenceNumber: nextSequenceNumber,
                 sentAt: sentAt,
-                encodedVoice: encodedVoice
+                encodedVoice: encodedVoice,
+                transmitMetadata: AudioTransmitMetadata(
+                    requestedCodec: requestedCodec,
+                    encodedCodec: encodedVoice.codec,
+                    fallbackReason: forcedFallbackReason ?? (requestedCodec == encodedVoice.codec ? nil : .codecUnavailable)
+                )
             )
         } catch AudioCodecError.codecUnavailable where encoderSession.codec != .pcm16 {
             codec = .pcm16
@@ -2724,18 +2823,35 @@ struct AudioPacketSequencer {
                 heAACv2Quality: heAACv2Quality
             )
             encoderSessionHEAACv2Quality = nil
-            return makeVoiceEnvelope(frameID: frameID, samples: samples, sentAt: sentAt)
+            rotateStreamForCodecSwitch()
+            return makeVoiceEnvelope(
+                frameID: frameID,
+                samples: samples,
+                sentAt: sentAt,
+                forcedFallbackReason: .codecUnavailable
+            )
         } catch {
             return AudioPacketEnvelope(
                 groupID: groupID,
                 streamID: streamID,
                 sequenceNumber: nextSequenceNumber,
                 sentAt: sentAt,
-                packet: .keepalive,
-                codec: encoderSession.codec,
-                heAACv2Quality: heAACv2Quality
+                kind: .keepalive,
+                frameID: nil,
+                samples: [],
+                encodedVoice: nil,
+                transmitMetadata: AudioTransmitMetadata(
+                    requestedCodec: codec,
+                    encodedCodec: encoderSession.codec,
+                    fallbackReason: .encodingFailed
+                )
             )
         }
+    }
+
+    private mutating func rotateStreamForCodecSwitch() {
+        streamID = UUID()
+        nextSequenceNumber = 1
     }
 }
 
@@ -2881,6 +2997,10 @@ final class IntercomViewModel {
     private(set) var droppedAudioPacketCount = 0
     private(set) var jitterQueuedFrameCount = 0
     private(set) var inviteStatusMessage: String?
+    private(set) var transmitFallbackCount = 0
+    private(set) var receiveMetadataMismatchCount = 0
+    private(set) var lastTransmitFallbackSummary: String?
+    private(set) var lastReceiveMetadataMismatchSummary: String?
     private(set) var uiEventRevision: UInt64 = 0
     private let localTransport: Transport
     private let internetTransport: Transport
@@ -2911,6 +3031,7 @@ final class IntercomViewModel {
     private var isLocalStandbyOnly = false
     private var nextAudioFrameID = 1
     private var routeCoordinator = RouteCoordinator()
+    private let diagnosticsLogger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "codec-diagnostics")
 
     static func makeForCurrentProcess() -> IntercomViewModel {
         return CurrentProcessRuntimeFactory.makeLive()
@@ -3014,7 +3135,11 @@ final class IntercomViewModel {
             lastLocalNetworkEventAt: lastLocalNetworkEventAt,
             lastReceivedAudioAt: lastReceivedAudioAt,
             droppedAudioPacketCount: droppedAudioPacketCount,
-            jitterQueuedFrameCount: jitterQueuedFrameCount
+            jitterQueuedFrameCount: jitterQueuedFrameCount,
+            transmitFallbackCount: transmitFallbackCount,
+            receiveMetadataMismatchCount: receiveMetadataMismatchCount,
+            lastTransmitFallbackSummary: lastTransmitFallbackSummary,
+            lastReceiveMetadataMismatchSummary: lastReceiveMetadataMismatchSummary
         )
     }
 
@@ -3411,7 +3536,8 @@ final class IntercomViewModel {
         }
         selectedGroup = group
         replaceSelectedGroup(group)
-        activeTransport?.sendControl(.peerMuteState(isMuted: isMuted))
+        broadcastControl(.peerMuteState(isMuted: isMuted))
+        broadcastMetadataKeepalive()
     }
 
     private func scheduleMuteAutoStopIfNeeded() {
@@ -3467,12 +3593,14 @@ final class IntercomViewModel {
         preferredTransmitCodec = resolvedCodec
         localTransport.setPreferredAudioCodec(resolvedCodec)
         internetTransport.setPreferredAudioCodec(resolvedCodec)
+        broadcastMetadataKeepalive()
     }
 
     func setHEAACv2Quality(_ quality: HEAACv2Quality) {
         heAACv2Quality = quality
         localTransport.setHEAACv2Quality(quality)
         internetTransport.setHEAACv2Quality(quality)
+        broadcastMetadataKeepalive()
     }
 
     func setVoiceActivityDetectionThreshold(_ value: Float) {
@@ -3797,6 +3925,50 @@ final class IntercomViewModel {
         }
     }
 
+    private func transport(for route: TransportRoute) -> Transport {
+        switch route {
+        case .local:
+            localTransport
+        case .internet:
+            internetTransport
+        }
+    }
+
+    private func broadcastControl(_ message: ControlMessage, preferredRoute: TransportRoute? = nil) {
+        if routeCoordinator.shouldDualSend {
+            localTransport.sendControl(message)
+            internetTransport.sendControl(message)
+            return
+        }
+
+        if let preferredRoute {
+            transport(for: preferredRoute).sendControl(message)
+            return
+        }
+
+        activeTransport?.sendControl(message)
+    }
+
+    private func broadcastMetadataKeepalive(preferredRoute: TransportRoute? = nil) {
+        if routeCoordinator.shouldDualSend {
+            localTransport.sendAudioFrame(.keepalive)
+            internetTransport.sendAudioFrame(.keepalive)
+            return
+        }
+
+        if let preferredRoute {
+            transport(for: preferredRoute).sendAudioFrame(.keepalive)
+            return
+        }
+
+        activeTransport?.sendAudioFrame(.keepalive)
+    }
+
+    private func sendStateMetadataSnapshot(for route: TransportRoute) {
+        broadcastControl(.peerMuteState(isMuted: isMuted), preferredRoute: route)
+        broadcastMetadataKeepalive(preferredRoute: route)
+    }
+
     private func setVoiceActive(_ isActive: Bool) {
         isVoiceActive = isActive
         guard var group = selectedGroup, !group.members.isEmpty else { return }
@@ -3844,6 +4016,7 @@ final class IntercomViewModel {
             }
             markConnectedMembers(peerIDs: connectedPeerIDs)
             startActiveCallAfterAuthenticatedPeer(route: route)
+            sendStateMetadataSnapshot(for: route)
         case .remotePeerMuteState(let peerID, let isMuted):
             setRemotePeerMuteState(peerID: peerID, isMuted: isMuted)
         case .disconnected:
@@ -3872,6 +4045,8 @@ final class IntercomViewModel {
             }
         case .receivedPacket(let packet):
             handleReceivedPacket(packet)
+        case .outboundPacketBuilt(let diagnostics):
+            handleOutboundPacketDiagnostics(diagnostics)
         }
     }
 
@@ -3889,9 +4064,10 @@ final class IntercomViewModel {
         ) else {
             return
         }
-        if let codec = packet.envelope.encodedVoice?.codec {
+        if let codec = packet.envelope.encodedVoice?.codec ?? packet.envelope.transmitMetadata?.encodedCodec {
             setRemotePeerCodec(packet.peerID, codec: codec)
         }
+        captureReceiveMetadataMismatchIfNeeded(packet)
 
         guard let ingressResult = RemoteAudioPipelineService.processReceivedPacket(
             packet,
@@ -3945,11 +4121,38 @@ final class IntercomViewModel {
         droppedAudioPacketCount = 0
         jitterQueuedFrameCount = 0
         playbackOutputPeakWindow = VoicePeakWindow()
+        transmitFallbackCount = 0
+        receiveMetadataMismatchCount = 0
+        lastTransmitFallbackSummary = nil
+        lastReceiveMetadataMismatchSummary = nil
     }
 
     private func resetVoiceLevelWindows() {
         localVoicePeakWindow = VoicePeakWindow()
         remoteVoicePeakWindows.removeAll()
+    }
+
+    private func handleOutboundPacketDiagnostics(_ diagnostics: OutboundPacketDiagnostics) {
+        guard let metadata = diagnostics.metadata else { return }
+        let hasFallback = metadata.fallbackReason != nil || metadata.requestedCodec != metadata.encodedCodec
+        guard hasFallback else { return }
+
+        transmitFallbackCount += 1
+        let reason = metadata.fallbackReason?.rawValue ?? "codecMismatch"
+        let summary = "TX FB #\(transmitFallbackCount) / \(metadata.requestedCodec.rawValue)->\(metadata.encodedCodec.rawValue) / \(reason)"
+        lastTransmitFallbackSummary = summary
+        diagnosticsLogger.error("tx fallback route=\(diagnostics.route.rawValue, privacy: .public) stream=\(diagnostics.streamID.uuidString, privacy: .public) seq=\(diagnostics.sequenceNumber) req=\(metadata.requestedCodec.rawValue, privacy: .public) enc=\(metadata.encodedCodec.rawValue, privacy: .public) reason=\(reason, privacy: .public)")
+    }
+
+    private func captureReceiveMetadataMismatchIfNeeded(_ packet: ReceivedAudioPacket) {
+        guard let metadata = packet.envelope.transmitMetadata else { return }
+        guard let actualCodec = packet.envelope.encodedVoice?.codec else { return }
+        guard metadata.encodedCodec != actualCodec else { return }
+
+        receiveMetadataMismatchCount += 1
+        let summary = "RX META #\(receiveMetadataMismatchCount) / meta=\(metadata.encodedCodec.rawValue) actual=\(actualCodec.rawValue)"
+        lastReceiveMetadataMismatchSummary = summary
+        diagnosticsLogger.error("rx metadata mismatch peer=\(packet.peerID, privacy: .public) stream=\(packet.envelope.streamID.uuidString, privacy: .public) seq=\(packet.envelope.sequenceNumber) meta=\(metadata.encodedCodec.rawValue, privacy: .public) actual=\(actualCodec.rawValue, privacy: .public)")
     }
 
     private func setLocalVoiceLevel(_ level: Float) {
