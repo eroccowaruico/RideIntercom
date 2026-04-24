@@ -4,7 +4,6 @@ import Foundation
 import UIKit
 #endif
 
-#if canImport(MultipeerConnectivity)
 import MultipeerConnectivity
 
 final class MultipeerLocalTransport: NSObject, Transport {
@@ -276,4 +275,3 @@ extension MultipeerLocalTransport: MCSessionDelegate {
         withError error: Error?
     ) {}
 }
-#endif

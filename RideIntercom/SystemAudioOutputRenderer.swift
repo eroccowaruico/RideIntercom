@@ -1,6 +1,4 @@
 import Foundation
-
-#if canImport(AVFAudio)
 import AVFAudio
 
 final class SystemAudioOutputRenderer: AudioOutputRendering {
@@ -61,4 +59,3 @@ final class SystemAudioOutputRenderer: AudioOutputRendering {
         playerNode.scheduleBuffer(buffer, at: nil, options: [])
     }
 }
-#endif

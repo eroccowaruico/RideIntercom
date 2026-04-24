@@ -14,12 +14,10 @@ enum AppColorPalette {
     static let callScreenBackground: Color = Color.secondary.opacity(0.08)
     static let cardMaterial: Material = .regularMaterial
     static let diagnosticsCardMaterial: Material = .thinMaterial
-    #if canImport(AppKit)
+    #if os(macOS)
     static let panelSurface: Color = Color(nsColor: .windowBackgroundColor)
-    #elseif canImport(UIKit)
-    static let panelSurface: Color = Color(uiColor: .systemBackground)
     #else
-    static let panelSurface: Color = .white
+    static let panelSurface: Color = Color(uiColor: .systemBackground)
     #endif
     static let cardBorder: Color = Color.secondary.opacity(0.35)
 
@@ -63,7 +61,6 @@ enum AppSize {
 }
 
 enum AppTypography {
-    static let title: Font = .headline
     static let sectionTitle: Font = .headline
     static let rowTitle: Font = .headline
     static let bodyStrong: Font = .body.weight(.semibold)
@@ -82,7 +79,7 @@ enum AppTypography {
 }
 extension View {
     private var platformButtonMinHeight: CGFloat {
-        #if canImport(AppKit)
+        #if os(macOS)
         return AppSize.buttonMacMinHeight
         #else
         return AppSize.buttonPrimaryMinHeight
@@ -124,4 +121,3 @@ extension View {
             .clipShape(shape)
     }
 }
-

@@ -1,6 +1,4 @@
 import Foundation
-
-#if canImport(Security)
 import Security
 
 final class SystemKeychainSecretStore: KeychainSecretStoring {
@@ -53,14 +51,3 @@ final class SystemKeychainSecretStore: KeychainSecretStoring {
         return secret
     }
 }
-#else
-final class SystemKeychainSecretStore: KeychainSecretStoring {
-    func saveSecret(_ secret: String, service: String, account: String) throws {
-        throw KeychainSecretStoreError.unsupportedPlatform
-    }
-
-    func secret(service: String, account: String) throws -> String? {
-        throw KeychainSecretStoreError.unsupportedPlatform
-    }
-}
-#endif

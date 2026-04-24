@@ -1,30 +1,34 @@
 import SwiftUI
 
-#if canImport(AppKit)
+#if os(macOS)
 import AppKit
 #endif
 
 @main
 struct RideIntercomApp: App {
-    #if canImport(AppKit)
+    private static let mainWindowID = "main"
+
+    #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     @NSApplicationDelegateAdaptor(RideIntercomApplicationDelegate.self) private var appDelegate
     #endif
 
     var body: some Scene {
-        #if canImport(AppKit)
+        #if os(macOS)
         let _ = {
             appDelegate.openMainWindow = {
-                openWindow(id: SingleWindowPolicy.mainWindowID)
+                openWindow(id: Self.mainWindowID)
             }
         }()
         #endif
 
-        return WindowGroup(id: SingleWindowPolicy.mainWindowID) {
+        return WindowGroup(id: Self.mainWindowID) {
             ContentView()
+                #if os(macOS)
                 .onAppear {
                     SingleWindowPolicy.enforce()
                 }
+                #endif
         }
         .commands {
             CommandGroup(replacing: .newItem) {

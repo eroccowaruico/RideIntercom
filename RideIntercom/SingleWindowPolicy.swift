@@ -1,11 +1,10 @@
 import Foundation
 
-#if canImport(AppKit)
+#if os(macOS)
 import AppKit
 
 @MainActor
 enum SingleWindowPolicy {
-    static let mainWindowID = "main"
     private static let preferredContentSize = NSSize(width: 585, height: 844)
 
     static func enforce() {
@@ -78,12 +77,5 @@ final class RideIntercomApplicationDelegate: NSObject, NSApplicationDelegate {
 
         return true
     }
-}
-#else
-@MainActor
-enum SingleWindowPolicy {
-    static let mainWindowID = "main"
-
-    static func enforce() {}
 }
 #endif

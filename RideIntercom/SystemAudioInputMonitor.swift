@@ -1,9 +1,6 @@
 import Foundation
 import AVFoundation
-
-#if canImport(AVFAudio)
 import AVFAudio
-#endif
 
 struct SystemMicrophonePermissionAuthorizer: MicrophonePermissionAuthorizing {
     func authorizationState() -> MicrophoneAuthorizationState {
@@ -30,7 +27,6 @@ struct SystemMicrophonePermissionAuthorizer: MicrophonePermissionAuthorizing {
     }
 }
 
-#if canImport(AVFAudio)
 final class SystemAudioInputMonitor: AudioInputMonitoring {
     var onLevel: (@MainActor (Float) -> Void)?
     var onSamples: (@MainActor ([Float]) -> Void)?
@@ -145,28 +141,9 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
 }
 
 private enum SoundIsolationBackend {
-    static var isSupported: Bool {
-        #if os(iOS) || os(macOS)
-        if #available(iOS 13.0, macOS 10.15, *) {
-            return true
-        }
-        #endif
-        return false
-    }
+    static let isSupported = true
 
     static func setSoundIsolationEnabled(_ enabled: Bool, on inputNode: AVAudioInputNode) throws {
-        #if os(iOS) || os(macOS)
-        if #available(iOS 13.0, macOS 10.15, *) {
-            try inputNode.setVoiceProcessingEnabled(enabled)
-            return
-        }
-        #endif
-
-        throw SoundIsolationError.unsupported
-    }
-
-    enum SoundIsolationError: Error {
-        case unsupported
+        try inputNode.setVoiceProcessingEnabled(enabled)
     }
 }
-#endif

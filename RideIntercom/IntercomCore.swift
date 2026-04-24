@@ -401,7 +401,6 @@ final class KeychainGroupCredentialStore: GroupCredentialStoring {
 }
 
 enum KeychainSecretStoreError: Error, Equatable {
-    case unsupportedPlatform
     case unexpectedStatus(Int32)
     case invalidData
 }
@@ -1074,7 +1073,6 @@ enum ControlMessage: Equatable {
 
 struct LocalNetworkConfiguration {
     static let serviceType = "ride-intercom"
-    static let bonjourService = "_ride-intercom._tcp"
 }
 
 enum TransportSendMode: Equatable {
@@ -2430,24 +2428,14 @@ final class IntercomViewModel {
 
         let internetTransport = InternetTransport(adapter: internetAdapter)
 
-        let audioFramePlayer: AudioFramePlaying
-        #if canImport(AVFAudio)
-        audioFramePlayer = BufferedAudioFramePlayer(renderer: SystemAudioOutputRenderer())
-        #else
-        audioFramePlayer = NoOpAudioFramePlayer()
-        #endif
+        let audioFramePlayer = BufferedAudioFramePlayer(renderer: SystemAudioOutputRenderer())
 
         if isUITestProcess {
             let localMemberIdentityStore = InMemoryLocalMemberIdentityStore(
                 identity: LocalMemberIdentity(memberID: "member-uitest", displayName: "You")
             )
             let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
-            let localTransport: Transport
-            #if canImport(MultipeerConnectivity)
-            localTransport = MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
-            #else
-            localTransport = LocalTransport()
-            #endif
+            let localTransport = MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
 
             return IntercomViewModel(
                 localTransport: localTransport,
@@ -2461,12 +2449,7 @@ final class IntercomViewModel {
 
         let localMemberIdentityStore = UserDefaultsLocalMemberIdentityStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
-        let localTransport: Transport
-        #if canImport(MultipeerConnectivity)
-        localTransport = MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
-        #else
-        localTransport = LocalTransport()
-        #endif
+        let localTransport = MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
 
         return IntercomViewModel(
             localTransport: localTransport,
@@ -2498,20 +2481,18 @@ final class IntercomViewModel {
         remoteTalkerTimeout: TimeInterval = 0.6,
         muteAutoStopDelay: Duration = IntercomViewModel.muteAutoStopDelayDefault
     ) {
+        let localMemberIdentityStore = localMemberIdentityStore ?? InMemoryLocalMemberIdentityStore()
+        let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let groupStore = groupStore ?? InMemoryGroupStore()
         let storedGroups = groupStore.loadGroups()
         self.groups = groups ?? storedGroups
-        self.localTransport = localTransport ?? LocalTransport()
+        self.localTransport = localTransport ?? MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
         self.internetTransport = internetTransport ?? InternetTransport()
         self.audioSessionManager = audioSessionManager ?? AudioSessionManager()
         if let audioInputMonitor {
             self.audioInputMonitor = audioInputMonitor
         } else {
-            #if canImport(AVFAudio)
             self.audioInputMonitor = SystemAudioInputMonitor()
-            #else
-            self.audioInputMonitor = NoOpAudioInputMonitor()
-            #endif
         }
         let initialVoiceActivityDetectionThreshold = AudioTransmissionController.defaultVoiceActivityThreshold
         self.voiceActivityDetectionThreshold = initialVoiceActivityDetectionThreshold
@@ -2520,16 +2501,12 @@ final class IntercomViewModel {
         if let audioFramePlayer {
             self.audioFramePlayer = audioFramePlayer
         } else {
-            #if canImport(AVFAudio)
             self.audioFramePlayer = BufferedAudioFramePlayer(renderer: SystemAudioOutputRenderer())
-            #else
-            self.audioFramePlayer = NoOpAudioFramePlayer()
-            #endif
         }
         self.credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
         self.credentialProvider = DefaultGroupCredentialProvider()
         self.groupStore = groupStore
-        self.localMemberIdentity = (localMemberIdentityStore ?? InMemoryLocalMemberIdentityStore()).loadOrCreate()
+        self.localMemberIdentity = localMemberIdentity
         self.jitterBuffer = jitterBuffer ?? JitterBuffer()
         self.remoteTalkerTimeout = remoteTalkerTimeout
         self.muteAutoStopDelay = muteAutoStopDelay
@@ -2991,14 +2968,6 @@ final class IntercomViewModel {
         jitterQueuedFrameCount = 0
         resetAudioDebugCounters()
         markMembers(.offline)
-    }
-
-    func simulateLocalFailure(internetAvailable: Bool = true) {
-        if let localTransport = localTransport as? LocalTransport {
-            localTransport.simulateLinkFailure(internetAvailable: internetAvailable)
-        } else {
-            handleTransportEvent(.linkFailed(internetAvailable: internetAvailable), route: .local)
-        }
     }
 
     func toggleMute() {
