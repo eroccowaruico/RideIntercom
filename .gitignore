@@ -1,5 +1,4 @@
 /.DS_Store
 *.xcuserstate
 /.derivedData
-/RideIntercom.xcodeproj/project.xcworkspace/xcshareddata
-/RideIntercom.xcodeproj/project.xcworkspace/xcuserdata
+/RideIntercom.xcodeproj
