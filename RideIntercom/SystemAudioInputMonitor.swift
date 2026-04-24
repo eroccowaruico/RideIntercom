@@ -18,18 +18,16 @@ struct SystemMicrophonePermissionAuthorizer: MicrophonePermissionAuthorizing {
         }
     }
 
-    func requestAccess(completion: @escaping @MainActor (Bool) -> Void) {
+    func requestAccess(completion: @escaping (Bool) -> Void) {
         AVCaptureDevice.requestAccess(for: .audio) { granted in
-            Task { @MainActor in
-                completion(granted)
-            }
+            completion(granted)
         }
     }
 }
 
 final class SystemAudioInputMonitor: AudioInputMonitoring {
-    var onLevel: (@MainActor (Float) -> Void)?
-    var onSamples: (@MainActor ([Float]) -> Void)?
+    var onLevel: ((Float) -> Void)?
+    var onSamples: (([Float]) -> Void)?
     private let engine: AVAudioEngine
     private let microphonePermission: MicrophonePermissionAuthorizing
     private let soundIsolationQueue = DispatchQueue(
@@ -128,12 +126,10 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
             let sourceSamples = (0..<frameLength).map { channelSamples[$0] }
             let level = AudioLevelMeter.rmsLevel(samples: sourceSamples)
             let samples = AudioResampler.resample(sourceSamples, fromRate: buffer.format.sampleRate, toRate: 16_000)
-            Task { @MainActor in
-                if let onSamples = self?.onSamples {
-                    onSamples(samples)
-                } else {
-                    self?.onLevel?(level)
-                }
+            if let onSamples = self?.onSamples {
+                onSamples(samples)
+            } else {
+                self?.onLevel?(level)
             }
         }
     }

@@ -119,4 +119,75 @@ struct DiagnosticsSnapshot: Equatable {
         let rxSummary = lastReceiveMetadataMismatchSummary ?? "RX META #0"
         return "\(txSummary) / \(rxSummary)"
     }
+
+    func realDeviceCallSummary(connectionLabel: String, isAudioReady: Bool, now: TimeInterval) -> String {
+        let audioReadiness = isAudioReady ? "AUDIO READY" : "AUDIO IDLE"
+        return "CALL \(connectionLabel) / \(audioReadiness) / \(audio.summary) / \(authenticationSummary) / \(reception.summary(now: now))"
+    }
+}
+
+enum DiagnosticsSnapshotBuilder {
+    static func make(
+        sentVoicePacketCount: Int,
+        receivedVoicePacketCount: Int,
+        playedAudioFrameCount: Int,
+        lastScheduledOutputRMS: Float,
+        scheduledOutputBatchCount: Int,
+        scheduledOutputFrameCount: Int,
+        connectedPeerCount: Int,
+        authenticatedPeerCount: Int,
+        localMemberID: String,
+        transportTypeName: String,
+        selectedGroupID: UUID?,
+        selectedGroupMemberCount: Int,
+        groupHashPrefix: String?,
+        inviteStatusMessage: String?,
+        hasInviteURL: Bool,
+        localNetworkStatus: LocalNetworkStatus,
+        lastLocalNetworkPeerID: String?,
+        lastLocalNetworkEventAt: TimeInterval?,
+        lastReceivedAudioAt: TimeInterval?,
+        droppedAudioPacketCount: Int,
+        jitterQueuedFrameCount: Int,
+        transmitFallbackCount: Int,
+        receiveMetadataMismatchCount: Int,
+        lastTransmitFallbackSummary: String?,
+        lastReceiveMetadataMismatchSummary: String?
+    ) -> DiagnosticsSnapshot {
+        DiagnosticsSnapshot(
+            audio: AudioDebugSnapshot(
+                transmittedVoicePacketCount: sentVoicePacketCount,
+                receivedVoicePacketCount: receivedVoicePacketCount,
+                playedAudioFrameCount: playedAudioFrameCount
+            ),
+            playback: PlaybackDebugSnapshot(
+                lastScheduledOutputRMS: lastScheduledOutputRMS,
+                scheduledOutputBatchCount: scheduledOutputBatchCount,
+                scheduledOutputFrameCount: scheduledOutputFrameCount
+            ),
+            connectedPeerCount: connectedPeerCount,
+            authenticatedPeerCount: authenticatedPeerCount,
+            localMemberID: localMemberID,
+            transportTypeName: transportTypeName,
+            selectedGroupID: selectedGroupID,
+            selectedGroupMemberCount: selectedGroupMemberCount,
+            groupHashPrefix: groupHashPrefix,
+            inviteStatusMessage: inviteStatusMessage,
+            hasInviteURL: hasInviteURL,
+            localNetwork: LocalNetworkDebugSnapshot(
+                status: localNetworkStatus,
+                peerID: lastLocalNetworkPeerID,
+                occurredAt: lastLocalNetworkEventAt
+            ),
+            reception: ReceptionDebugSnapshot(
+                lastReceivedAudioAt: lastReceivedAudioAt,
+                droppedAudioPacketCount: droppedAudioPacketCount,
+                jitterQueuedFrameCount: jitterQueuedFrameCount
+            ),
+            transmitFallbackCount: transmitFallbackCount,
+            receiveMetadataMismatchCount: receiveMetadataMismatchCount,
+            lastTransmitFallbackSummary: lastTransmitFallbackSummary,
+            lastReceiveMetadataMismatchSummary: lastReceiveMetadataMismatchSummary
+        )
+    }
 }

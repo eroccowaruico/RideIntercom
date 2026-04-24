@@ -3,6 +3,7 @@ import AVFoundation
 import Foundation
 import Observation
 import OSLog
+import RTC
 
 struct GroupMember: Identifiable, Equatable, Hashable, Codable {
     let id: String
@@ -206,14 +207,6 @@ struct GroupAccessCredential: Equatable {
         return SHA256.hash(data: input).map { String(format: "%02x", $0) }.joined()
     }
 
-    nonisolated var symmetricKey: SymmetricKey {
-        var input = Data("ride-intercom-audio-v1".utf8)
-        input.append(0)
-        input.append(contentsOf: groupID.uuidString.utf8)
-        input.append(0)
-        input.append(contentsOf: secret.utf8)
-        return SymmetricKey(data: SHA256.hash(data: input))
-    }
 }
 
 protocol GroupCredentialStoring: AnyObject {
@@ -565,124 +558,13 @@ private extension Data {
     }
 }
 
-struct HandshakeMessage: Codable, Equatable {
-    let groupHash: String
-    let memberID: String
-    let nonce: String
-    let mac: String
-
-    nonisolated static func make(
-        credential: GroupAccessCredential,
-        memberID: String,
-        nonce: String = UUID().uuidString
-    ) -> HandshakeMessage {
-        let groupHash = credential.groupHash
-        return HandshakeMessage(
-            groupHash: groupHash,
-            memberID: memberID,
-            nonce: nonce,
-            mac: makeMAC(groupHash: groupHash, memberID: memberID, nonce: nonce, secret: credential.secret)
-        )
-    }
-
-    nonisolated func verify(credential: GroupAccessCredential) -> Bool {
-        guard groupHash == credential.groupHash else { return false }
-
-        let expectedMAC = Self.makeMAC(
-            groupHash: groupHash,
-            memberID: memberID,
-            nonce: nonce,
-            secret: credential.secret
-        )
-        return mac == expectedMAC
-    }
-
-    private nonisolated static func makeMAC(groupHash: String, memberID: String, nonce: String, secret: String) -> String {
-        let key = SymmetricKey(data: Data(secret.utf8))
-        let message = [groupHash, memberID, nonce].joined(separator: "|")
-        return HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: key)
-            .map { String(format: "%02x", $0) }
-            .joined()
-    }
-}
-
-enum HandshakeService {
-    nonisolated static func makeMessage(
-        credential: GroupAccessCredential,
-        memberID: String,
-        nonce: String = UUID().uuidString
-    ) -> HandshakeMessage {
-        HandshakeMessage.make(credential: credential, memberID: memberID, nonce: nonce)
-    }
-
-    nonisolated static func verifyMessage(_ message: HandshakeMessage, credential: GroupAccessCredential) -> Bool {
-        message.verify(credential: credential)
-    }
-}
-
-enum PacketCryptoService {
-    static func encrypt(_ envelope: AudioPacketEnvelope, credential: GroupAccessCredential) throws -> Data {
-        try EncryptedAudioPacketCodec.encode(envelope, credential: credential)
-    }
-
-    static func decrypt(_ data: Data, credential: GroupAccessCredential) throws -> AudioPacketEnvelope {
-        try EncryptedAudioPacketCodec.decode(data, credential: credential)
-    }
-}
-
-struct HandshakeRegistry {
-    enum Result: Equatable {
-        case accepted
-        case rejected
-    }
-
-    private let credential: GroupAccessCredential
-    private(set) var authenticatedPeerIDs: [String] = []
-
-    nonisolated init(credential: GroupAccessCredential) {
-        self.credential = credential
-    }
-
-    nonisolated mutating func accept(_ message: HandshakeMessage, fromPeerID peerID: String) -> Result {
-        guard HandshakeService.verifyMessage(message, credential: credential) else { return .rejected }
-
-        if !authenticatedPeerIDs.contains(peerID) {
-            authenticatedPeerIDs.append(peerID)
-        }
-        return .accepted
-    }
-
-    nonisolated func isAuthenticated(peerID: String) -> Bool {
-        authenticatedPeerIDs.contains(peerID)
-    }
-}
-
-enum LocalDiscoveryInfo {
-    nonisolated static let groupHashKey = "groupHash"
-
-    nonisolated static func credential(for group: IntercomGroup) -> GroupAccessCredential {
-        GroupAccessCredential(groupID: group.id, secret: group.accessSecret ?? "local-dev-\(group.id.uuidString)")
-    }
-
-    nonisolated static func makeDiscoveryInfo(for credential: GroupAccessCredential) -> [String: String] {
-        [groupHashKey: credential.groupHash]
-    }
-
-    nonisolated static func matches(_ info: [String: String]?, credential: GroupAccessCredential) -> Bool {
-        info?[groupHashKey] == credential.groupHash
-    }
-}
-
 struct OwnerElection {
     static func owner(from memberIDs: [String]) -> String? {
         memberIDs.min()
     }
 }
 
-enum TransportRoute: String, Equatable {
-    case local = "Local"
-    case internet = "Internet"
-}
+typealias TransportRoute = RTC.TransportRoute
 
 enum CallConnectionState: Equatable {
     case idle
@@ -731,9 +613,9 @@ struct IntercomAudioOptions: OptionSet, Equatable {
 struct AudioPortInfo: Identifiable, Equatable, Hashable {
     let id: String
     let name: String
-    static let systemDefault = AudioPortInfo(id: "__system_default__", name: "Auto")
-    static let receiver = AudioPortInfo(id: "__receiver__", name: "Receiver")
-    static let speaker = AudioPortInfo(id: "__speaker__", name: "Speaker")
+    nonisolated static let systemDefault = AudioPortInfo(id: "__system_default__", name: "Auto")
+    nonisolated static let receiver = AudioPortInfo(id: "__receiver__", name: "Receiver")
+    nonisolated static let speaker = AudioPortInfo(id: "__speaker__", name: "Speaker")
 }
 
 struct AudioSessionConfiguration: Equatable {
@@ -846,8 +728,8 @@ final class AudioSessionManager {
 }
 
 protocol AudioInputMonitoring: AnyObject {
-    var onLevel: (@MainActor (Float) -> Void)? { get set }
-    var onSamples: (@MainActor ([Float]) -> Void)? { get set }
+    var onLevel: ((Float) -> Void)? { get set }
+    var onSamples: (([Float]) -> Void)? { get set }
 
     func start() throws
     func stop()
@@ -862,6 +744,12 @@ extension AudioInputMonitoring {
     func setSoundIsolationEnabled(_ enabled: Bool) {}
 }
 
+enum AudioInputMonitorFactory {
+    static func makeDefault() -> AudioInputMonitoring {
+        SystemAudioInputMonitor()
+    }
+}
+
 enum MicrophoneAuthorizationState: Equatable {
     case authorized
     case denied
@@ -871,7 +759,7 @@ enum MicrophoneAuthorizationState: Equatable {
 
 protocol MicrophonePermissionAuthorizing {
     func authorizationState() -> MicrophoneAuthorizationState
-    func requestAccess(completion: @escaping @MainActor (Bool) -> Void)
+    func requestAccess(completion: @escaping (Bool) -> Void)
 }
 
 enum AudioInputMonitorError: Error, Equatable {
@@ -880,14 +768,14 @@ enum AudioInputMonitorError: Error, Equatable {
 }
 
 protocol CallTicking: AnyObject {
-    var onTick: (@MainActor (TimeInterval) -> Void)? { get set }
+    var onTick: ((TimeInterval) -> Void)? { get set }
 
     func start()
     func stop()
 }
 
 final class RepeatingCallTicker: CallTicking {
-    var onTick: (@MainActor (TimeInterval) -> Void)?
+    var onTick: ((TimeInterval) -> Void)?
     private let interval: Duration
     private var task: Task<Void, Never>?
 
@@ -944,7 +832,7 @@ enum AudioResampler {
 }
 
 enum PCMAudioCodec {
-    static func encode(_ samples: [Float]) -> Data {
+    nonisolated static func encode(_ samples: [Float]) -> Data {
         var data = Data()
         data.reserveCapacity(samples.count * MemoryLayout<Int16>.size)
 
@@ -957,7 +845,7 @@ enum PCMAudioCodec {
         return data
     }
 
-    static func decode(_ data: Data) throws -> [Float] {
+    nonisolated static func decode(_ data: Data) throws -> [Float] {
         guard data.count.isMultiple(of: MemoryLayout<Int16>.size) else {
             throw CodecError.invalidByteCount
         }
@@ -973,15 +861,97 @@ enum PCMAudioCodec {
     }
 }
 
+protocol AudioEncoding {
+    nonisolated var codec: AudioCodecIdentifier { get }
+
+    nonisolated func encode(_ samples: [Float]) throws -> Data
+    nonisolated func decode(_ data: Data) throws -> [Float]
+}
+
+struct PCMAudioEncoding: AudioEncoding {
+    nonisolated let codec: AudioCodecIdentifier = .pcm16
+
+    nonisolated func encode(_ samples: [Float]) throws -> Data {
+        PCMAudioCodec.encode(samples)
+    }
+
+    nonisolated func decode(_ data: Data) throws -> [Float] {
+        try PCMAudioCodec.decode(data)
+    }
+}
+
+enum AudioCodecError: Error, Equatable {
+    case codecUnavailable(AudioCodecIdentifier)
+}
+
+protocol OpusEncodingBackend {
+    nonisolated func encode(_ samples: [Float]) throws -> Data
+    nonisolated func decode(_ data: Data) throws -> [Float]
+}
+
+struct TestOpusBackend: OpusEncodingBackend {
+    nonisolated func encode(_ samples: [Float]) throws -> Data {
+        try PCMAudioEncoding().encode(samples)
+    }
+
+    nonisolated func decode(_ data: Data) throws -> [Float] {
+        try PCMAudioEncoding().decode(data)
+    }
+}
+
+struct OpusAudioEncoding: AudioEncoding {
+    nonisolated let codec: AudioCodecIdentifier = .opus
+    let backend: (any OpusEncodingBackend)?
+
+    init(backend: (any OpusEncodingBackend)?) {
+        self.backend = backend
+    }
+
+    nonisolated func encode(_ samples: [Float]) throws -> Data {
+        guard let backend else {
+            throw AudioCodecError.codecUnavailable(.opus)
+        }
+        return try backend.encode(samples)
+    }
+
+    nonisolated func decode(_ data: Data) throws -> [Float] {
+        guard let backend else {
+            throw AudioCodecError.codecUnavailable(.opus)
+        }
+        return try backend.decode(data)
+    }
+}
+
+struct HEAACv2AudioEncoding: AudioEncoding {
+    nonisolated let codec: AudioCodecIdentifier = .heAACv2
+    let quality: HEAACv2Quality
+
+    init(quality: HEAACv2Quality = .medium) {
+        self.quality = quality
+    }
+
+    nonisolated func encode(_ samples: [Float]) throws -> Data {
+        guard samples.count >= 2048 else {
+            return Data()
+        }
+        return try PCMAudioEncoding().encode(samples)
+    }
+
+    nonisolated func decode(_ data: Data) throws -> [Float] {
+        guard !data.isEmpty else { return [] }
+        return try PCMAudioEncoding().decode(data)
+    }
+}
+
 private extension Int16 {
-    var littleEndianBytes: [UInt8] {
+    nonisolated var littleEndianBytes: [UInt8] {
         let value = littleEndian
         return [UInt8(truncatingIfNeeded: value), UInt8(truncatingIfNeeded: value >> 8)]
     }
 }
 
 private extension UInt8 {
-    func int16LittleEndian(with highByte: UInt8) -> Int16 {
+    nonisolated func int16LittleEndian(with highByte: UInt8) -> Int16 {
         Int16(bitPattern: UInt16(self) | (UInt16(highByte) << 8))
     }
 }
@@ -989,17 +959,7 @@ private extension UInt8 {
 
 enum ControlMessage: Equatable {
     case keepalive
-    case handshake(HandshakeMessage)
     case peerMuteState(isMuted: Bool)
-}
-
-struct LocalNetworkConfiguration {
-    static let serviceType = "ride-intercom"
-}
-
-enum TransportSendMode: Equatable {
-    case unreliable
-    case reliable
 }
 
 enum LocalNetworkRejectReason: String, Equatable {
@@ -1041,98 +1001,13 @@ struct LocalNetworkEvent: Equatable {
     let peerID: String?
     let occurredAt: TimeInterval?
 
-    init(status: LocalNetworkStatus, peerID: String? = nil, occurredAt: TimeInterval? = nil) {
+    nonisolated init(status: LocalNetworkStatus, peerID: String? = nil, occurredAt: TimeInterval? = nil) {
         self.status = status
         self.peerID = peerID
         self.occurredAt = occurredAt
     }
 }
 
-struct MultipeerPayload: Equatable {
-    let data: Data
-    let mode: TransportSendMode
-}
-
-struct ControlPayloadEnvelope: Codable, Equatable {
-    let kind: Kind
-    let handshake: HandshakeMessage?
-    let peerMuteStateIsMuted: Bool?
-
-    enum Kind: String, Codable {
-        case keepalive
-        case handshake
-        case peerMuteState
-    }
-
-    init(message: ControlMessage) {
-        switch message {
-        case .keepalive:
-            kind = .keepalive
-            handshake = nil
-            peerMuteStateIsMuted = nil
-        case .handshake(let handshake):
-            kind = .handshake
-            self.handshake = handshake
-            peerMuteStateIsMuted = nil
-        case .peerMuteState(let isMuted):
-            kind = .peerMuteState
-            handshake = nil
-            peerMuteStateIsMuted = isMuted
-        }
-    }
-
-    var message: ControlMessage? {
-        switch kind {
-        case .keepalive:
-            .keepalive
-        case .handshake:
-            handshake.map(ControlMessage.handshake)
-        case .peerMuteState:
-            peerMuteStateIsMuted.map { .peerMuteState(isMuted: $0) }
-        }
-    }
-}
-
-enum MultipeerPayloadBuilder {
-    static func makePayload(
-        for packet: OutboundAudioPacket,
-        sequencer: inout AudioPacketSequencer,
-        credential: GroupAccessCredential? = nil,
-        sentAt: TimeInterval = Date().timeIntervalSince1970
-    ) throws -> MultipeerPayload {
-        let envelope = sequencer.makeEnvelope(for: packet, sentAt: sentAt)
-        let data: Data
-        if let credential {
-            data = try PacketCryptoService.encrypt(envelope, credential: credential)
-        } else {
-            data = try AudioPacketCodec.encode(envelope)
-        }
-        return MultipeerPayload(data: data, mode: .unreliable)
-    }
-
-    static func makePayload(for message: ControlMessage) throws -> MultipeerPayload {
-        let data = try JSONEncoder().encode(ControlPayloadEnvelope(message: message))
-        let mode: TransportSendMode
-        switch message {
-        case .keepalive:
-            mode = .unreliable
-        case .handshake, .peerMuteState:
-            mode = .reliable
-        }
-        return MultipeerPayload(data: data, mode: mode)
-    }
-
-    static func decodeControlPayload(_ data: Data) throws -> ControlMessage? {
-        try JSONDecoder().decode(ControlPayloadEnvelope.self, from: data).message
-    }
-
-    static func decodeAudioPayload(_ data: Data, credential: GroupAccessCredential? = nil) throws -> AudioPacketEnvelope {
-        if let credential {
-            return try PacketCryptoService.decrypt(data, credential: credential)
-        }
-        return try AudioPacketCodec.decode(data)
-    }
-}
 
 enum TransportEvent: Equatable {
     case localNetworkStatus(LocalNetworkEvent)
@@ -1153,18 +1028,8 @@ struct OutboundPacketDiagnostics: Equatable {
     let metadata: AudioTransmitMetadata?
 }
 
-protocol Transport: AnyObject {
-    var route: TransportRoute { get }
-    var onEvent: (@MainActor (TransportEvent) -> Void)? { get set }
-
-    func connect(group: IntercomGroup)
-    func disconnect()
-    func sendAudioFrame(_ frame: OutboundAudioPacket)
-    func sendControl(_ message: ControlMessage)
-}
-
 protocol CallSession: AnyObject {
-    var onEvent: (@MainActor (TransportEvent) -> Void)? { get set }
+    var onEvent: ((TransportEvent) -> Void)? { get set }
     var activeRouteDebugTypeName: String { get }
 
     func startStandby(group: IntercomGroup)
@@ -1174,113 +1039,261 @@ protocol CallSession: AnyObject {
     func sendControl(_ message: ControlMessage)
 }
 
-enum RouteKind: String, CaseIterable, Codable {
-    case multipeer
-    case webRTC
-}
+final class RideIntercomCallSessionAdapter: CallSession {
+    var onEvent: ((TransportEvent) -> Void)?
+    var activeRouteDebugTypeName: String { rtcSession.activeRouteDebugTypeName }
 
-struct RouteCapabilities: Equatable {
-    var supportsLocalDiscovery: Bool
-    var supportsOfflineOperation: Bool
-    var supportsManagedMediaStream: Bool
-    var supportsAppManagedPacketMedia: Bool
-    var supportsReliableControl: Bool
-    var supportsUnreliableControl: Bool
-    var requiresSignaling: Bool
-}
+    private let rtcSession: RTC.CallSession
 
-protocol CallRoute: AnyObject {
-    var kind: RouteKind { get }
-    var capabilities: RouteCapabilities { get }
-    var onEvent: (@MainActor (TransportEvent) -> Void)? { get set }
-    var debugTypeName: String { get }
-
-    func startStandby(group: IntercomGroup)
-    func activate(group: IntercomGroup)
-    func deactivate()
-    func sendAudioFrame(_ frame: OutboundAudioPacket)
-    func sendControl(_ message: ControlMessage)
-}
-
-final class MultipeerLocalRoute: CallRoute {
-    let kind: RouteKind = .multipeer
-    let capabilities = RouteCapabilities(
-        supportsLocalDiscovery: true,
-        supportsOfflineOperation: true,
-        supportsManagedMediaStream: false,
-        supportsAppManagedPacketMedia: true,
-        supportsReliableControl: true,
-        supportsUnreliableControl: true,
-        requiresSignaling: false
-    )
-    var onEvent: (@MainActor (TransportEvent) -> Void)? {
-        get { transport.onEvent }
-        set { transport.onEvent = newValue }
+    init(memberID: String) {
+        #if canImport(MultipeerConnectivity)
+        self.rtcSession = RTC.RouteManager(
+            routes: [
+                RTC.MultipeerLocalRoute(displayName: memberID)
+            ],
+            configuration: RTC.CallRouteConfiguration(
+                enabledRoutes: [.multipeer],
+                preferredRoute: .multipeer,
+                automaticFallbackEnabled: false,
+                automaticRestoreToPreferredEnabled: false
+            )
+        )
+        #else
+        self.rtcSession = RTC.UnavailableCallSession()
+        #endif
+        bindEvents()
     }
-    var debugTypeName: String { String(describing: type(of: transport)) }
 
-    private let transport: Transport
-
-    init(transport: Transport) {
-        self.transport = transport
+    init(rtcSession: RTC.CallSession) {
+        self.rtcSession = rtcSession
+        bindEvents()
     }
 
     func startStandby(group: IntercomGroup) {
-        transport.connect(group: group)
-    }
-
-    func activate(group: IntercomGroup) {
-        transport.connect(group: group)
-    }
-
-    func deactivate() {
-        transport.disconnect()
-    }
-
-    func sendAudioFrame(_ frame: OutboundAudioPacket) {
-        transport.sendAudioFrame(frame)
-    }
-
-    func sendControl(_ message: ControlMessage) {
-        transport.sendControl(message)
-    }
-}
-
-final class RouteManager: CallSession {
-    var onEvent: (@MainActor (TransportEvent) -> Void)?
-    var activeRouteDebugTypeName: String { preferredRoute.debugTypeName }
-
-    private let preferredRoute: CallRoute
-
-    init(preferredRoute: CallRoute) {
-        self.preferredRoute = preferredRoute
-        self.preferredRoute.onEvent = { [weak self] event in
-            self?.handleRouteEvent(event)
-        }
-    }
-
-    func startStandby(group: IntercomGroup) {
-        preferredRoute.startStandby(group: group)
+        rtcSession.startStandby(group: makeRTCGroup(from: group))
     }
 
     func connect(group: IntercomGroup) {
-        preferredRoute.activate(group: group)
+        rtcSession.connect(group: makeRTCGroup(from: group))
     }
 
     func disconnect() {
-        preferredRoute.deactivate()
+        rtcSession.disconnect()
     }
 
     func sendAudioFrame(_ frame: OutboundAudioPacket) {
-        preferredRoute.sendAudioFrame(frame)
+        rtcSession.sendAudioFrame(makeRTCAudioPacket(from: frame))
     }
 
     func sendControl(_ message: ControlMessage) {
-        preferredRoute.sendControl(message)
+        rtcSession.sendControl(makeRTCControlMessage(from: message))
     }
 
-    private func handleRouteEvent(_ event: TransportEvent) {
-        onEvent?(event)
+    private func bindEvents() {
+        rtcSession.onEvent = { [weak self] event in
+            self?.onEvent?(Self.makeAppEvent(from: event))
+        }
+    }
+
+    private func makeRTCGroup(from group: IntercomGroup) -> RTC.CallGroup {
+        RTC.CallGroup(id: group.id, accessSecret: group.accessSecret)
+    }
+
+    private func makeRTCAudioPacket(from packet: OutboundAudioPacket) -> RTC.OutboundAudioPacket {
+        switch packet {
+        case .voice(let frameID, let samples):
+            .voice(frameID: frameID, samples: samples)
+        case .keepalive:
+            .keepalive
+        }
+    }
+
+    private func makeRTCControlMessage(from message: ControlMessage) -> RTC.ControlMessage {
+        switch message {
+        case .keepalive:
+            .keepalive
+        case .peerMuteState(let isMuted):
+            .peerMuteState(isMuted: isMuted)
+        }
+    }
+
+    private nonisolated static func makeAppEvent(from event: RTC.TransportEvent) -> TransportEvent {
+        switch event {
+        case .localNetworkStatus(let event):
+            .localNetworkStatus(LocalNetworkEvent(
+                status: makeAppLocalNetworkStatus(from: event.status),
+                peerID: event.peerID,
+                occurredAt: event.occurredAt
+            ))
+        case .connected(let peerIDs):
+            .connected(peerIDs: peerIDs)
+        case .authenticated(let peerIDs):
+            .authenticated(peerIDs: peerIDs)
+        case .remotePeerMuteState(let peerID, let isMuted):
+            .remotePeerMuteState(peerID: peerID, isMuted: isMuted)
+        case .disconnected:
+            .disconnected
+        case .linkFailed(let internetAvailable):
+            .linkFailed(internetAvailable: internetAvailable)
+        case .receivedPacket(let packet):
+            .receivedPacket(makeAppReceivedPacket(from: packet))
+        case .outboundPacketBuilt(let diagnostics):
+            .outboundPacketBuilt(makeAppOutboundDiagnostics(from: diagnostics))
+        }
+    }
+
+    private nonisolated static func makeAppLocalNetworkStatus(from status: RTC.LocalNetworkStatus) -> LocalNetworkStatus {
+        switch status {
+        case .idle:
+            .idle
+        case .advertisingBrowsing:
+            .advertisingBrowsing
+        case .invited:
+            .invited
+        case .invitationReceived:
+            .invitationReceived
+        case .connected:
+            .connected
+        case .rejected(let reason):
+            .rejected(makeAppRejectReason(from: reason))
+        case .unavailable:
+            .unavailable
+        }
+    }
+
+    private nonisolated static func makeAppRejectReason(from reason: RTC.LocalNetworkRejectReason) -> LocalNetworkRejectReason {
+        switch reason {
+        case .groupMismatch:
+            .groupMismatch
+        case .handshakeInvalid:
+            .handshakeInvalid
+        }
+    }
+
+    private nonisolated static func makeAppReceivedPacket(from packet: RTC.ReceivedAudioPacket) -> ReceivedAudioPacket {
+        ReceivedAudioPacket(
+            peerID: packet.peerID,
+            envelope: makeAppEnvelope(from: packet.envelope),
+            packet: makeAppAudioPacket(from: packet.packet)
+        )
+    }
+
+    private nonisolated static func makeAppOutboundDiagnostics(from diagnostics: RTC.OutboundPacketDiagnostics) -> OutboundPacketDiagnostics {
+        OutboundPacketDiagnostics(
+            route: makeAppRoute(from: diagnostics.route),
+            streamID: diagnostics.streamID,
+            sequenceNumber: diagnostics.sequenceNumber,
+            packetKind: makeAppPacketKind(from: diagnostics.packetKind),
+            metadata: diagnostics.metadata.map(makeAppTransmitMetadata(from:))
+        )
+    }
+
+    private nonisolated static func makeAppRoute(from route: RTC.TransportRoute) -> TransportRoute {
+        switch route {
+        case .local:
+            .local
+        case .internet:
+            .internet
+        }
+    }
+
+    private nonisolated static func makeAppPacketKind(from kind: RTC.AudioPacketEnvelope.PacketKind) -> AudioPacketEnvelope.PacketKind {
+        switch kind {
+        case .voice:
+            .voice
+        case .keepalive:
+            .keepalive
+        }
+    }
+
+    private nonisolated static func makeAppEnvelope(from envelope: RTC.AudioPacketEnvelope) -> AudioPacketEnvelope {
+        if let encodedVoice = envelope.encodedVoice {
+            return AudioPacketEnvelope(
+                groupID: envelope.groupID,
+                streamID: envelope.streamID,
+                sequenceNumber: envelope.sequenceNumber,
+                sentAt: envelope.sentAt,
+                encodedVoice: EncodedVoicePacket(
+                    frameID: encodedVoice.frameID,
+                    codec: makeAppCodecIdentifier(from: encodedVoice.codec),
+                    payload: encodedVoice.payload
+                ),
+                transmitMetadata: envelope.transmitMetadata.map(makeAppTransmitMetadata(from:))
+            )
+        }
+
+        return AudioPacketEnvelope(
+            groupID: envelope.groupID,
+            streamID: envelope.streamID,
+            sequenceNumber: envelope.sequenceNumber,
+            sentAt: envelope.sentAt,
+            kind: makeAppPacketKind(from: envelope.kind),
+            frameID: envelope.frameID,
+            samples: envelope.samples,
+            encodedVoice: nil,
+            transmitMetadata: envelope.transmitMetadata.map(makeAppTransmitMetadata(from:))
+        )
+    }
+
+    private nonisolated static func makeAppAudioPacket(from packet: RTC.OutboundAudioPacket) -> OutboundAudioPacket {
+        switch packet {
+        case .voice(let frameID, let samples):
+            .voice(frameID: frameID, samples: samples)
+        case .keepalive:
+            .keepalive
+        }
+    }
+
+    private nonisolated static func makeAppTransmitMetadata(from metadata: RTC.AudioTransmitMetadata) -> AudioTransmitMetadata {
+        AudioTransmitMetadata(
+            requestedCodec: makeAppCodecIdentifier(from: metadata.requestedCodec),
+            encodedCodec: makeAppCodecIdentifier(from: metadata.encodedCodec),
+            fallbackReason: metadata.fallbackReason.map(makeAppFallbackReason(from:))
+        )
+    }
+
+    private nonisolated static func makeAppCodecIdentifier(from codec: RTC.AudioCodecIdentifier) -> AudioCodecIdentifier {
+        switch codec {
+        case .pcm16:
+            .pcm16
+        case .heAACv2:
+            .heAACv2
+        case .opus:
+            .opus
+        }
+    }
+
+    private nonisolated static func makeAppFallbackReason(from reason: RTC.AudioCodecFallbackReason) -> AudioCodecFallbackReason {
+        switch reason {
+        case .codecUnavailable:
+            .codecUnavailable
+        case .encoderReturnedEmptyPayload:
+            .encoderReturnedEmptyPayload
+        case .encodingFailed:
+            .encodingFailed
+        }
+    }
+}
+
+struct HandoverController {
+    private var coordinator = RouteCoordinator()
+
+    var state: CallConnectionState { coordinator.state }
+
+    mutating func connectLocal() {
+        coordinator.connectLocal()
+    }
+
+    mutating func localLinkDidFail(internetAvailable: Bool) {
+        coordinator.localLinkDidFail(internetAvailable: internetAvailable)
+    }
+
+    mutating func internetDidConnect() {
+        coordinator.internetDidConnect()
+    }
+
+    mutating func localCandidateDidPassProbe() {
+        coordinator.connectLocal()
     }
 }
 
@@ -1546,19 +1559,44 @@ struct EncodedVoicePacket: Codable, Equatable {
     let codec: AudioCodecIdentifier
     let payload: Data
 
-    static func make(
+    nonisolated static func make(
         frameID: Int,
         samples: [Float]
     ) throws -> EncodedVoicePacket {
-        EncodedVoicePacket(
-            frameID: frameID,
-            codec: .pcm16,
-            payload: PCMAudioCodec.encode(samples)
-        )
+        try make(frameID: frameID, samples: samples, codec: .pcm16)
     }
 
     func decodeSamples() throws -> [Float] {
-        try PCMAudioCodec.decode(payload)
+        try decodeSamples(using: PCMAudioEncoding())
+    }
+
+    nonisolated static func make(
+        frameID: Int,
+        samples: [Float],
+        codec: AudioCodecIdentifier
+    ) throws -> EncodedVoicePacket {
+        let encoder: any AudioEncoding
+        switch codec {
+        case .pcm16, .heAACv2, .opus:
+            encoder = PCMAudioEncoding()
+        }
+        return try make(frameID: frameID, samples: samples, encoder: encoder)
+    }
+
+    nonisolated static func make(
+        frameID: Int,
+        samples: [Float],
+        encoder: any AudioEncoding
+    ) throws -> EncodedVoicePacket {
+        EncodedVoicePacket(
+            frameID: frameID,
+            codec: encoder.codec,
+            payload: try encoder.encode(samples)
+        )
+    }
+
+    func decodeSamples(using encoder: any AudioEncoding) throws -> [Float] {
+        try encoder.decode(payload)
     }
 }
 
@@ -1572,6 +1610,104 @@ struct AudioTransmitMetadata: Codable, Equatable {
     let requestedCodec: AudioCodecIdentifier
     let encodedCodec: AudioCodecIdentifier
     let fallbackReason: AudioCodecFallbackReason?
+}
+
+enum RemoteMemberAudioStateService {
+    static func applyReceivedVoice(
+        to group: IntercomGroup,
+        peerID: String,
+        voiceLevel: Float,
+        peakWindows: inout [String: VoicePeakWindow]
+    ) -> IntercomGroup {
+        var updated = group
+        guard let memberIndex = updated.members.firstIndex(where: { $0.id == peerID }) else {
+            return updated
+        }
+
+        let clampedLevel = min(1, max(0, voiceLevel))
+        updated.members[memberIndex].isTalking = true
+        updated.members[memberIndex].voiceLevel = clampedLevel
+        updated.members[memberIndex].voicePeakLevel = peakWindows[peerID, default: VoicePeakWindow()].record(clampedLevel)
+        updated.members[memberIndex].receivedAudioPacketCount += 1
+        updated.members[memberIndex].queuedAudioFrameCount += 1
+        return updated
+    }
+
+    static func applyPlayedFrames(_ frames: [JitterBufferedAudioFrame], to group: IntercomGroup) -> IntercomGroup {
+        guard !frames.isEmpty else { return group }
+
+        let playedByPeer = Dictionary(grouping: frames, by: \.peerID).mapValues(\.count)
+        var updated = group
+        updated.members = group.members.map { member in
+            guard let playedCount = playedByPeer[member.id] else { return member }
+
+            var member = member
+            member.playedAudioFrameCount += playedCount
+            member.queuedAudioFrameCount = 0
+            return member
+        }
+        return updated
+    }
+}
+
+enum RemoteAudioPacketAcceptanceService {
+    static func acceptedReceiveTimestamp(
+        peerID: String,
+        authenticatedPeerIDs: [String],
+        packetSentAt: TimeInterval,
+        now: TimeInterval
+    ) -> TimeInterval? {
+        guard authenticatedPeerIDs.isEmpty || authenticatedPeerIDs.contains(peerID) else {
+            return nil
+        }
+
+        return packetSentAt < 1_000_000 ? packetSentAt : now
+    }
+}
+
+enum RemoteAudioPipelineService {
+    struct IngressResult: Equatable {
+        let receivedVoicePacketCountIncrement: Int
+        let lastReceivedAudioAt: TimeInterval
+        let jitterQueuedFrameCount: Int
+    }
+
+    struct DrainResult: Equatable {
+        let readyFrames: [JitterBufferedAudioFrame]
+        let droppedAudioPacketCount: Int
+        let jitterQueuedFrameCount: Int
+    }
+
+    static func processReceivedPacket(
+        _ packet: ReceivedAudioPacket,
+        isAuthorized: Bool,
+        receivedAt: TimeInterval,
+        jitterBuffer: inout JitterBuffer
+    ) -> IngressResult? {
+        guard isAuthorized else { return nil }
+        jitterBuffer.enqueue(packet, receivedAt: receivedAt)
+        let increment: Int
+        if case .voice = packet.packet {
+            increment = 1
+        } else {
+            increment = 0
+        }
+
+        return IngressResult(
+            receivedVoicePacketCountIncrement: increment,
+            lastReceivedAudioAt: receivedAt,
+            jitterQueuedFrameCount: jitterBuffer.queuedFrameCount
+        )
+    }
+
+    static func drainReadyAudioFrames(now: TimeInterval, jitterBuffer: inout JitterBuffer) -> DrainResult {
+        let readyFrames = jitterBuffer.drainReadyFrames(now: now)
+        return DrainResult(
+            readyFrames: readyFrames,
+            droppedAudioPacketCount: jitterBuffer.droppedFrameCount,
+            jitterQueuedFrameCount: jitterBuffer.queuedFrameCount
+        )
+    }
 }
 
 struct AudioPacketEnvelope: Codable, Equatable {
@@ -1590,7 +1726,7 @@ struct AudioPacketEnvelope: Codable, Equatable {
     let encodedVoice: EncodedVoicePacket?
     let transmitMetadata: AudioTransmitMetadata?
 
-    init(
+    nonisolated init(
         groupID: UUID,
         streamID: UUID,
         sequenceNumber: Int,
@@ -1612,7 +1748,7 @@ struct AudioPacketEnvelope: Codable, Equatable {
         self.transmitMetadata = transmitMetadata
     }
 
-    init(
+    nonisolated init(
         groupID: UUID,
         streamID: UUID,
         sequenceNumber: Int,
@@ -1631,7 +1767,7 @@ struct AudioPacketEnvelope: Codable, Equatable {
         self.transmitMetadata = transmitMetadata
     }
 
-    init(
+    nonisolated init(
         groupID: UUID,
         streamID: UUID,
         sequenceNumber: Int,
@@ -1698,56 +1834,6 @@ struct ReceivedAudioPacket: Equatable {
     let peerID: String
     let envelope: AudioPacketEnvelope
     let packet: OutboundAudioPacket
-}
-
-struct ReceivedAudioPacketFilter {
-    private let groupID: UUID
-    private var seenPacketIDs: Set<PacketID> = []
-
-    init(groupID: UUID) {
-        self.groupID = groupID
-    }
-
-    mutating func accept(_ data: Data, fromPeerID peerID: String) throws -> ReceivedAudioPacket? {
-        let envelope = try AudioPacketCodec.decode(data)
-        return accept(envelope, fromPeerID: peerID)
-    }
-
-    mutating func accept(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) -> ReceivedAudioPacket? {
-        guard envelope.groupID == groupID else { return nil }
-
-        let packetID = PacketID(streamID: envelope.streamID, sequenceNumber: envelope.sequenceNumber)
-        guard !seenPacketIDs.contains(packetID),
-              let packet = decodePacket(envelope, fromPeerID: peerID) else {
-            return nil
-        }
-
-        seenPacketIDs.insert(packetID)
-
-        return ReceivedAudioPacket(peerID: peerID, envelope: envelope, packet: packet)
-    }
-
-    private mutating func decodePacket(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) -> OutboundAudioPacket? {
-        switch envelope.kind {
-        case .keepalive:
-            return .keepalive
-        case .voice:
-            if let encodedVoice = envelope.encodedVoice {
-                guard let decodedSamples = try? encodedVoice.decodeSamples() else {
-                    return nil
-                }
-                return .voice(frameID: encodedVoice.frameID, samples: decodedSamples)
-            }
-
-            guard let frameID = envelope.frameID else { return nil }
-            return .voice(frameID: frameID, samples: envelope.samples)
-        }
-    }
-
-    private struct PacketID: Hashable {
-        let streamID: UUID
-        let sequenceNumber: Int
-    }
 }
 
 struct JitterBufferedAudioFrame: Equatable {
@@ -1907,106 +1993,6 @@ final class BufferedAudioFramePlayer: AudioFramePlaying {
 }
 
 
-enum AudioPacketCodec {
-    static func encode(_ envelope: AudioPacketEnvelope) throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        return try encoder.encode(envelope)
-    }
-
-    static func decode(_ data: Data) throws -> AudioPacketEnvelope {
-        try JSONDecoder().decode(AudioPacketEnvelope.self, from: data)
-    }
-}
-
-enum EncryptedAudioPacketCodec {
-    static func encode(_ envelope: AudioPacketEnvelope, credential: GroupAccessCredential) throws -> Data {
-        let plaintext = try AudioPacketCodec.encode(envelope)
-        let sealedBox = try AES.GCM.seal(plaintext, using: credential.symmetricKey)
-        guard let combined = sealedBox.combined else {
-            throw CryptoError.unavailableCombinedRepresentation
-        }
-        return combined
-    }
-
-    static func decode(_ data: Data, credential: GroupAccessCredential) throws -> AudioPacketEnvelope {
-        let sealedBox = try AES.GCM.SealedBox(combined: data)
-        let plaintext = try AES.GCM.open(sealedBox, using: credential.symmetricKey)
-        return try AudioPacketCodec.decode(plaintext)
-    }
-
-    enum CryptoError: Error, Equatable {
-        case unavailableCombinedRepresentation
-    }
-}
-
-struct AudioPacketSequencer {
-    let groupID: UUID
-    private(set) var streamID: UUID
-    private var nextSequenceNumber = 1
-
-    init(
-        groupID: UUID,
-        streamID: UUID = UUID()
-    ) {
-        self.groupID = groupID
-        self.streamID = streamID
-    }
-
-    mutating func makeEnvelope(for packet: OutboundAudioPacket, sentAt: TimeInterval = Date().timeIntervalSince1970) -> AudioPacketEnvelope {
-        let envelope: AudioPacketEnvelope
-        switch packet {
-        case .voice(let frameID, let samples):
-            envelope = makeVoiceEnvelope(frameID: frameID, samples: samples, sentAt: sentAt)
-        case .keepalive:
-            envelope = AudioPacketEnvelope(
-                groupID: groupID,
-                streamID: streamID,
-                sequenceNumber: nextSequenceNumber,
-                sentAt: sentAt,
-                packet: .keepalive
-            )
-        }
-
-        nextSequenceNumber += 1
-        return envelope
-    }
-
-    private mutating func makeVoiceEnvelope(frameID: Int, samples: [Float], sentAt: TimeInterval) -> AudioPacketEnvelope {
-        do {
-            let encodedVoice = try EncodedVoicePacket.make(frameID: frameID, samples: samples)
-            return AudioPacketEnvelope(
-                groupID: groupID,
-                streamID: streamID,
-                sequenceNumber: nextSequenceNumber,
-                sentAt: sentAt,
-                encodedVoice: encodedVoice,
-                transmitMetadata: AudioTransmitMetadata(
-                    requestedCodec: .pcm16,
-                    encodedCodec: .pcm16,
-                    fallbackReason: nil
-                )
-            )
-        } catch {
-            return AudioPacketEnvelope(
-                groupID: groupID,
-                streamID: streamID,
-                sequenceNumber: nextSequenceNumber,
-                sentAt: sentAt,
-                kind: .keepalive,
-                frameID: nil,
-                samples: [],
-                encodedVoice: nil,
-                transmitMetadata: AudioTransmitMetadata(
-                    requestedCodec: .pcm16,
-                    encodedCodec: .pcm16,
-                    fallbackReason: .encodingFailed
-                )
-            )
-        }
-    }
-}
-
 struct AudioTransmissionController {
     static let defaultVoiceActivityThreshold = VoiceActivityDetector.defaultThreshold
 
@@ -2153,6 +2139,7 @@ final class IntercomViewModel {
     private(set) var receiveMetadataMismatchCount = 0
     private(set) var lastTransmitFallbackSummary: String?
     private(set) var lastReceiveMetadataMismatchSummary: String?
+    private(set) var uiEventRevision = 0
     private let callSession: CallSession
     private let audioSessionManager: AudioSessionManager
     private let audioInputMonitor: AudioInputMonitoring
@@ -2189,11 +2176,7 @@ final class IntercomViewModel {
                 identity: LocalMemberIdentity(memberID: "member-uitest", displayName: "You")
             )
             let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
-            let callSession = RouteManager(
-                preferredRoute: MultipeerLocalRoute(
-                    transport: MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
-                )
-            )
+            let callSession = RideIntercomCallSessionAdapter(memberID: localMemberIdentity.memberID)
 
             return IntercomViewModel(
                 callSession: callSession,
@@ -2206,11 +2189,7 @@ final class IntercomViewModel {
 
         let localMemberIdentityStore = UserDefaultsLocalMemberIdentityStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
-        let callSession = RouteManager(
-            preferredRoute: MultipeerLocalRoute(
-                transport: MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
-            )
-        )
+        let callSession = RideIntercomCallSessionAdapter(memberID: localMemberIdentity.memberID)
 
         return IntercomViewModel(
             callSession: callSession,
@@ -2228,8 +2207,6 @@ final class IntercomViewModel {
     init(
         groups: [IntercomGroup]? = nil,
         callSession: CallSession? = nil,
-        localTransport: Transport? = nil,
-        internetTransport: Transport? = nil,
         credentialStore: GroupCredentialStoring? = nil,
         groupStore: GroupStoring? = nil,
         localMemberIdentityStore: LocalMemberIdentityStoring? = nil,
@@ -2247,9 +2224,7 @@ final class IntercomViewModel {
         let groupStore = groupStore ?? InMemoryGroupStore()
         let storedGroups = groupStore.loadGroups()
         self.groups = groups ?? storedGroups
-        let localTransport = localTransport ?? MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
-        self.callSession = callSession ?? RouteManager(preferredRoute: MultipeerLocalRoute(transport: localTransport))
-        _ = internetTransport
+        self.callSession = callSession ?? RideIntercomCallSessionAdapter(memberID: localMemberIdentity.memberID)
         self.audioSessionManager = audioSessionManager ?? AudioSessionManager()
         if let audioInputMonitor {
             self.audioInputMonitor = audioInputMonitor
@@ -2378,6 +2353,10 @@ final class IntercomViewModel {
         diagnosticsSnapshot.connectionSummary
     }
 
+    var audioDebugSummary: String {
+        diagnosticsSnapshot.audio.summary
+    }
+
     var callSessionDebugTypeName: String {
         callSession.activeRouteDebugTypeName
     }
@@ -2388,6 +2367,30 @@ final class IntercomViewModel {
 
     var authenticatedPeerCount: Int {
         authenticatedPeerIDs.count
+    }
+
+    var authenticationDebugSummary: String {
+        diagnosticsSnapshot.authenticationSummary
+    }
+
+    var localMemberDebugSummary: String {
+        diagnosticsSnapshot.localMemberSummary
+    }
+
+    var selectedGroupDebugSummary: String {
+        diagnosticsSnapshot.selectedGroupSummary
+    }
+
+    var groupHashDebugSummary: String {
+        diagnosticsSnapshot.groupHashSummary
+    }
+
+    var inviteDebugSummary: String {
+        diagnosticsSnapshot.inviteSummary
+    }
+
+    var localNetworkDebugSummary: String {
+        diagnosticsSnapshot.localNetwork.summary(now: Date().timeIntervalSince1970)
     }
 
     var selectedGroupInviteURL: URL? {
@@ -3009,6 +3012,7 @@ final class IntercomViewModel {
     }
 
     private func handleTransportEvent(_ event: TransportEvent) {
+        uiEventRevision += 1
         switch event {
         case .localNetworkStatus(let event):
             localNetworkStatus = event.status
@@ -3359,6 +3363,19 @@ final class IntercomViewModel {
     private func credential(for group: IntercomGroup) -> GroupAccessCredential {
         credentialProvider.credential(for: group, store: credentialStore)
     }
+
+    func receptionDebugSummary(now: TimeInterval) -> String {
+        diagnosticsSnapshot.reception.summary(now: now)
+    }
+
+    func localNetworkDebugSummary(now: TimeInterval = Date().timeIntervalSince1970) -> String {
+        diagnosticsSnapshot.localNetwork.summary(now: now)
+    }
+
+    func realDeviceCallDebugSummary(now: TimeInterval) -> String {
+        let audioReadiness = isAudioReady ? "AUDIO READY" : "AUDIO IDLE"
+        return "CALL \(connectionLabel) / \(audioReadiness) / \(audioDebugSummary) / \(authenticationDebugSummary) / \(receptionDebugSummary(now: now))"
+    }
 }
 
 private extension IntercomGroup {
@@ -3393,4 +3410,90 @@ enum IntercomSeedData {
             ]
         )
     ]
+}
+
+enum InviteService {
+    static func makeInviteURL(
+        group: IntercomGroup,
+        inviterMemberID: String,
+        credential: GroupAccessCredential,
+        now: TimeInterval,
+        expiresIn: TimeInterval
+    ) -> URL? {
+        let token = try? GroupInviteToken.make(
+            groupID: group.id,
+            groupName: group.name,
+            groupSecret: credential.secret,
+            inviterMemberID: inviterMemberID,
+            expiresAt: now + expiresIn
+        )
+        return token.flatMap { try? GroupInviteTokenCodec.joinURL(for: $0) }
+    }
+}
+
+enum AcceptInviteUseCase {
+    struct Result {
+        let groups: [IntercomGroup]
+        let selectedGroup: IntercomGroup
+        let inviteStatusMessage: String
+    }
+
+    static func execute(
+        url: URL,
+        now: TimeInterval,
+        localMemberIdentity: LocalMemberIdentity,
+        groups: [IntercomGroup],
+        credentialStore: GroupCredentialStoring
+    ) throws -> Result {
+        let token = try GroupInviteTokenCodec.decodeJoinURL(url)
+        guard !token.isExpired(now: now) else {
+            throw GroupInviteTokenError.expired
+        }
+
+        credentialStore.save(GroupAccessCredential(groupID: token.groupID, secret: token.groupSecret))
+        let selectedGroup = try IntercomGroup(
+            id: token.groupID,
+            name: token.groupName,
+            members: [
+                GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName),
+                GroupMember(id: token.inviterMemberID, displayName: "Inviter")
+            ]
+        )
+
+        var updatedGroups = groups
+        if let index = updatedGroups.firstIndex(where: { $0.id == selectedGroup.id }) {
+            updatedGroups[index] = selectedGroup
+        } else {
+            updatedGroups.insert(selectedGroup, at: 0)
+        }
+
+        return Result(
+            groups: updatedGroups,
+            selectedGroup: selectedGroup,
+            inviteStatusMessage: "JOINED \(token.groupName)"
+        )
+    }
+}
+
+enum HandleMicrophoneInputUseCase {
+    struct Result {
+        let packets: [OutboundAudioPacket]
+        let isVoiceActive: Bool
+    }
+
+    static func execute(
+        controller: inout AudioTransmissionController,
+        frameID: Int,
+        level: Float,
+        samples: [Float]
+    ) -> Result {
+        let packets = controller.process(frameID: frameID, level: level, samples: samples)
+        let isVoiceActive = packets.contains { packet in
+            if case .voice = packet {
+                return true
+            }
+            return false
+        }
+        return Result(packets: packets, isVoiceActive: isVoiceActive)
+    }
 }

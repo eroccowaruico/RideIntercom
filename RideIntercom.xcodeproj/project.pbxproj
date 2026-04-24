@@ -23,6 +23,10 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXBuildFile section */
+		934630852F9C0001001548C3 /* RTC in Frameworks */ = {isa = PBXBuildFile; productRef = 934630842F9C0001001548C3 /* RTC */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		934630832F9B8D1B001548C3 /* RTC */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RTC; sourceTree = "<group>"; };
 		93F300C82F93829C0046716D /* RideIntercom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercom.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -75,6 +79,7 @@
 		93F300C52F93829C0046716D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				934630852F9C0001001548C3 /* RTC in Frameworks */,
 			);
 		};
 		93F300D62F93829D0046716D /* Frameworks */ = {
@@ -130,6 +135,9 @@
 				93F300CA2F93829C0046716D /* RideIntercom */,
 			);
 			name = RideIntercom;
+			packageProductDependencies = (
+				934630842F9C0001001548C3 /* RTC */,
+			);
 			productName = RideIntercom;
 			productReference = 93F300C82F93829C0046716D /* RideIntercom.app */;
 			productType = "com.apple.product-type.application";
@@ -208,6 +216,9 @@
 			);
 			mainGroup = 93F300BF2F93829C0046716D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */,
+			);
 			preferredProjectObjectVersion = 100;
 			productRefGroup = 93F300C92F93829C0046716D /* Products */;
 			projectDirPath = "";
@@ -613,6 +624,21 @@
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RTC;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		934630842F9C0001001548C3 /* RTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */;
+			productName = RTC;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCConfigurationList section */
 		93F300C32F93829C0046716D /* Build configuration list for PBXProject "RideIntercom" */ = {
