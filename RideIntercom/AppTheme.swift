@@ -80,3 +80,48 @@ enum AppTypography {
     static let footnoteStrong: Font = .footnote.weight(.semibold)
     static let footnote: Font = .footnote
 }
+extension View {
+    private var platformButtonMinHeight: CGFloat {
+        #if canImport(AppKit)
+        return AppSize.buttonMacMinHeight
+        #else
+        return AppSize.buttonPrimaryMinHeight
+        #endif
+    }
+
+    func appProminentButtonStyle() -> some View {
+        buttonStyle(.borderedProminent)
+            .tint(AppColorPalette.buttonProminentBackground)
+            .foregroundStyle(AppColorPalette.buttonProminentForeground)
+            .frame(minHeight: max(AppSize.buttonPrimaryMinHeight, platformButtonMinHeight))
+    }
+
+    func appSecondaryButtonStyle() -> some View {
+        buttonStyle(.bordered)
+            .frame(minHeight: max(AppSize.buttonSecondaryMinHeight, platformButtonMinHeight))
+    }
+
+    func appCallCardStyle() -> some View {
+        appCardStyle(background: AnyShapeStyle(AppColorPalette.cardMaterial))
+    }
+
+    func appDiagnosticsCardStyle() -> some View {
+        appCardStyle(background: AnyShapeStyle(AppColorPalette.diagnosticsCardMaterial))
+    }
+
+    func appPanelCardStyle(borderColor: Color? = nil) -> some View {
+        appCardStyle(
+            background: AnyShapeStyle(AppColorPalette.panelSurface),
+            borderColor: borderColor ?? AppColorPalette.cardBorder
+        )
+    }
+
+    private func appCardStyle(background: AnyShapeStyle, borderColor: Color = AppColorPalette.cardBorder) -> some View {
+        let shape = RoundedRectangle(cornerRadius: AppCornerRadius.card)
+        return padding(AppSpacing.xl)
+            .background(background)
+            .overlay(shape.stroke(borderColor, lineWidth: AppBorderWidth.card))
+            .clipShape(shape)
+    }
+}
+

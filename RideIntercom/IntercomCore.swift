@@ -2428,6 +2428,8 @@ final class IntercomViewModel {
             internetAdapter = LoopbackInternetTransportAdapter()
         }
 
+        let internetTransport = InternetTransport(adapter: internetAdapter)
+
         let audioFramePlayer: AudioFramePlaying
         #if canImport(AVFAudio)
         audioFramePlayer = BufferedAudioFramePlayer(renderer: SystemAudioOutputRenderer())
@@ -2435,7 +2437,7 @@ final class IntercomViewModel {
         audioFramePlayer = NoOpAudioFramePlayer()
         #endif
 
-        if ProcessInfo.processInfo.arguments.contains("UI-TEST") {
+        if isUITestProcess {
             let localMemberIdentityStore = InMemoryLocalMemberIdentityStore(
                 identity: LocalMemberIdentity(memberID: "member-uitest", displayName: "You")
             )
@@ -2449,7 +2451,7 @@ final class IntercomViewModel {
 
             return IntercomViewModel(
                 localTransport: localTransport,
-                internetTransport: InternetTransport(adapter: internetAdapter),
+                internetTransport: internetTransport,
                 credentialStore: InMemoryGroupCredentialStore(),
                 groupStore: InMemoryGroupStore(),
                 localMemberIdentityStore: localMemberIdentityStore,
@@ -2468,12 +2470,16 @@ final class IntercomViewModel {
 
         return IntercomViewModel(
             localTransport: localTransport,
-            internetTransport: InternetTransport(adapter: internetAdapter),
+            internetTransport: internetTransport,
             credentialStore: KeychainGroupCredentialStore(),
             groupStore: UserDefaultsGroupStore(),
             localMemberIdentityStore: localMemberIdentityStore,
             audioFramePlayer: audioFramePlayer
         )
+    }
+
+    private static var isUITestProcess: Bool {
+        ProcessInfo.processInfo.arguments.contains("UI-TEST")
     }
 
     init(
@@ -2548,10 +2554,6 @@ final class IntercomViewModel {
             self?.handleCallTick(now: now)
         }
         self.isSoundIsolationEnabled = self.audioInputMonitor.isSoundIsolationEnabled
-    }
-
-    var selectedGroupSlots: [GroupMember?] {
-        selectedGroup?.members.map(Optional.some) ?? []
     }
 
     var connectionLabel: String {

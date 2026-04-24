@@ -6,46 +6,34 @@ struct ContentView: View {
 
     var body: some View {
         let _ = viewModel.uiEventRevision
-        return TabView(selection: $selectedTab) {
+        TabView(selection: $selectedTab) {
             Tab("Call", systemImage: "waveform.circle.fill", value: .call) {
-                callTabContent
+                NavigationStack {
+                    CallEntryView(viewModel: viewModel)
+                }
             }
             .accessibilityIdentifier("callTab")
 
             Tab("Diagnostics", systemImage: "gauge", value: .diagnostics) {
-                diagnosticsTabContent
+                NavigationStack {
+                    DiagnosticsView(viewModel: viewModel)
+                        .navigationTitle("Diagnostics")
+                }
             }
             .accessibilityIdentifier("diagnosticsTab")
 
             Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
-                settingsTabContent
+                NavigationStack {
+                    SettingsView(viewModel: viewModel)
+                        .navigationTitle("Settings")
+                }
             }
             .accessibilityIdentifier("settingsTab")
         }
-            .onOpenURL { url in
-                if (try? viewModel.acceptInviteURL(url)) != nil {
-                    selectedTab = .call
-                }
+        .onOpenURL { url in
+            if (try? viewModel.acceptInviteURL(url)) != nil {
+                selectedTab = .call
             }
-    }
-
-    private var callTabContent: some View {
-        NavigationStack {
-            CallEntryView(viewModel: viewModel)
-        }
-    }
-
-    private var diagnosticsTabContent: some View {
-        NavigationStack {
-            DiagnosticsView(viewModel: viewModel)
-                .navigationTitle("Diagnostics")
-        }
-    }
-
-    private var settingsTabContent: some View {
-        NavigationStack {
-            SettingsView(viewModel: viewModel)
-                .navigationTitle("Settings")
         }
     }
 }
@@ -298,7 +286,7 @@ private struct CallView: View {
                         .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
                 }
                 .appSecondaryButtonStyle()
-                .appStateToggleButtonTint(isActive: viewModel.isOutputMuted)
+                .tint(viewModel.isOutputMuted ? AppColorPalette.danger : AppColorPalette.buttonProminentBackground)
                 .accessibilityLabel(viewModel.isOutputMuted ? "Unmute Output" : "Mute Output")
                 .accessibilityValue(outputPercentLabel)
                 .accessibilityIdentifier("masterOutputMuteButton")
@@ -962,7 +950,7 @@ private struct LocalMicrophoneHeaderControl: View {
                     .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
             }
             .appSecondaryButtonStyle()
-            .appStateToggleButtonTint(isActive: isMuted)
+            .tint(isMuted ? AppColorPalette.danger : AppColorPalette.buttonProminentBackground)
             .accessibilityLabel(isMuted ? "Unmute" : "Mute")
             .accessibilityValue(isMuted ? "Muted" : "Live")
             .accessibilityIdentifier("localMicrophoneMuteButton")
@@ -971,49 +959,6 @@ private struct LocalMicrophoneHeaderControl: View {
         .accessibilityLabel("Your microphone")
         .accessibilityValue(isMuted ? "Muted" : "Live")
         .accessibilityIdentifier("localMicrophoneHeaderControl")
-    }
-}
-
-private struct LocalMicrophonePanel: View {
-    let member: GroupMember
-    let isMuted: Bool
-    let onToggleMute: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.l) {
-            HStack(spacing: AppSpacing.m) {
-                Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
-                    .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.success)
-                Text("Your Microphone")
-                    .font(AppTypography.rowTitle)
-                Spacer()
-                Text(isMuted ? "Muted" : "Live")
-                    .font(AppTypography.subheadlineStrong)
-                    .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.success)
-                    .accessibilityIdentifier("localMicrophoneStateLabel")
-            }
-
-            HStack(alignment: .center, spacing: AppSpacing.xl) {
-                VoiceMeterView(
-                    level: isMuted ? 0 : member.voiceLevel,
-                    peakLevel: isMuted ? 0 : member.voicePeakLevel,
-                    isMuted: isMuted
-                )
-                .accessibilityIdentifier("localMicrophoneMeter")
-
-                Button(action: onToggleMute) {
-                    Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
-                        .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
-                }
-                .appSecondaryButtonStyle()
-                .appStateToggleButtonTint(isActive: isMuted)
-                .accessibilityLabel(isMuted ? "Unmute" : "Mute")
-                .accessibilityValue(isMuted ? "Muted" : "Live")
-                .accessibilityIdentifier("localMicrophoneMuteButton")
-            }
-        }
-        .appPanelCardStyle(borderColor: isMuted ? AppColorPalette.danger.opacity(0.6) : AppColorPalette.success.opacity(0.35))
-        .accessibilityIdentifier("localMicrophonePanel")
     }
 }
 
@@ -1262,20 +1207,6 @@ private struct RemoteParticipantRowView: View {
             AppColorPalette.warning
         case .idle:
             AppColorPalette.neutral
-        }
-    }
-
-    private var statusColor: Color {
-        if member.isMuted {
-            return AppColorPalette.danger
-        }
-        switch member.connectionState {
-        case .connected:
-            return AppColorPalette.success
-        case .connecting:
-            return AppColorPalette.warning
-        case .offline:
-            return AppColorPalette.neutral
         }
     }
 }
