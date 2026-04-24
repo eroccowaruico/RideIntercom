@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 #if os(iOS)
 import UIKit
@@ -12,9 +13,9 @@ final class MultipeerLocalTransport: NSObject, Transport {
 
     private let localPeerID: MCPeerID
     private let session: MCSession
+    private let logger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "local-transport")
     private var advertiser: MCNearbyServiceAdvertiser?
     private var browser: MCNearbyServiceBrowser?
-    private var connectedGroup: IntercomGroup?
     private var credential: GroupAccessCredential?
     private var handshakeRegistry: HandshakeRegistry?
     private var sequencer: AudioPacketSequencer?
@@ -37,7 +38,7 @@ final class MultipeerLocalTransport: NSObject, Transport {
     }
 
     func connect(group: IntercomGroup) {
-        connectedGroup = group
+        stopDiscoveryAndSession()
         credential = LocalDiscoveryInfo.credential(for: group)
         handshakeRegistry = credential.map(HandshakeRegistry.init(credential:))
         sequencer = AudioPacketSequencer(groupID: group.id)
@@ -61,12 +62,7 @@ final class MultipeerLocalTransport: NSObject, Transport {
     }
 
     func disconnect() {
-        browser?.stopBrowsingForPeers()
-        advertiser?.stopAdvertisingPeer()
-        session.disconnect()
-        browser = nil
-        advertiser = nil
-        connectedGroup = nil
+        stopDiscoveryAndSession()
         credential = nil
         handshakeRegistry = nil
         sequencer = nil
@@ -96,6 +92,7 @@ final class MultipeerLocalTransport: NSObject, Transport {
             let payload = try MultipeerPayloadBuilder.makePayload(for: message)
             try session.send(payload.data, toPeers: targetPeers, with: payload.mcMode)
         } catch {
+            logger.error("Failed to send control payload: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -119,7 +116,16 @@ final class MultipeerLocalTransport: NSObject, Transport {
             )))
             try session.send(payload.data, toPeers: session.connectedPeers, with: payload.mcMode)
         } catch {
+            logger.error("Failed to send audio payload: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    private func stopDiscoveryAndSession() {
+        browser?.stopBrowsingForPeers()
+        advertiser?.stopAdvertisingPeer()
+        session.disconnect()
+        browser = nil
+        advertiser = nil
     }
 
     private func notify(_ event: TransportEvent) {
