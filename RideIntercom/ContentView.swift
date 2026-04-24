@@ -5,7 +5,6 @@ struct ContentView: View {
     @State private var selectedTab: AppTab = .call
 
     var body: some View {
-        let _ = viewModel.uiEventRevision
         TabView(selection: $selectedTab) {
             Tab("Call", systemImage: "waveform.circle.fill", value: .call) {
                 NavigationStack {
@@ -219,7 +218,6 @@ private struct CallView: View {
             .padding(AppSpacing.screen)
         }
         .background(AppColorPalette.callScreenBackground)
-        .accessibilityIdentifier("callScrollView")
         .accessibilityIdentifier("callScreen")
     }
 

@@ -2163,7 +2163,6 @@ final class IntercomViewModel {
     private(set) var receiveMetadataMismatchCount = 0
     private(set) var lastTransmitFallbackSummary: String?
     private(set) var lastReceiveMetadataMismatchSummary: String?
-    private(set) var uiEventRevision: UInt64 = 0
     private let localTransport: Transport
     private let internetTransport: Transport
     private let audioSessionManager: AudioSessionManager
@@ -3090,7 +3089,6 @@ final class IntercomViewModel {
     }
 
     private func handleTransportEvent(_ event: TransportEvent, route: TransportRoute) {
-        uiEventRevision &+= 1
         switch event {
         case .localNetworkStatus(let event):
             localNetworkStatus = event.status
@@ -3173,7 +3171,6 @@ final class IntercomViewModel {
     private func handleAvailableAudioPortsChanged() {
         selectedInputPort = audioSessionManager.selectedInputPort
         selectedOutputPort = audioSessionManager.selectedOutputPort
-        uiEventRevision &+= 1
     }
 
     private func handleReceivedPacket(_ packet: ReceivedAudioPacket) {
