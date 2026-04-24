@@ -119,9 +119,4 @@ struct DiagnosticsSnapshot: Equatable {
         let rxSummary = lastReceiveMetadataMismatchSummary ?? "RX META #0"
         return "\(txSummary) / \(rxSummary)"
     }
-
-    func realDeviceCallSummary(connectionLabel: String, isAudioReady: Bool, now: TimeInterval) -> String {
-        let audioState = isAudioReady ? "AUDIO READY" : "AUDIO IDLE"
-        return "CALL \(connectionLabel) / \(audioState) / \(audio.summary) / \(authenticationSummary) / \(reception.summary(now: now))"
-    }
 }

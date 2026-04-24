@@ -70,6 +70,202 @@ struct RideIntercomTests {
         }
     }
 
+    private final class NoOpAudioSession: AudioSessionApplying {
+        private(set) var appliedConfigurations: [AudioSessionConfiguration] = []
+        private(set) var activeValues: [Bool] = []
+        private(set) var inputPortSelections: [AudioPortInfo] = []
+        private(set) var outputPortSelections: [AudioPortInfo] = []
+
+        var stubbedInputPorts: [AudioPortInfo] = [.systemDefault]
+        var stubbedOutputPorts: [AudioPortInfo] = [.systemDefault]
+        private var onAvailablePortsChanged: (() -> Void)?
+
+        var availableInputPorts: [AudioPortInfo] { stubbedInputPorts }
+        var availableOutputPorts: [AudioPortInfo] { stubbedOutputPorts }
+
+        func apply(_ configuration: AudioSessionConfiguration) throws {
+            appliedConfigurations.append(configuration)
+        }
+
+        func setActive(_ active: Bool) throws {
+            activeValues.append(active)
+        }
+
+        func setPreferredInputPort(_ port: AudioPortInfo) throws {
+            inputPortSelections.append(port)
+        }
+
+        func setPreferredOutputPort(_ port: AudioPortInfo) throws {
+            outputPortSelections.append(port)
+        }
+
+        func setAvailablePortsChangedHandler(_ handler: (() -> Void)?) {
+            onAvailablePortsChanged = handler
+        }
+
+        func simulateAvailablePortsChanged() {
+            onAvailablePortsChanged?()
+        }
+    }
+
+    private final class NoOpAudioInputMonitor: AudioInputMonitoring {
+        var onLevel: (@MainActor (Float) -> Void)?
+        var onSamples: (@MainActor ([Float]) -> Void)?
+        private(set) var isRunning = false
+
+        func start() throws {
+            isRunning = true
+        }
+
+        func stop() {
+            isRunning = false
+        }
+
+        func simulate(level: Float) {
+            onLevel?(level)
+        }
+
+        func simulate(samples: [Float]) {
+            onSamples?(samples)
+        }
+    }
+
+    private final class NoOpCallTicker: CallTicking {
+        var onTick: (@MainActor (TimeInterval) -> Void)?
+        private(set) var isRunning = false
+
+        func start() {
+            isRunning = true
+        }
+
+        func stop() {
+            isRunning = false
+        }
+
+        func simulateTick(now: TimeInterval) {
+            guard isRunning else { return }
+            onTick?(now)
+        }
+    }
+
+    private final class LocalTransport: Transport {
+        let route: TransportRoute = .local
+        var onEvent: (@MainActor (TransportEvent) -> Void)?
+        private(set) var connectedGroup: IntercomGroup?
+        private(set) var sentAudioPackets: [OutboundAudioPacket] = []
+        private(set) var sentControlMessages: [ControlMessage] = []
+
+        func connect(group: IntercomGroup) {
+            connectedGroup = group
+            emit(.localNetworkStatus(LocalNetworkEvent(status: .advertisingBrowsing)))
+            emit(.connected(peerIDs: group.members.map(\.id)))
+        }
+
+        func disconnect() {
+            connectedGroup = nil
+            emit(.disconnected)
+        }
+
+        func sendAudioFrame(_ frame: OutboundAudioPacket) {
+            sentAudioPackets.append(frame)
+            let packetKind: AudioPacketEnvelope.PacketKind
+            switch frame {
+            case .voice:
+                packetKind = .voice
+            case .keepalive:
+                packetKind = .keepalive
+            }
+            emit(.outboundPacketBuilt(OutboundPacketDiagnostics(
+                route: route,
+                streamID: UUID(),
+                sequenceNumber: sentAudioPackets.count,
+                packetKind: packetKind,
+                metadata: AudioTransmitMetadata(
+                    requestedCodec: .pcm16,
+                    encodedCodec: .pcm16,
+                    fallbackReason: nil
+                )
+            )))
+        }
+
+        func sendControl(_ message: ControlMessage) {
+            sentControlMessages.append(message)
+        }
+
+        func simulateLinkFailure(internetAvailable: Bool) {
+            connectedGroup = nil
+            emit(.linkFailed(internetAvailable: internetAvailable))
+        }
+
+        func simulateReceivedPacket(_ packet: ReceivedAudioPacket) {
+            emit(.receivedPacket(packet))
+        }
+
+        func simulateAuthenticatedPeers(_ peerIDs: [String]) {
+            emit(.authenticated(peerIDs: peerIDs))
+        }
+
+        func simulateConnectedPeers(_ peerIDs: [String]) {
+            emit(.connected(peerIDs: peerIDs))
+        }
+
+        func simulateRemoteMuteState(peerID: String, isMuted: Bool) {
+            emit(.remotePeerMuteState(peerID: peerID, isMuted: isMuted))
+        }
+
+        func simulateLocalNetworkStatus(
+            _ status: LocalNetworkStatus,
+            peerID: String? = nil,
+            occurredAt: TimeInterval? = nil
+        ) {
+            emit(.localNetworkStatus(LocalNetworkEvent(status: status, peerID: peerID, occurredAt: occurredAt)))
+        }
+
+        private func emit(_ event: TransportEvent) {
+            onEvent?(event)
+        }
+    }
+
+    private final class NoOpAudioFramePlayer: AudioFramePlaying {
+        private(set) var playedFrames: [JitterBufferedAudioFrame] = []
+        private(set) var startCallCount = 0
+        private(set) var stopCallCount = 0
+
+        func start() throws {
+            startCallCount += 1
+        }
+
+        func stop() {
+            stopCallCount += 1
+        }
+
+        func play(_ frame: JitterBufferedAudioFrame) {
+            playedFrames.append(frame)
+        }
+
+        func play(_ frames: [JitterBufferedAudioFrame]) {
+            playedFrames.append(contentsOf: frames)
+        }
+    }
+
+    private final class NoOpAudioOutputRenderer: AudioOutputRendering {
+        private(set) var startCallCount = 0
+        private(set) var stopCallCount = 0
+        private(set) var scheduledSampleBuffers: [[Float]] = []
+
+        func start() throws {
+            startCallCount += 1
+        }
+
+        func stop() {
+            stopCallCount += 1
+        }
+
+        func schedule(samples: [Float]) {
+            scheduledSampleBuffers.append(samples)
+        }
+    }
+
     private static func workspaceRoot() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

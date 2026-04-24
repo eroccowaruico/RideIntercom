@@ -845,44 +845,6 @@ final class AudioSessionManager {
     }
 }
 
-final class NoOpAudioSession: AudioSessionApplying {
-    private(set) var appliedConfigurations: [AudioSessionConfiguration] = []
-    private(set) var activeValues: [Bool] = []
-    private(set) var inputPortSelections: [AudioPortInfo] = []
-    private(set) var outputPortSelections: [AudioPortInfo] = []
-
-    var stubbedInputPorts: [AudioPortInfo] = [.systemDefault]
-    var stubbedOutputPorts: [AudioPortInfo] = [.systemDefault]
-    private var onAvailablePortsChanged: (() -> Void)?
-
-    var availableInputPorts: [AudioPortInfo] { stubbedInputPorts }
-    var availableOutputPorts: [AudioPortInfo] { stubbedOutputPorts }
-
-    func apply(_ configuration: AudioSessionConfiguration) throws {
-        appliedConfigurations.append(configuration)
-    }
-
-    func setActive(_ active: Bool) throws {
-        activeValues.append(active)
-    }
-
-    func setPreferredInputPort(_ port: AudioPortInfo) throws {
-        inputPortSelections.append(port)
-    }
-
-    func setPreferredOutputPort(_ port: AudioPortInfo) throws {
-        outputPortSelections.append(port)
-    }
-
-    func setAvailablePortsChangedHandler(_ handler: (() -> Void)?) {
-        onAvailablePortsChanged = handler
-    }
-
-    func simulateAvailablePortsChanged() {
-        onAvailablePortsChanged?()
-    }
-}
-
 protocol AudioInputMonitoring: AnyObject {
     var onLevel: (@MainActor (Float) -> Void)? { get set }
     var onSamples: (@MainActor ([Float]) -> Void)? { get set }
@@ -898,28 +860,6 @@ extension AudioInputMonitoring {
     var supportsSoundIsolation: Bool { false }
     var isSoundIsolationEnabled: Bool { false }
     func setSoundIsolationEnabled(_ enabled: Bool) {}
-}
-
-final class NoOpAudioInputMonitor: AudioInputMonitoring {
-    var onLevel: (@MainActor (Float) -> Void)?
-    var onSamples: (@MainActor ([Float]) -> Void)?
-    private(set) var isRunning = false
-
-    func start() throws {
-        isRunning = true
-    }
-
-    func stop() {
-        isRunning = false
-    }
-
-    func simulate(level: Float) {
-        onLevel?(level)
-    }
-
-    func simulate(samples: [Float]) {
-        onSamples?(samples)
-    }
 }
 
 enum MicrophoneAuthorizationState: Equatable {
@@ -944,24 +884,6 @@ protocol CallTicking: AnyObject {
 
     func start()
     func stop()
-}
-
-final class NoOpCallTicker: CallTicking {
-    var onTick: (@MainActor (TimeInterval) -> Void)?
-    private(set) var isRunning = false
-
-    func start() {
-        isRunning = true
-    }
-
-    func stop() {
-        isRunning = false
-    }
-
-    func simulateTick(now: TimeInterval) {
-        guard isRunning else { return }
-        onTick?(now)
-    }
 }
 
 final class RepeatingCallTicker: CallTicking {
@@ -1275,84 +1197,6 @@ final class LoopbackInternetTransportAdapter: InternetTransportAdapting {
     func sendControlMessage(_ message: ControlMessage) {}
 }
 
-final class LocalTransport: Transport {
-    let route: TransportRoute = .local
-    var onEvent: (@MainActor (TransportEvent) -> Void)?
-    private(set) var connectedGroup: IntercomGroup?
-    private(set) var sentAudioPackets: [OutboundAudioPacket] = []
-    private(set) var sentControlMessages: [ControlMessage] = []
-    func connect(group: IntercomGroup) {
-        connectedGroup = group
-        emit(.localNetworkStatus(LocalNetworkEvent(status: .advertisingBrowsing)))
-        emit(.connected(peerIDs: group.members.map(\.id)))
-    }
-
-    func disconnect() {
-        connectedGroup = nil
-        emit(.disconnected)
-    }
-
-    func sendAudioFrame(_ frame: OutboundAudioPacket) {
-        sentAudioPackets.append(frame)
-        let packetKind: AudioPacketEnvelope.PacketKind
-        switch frame {
-        case .voice:
-            packetKind = .voice
-        case .keepalive:
-            packetKind = .keepalive
-        }
-        emit(.outboundPacketBuilt(OutboundPacketDiagnostics(
-            route: route,
-            streamID: UUID(),
-            sequenceNumber: sentAudioPackets.count,
-            packetKind: packetKind,
-            metadata: AudioTransmitMetadata(
-                requestedCodec: .pcm16,
-                encodedCodec: .pcm16,
-                fallbackReason: nil
-            )
-        )))
-    }
-
-    func sendControl(_ message: ControlMessage) {
-        sentControlMessages.append(message)
-    }
-
-    func simulateLinkFailure(internetAvailable: Bool) {
-        connectedGroup = nil
-        emit(.linkFailed(internetAvailable: internetAvailable))
-    }
-
-    func simulateReceivedPacket(_ packet: ReceivedAudioPacket) {
-        emit(.receivedPacket(packet))
-    }
-
-    func simulateAuthenticatedPeers(_ peerIDs: [String]) {
-        emit(.authenticated(peerIDs: peerIDs))
-    }
-
-    func simulateConnectedPeers(_ peerIDs: [String]) {
-        emit(.connected(peerIDs: peerIDs))
-    }
-
-    func simulateRemoteMuteState(peerID: String, isMuted: Bool) {
-        emit(.remotePeerMuteState(peerID: peerID, isMuted: isMuted))
-    }
-
-    func simulateLocalNetworkStatus(
-        _ status: LocalNetworkStatus,
-        peerID: String? = nil,
-        occurredAt: TimeInterval? = nil
-    ) {
-        emit(.localNetworkStatus(LocalNetworkEvent(status: status, peerID: peerID, occurredAt: occurredAt)))
-    }
-
-    private func emit(_ event: TransportEvent) {
-        onEvent?(event)
-    }
-}
-
-
 final class InternetTransport: Transport {
     let route: TransportRoute = .internet
     var onEvent: (@MainActor (TransportEvent) -> Void)?
@@ -1447,30 +1291,6 @@ final class InternetTransport: Transport {
 
     private func emit(_ event: TransportEvent) {
         onEvent?(event)
-    }
-}
-
-struct HandoverController {
-    private(set) var state: CallConnectionState = .idle
-
-    mutating func disconnect() {
-        state = .idle
-    }
-
-    mutating func connectLocal() {
-        state = .localConnected
-    }
-
-    mutating func localLinkDidFail(internetAvailable: Bool) {
-        state = internetAvailable ? .internetConnecting : .reconnectingOffline
-    }
-
-    mutating func internetDidConnect() {
-        state = .internetConnected
-    }
-
-    mutating func localCandidateDidPassProbe() {
-        state = .localConnected
     }
 }
 
@@ -2048,28 +1868,6 @@ protocol AudioFramePlaying: AnyObject {
     func play(_ frames: [JitterBufferedAudioFrame])
 }
 
-final class NoOpAudioFramePlayer: AudioFramePlaying {
-    private(set) var playedFrames: [JitterBufferedAudioFrame] = []
-    private(set) var startCallCount = 0
-    private(set) var stopCallCount = 0
-
-    func start() throws {
-        startCallCount += 1
-    }
-
-    func stop() {
-        stopCallCount += 1
-    }
-
-    func play(_ frame: JitterBufferedAudioFrame) {
-        playedFrames.append(frame)
-    }
-
-    func play(_ frames: [JitterBufferedAudioFrame]) {
-        playedFrames.append(contentsOf: frames)
-    }
-}
-
 enum AudioMixer {
     static func mix(_ frames: [JitterBufferedAudioFrame]) -> [Float] {
         let sampleCount = frames.map(\.samples.count).max() ?? 0
@@ -2089,24 +1887,6 @@ protocol AudioOutputRendering: AnyObject {
     func start() throws
     func stop()
     func schedule(samples: [Float])
-}
-
-final class NoOpAudioOutputRenderer: AudioOutputRendering {
-    private(set) var startCallCount = 0
-    private(set) var stopCallCount = 0
-    private(set) var scheduledSampleBuffers: [[Float]] = []
-
-    func start() throws {
-        startCallCount += 1
-    }
-
-    func stop() {
-        stopCallCount += 1
-    }
-
-    func schedule(samples: [Float]) {
-        scheduledSampleBuffers.append(samples)
-    }
 }
 
 final class BufferedAudioFramePlayer: AudioFramePlaying {
@@ -2537,10 +2317,6 @@ final class IntercomViewModel {
         connectionState.label
     }
 
-    var localTransportDebugTypeName: String {
-        String(describing: type(of: localTransport))
-    }
-
     var diagnosticsSnapshot: DiagnosticsSnapshot {
         DiagnosticsSnapshot(
             audio: AudioDebugSnapshot(
@@ -2556,7 +2332,7 @@ final class IntercomViewModel {
             connectedPeerCount: connectedPeerCount,
             authenticatedPeerCount: authenticatedPeerCount,
             localMemberID: localMemberIdentity.memberID,
-            transportTypeName: localTransportDebugTypeName,
+            transportTypeName: String(describing: type(of: localTransport)),
             selectedGroupID: selectedGroup?.id,
             selectedGroupMemberCount: selectedGroup?.members.count ?? 0,
             groupHashPrefix: selectedGroup.map { String(credential(for: $0).groupHash.prefix(8)) },
@@ -2577,10 +2353,6 @@ final class IntercomViewModel {
             lastTransmitFallbackSummary: lastTransmitFallbackSummary,
             lastReceiveMetadataMismatchSummary: lastReceiveMetadataMismatchSummary
         )
-    }
-
-    var transportDebugSummary: String {
-        diagnosticsSnapshot.transportSummary
     }
 
     var callPresenceLabel: String {
@@ -2605,19 +2377,6 @@ final class IntercomViewModel {
         }
     }
 
-    var ownerName: String {
-        guard let members = selectedGroup?.members,
-              let ownerID = OwnerElection.owner(from: members.map(\.id)),
-              let owner = members.first(where: { $0.id == ownerID }) else {
-            return "Unknown"
-        }
-        return owner.displayName
-    }
-
-    var audioDebugSummary: String {
-        diagnosticsSnapshot.audio.summary
-    }
-
     var audioInputProcessingSummary: String {
         let isolationLabel: String
         if audioInputMonitor.supportsSoundIsolation {
@@ -2632,12 +2391,6 @@ final class IntercomViewModel {
         audioInputMonitor.supportsSoundIsolation
     }
 
-    var audioCheckSummary: String {
-        let inputPercent = VoiceLevelIndicatorState(level: audioCheckInputLevel, peakLevel: audioCheckInputPeakLevel).levelPercent
-        let outputPercent = VoiceLevelIndicatorState(level: audioCheckOutputLevel, peakLevel: audioCheckOutputPeakLevel).levelPercent
-        return "\(audioCheckPhase.rawValue) / MIC \(inputPercent) / OUT \(outputPercent)"
-    }
-
     var connectedPeerCount: Int {
         connectedPeerIDs.count
     }
@@ -2648,46 +2401,6 @@ final class IntercomViewModel {
 
     var authenticatedPeerCount: Int {
         authenticatedPeerIDs.count
-    }
-
-    var authenticationDebugSummary: String {
-        diagnosticsSnapshot.authenticationSummary
-    }
-
-    var localMemberDebugSummary: String {
-        diagnosticsSnapshot.localMemberSummary
-    }
-
-    var selectedGroupDebugSummary: String {
-        diagnosticsSnapshot.selectedGroupSummary
-    }
-
-    var groupHashDebugSummary: String {
-        diagnosticsSnapshot.groupHashSummary
-    }
-
-    var inviteDebugSummary: String {
-        diagnosticsSnapshot.inviteSummary
-    }
-
-    var realDeviceCallDebugSummary: String {
-        realDeviceCallDebugSummary(now: Date().timeIntervalSince1970)
-    }
-
-    func realDeviceCallDebugSummary(now: TimeInterval) -> String {
-        diagnosticsSnapshot.realDeviceCallSummary(connectionLabel: connectionLabel, isAudioReady: isAudioReady, now: now)
-    }
-
-    var localNetworkDebugSummary: String {
-        localNetworkDebugSummary(now: Date().timeIntervalSince1970)
-    }
-
-    func localNetworkDebugSummary(now: TimeInterval) -> String {
-        diagnosticsSnapshot.localNetwork.summary(now: now)
-    }
-
-    var receptionDebugSummary: String {
-        receptionDebugSummary(now: Date().timeIntervalSince1970)
     }
 
     var selectedGroupInviteURL: URL? {
@@ -2710,10 +2423,6 @@ final class IntercomViewModel {
             expiresAt: Date().timeIntervalSince1970 + 7 * 24 * 60 * 60
         )
         return token.flatMap { try? GroupInviteTokenCodec.joinURL(for: $0) }
-    }
-
-    func receptionDebugSummary(now: TimeInterval) -> String {
-        diagnosticsSnapshot.reception.summary(now: now)
     }
 
     func selectGroup(_ group: IntercomGroup) {
