@@ -6,38 +6,38 @@ import AppKit
 @MainActor
 enum SingleWindowPolicy {
     private static let preferredContentSize = NSSize(width: 585, height: 844)
+    private static var didApplyDefaultSize = false
 
     static func enforce() {
         NSWindow.allowsAutomaticWindowTabbing = false
-        for window in NSApplication.shared.windows where window.styleMask.contains(.titled) {
-            window.setContentSize(preferredContentSize)
-            window.center()
-        }
+        applyDefaultSizeIfNeeded()
 
-        DispatchQueue.main.async {
-            for window in NSApplication.shared.windows where window.styleMask.contains(.titled) {
-                window.setContentSize(preferredContentSize)
-                window.center()
-            }
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            for window in NSApplication.shared.windows where window.styleMask.contains(.titled) {
-                window.setContentSize(preferredContentSize)
-                window.center()
+        if !didApplyDefaultSize {
+            DispatchQueue.main.async {
+                applyDefaultSizeIfNeeded()
             }
         }
     }
 
     static func openMainWindowWhenNeeded(using opener: (() -> Void)?) {
-        DispatchQueue.main.async {
-            let hasVisibleTitledWindow = NSApplication.shared.windows.contains { window in
-                window.isVisible && window.styleMask.contains(.titled)
-            }
-            if !hasVisibleTitledWindow {
-                opener?()
-            }
+        let hasVisibleTitledWindow = NSApplication.shared.windows.contains { window in
+            window.isVisible && window.styleMask.contains(.titled)
         }
+        if !hasVisibleTitledWindow {
+            opener?()
+        }
+    }
+
+    private static func applyDefaultSizeIfNeeded() {
+        guard let window = NSApplication.shared.windows.first(where: { $0.styleMask.contains(.titled) }) else {
+            return
+        }
+        guard !didApplyDefaultSize else {
+            return
+        }
+
+        didApplyDefaultSize = true
+        window.setContentSize(preferredContentSize)
     }
 
 }
