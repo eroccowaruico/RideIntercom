@@ -47,7 +47,7 @@
 | 項目 | 現行仕様 |
 |---|---|
 | Local | MultipeerConnectivity |
-| Internet | WebSocket adapter または loopback |
+| Internet | 現行は未実装。将来 WebRTCInternetRoute として追加予定 |
 | 認証 | group secret ベースの HMAC |
 | 暗号化 | Local 音声 payload は AES-GCM |
 

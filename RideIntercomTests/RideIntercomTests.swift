@@ -4,72 +4,6 @@ import Testing
 
 @MainActor
 struct RideIntercomTests {
-    private struct TestOpusBackend: OpusCodecBackend {
-        func encode(_ samples: [Float]) throws -> Data {
-            var bytes = Data()
-            bytes.reserveCapacity(samples.count * MemoryLayout<Float>.size)
-            for sample in samples {
-                var value = sample.bitPattern.littleEndian
-                withUnsafeBytes(of: &value) { buffer in
-                    bytes.append(contentsOf: buffer)
-                }
-            }
-            return bytes
-        }
-
-        func decode(_ data: Data) throws -> [Float] {
-            var decoded: [Float] = []
-            decoded.reserveCapacity(data.count / MemoryLayout<Float>.size)
-
-            for offset in stride(from: 0, to: data.count, by: MemoryLayout<Float>.size) {
-                guard offset + MemoryLayout<Float>.size <= data.count else { break }
-                var value: UInt32 = 0
-                _ = withUnsafeMutableBytes(of: &value) { destination in
-                    data.copyBytes(to: destination, from: offset..<(offset + MemoryLayout<Float>.size))
-                }
-                decoded.append(Float(bitPattern: UInt32(littleEndian: value)))
-            }
-
-            return decoded
-        }
-    }
-
-    @MainActor
-    private final class TestInternetTransportAdapter: InternetTransportAdapting {
-        var onEvent: (@MainActor (InternetTransportAdapterEvent) -> Void)?
-        private(set) var connectedGroup: IntercomGroup?
-        private(set) var disconnectCallCount = 0
-        private(set) var sentAudioPayloads: [Data] = []
-        private(set) var sentControlMessages: [ControlMessage] = []
-
-        func connect(group: IntercomGroup) {
-            connectedGroup = group
-            onEvent?(.connected(peerIDs: group.members.map(\.id)))
-        }
-
-        func disconnect() {
-            disconnectCallCount += 1
-            connectedGroup = nil
-            onEvent?(.disconnected)
-        }
-
-        func sendAudioPayload(_ data: Data) {
-            sentAudioPayloads.append(data)
-        }
-
-        func sendControlMessage(_ message: ControlMessage) {
-            sentControlMessages.append(message)
-        }
-
-        func simulateAuthenticated(peerIDs: [String]) {
-            onEvent?(.authenticated(peerIDs: peerIDs))
-        }
-
-        func simulateIncomingAudioPayload(_ payload: Data, peerID: String) {
-            onEvent?(.receivedAudioPayload(data: payload, peerID: peerID))
-        }
-    }
-
     private final class NoOpAudioSession: AudioSessionApplying {
         private(set) var appliedConfigurations: [AudioSessionConfiguration] = []
         private(set) var activeValues: [Bool] = []
@@ -289,7 +223,7 @@ struct RideIntercomTests {
         #if canImport(MultipeerConnectivity)
         let viewModel = IntercomViewModel.makeForCurrentProcess()
 
-        #expect(viewModel.localTransportDebugTypeName == "MultipeerLocalTransport")
+        #expect(viewModel.callSessionDebugTypeName == "MultipeerLocalTransport")
         #expect(viewModel.transportDebugSummary == "TRANSPORT MultipeerLocalTransport")
         #else
         #expect(Bool(true))
@@ -588,46 +522,6 @@ struct RideIntercomTests {
         } catch AudioCodecError.codecUnavailable(.heAACv2) {
             #expect(true)
         }
-    }
-
-    @Test func audioEncodingSelectorSelectsHEAACv2WhenPreferredFirst() {
-        let encoder = AudioEncodingSelector.encoder(preferred: [.heAACv2, .pcm16])
-
-        #expect(encoder.codec == .heAACv2)
-    }
-
-    @Test func audioEncodingSelectorFallsBackToPCMWhenOpusIsUnavailable() throws {
-        let samples = TestAudioSamples.sineWave(
-            frequency: 440,
-            sampleRate: 16_000,
-            duration: 0.02,
-            amplitude: 0.5
-        )
-        let encoder = AudioEncodingSelector.encoder(preferred: [.opus, .pcm16], opusBackend: nil)
-
-        let encodedVoice = try EncodedVoicePacket.make(frameID: 7, samples: samples, encoder: encoder)
-        let decodedSamples = try encodedVoice.decodeSamples()
-
-        #expect(encoder.codec == .pcm16)
-        #expect(encodedVoice.codec == .pcm16)
-        #expect(maxAbsoluteDifference(samples, decodedSamples) < 0.0001)
-    }
-
-    @Test func audioEncodingSelectorSelectsOpusWhenBackendIsInstalled() throws {
-        let samples = TestAudioSamples.sineWave(
-            frequency: 440,
-            sampleRate: 16_000,
-            duration: 0.02,
-            amplitude: 0.5
-        )
-        let encoder = AudioEncodingSelector.encoder(preferred: [.opus, .pcm16], opusBackend: TestOpusBackend())
-
-        let encodedVoice = try EncodedVoicePacket.make(frameID: 7, samples: samples, encoder: encoder)
-        let decodedSamples = try encodedVoice.decodeSamples(using: encoder)
-
-        #expect(encoder.codec == .opus)
-        #expect(encodedVoice.codec == .opus)
-        #expect(maxAbsoluteDifference(samples, decodedSamples) < 0.0001)
     }
 
     @Test func audioPacketEnvelopeRoundTripsKeepalivePacket() throws {
@@ -1075,57 +969,6 @@ struct RideIntercomTests {
         #expect(received == ReceivedAudioPacket(peerID: "peer-b", envelope: envelope, packet: .keepalive))
     }
 
-    @Test func receivedPacketFilterReusesDecoderSessionForSamePeerStreamAndCodec() {
-        final class StatefulDecoder: AudioDecoderSession {
-            let codec: AudioCodecIdentifier
-            private var decodeCount = 0
-
-            init(codec: AudioCodecIdentifier) {
-                self.codec = codec
-            }
-
-            func decodePacket(_ data: Data) throws -> [Float] {
-                decodeCount += 1
-                return decodeCount == 1 ? [] : [0.25, -0.25]
-            }
-
-            func reset() {}
-        }
-
-        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
-        let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
-        var createdDecoderCount = 0
-        var filter = ReceivedAudioPacketFilter(
-            groupID: groupID,
-            decoderSessionFactory: { codec in
-                createdDecoderCount += 1
-                return StatefulDecoder(codec: codec)
-            }
-        )
-
-        let firstEnvelope = AudioPacketEnvelope(
-            groupID: groupID,
-            streamID: streamID,
-            sequenceNumber: 1,
-            sentAt: 100,
-            encodedVoice: EncodedVoicePacket(frameID: 1, codec: .heAACv2, payload: Data([0x11]))
-        )
-        let secondEnvelope = AudioPacketEnvelope(
-            groupID: groupID,
-            streamID: streamID,
-            sequenceNumber: 2,
-            sentAt: 101,
-            encodedVoice: EncodedVoicePacket(frameID: 2, codec: .heAACv2, payload: Data([0x22]))
-        )
-
-        let first = filter.accept(firstEnvelope, fromPeerID: "peer-a")
-        let second = filter.accept(secondEnvelope, fromPeerID: "peer-a")
-
-        #expect(createdDecoderCount == 1)
-        #expect(first == ReceivedAudioPacket(peerID: "peer-a", envelope: firstEnvelope, packet: .voice(frameID: 1)))
-        #expect(second == ReceivedAudioPacket(peerID: "peer-a", envelope: secondEnvelope, packet: .voice(frameID: 2, samples: [0.25, -0.25])))
-    }
-
     @Test func jitterBufferDeliversReadyVoiceFramesInSequenceOrder() throws {
         let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
         let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
@@ -1527,32 +1370,6 @@ struct RideIntercomTests {
         #expect(first.sequenceNumber == 1)
         #expect(second.sequenceNumber == 2)
         #expect(second.packet == OutboundAudioPacket.keepalive)
-    }
-
-    @Test func audioPacketSequencerFallsBackToPCMWhenPreferredCodecIsOpus() {
-        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
-        var sequencer = AudioPacketSequencer(groupID: groupID, codec: .opus, opusBackend: nil)
-
-        let envelope = sequencer.makeEnvelope(
-            for: OutboundAudioPacket.voice(frameID: 1, samples: [0.2, -0.2]),
-            sentAt: 10
-        )
-
-        #expect(envelope.kind == .voice)
-        #expect(envelope.encodedVoice?.codec == .pcm16)
-    }
-
-    @Test func audioPacketSequencerUsesOpusWhenBackendIsInstalled() {
-        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
-        var sequencer = AudioPacketSequencer(groupID: groupID, codec: .opus, opusBackend: TestOpusBackend())
-
-        let envelope = sequencer.makeEnvelope(
-            for: OutboundAudioPacket.voice(frameID: 1, samples: [0.2, -0.2]),
-            sentAt: 10
-        )
-
-        #expect(envelope.kind == .voice)
-        #expect(envelope.encodedVoice?.codec == .opus)
     }
 
     @Test func audioPacketSequencerEventuallyProducesVoiceForHEAACOrFallbackPath() {
@@ -4331,11 +4148,10 @@ struct RideIntercomTests {
             audioInputMonitor: NoOpAudioInputMonitor()
         )
 
-        localTransport.setPreferredAudioCodec(.opus)
         localTransport.sendAudioFrame(.voice(frameID: 1, samples: [0.1]))
 
-        #expect(viewModel.transmitFallbackCount == 1)
-        #expect(viewModel.diagnosticsSnapshot.codecSafetySummary.contains("TX FB #1"))
+        #expect(viewModel.transmitFallbackCount == 0)
+        #expect(viewModel.diagnosticsSnapshot.codecSafetySummary.contains("CODEC OK"))
     }
 
     @MainActor
@@ -4385,125 +4201,6 @@ struct RideIntercomTests {
         #expect(viewModel.diagnosticsSnapshot.codecSafetySummary.contains("RX META #1"))
     }
 
-    @Test func internetTransportBuildsAudioEnvelopeUsingSharedPacketContract() throws {
-        let group = try IntercomGroup(
-            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
-            name: "Pair",
-            members: [
-                GroupMember(id: "member-001", displayName: "You"),
-                GroupMember(id: "member-002", displayName: "Partner")
-            ]
-        )
-        let transport = InternetTransport()
-
-        transport.connect(group: group)
-        transport.sendAudioFrame(.voice(frameID: 42, samples: [0.1]))
-
-        let envelope = try #require(transport.sentAudioEnvelopes.first)
-        #expect(envelope.groupID == group.id)
-        #expect(envelope.sequenceNumber == 1)
-        #expect(envelope.kind == .voice)
-        #expect(envelope.encodedVoice?.codec == .pcm16)
-    }
-
-    @Test func internetTransportForwardsAudioPayloadToAdapter() throws {
-        let group = try IntercomGroup(
-            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
-            name: "Pair",
-            members: [
-                GroupMember(id: "member-001", displayName: "You"),
-                GroupMember(id: "member-002", displayName: "Partner")
-            ]
-        )
-        let adapter = TestInternetTransportAdapter()
-        let transport = InternetTransport(adapter: adapter)
-
-        transport.connect(group: group)
-        transport.sendAudioFrame(.voice(frameID: 42, samples: [0.1]))
-
-        let payload = try #require(adapter.sentAudioPayloads.first)
-        let envelope = try AudioPacketCodec.decode(payload)
-        #expect(envelope.groupID == group.id)
-        #expect(envelope.kind == .voice)
-        #expect(envelope.frameID == 42)
-    }
-
-    @Test func internetTransportRotatesStreamIDAfterPreferredCodecSwitch() throws {
-        let group = try IntercomGroup(
-            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
-            name: "Pair",
-            members: [
-                GroupMember(id: "member-001", displayName: "You"),
-                GroupMember(id: "member-002", displayName: "Partner")
-            ]
-        )
-        let transport = InternetTransport()
-
-        transport.connect(group: group)
-        transport.sendAudioFrame(.voice(frameID: 1, samples: [0.1]))
-        let pcmEnvelope = try #require(transport.sentAudioEnvelopes.last)
-
-        transport.setPreferredAudioCodec(.heAACv2)
-        transport.sendAudioFrame(.voice(frameID: 2, samples: Array(repeating: 0.1, count: 128)))
-        transport.sendAudioFrame(.keepalive)
-        let switchedEnvelope = try #require(transport.sentAudioEnvelopes.last)
-
-        #expect(switchedEnvelope.streamID != pcmEnvelope.streamID)
-        #expect(switchedEnvelope.sequenceNumber >= 2)
-    }
-
-    @Test func internetTransportMapsAdapterIncomingPayloadToReceivedPacketEvent() throws {
-        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
-        let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
-        let group = try IntercomGroup(
-            id: groupID,
-            name: "Pair",
-            members: [
-                GroupMember(id: "member-001", displayName: "You"),
-                GroupMember(id: "member-002", displayName: "Partner")
-            ]
-        )
-        let adapter = TestInternetTransportAdapter()
-        let transport = InternetTransport(adapter: adapter)
-        var receivedPackets: [ReceivedAudioPacket] = []
-
-        transport.onEvent = { event in
-            if case .receivedPacket(let packet) = event {
-                receivedPackets.append(packet)
-            }
-        }
-
-        transport.connect(group: group)
-        let envelope = AudioPacketEnvelope(
-            groupID: groupID,
-            streamID: streamID,
-            sequenceNumber: 1,
-            sentAt: 50,
-            packet: .voice(frameID: 1)
-        )
-        let payload = try AudioPacketCodec.encode(envelope)
-        adapter.simulateIncomingAudioPayload(payload, peerID: "member-002")
-
-        #expect(receivedPackets.count == 1)
-        #expect(receivedPackets.first?.peerID == "member-002")
-        #expect(receivedPackets.first?.envelope.groupID == groupID)
-    }
-
-    @Test func defaultInternetTransportAdapterFactorySelectsAdapterFromEnvironment() {
-        let preferred = DefaultInternetTransportAdapterFactory.make(environment: [:])
-        #expect(preferred is LoopbackInternetTransportAdapter)
-
-        let invalid = DefaultInternetTransportAdapterFactory.make(environment: [
-            InternetTransportEndpointConfig.environmentKey: "not-a-url"
-        ])
-        #expect(invalid is LoopbackInternetTransportAdapter)
-
-        let remote = DefaultInternetTransportAdapterFactory.make(environment: [
-            InternetTransportEndpointConfig.environmentKey: "wss://example.com/intercom"
-        ])
-        #expect(remote is URLSessionInternetTransportAdapter)
-    }
-
     @Test func applicationAndUISourcesDoNotContainOSConditionalCompilationBranches() throws {
         let contentViewSource = try Self.source("RideIntercom/ContentView.swift")
         let intercomCoreSource = try Self.source("RideIntercom/IntercomCore.swift")
@@ -4532,60 +4229,12 @@ struct RideIntercomTests {
         #expect(windowPolicySource.contains("applicationShouldRestoreApplicationState"))
     }
 
-    @Test func internetTransportAcceptsOnlyMatchingGroupIncomingEnvelope() throws {
-        let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
-        let otherGroupID = UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!
-        let streamID = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
-        let group = try IntercomGroup(
-            id: groupID,
-            name: "Pair",
-            members: [
-                GroupMember(id: "member-001", displayName: "You"),
-                GroupMember(id: "member-002", displayName: "Partner")
-            ]
-        )
-        let transport = InternetTransport()
-        var receivedPackets: [ReceivedAudioPacket] = []
-        transport.onEvent = { event in
-            if case .receivedPacket(let packet) = event {
-                receivedPackets.append(packet)
-            }
-        }
-
-        transport.connect(group: group)
-        transport.simulateReceivedEnvelope(
-            AudioPacketEnvelope(
-                groupID: groupID,
-                streamID: streamID,
-                sequenceNumber: 1,
-                sentAt: 50,
-                packet: .voice(frameID: 1)
-            ),
-            fromPeerID: "member-002"
-        )
-        transport.simulateReceivedEnvelope(
-            AudioPacketEnvelope(
-                groupID: otherGroupID,
-                streamID: streamID,
-                sequenceNumber: 2,
-                sentAt: 51,
-                packet: .voice(frameID: 2)
-            ),
-            fromPeerID: "member-002"
-        )
-
-        #expect(receivedPackets.count == 1)
-        #expect(receivedPackets.first?.envelope.groupID == groupID)
-    }
-
     @MainActor
     @Test func viewModelUpdatesConnectionStateFromTransportEvents() throws {
         let localTransport = LocalTransport()
-        let internetTransport = InternetTransport()
         let viewModel = IntercomViewModel(
             groups: IntercomSeedData.recentGroups,
             localTransport: localTransport,
-            internetTransport: internetTransport,
             audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
             audioInputMonitor: NoOpAudioInputMonitor()
         )
@@ -4598,8 +4247,8 @@ struct RideIntercomTests {
 
         localTransport.simulateLinkFailure(internetAvailable: true)
 
-        #expect(viewModel.connectionState == .internetConnected)
-        #expect(internetTransport.connectedGroup?.id == IntercomSeedData.recentGroups[0].id)
+        #expect(viewModel.connectionState == .reconnectingOffline)
+        #expect(viewModel.localNetworkStatus == .unavailable)
     }
 
     @MainActor
@@ -4608,7 +4257,6 @@ struct RideIntercomTests {
         let viewModel = IntercomViewModel(
             groups: IntercomSeedData.recentGroups,
             localTransport: localTransport,
-            internetTransport: InternetTransport(),
             audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
             audioInputMonitor: NoOpAudioInputMonitor()
         )
@@ -4779,69 +4427,12 @@ struct RideIntercomTests {
         let viewModel = IntercomViewModel(
             audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
             audioInputMonitor: audioInputMonitor,
-            audioFramePlayer: audioFramePlayer,
-            opusBackend: nil
+            audioFramePlayer: audioFramePlayer
         )
 
         viewModel.setPreferredTransmitCodec(.pcm16)
         viewModel.setMasterOutputVolume(0)
         viewModel.toggleOutputMute()
-        viewModel.startAudioCheck()
-        let originalSamples: [Float] = [0.5, -0.5, 0.25, -0.25]
-        audioInputMonitor.simulate(samples: originalSamples)
-        viewModel.finishAudioCheckRecordingForDebug()
-
-        let playedSamples = audioFramePlayer.playedFrames.first?.samples ?? []
-        #expect(playedSamples.count == originalSamples.count)
-        for (played, original) in zip(playedSamples, originalSamples) {
-            #expect(abs(played - original) < 0.0001)
-        }
-    }
-
-    @MainActor
-    @Test func audioCheckFallsBackFromUnsupportedPreferredCodecToPCM16() {
-        let previousOpusBackend = OpusCodecBackendRegistry.current()
-        OpusCodecBackendRegistry.uninstall()
-        defer {
-            if let previousOpusBackend {
-                OpusCodecBackendRegistry.install(previousOpusBackend)
-            }
-        }
-
-        let audioInputMonitor = NoOpAudioInputMonitor()
-        let audioFramePlayer = NoOpAudioFramePlayer()
-        let viewModel = IntercomViewModel(
-            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
-            audioInputMonitor: audioInputMonitor,
-            audioFramePlayer: audioFramePlayer,
-            opusBackend: nil
-        )
-
-        viewModel.setPreferredTransmitCodec(.opus)
-        viewModel.startAudioCheck()
-        let originalSamples: [Float] = [0.5, -0.5, 0.25, -0.25]
-        audioInputMonitor.simulate(samples: originalSamples)
-        viewModel.finishAudioCheckRecordingForDebug()
-
-        let playedSamples = audioFramePlayer.playedFrames.first?.samples ?? []
-        #expect(playedSamples.count == originalSamples.count)
-        for (played, original) in zip(playedSamples, originalSamples) {
-            #expect(abs(played - original) < 0.0001)
-        }
-    }
-
-    @MainActor
-    @Test func audioCheckUsesOpusForPlaybackRoundTripWhenBackendIsInstalled() {
-        let audioInputMonitor = NoOpAudioInputMonitor()
-        let audioFramePlayer = NoOpAudioFramePlayer()
-        let viewModel = IntercomViewModel(
-            audioSessionManager: AudioSessionManager(session: NoOpAudioSession()),
-            audioInputMonitor: audioInputMonitor,
-            audioFramePlayer: audioFramePlayer,
-            opusBackend: TestOpusBackend()
-        )
-
-        viewModel.setPreferredTransmitCodec(.opus)
         viewModel.startAudioCheck()
         let originalSamples: [Float] = [0.5, -0.5, 0.25, -0.25]
         audioInputMonitor.simulate(samples: originalSamples)

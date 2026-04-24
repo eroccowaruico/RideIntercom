@@ -1163,133 +1163,123 @@ protocol Transport: AnyObject {
     func sendControl(_ message: ControlMessage)
 }
 
-enum InternetTransportAdapterEvent: Equatable {
-    case connected(peerIDs: [String])
-    case authenticated(peerIDs: [String])
-    case remotePeerMuteState(peerID: String, isMuted: Bool)
-    case disconnected
-    case linkFailed(internetAvailable: Bool)
-    case receivedAudioPayload(data: Data, peerID: String)
-}
+protocol CallSession: AnyObject {
+    var onEvent: (@MainActor (TransportEvent) -> Void)? { get set }
+    var activeRouteDebugTypeName: String { get }
 
-protocol InternetTransportAdapting: AnyObject {
-    var onEvent: (@MainActor (InternetTransportAdapterEvent) -> Void)? { get set }
-
+    func startStandby(group: IntercomGroup)
     func connect(group: IntercomGroup)
     func disconnect()
-    func sendAudioPayload(_ data: Data)
-    func sendControlMessage(_ message: ControlMessage)
+    func sendAudioFrame(_ frame: OutboundAudioPacket)
+    func sendControl(_ message: ControlMessage)
 }
 
-final class LoopbackInternetTransportAdapter: InternetTransportAdapting {
-    var onEvent: (@MainActor (InternetTransportAdapterEvent) -> Void)?
-
-    func connect(group: IntercomGroup) {
-        onEvent?(.connected(peerIDs: group.members.map(\.id)))
-    }
-
-    func disconnect() {
-        onEvent?(.disconnected)
-    }
-
-    func sendAudioPayload(_ data: Data) {}
-
-    func sendControlMessage(_ message: ControlMessage) {}
+enum RouteKind: String, CaseIterable, Codable {
+    case multipeer
+    case webRTC
 }
 
-final class InternetTransport: Transport {
-    let route: TransportRoute = .internet
-    var onEvent: (@MainActor (TransportEvent) -> Void)?
-    private(set) var connectedGroup: IntercomGroup?
-    private(set) var sentAudioPackets: [OutboundAudioPacket] = []
-    private(set) var sentControlMessages: [ControlMessage] = []
-    private(set) var sentAudioEnvelopes: [AudioPacketEnvelope] = []
-    private var sequencer: AudioPacketSequencer?
-    private var receivedPacketFilter: ReceivedAudioPacketFilter?
-    private let adapter: any InternetTransportAdapting
+struct RouteCapabilities: Equatable {
+    var supportsLocalDiscovery: Bool
+    var supportsOfflineOperation: Bool
+    var supportsManagedMediaStream: Bool
+    var supportsAppManagedPacketMedia: Bool
+    var supportsReliableControl: Bool
+    var supportsUnreliableControl: Bool
+    var requiresSignaling: Bool
+}
 
-    init(adapter: any InternetTransportAdapting = LoopbackInternetTransportAdapter()) {
-        self.adapter = adapter
-        self.adapter.onEvent = { [weak self] event in
-            self?.handleAdapterEvent(event)
-        }
+protocol CallRoute: AnyObject {
+    var kind: RouteKind { get }
+    var capabilities: RouteCapabilities { get }
+    var onEvent: (@MainActor (TransportEvent) -> Void)? { get set }
+    var debugTypeName: String { get }
+
+    func startStandby(group: IntercomGroup)
+    func activate(group: IntercomGroup)
+    func deactivate()
+    func sendAudioFrame(_ frame: OutboundAudioPacket)
+    func sendControl(_ message: ControlMessage)
+}
+
+final class MultipeerLocalRoute: CallRoute {
+    let kind: RouteKind = .multipeer
+    let capabilities = RouteCapabilities(
+        supportsLocalDiscovery: true,
+        supportsOfflineOperation: true,
+        supportsManagedMediaStream: false,
+        supportsAppManagedPacketMedia: true,
+        supportsReliableControl: true,
+        supportsUnreliableControl: true,
+        requiresSignaling: false
+    )
+    var onEvent: (@MainActor (TransportEvent) -> Void)? {
+        get { transport.onEvent }
+        set { transport.onEvent = newValue }
+    }
+    var debugTypeName: String { String(describing: type(of: transport)) }
+
+    private let transport: Transport
+
+    init(transport: Transport) {
+        self.transport = transport
     }
 
-    func connect(group: IntercomGroup) {
-        connectedGroup = group
-        sequencer = AudioPacketSequencer(groupID: group.id)
-        receivedPacketFilter = ReceivedAudioPacketFilter(groupID: group.id)
-        adapter.connect(group: group)
+    func startStandby(group: IntercomGroup) {
+        transport.connect(group: group)
     }
 
-    func disconnect() {
-        connectedGroup = nil
-        sequencer = nil
-        receivedPacketFilter = nil
-        sentAudioEnvelopes.removeAll()
-        adapter.disconnect()
+    func activate(group: IntercomGroup) {
+        transport.connect(group: group)
+    }
+
+    func deactivate() {
+        transport.disconnect()
     }
 
     func sendAudioFrame(_ frame: OutboundAudioPacket) {
-        sentAudioPackets.append(frame)
-        guard var sequencer else { return }
-        let envelope = sequencer.makeEnvelope(for: frame)
-        self.sequencer = sequencer
-        sentAudioEnvelopes.append(envelope)
-        emit(.outboundPacketBuilt(OutboundPacketDiagnostics(
-            route: route,
-            streamID: envelope.streamID,
-            sequenceNumber: envelope.sequenceNumber,
-            packetKind: envelope.kind,
-            metadata: envelope.transmitMetadata
-        )))
-        if let data = try? AudioPacketCodec.encode(envelope) {
-            adapter.sendAudioPayload(data)
-        }
+        transport.sendAudioFrame(frame)
     }
 
     func sendControl(_ message: ControlMessage) {
-        sentControlMessages.append(message)
-        adapter.sendControlMessage(message)
+        transport.sendControl(message)
     }
+}
 
-    func simulateAuthenticatedPeers(_ peerIDs: [String]) {
-        emit(.authenticated(peerIDs: peerIDs))
-    }
+final class RouteManager: CallSession {
+    var onEvent: (@MainActor (TransportEvent) -> Void)?
+    var activeRouteDebugTypeName: String { preferredRoute.debugTypeName }
 
-    func simulateReceivedEnvelope(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) {
-        handleReceivedEnvelope(envelope, fromPeerID: peerID)
-    }
+    private let preferredRoute: CallRoute
 
-    private func handleAdapterEvent(_ event: InternetTransportAdapterEvent) {
-        switch event {
-        case .connected(let peerIDs):
-            emit(.connected(peerIDs: peerIDs))
-        case .authenticated(let peerIDs):
-            emit(.authenticated(peerIDs: peerIDs))
-        case .remotePeerMuteState(let peerID, let isMuted):
-            emit(.remotePeerMuteState(peerID: peerID, isMuted: isMuted))
-        case .disconnected:
-            emit(.disconnected)
-        case .linkFailed(let internetAvailable):
-            emit(.linkFailed(internetAvailable: internetAvailable))
-        case .receivedAudioPayload(let data, let peerID):
-            guard let envelope = try? AudioPacketCodec.decode(data) else { return }
-            handleReceivedEnvelope(envelope, fromPeerID: peerID)
+    init(preferredRoute: CallRoute) {
+        self.preferredRoute = preferredRoute
+        self.preferredRoute.onEvent = { [weak self] event in
+            self?.handleRouteEvent(event)
         }
     }
 
-    private func handleReceivedEnvelope(_ envelope: AudioPacketEnvelope, fromPeerID peerID: String) {
-        guard var receivedPacketFilter else { return }
-        guard let packet = receivedPacketFilter.accept(envelope, fromPeerID: peerID) else {
-            self.receivedPacketFilter = receivedPacketFilter
-            return
-        }
-        self.receivedPacketFilter = receivedPacketFilter
-        emit(.receivedPacket(packet))
+    func startStandby(group: IntercomGroup) {
+        preferredRoute.startStandby(group: group)
     }
 
-    private func emit(_ event: TransportEvent) {
+    func connect(group: IntercomGroup) {
+        preferredRoute.activate(group: group)
+    }
+
+    func disconnect() {
+        preferredRoute.deactivate()
+    }
+
+    func sendAudioFrame(_ frame: OutboundAudioPacket) {
+        preferredRoute.sendAudioFrame(frame)
+    }
+
+    func sendControl(_ message: ControlMessage) {
+        preferredRoute.sendControl(message)
+    }
+
+    private func handleRouteEvent(_ event: TransportEvent) {
         onEvent?(event)
     }
 }
@@ -2163,8 +2153,7 @@ final class IntercomViewModel {
     private(set) var receiveMetadataMismatchCount = 0
     private(set) var lastTransmitFallbackSummary: String?
     private(set) var lastReceiveMetadataMismatchSummary: String?
-    private let localTransport: Transport
-    private let internetTransport: Transport
+    private let callSession: CallSession
     private let audioSessionManager: AudioSessionManager
     private let audioInputMonitor: AudioInputMonitoring
     private let callTicker: CallTicking
@@ -2190,23 +2179,9 @@ final class IntercomViewModel {
     private var isMicrophoneCaptureSuspendedByMute = false
     private var isLocalStandbyOnly = false
     private var nextAudioFrameID = 1
-    private var routeCoordinator = RouteCoordinator()
     private let diagnosticsLogger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "codec-diagnostics")
 
     static func makeForCurrentProcess() -> IntercomViewModel {
-        let internetAdapter: any InternetTransportAdapting
-        if let endpoint = ProcessInfo.processInfo.environment[InternetTransportEndpointConfig.environmentKey],
-           let url = URL(string: endpoint),
-           let scheme = url.scheme?.lowercased(),
-           ["ws", "wss"].contains(scheme),
-           url.host?.isEmpty == false {
-            internetAdapter = URLSessionInternetTransportAdapter(baseURL: url)
-        } else {
-            internetAdapter = LoopbackInternetTransportAdapter()
-        }
-
-        let internetTransport = InternetTransport(adapter: internetAdapter)
-
         let audioFramePlayer = BufferedAudioFramePlayer(renderer: SystemAudioOutputRenderer())
 
         if isUITestProcess {
@@ -2214,11 +2189,14 @@ final class IntercomViewModel {
                 identity: LocalMemberIdentity(memberID: "member-uitest", displayName: "You")
             )
             let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
-            let localTransport = MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
+            let callSession = RouteManager(
+                preferredRoute: MultipeerLocalRoute(
+                    transport: MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
+                )
+            )
 
             return IntercomViewModel(
-                localTransport: localTransport,
-                internetTransport: internetTransport,
+                callSession: callSession,
                 credentialStore: InMemoryGroupCredentialStore(),
                 groupStore: InMemoryGroupStore(),
                 localMemberIdentityStore: localMemberIdentityStore,
@@ -2228,11 +2206,14 @@ final class IntercomViewModel {
 
         let localMemberIdentityStore = UserDefaultsLocalMemberIdentityStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
-        let localTransport = MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
+        let callSession = RouteManager(
+            preferredRoute: MultipeerLocalRoute(
+                transport: MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
+            )
+        )
 
         return IntercomViewModel(
-            localTransport: localTransport,
-            internetTransport: internetTransport,
+            callSession: callSession,
             credentialStore: KeychainGroupCredentialStore(),
             groupStore: UserDefaultsGroupStore(),
             localMemberIdentityStore: localMemberIdentityStore,
@@ -2246,6 +2227,7 @@ final class IntercomViewModel {
 
     init(
         groups: [IntercomGroup]? = nil,
+        callSession: CallSession? = nil,
         localTransport: Transport? = nil,
         internetTransport: Transport? = nil,
         credentialStore: GroupCredentialStoring? = nil,
@@ -2265,8 +2247,9 @@ final class IntercomViewModel {
         let groupStore = groupStore ?? InMemoryGroupStore()
         let storedGroups = groupStore.loadGroups()
         self.groups = groups ?? storedGroups
-        self.localTransport = localTransport ?? MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
-        self.internetTransport = internetTransport ?? InternetTransport()
+        let localTransport = localTransport ?? MultipeerLocalTransport(displayName: localMemberIdentity.memberID)
+        self.callSession = callSession ?? RouteManager(preferredRoute: MultipeerLocalRoute(transport: localTransport))
+        _ = internetTransport
         self.audioSessionManager = audioSessionManager ?? AudioSessionManager()
         if let audioInputMonitor {
             self.audioInputMonitor = audioInputMonitor
@@ -2291,11 +2274,8 @@ final class IntercomViewModel {
         self.muteAutoStopDelay = muteAutoStopDelay
         self.audioTransmissionController.setVoiceActivityThreshold(initialVoiceActivityDetectionThreshold)
 
-        self.localTransport.onEvent = { [weak self] event in
-            self?.handleTransportEvent(event, route: .local)
-        }
-        self.internetTransport.onEvent = { [weak self] event in
-            self?.handleTransportEvent(event, route: .internet)
+        self.callSession.onEvent = { [weak self] event in
+            self?.handleTransportEvent(event)
         }
         self.audioSessionManager.onAvailablePortsChanged = { [weak self] in
             self?.handleAvailableAudioPortsChanged()
@@ -2331,7 +2311,7 @@ final class IntercomViewModel {
             connectedPeerCount: connectedPeerCount,
             authenticatedPeerCount: authenticatedPeerCount,
             localMemberID: localMemberIdentity.memberID,
-            transportTypeName: String(describing: type(of: localTransport)),
+            transportTypeName: callSession.activeRouteDebugTypeName,
             selectedGroupID: selectedGroup?.id,
             selectedGroupMemberCount: selectedGroup?.members.count ?? 0,
             groupHashPrefix: selectedGroup.map { String(credential(for: $0).groupHash.prefix(8)) },
@@ -2398,6 +2378,14 @@ final class IntercomViewModel {
         diagnosticsSnapshot.connectionSummary
     }
 
+    var callSessionDebugTypeName: String {
+        callSession.activeRouteDebugTypeName
+    }
+
+    var transportDebugSummary: String {
+        diagnosticsSnapshot.transportSummary
+    }
+
     var authenticatedPeerCount: Int {
         authenticatedPeerIDs.count
     }
@@ -2429,7 +2417,7 @@ final class IntercomViewModel {
             return
         }
 
-        localTransport.disconnect()
+        callSession.disconnect()
         selectedGroup = group.withMemberAuthenticationState(.open)
         connectionState = .idle
         isVoiceActive = false
@@ -2563,7 +2551,6 @@ final class IntercomViewModel {
         guard let selectedGroup else { return }
 
         guard startAudioPipelineIfNeeded() else { return }
-        routeCoordinator.connectLocal()
         isLocalStandbyOnly = false
         connectionState = connectedPeerIDs.isEmpty ? .localConnecting : .localConnected
         markMembers(connectionState == .localConnected ? .connected : .connecting)
@@ -2572,30 +2559,17 @@ final class IntercomViewModel {
             if let credential = credentialStore.credential(for: selectedGroup.id) {
                 group.accessSecret = credential.secret
             }
-            localTransport.connect(group: group)
+            callSession.connect(group: group)
         }
     }
 
-    private func startActiveCallAfterAuthenticatedPeer(route: TransportRoute) {
+    private func startActiveCallAfterAuthenticatedPeer() {
         guard isLocalStandbyOnly,
               !authenticatedPeerIDs.isEmpty,
               startAudioPipelineIfNeeded() else { return }
 
         isLocalStandbyOnly = false
-        if route == .local {
-            routeCoordinator.evaluateLocalProbe(
-                RouteProbeMetrics(
-                    rttMilliseconds: 0,
-                    jitterMilliseconds: 0,
-                    packetLossRate: 0,
-                    peerCount: connectedPeerIDs.count,
-                    expectedPeerCount: max(connectedPeerIDs.count, authenticatedPeerIDs.count)
-                )
-            )
-        } else {
-            routeCoordinator.internetDidConnect()
-        }
-        connectionState = routeCoordinator.state
+        connectionState = .localConnected
         markConnectedMembers(peerIDs: connectedPeerIDs)
     }
 
@@ -2632,7 +2606,7 @@ final class IntercomViewModel {
         if let credential = credentialStore.credential(for: selectedGroup.id) {
             group.accessSecret = credential.secret
         }
-        localTransport.connect(group: group)
+        callSession.startStandby(group: group)
     }
 
     private func audioSetupMessage(for error: Error) -> String {
@@ -2652,8 +2626,7 @@ final class IntercomViewModel {
         audioCheckTask?.cancel()
         muteAutoStopTask?.cancel()
         muteAutoStopTask = nil
-        localTransport.disconnect()
-        internetTransport.disconnect()
+        callSession.disconnect()
         audioInputMonitor.stop()
         audioFramePlayer.stop()
         callTicker.stop()
@@ -2667,7 +2640,6 @@ final class IntercomViewModel {
         connectedPeerIDs = []
         authenticatedPeerIDs = []
         isLocalStandbyOnly = false
-        routeCoordinator.disconnect()
         localNetworkStatus = .idle
         lastLocalNetworkPeerID = nil
         lastLocalNetworkEventAt = nil
@@ -2852,8 +2824,6 @@ final class IntercomViewModel {
     }
 
     private func handleCallTick(now: TimeInterval) {
-        routeCoordinator.advance(now: now)
-        connectionState = routeCoordinator.state
         expireRemoteTalkers(now: now)
         drainJitterBuffer(now: now)
     }
@@ -3009,70 +2979,20 @@ final class IntercomViewModel {
         switch packet {
         case .voice:
             sentVoicePacketCount += 1
-            if routeCoordinator.shouldDualSend {
-                localTransport.sendAudioFrame(packet)
-                internetTransport.sendAudioFrame(packet)
-            } else {
-                activeTransport?.sendAudioFrame(packet)
-            }
+            callSession.sendAudioFrame(packet)
         case .keepalive:
-            if routeCoordinator.shouldDualSend {
-                localTransport.sendControl(.keepalive)
-                internetTransport.sendControl(.keepalive)
-            } else {
-                activeTransport?.sendControl(.keepalive)
-            }
-        }
-    }
-
-    private var activeTransport: Transport? {
-        switch connectionState {
-        case .localConnected, .localConnecting:
-            localTransport
-        case .internetConnected, .internetConnecting:
-            internetTransport
-        case .idle, .reconnectingOffline:
-            nil
-        }
-    }
-
-    private func transport(for route: TransportRoute) -> Transport {
-        switch route {
-        case .local:
-            localTransport
-        case .internet:
-            internetTransport
+            callSession.sendControl(.keepalive)
         }
     }
 
     private func broadcastControl(_ message: ControlMessage, preferredRoute: TransportRoute? = nil) {
-        if routeCoordinator.shouldDualSend {
-            localTransport.sendControl(message)
-            internetTransport.sendControl(message)
-            return
-        }
-
-        if let preferredRoute {
-            transport(for: preferredRoute).sendControl(message)
-            return
-        }
-
-        activeTransport?.sendControl(message)
+        _ = preferredRoute
+        callSession.sendControl(message)
     }
 
     private func broadcastMetadataKeepalive(preferredRoute: TransportRoute? = nil) {
-        if routeCoordinator.shouldDualSend {
-            localTransport.sendAudioFrame(.keepalive)
-            internetTransport.sendAudioFrame(.keepalive)
-            return
-        }
-
-        if let preferredRoute {
-            transport(for: preferredRoute).sendAudioFrame(.keepalive)
-            return
-        }
-
-        activeTransport?.sendAudioFrame(.keepalive)
+        _ = preferredRoute
+        callSession.sendAudioFrame(.keepalive)
     }
 
     private func sendStateMetadataSnapshot(for route: TransportRoute) {
@@ -3088,7 +3008,7 @@ final class IntercomViewModel {
         replaceSelectedGroup(group)
     }
 
-    private func handleTransportEvent(_ event: TransportEvent, route: TransportRoute) {
+    private func handleTransportEvent(_ event: TransportEvent) {
         switch event {
         case .localNetworkStatus(let event):
             localNetworkStatus = event.status
@@ -3098,16 +3018,11 @@ final class IntercomViewModel {
             connectedPeerIDs = peerIDs
             addDiscoveredMembersIfNeeded(peerIDs: peerIDs)
             removeDisconnectedAuthenticatedPeers(connectedPeerIDs: peerIDs)
-            if route == .local {
-                localNetworkStatus = .connected
-                routeCoordinator.connectLocal()
-            } else {
-                routeCoordinator.internetDidConnect()
-            }
-            if isLocalStandbyOnly, route == .local {
+            localNetworkStatus = .connected
+            if isLocalStandbyOnly {
                 connectionState = .idle
             } else {
-                connectionState = routeCoordinator.state
+                connectionState = .localConnected
             }
             markConnectedMembers(peerIDs: peerIDs)
         case .authenticated(let peerIDs):
@@ -3116,51 +3031,27 @@ final class IntercomViewModel {
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()
             addDiscoveredMembersIfNeeded(peerIDs: authenticatedPeerIDs)
             if !isLocalStandbyOnly {
-                if route == .local {
-                    routeCoordinator.localCandidateDetected()
-                    routeCoordinator.evaluateLocalProbe(
-                        RouteProbeMetrics(
-                            rttMilliseconds: 0,
-                            jitterMilliseconds: 0,
-                            packetLossRate: 0,
-                            peerCount: connectedPeerIDs.count,
-                            expectedPeerCount: max(connectedPeerIDs.count, authenticatedPeerIDs.count)
-                        )
-                    )
-                } else {
-                    routeCoordinator.internetDidConnect()
-                }
-                connectionState = routeCoordinator.state
+                connectionState = .localConnected
             }
             markConnectedMembers(peerIDs: connectedPeerIDs)
-            startActiveCallAfterAuthenticatedPeer(route: route)
-            sendStateMetadataSnapshot(for: route)
+            startActiveCallAfterAuthenticatedPeer()
+            sendStateMetadataSnapshot(for: .local)
         case .remotePeerMuteState(let peerID, let isMuted):
             setRemotePeerMuteState(peerID: peerID, isMuted: isMuted)
         case .disconnected:
             connectedPeerIDs = []
             authenticatedPeerIDs = []
-            routeCoordinator.disconnect()
-            if route == .local {
-                localNetworkStatus = .idle
-            }
+            localNetworkStatus = .idle
             connectionState = .idle
             isVoiceActive = false
             markMembers(.offline)
         case .linkFailed(let internetAvailable):
-            guard route == .local else { return }
-            routeCoordinator.localLinkDidFail(internetAvailable: internetAvailable)
-            if internetAvailable, let selectedGroup {
-                connectionState = routeCoordinator.state
-                markMembers(.connecting)
-                internetTransport.connect(group: selectedGroup)
-            } else {
-                connectedPeerIDs = []
-                authenticatedPeerIDs = []
-                localNetworkStatus = .unavailable
-                connectionState = routeCoordinator.state
-        markMembers(.connecting)
-            }
+            _ = internetAvailable
+            connectedPeerIDs = []
+            authenticatedPeerIDs = []
+            localNetworkStatus = .unavailable
+            connectionState = .reconnectingOffline
+            markMembers(.connecting)
         case .receivedPacket(let packet):
             handleReceivedPacket(packet)
         case .outboundPacketBuilt(let diagnostics):
