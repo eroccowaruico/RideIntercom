@@ -520,6 +520,17 @@ private struct AudioIOPanel: View {
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("audioCheckInputPicker")
             }
+
+            if viewModel.supportsAdvancedMixingOptions {
+                Toggle(
+                    "Duck Other Audio",
+                    isOn: Binding(
+                        get: { viewModel.isDuckOthersEnabled },
+                        set: { viewModel.setDuckOthersEnabled($0) }
+                    )
+                )
+                .accessibilityIdentifier("duckOthersToggle")
+            }
         } header: {
             Label("Audio I/O", systemImage: "slider.horizontal.3")
         }

@@ -6,10 +6,11 @@ import CoreAudio
 #endif
 
 final class SystemAudioSessionAdapter: AudioSessionApplying {
+    private var onAvailablePortsChanged: (() -> Void)?
+
     #if os(iOS)
     private let session: AVAudioSession
     private let notificationCenter: NotificationCenter
-    private var onAvailablePortsChanged: (() -> Void)?
     private var routeChangeObserver: NSObjectProtocol?
 
     init(session: AVAudioSession = .sharedInstance(), notificationCenter: NotificationCenter = .default) {
@@ -17,6 +18,9 @@ final class SystemAudioSessionAdapter: AudioSessionApplying {
         self.notificationCenter = notificationCenter
     }
     #else
+    private let coreAudioListenerQueue = DispatchQueue(label: "RideIntercom.SystemAudioSessionAdapter.CoreAudio")
+    private var coreAudioPropertyListener: AudioObjectPropertyListenerBlock?
+
     init() {}
     #endif
 
@@ -54,28 +58,31 @@ final class SystemAudioSessionAdapter: AudioSessionApplying {
 
     var availableOutputPorts: [AudioPortInfo] {
         #if os(iOS)
-        var ports: [AudioPortInfo] = [
-            .systemDefault,
-            .receiver,
-            .speaker,
-        ]
-        let routeCandidates = (session.availableInputs ?? []).filter {
-            switch $0.portType {
-            case .bluetoothHFP, .headsetMic, .usbAudio, .carAudio, .lineIn:
-                return true
-            default:
-                return false
-            }
-        }
-        for port in routeCandidates {
-            let candidate = AudioPortInfo(id: port.uid, name: port.portName)
-            if !ports.contains(candidate) {
-                ports.append(candidate)
-            }
-        }
-        return ports
+        [.systemDefault, .speaker]
         #else
         return coreAudioPorts(scope: kAudioDevicePropertyScopeOutput)
+        #endif
+    }
+
+    var currentInputPort: AudioPortInfo {
+        #if os(iOS)
+        guard let currentInput = session.currentRoute.inputs.first else {
+            return .systemDefault
+        }
+        return AudioPortInfo(id: currentInput.uid, name: currentInput.portName)
+        #else
+        return currentMacPort(selector: kAudioHardwarePropertyDefaultInputDevice)
+        #endif
+    }
+
+    var currentOutputPort: AudioPortInfo {
+        #if os(iOS)
+        if session.currentRoute.outputs.contains(where: { $0.portType == .builtInSpeaker }) {
+            return .speaker
+        }
+        return .systemDefault
+        #else
+        return currentMacPort(selector: kAudioHardwarePropertyDefaultOutputDevice)
         #endif
     }
 
@@ -104,11 +111,10 @@ final class SystemAudioSessionAdapter: AudioSessionApplying {
             try session.setPreferredInput(nil)
             try session.overrideOutputAudioPort(.none)
         case AudioPortInfo.speaker.id:
+            try session.setPreferredInput(nil)
             try session.overrideOutputAudioPort(.speaker)
         default:
-            if let avPort = session.availableInputs?.first(where: { $0.uid == port.id }) {
-                try session.setPreferredInput(avPort)
-            }
+            try session.setPreferredInput(nil)
             try session.overrideOutputAudioPort(.none)
         }
         #else
@@ -133,6 +139,20 @@ final class SystemAudioSessionAdapter: AudioSessionApplying {
         ) { [weak self] _ in
             self?.onAvailablePortsChanged?()
         }
+        #else
+        onAvailablePortsChanged = handler
+        removeCoreAudioListeners()
+        guard handler != nil else { return }
+
+        let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            DispatchQueue.main.async {
+                self?.onAvailablePortsChanged?()
+            }
+        }
+        coreAudioPropertyListener = listener
+        addCoreAudioListener(selector: kAudioHardwarePropertyDevices, listener: listener)
+        addCoreAudioListener(selector: kAudioHardwarePropertyDefaultInputDevice, listener: listener)
+        addCoreAudioListener(selector: kAudioHardwarePropertyDefaultOutputDevice, listener: listener)
         #endif
     }
 
@@ -141,6 +161,8 @@ final class SystemAudioSessionAdapter: AudioSessionApplying {
         if let routeChangeObserver {
             notificationCenter.removeObserver(routeChangeObserver)
         }
+        #else
+        removeCoreAudioListeners()
         #endif
     }
 }
@@ -167,6 +189,9 @@ private extension AudioSessionConfiguration {
         var mapped: AVAudioSession.CategoryOptions = []
         if options.contains(.mixWithOthers) {
             mapped.insert(.mixWithOthers)
+        }
+        if options.contains(.duckOthers) {
+            mapped.insert(.duckOthers)
         }
         if options.contains(.allowBluetooth) {
             mapped.insert(.allowBluetoothHFP)
@@ -238,6 +263,72 @@ private extension SystemAudioSessionAdapter {
         AudioObjectSetPropertyData(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil,
             UInt32(MemoryLayout<AudioDeviceID>.size), &id
+        )
+    }
+
+    func currentMacPort(selector: AudioObjectPropertySelector) -> AudioPortInfo {
+        let defaultDeviceID = currentMacDeviceID(selector: selector)
+        guard defaultDeviceID != 0, let name = deviceName(defaultDeviceID) else {
+            return .systemDefault
+        }
+        return AudioPortInfo(id: "\(defaultDeviceID)", name: name)
+    }
+
+    func currentMacDeviceID(selector: AudioObjectPropertySelector) -> AudioDeviceID {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID
+        ) == noErr else {
+            return 0
+        }
+        return deviceID
+    }
+
+    func addCoreAudioListener(
+        selector: AudioObjectPropertySelector,
+        listener: @escaping AudioObjectPropertyListenerBlock
+    ) {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            coreAudioListenerQueue,
+            listener
+        )
+    }
+
+    func removeCoreAudioListeners() {
+        guard let listener = coreAudioPropertyListener else { return }
+        removeCoreAudioListener(selector: kAudioHardwarePropertyDevices, listener: listener)
+        removeCoreAudioListener(selector: kAudioHardwarePropertyDefaultInputDevice, listener: listener)
+        removeCoreAudioListener(selector: kAudioHardwarePropertyDefaultOutputDevice, listener: listener)
+        coreAudioPropertyListener = nil
+    }
+
+    func removeCoreAudioListener(
+        selector: AudioObjectPropertySelector,
+        listener: @escaping AudioObjectPropertyListenerBlock
+    ) {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            coreAudioListenerQueue,
+            listener
         )
     }
 }

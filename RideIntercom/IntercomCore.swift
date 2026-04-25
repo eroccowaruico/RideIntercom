@@ -608,6 +608,7 @@ struct IntercomAudioOptions: OptionSet, Equatable {
     static let allowBluetooth = IntercomAudioOptions(rawValue: 1 << 1)
     static let allowBluetoothA2DP = IntercomAudioOptions(rawValue: 1 << 2)
     static let defaultToSpeaker = IntercomAudioOptions(rawValue: 1 << 3)
+    static let duckOthers = IntercomAudioOptions(rawValue: 1 << 4)
 }
 
 struct AudioPortInfo: Identifiable, Equatable, Hashable {
@@ -623,17 +624,41 @@ struct AudioSessionConfiguration: Equatable {
     let mode: IntercomAudioMode
     let options: IntercomAudioOptions
 
-    static let intercom = AudioSessionConfiguration(
-        category: .playAndRecord,
-        mode: .voiceChat,
-        options: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
-    )
+    static func intercom(
+        duckOthers: Bool = false,
+        prefersSpeakerOutput: Bool = false
+    ) -> AudioSessionConfiguration {
+        var options: IntercomAudioOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
+        if duckOthers {
+            options.insert(.duckOthers)
+        }
+        if prefersSpeakerOutput {
+            options.insert(.defaultToSpeaker)
+        }
+        return AudioSessionConfiguration(
+            category: .playAndRecord,
+            mode: .voiceChat,
+            options: options
+        )
+    }
 
-    static let audioCheck = AudioSessionConfiguration(
-        category: .playAndRecord,
-        mode: .default,
-        options: [.allowBluetooth, .allowBluetoothA2DP]
-    )
+    static func audioCheck(
+        duckOthers: Bool = false,
+        prefersSpeakerOutput: Bool = false
+    ) -> AudioSessionConfiguration {
+        var options: IntercomAudioOptions = [.allowBluetooth, .allowBluetoothA2DP]
+        if duckOthers {
+            options.insert(.duckOthers)
+        }
+        if prefersSpeakerOutput {
+            options.insert(.defaultToSpeaker)
+        }
+        return AudioSessionConfiguration(
+            category: .playAndRecord,
+            mode: .default,
+            options: options
+        )
+    }
 }
 
 protocol AudioSessionApplying: AnyObject {
@@ -641,6 +666,8 @@ protocol AudioSessionApplying: AnyObject {
     func setActive(_ active: Bool) throws
     var availableInputPorts: [AudioPortInfo] { get }
     var availableOutputPorts: [AudioPortInfo] { get }
+    var currentInputPort: AudioPortInfo { get }
+    var currentOutputPort: AudioPortInfo { get }
     func setPreferredInputPort(_ port: AudioPortInfo) throws
     func setPreferredOutputPort(_ port: AudioPortInfo) throws
     func setAvailablePortsChangedHandler(_ handler: (() -> Void)?)
@@ -649,6 +676,8 @@ protocol AudioSessionApplying: AnyObject {
 extension AudioSessionApplying {
     var availableInputPorts: [AudioPortInfo] { [.systemDefault] }
     var availableOutputPorts: [AudioPortInfo] { [.systemDefault] }
+    var currentInputPort: AudioPortInfo { .systemDefault }
+    var currentOutputPort: AudioPortInfo { .systemDefault }
     func setPreferredInputPort(_ port: AudioPortInfo) throws {}
     func setPreferredOutputPort(_ port: AudioPortInfo) throws {}
     func setAvailablePortsChangedHandler(_ handler: (() -> Void)?) {}
@@ -656,11 +685,25 @@ extension AudioSessionApplying {
 
 
 final class AudioSessionManager {
+    private enum ConfigurationKind {
+        case intercom
+        case audioCheck
+    }
+
     private let session: AudioSessionApplying
     private(set) var isConfigured = false
     private(set) var selectedInputPort: AudioPortInfo = .systemDefault
     private(set) var selectedOutputPort: AudioPortInfo = .systemDefault
+    private(set) var isDuckOthersEnabled = false
     var onAvailablePortsChanged: (() -> Void)?
+    var supportsAdvancedMixingOptions: Bool {
+        #if os(iOS)
+        true
+        #else
+        false
+        #endif
+    }
+    private var currentConfigurationKind: ConfigurationKind?
 
     var availableInputPorts: [AudioPortInfo] { session.availableInputPorts }
     var availableOutputPorts: [AudioPortInfo] { session.availableOutputPorts }
@@ -673,7 +716,8 @@ final class AudioSessionManager {
     }
 
     func configureForIntercom() throws {
-        try session.apply(.intercom)
+        currentConfigurationKind = .intercom
+        try session.apply(makeConfiguration(for: .intercom))
         try session.setActive(true)
         try session.setPreferredInputPort(selectedInputPort)
         try session.setPreferredOutputPort(selectedOutputPort)
@@ -681,7 +725,8 @@ final class AudioSessionManager {
     }
 
     func configureForAudioCheck() throws {
-        try session.apply(.audioCheck)
+        currentConfigurationKind = .audioCheck
+        try session.apply(makeConfiguration(for: .audioCheck))
         try session.setActive(true)
         try session.setPreferredInputPort(selectedInputPort)
         try session.setPreferredOutputPort(selectedOutputPort)
@@ -697,30 +742,72 @@ final class AudioSessionManager {
     func setOutputPort(_ port: AudioPortInfo) throws {
         selectedOutputPort = port
         guard isConfigured else { return }
-        try session.setPreferredOutputPort(port)
+        try reapplyConfigurationIfNeeded()
+    }
+
+    func setDuckOthersEnabled(_ enabled: Bool) throws {
+        guard supportsAdvancedMixingOptions else {
+            isDuckOthersEnabled = false
+            return
+        }
+
+        isDuckOthersEnabled = enabled
     }
 
     func deactivate() throws {
         try session.setActive(false)
         isConfigured = false
+        currentConfigurationKind = nil
+    }
+
+    private func reapplyConfigurationIfNeeded() throws {
+        guard isConfigured, let currentConfigurationKind else { return }
+        try session.apply(makeConfiguration(for: currentConfigurationKind))
+        try session.setPreferredInputPort(selectedInputPort)
+        try session.setPreferredOutputPort(selectedOutputPort)
+    }
+
+    private func makeConfiguration(for kind: ConfigurationKind) -> AudioSessionConfiguration {
+        switch kind {
+        case .intercom:
+            AudioSessionConfiguration.intercom(
+                duckOthers: false,
+                prefersSpeakerOutput: selectedOutputPort == .speaker
+            )
+        case .audioCheck:
+            AudioSessionConfiguration.audioCheck(
+                duckOthers: false,
+                prefersSpeakerOutput: selectedOutputPort == .speaker
+            )
+        }
     }
 
     private func handleAvailablePortsChanged() {
         let inputPorts = session.availableInputPorts
         let outputPorts = session.availableOutputPorts
+        let currentInputPort = session.currentInputPort
+        let currentOutputPort = session.currentOutputPort
 
-        if !inputPorts.contains(selectedInputPort) {
+        if selectedInputPort == .systemDefault {
+            selectedInputPort = .systemDefault
+        } else if !inputPorts.contains(selectedInputPort) {
             selectedInputPort = .systemDefault
             if isConfigured {
                 try? session.setPreferredInputPort(.systemDefault)
             }
+        } else if isConfigured, currentInputPort != selectedInputPort {
+            try? session.setPreferredInputPort(selectedInputPort)
         }
 
-        if !outputPorts.contains(selectedOutputPort) {
+        if selectedOutputPort == .systemDefault {
+            selectedOutputPort = .systemDefault
+        } else if !outputPorts.contains(selectedOutputPort) {
             selectedOutputPort = .systemDefault
             if isConfigured {
                 try? session.setPreferredOutputPort(.systemDefault)
             }
+        } else if isConfigured, currentOutputPort != selectedOutputPort {
+            try? session.setPreferredOutputPort(selectedOutputPort)
         }
 
         onAvailablePortsChanged?()
@@ -736,12 +823,16 @@ protocol AudioInputMonitoring: AnyObject {
     var supportsSoundIsolation: Bool { get }
     var isSoundIsolationEnabled: Bool { get }
     func setSoundIsolationEnabled(_ enabled: Bool)
+    var supportsOtherAudioDucking: Bool { get }
+    func setOtherAudioDuckingEnabled(_ enabled: Bool)
 }
 
 extension AudioInputMonitoring {
     var supportsSoundIsolation: Bool { false }
     var isSoundIsolationEnabled: Bool { false }
     func setSoundIsolationEnabled(_ enabled: Bool) {}
+    var supportsOtherAudioDucking: Bool { false }
+    func setOtherAudioDuckingEnabled(_ enabled: Bool) {}
 }
 
 enum AudioInputMonitorFactory {
@@ -2064,7 +2155,7 @@ final class IntercomViewModel {
     private static let pendingInviteMemberPrefix = "invite-pending-"
     nonisolated static let muteAutoStopDelayDefault: Duration = .seconds(2)
     nonisolated static let normalMasterOutputVolume: Float = 1
-    nonisolated static let maximumMasterOutputVolume: Float = 4
+    nonisolated static let maximumMasterOutputVolume: Float = 2
 
     private(set) var groups: [IntercomGroup]
     private(set) var selectedGroup: IntercomGroup?
@@ -2076,6 +2167,7 @@ final class IntercomViewModel {
     private(set) var audioErrorMessage: String?
     private(set) var selectedInputPort: AudioPortInfo = .systemDefault
     private(set) var selectedOutputPort: AudioPortInfo = .systemDefault
+    private(set) var isDuckOthersEnabled = false
     private(set) var voiceActivityDetectionThreshold: Float = AudioTransmissionController.defaultVoiceActivityThreshold
     private(set) var isSoundIsolationEnabled = false
     private(set) var preferredTransmitCodec: AudioCodecIdentifier = .pcm16
@@ -2090,6 +2182,7 @@ final class IntercomViewModel {
     var availableInputPorts: [AudioPortInfo] { audioSessionManager.availableInputPorts }
     var availableOutputPorts: [AudioPortInfo] { audioSessionManager.availableOutputPorts }
     var isAudioDeviceSelectionLive: Bool { audioSessionManager.isConfigured }
+    var supportsAdvancedMixingOptions: Bool { audioSessionManager.supportsAdvancedMixingOptions }
     var diagnosticsInputLevel: Float {
         if audioCheckPhase == .recording {
             return audioCheckInputLevel
@@ -2251,6 +2344,10 @@ final class IntercomViewModel {
         self.remoteTalkerTimeout = remoteTalkerTimeout
         self.muteAutoStopDelay = muteAutoStopDelay
         self.audioTransmissionController.setVoiceActivityThreshold(initialVoiceActivityDetectionThreshold)
+        self.selectedInputPort = self.audioSessionManager.selectedInputPort
+        self.selectedOutputPort = self.audioSessionManager.selectedOutputPort
+        self.isDuckOthersEnabled = self.audioSessionManager.isDuckOthersEnabled
+        self.audioInputMonitor.setOtherAudioDuckingEnabled(self.isDuckOthersEnabled)
 
         self.callSession.onEvent = { [weak self] event in
             self?.handleTransportEvent(event)
@@ -2431,6 +2528,19 @@ final class IntercomViewModel {
             return
         }
 
+        if activeGroupID == group.id {
+            if let activeGroup = groups.first(where: { $0.id == group.id }) {
+                selectedGroup = activeGroup
+            } else {
+                selectedGroup = group.withMemberAuthenticationState(.open)
+            }
+            inviteStatusMessage = nil
+
+            if hasAnyActiveGroupConnection {
+                return
+            }
+        }
+
         if let activeGroupID,
            activeGroupID != group.id,
            hasAnyActiveGroupConnection {
@@ -2448,7 +2558,6 @@ final class IntercomViewModel {
     }
 
     func showGroupSelection() {
-        disconnect()
         selectedGroup = nil
         inviteStatusMessage = nil
     }
@@ -2661,6 +2770,7 @@ final class IntercomViewModel {
 
         do {
             try audioSessionManager.configureForIntercom()
+            audioInputMonitor.setOtherAudioDuckingEnabled(isDuckOthersEnabled)
             try audioInputMonitor.start()
             try audioFramePlayer.start()
             callTicker.start()
@@ -2839,11 +2949,26 @@ final class IntercomViewModel {
 
     func setOutputPort(_ port: AudioPortInfo) {
         do {
+            let previousOutputPort = selectedOutputPort
             try audioSessionManager.setOutputPort(port)
             selectedOutputPort = audioSessionManager.selectedOutputPort
+            if selectedOutputPort != previousOutputPort {
+                try refreshOutputRendererIfNeeded()
+            }
             audioErrorMessage = nil
         } catch {
             audioErrorMessage = "Audio output device change failed"
+        }
+    }
+
+    func setDuckOthersEnabled(_ enabled: Bool) {
+        do {
+            try audioSessionManager.setDuckOthersEnabled(enabled)
+            isDuckOthersEnabled = audioSessionManager.isDuckOthersEnabled
+            audioInputMonitor.setOtherAudioDuckingEnabled(isDuckOthersEnabled)
+            audioErrorMessage = nil
+        } catch {
+            audioErrorMessage = "Audio session ducking change failed"
         }
     }
 
@@ -3148,8 +3273,23 @@ final class IntercomViewModel {
     }
 
     private func handleAvailableAudioPortsChanged() {
+        let previousOutputPort = selectedOutputPort
         selectedInputPort = audioSessionManager.selectedInputPort
         selectedOutputPort = audioSessionManager.selectedOutputPort
+        if selectedOutputPort != previousOutputPort {
+            do {
+                try refreshOutputRendererIfNeeded()
+                audioErrorMessage = nil
+            } catch {
+                audioErrorMessage = "Audio output device change failed"
+            }
+        }
+    }
+
+    private func refreshOutputRendererIfNeeded() throws {
+        guard isAudioReady || audioCheckPhase == .playing else { return }
+        audioFramePlayer.stop()
+        try audioFramePlayer.start()
     }
 
     private func handleReceivedPacket(_ packet: ReceivedAudioPacket) {
