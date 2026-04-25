@@ -69,7 +69,7 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
             let requested = enabled
             soundIsolationQueue.async { [weak self] in
                 guard let self else { return }
-                let applied = self.applyVoiceProcessing(
+                let applied = self.applyRuntimeVoiceProcessing(
                     soundIsolationEnabled: requested,
                     otherAudioDuckingEnabled: self.otherAudioDuckingEnabled
                 )
@@ -79,12 +79,7 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
                 }
             }
         } else {
-            let applied = applyVoiceProcessing(
-                soundIsolationEnabled: enabled,
-                otherAudioDuckingEnabled: otherAudioDuckingEnabled
-            )
-            soundIsolationEnabled = applied.soundIsolationEnabled
-            otherAudioDuckingEnabled = applied.otherAudioDuckingEnabled
+            soundIsolationEnabled = enabled
         }
     }
 
@@ -98,7 +93,7 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
             let requested = enabled
             soundIsolationQueue.async { [weak self] in
                 guard let self else { return }
-                let applied = self.applyVoiceProcessing(
+                let applied = self.applyRuntimeVoiceProcessing(
                     soundIsolationEnabled: self.soundIsolationEnabled,
                     otherAudioDuckingEnabled: requested
                 )
@@ -125,16 +120,17 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
             throw AudioInputMonitorError.microphonePermissionDenied
         }
 
-        let applied = applyVoiceProcessing(
+        soundIsolationEnabled = applySoundIsolation(soundIsolationEnabled)
+        installInputTap()
+        engine.prepare()
+        try engine.start()
+        isRunning = true
+        let applied = applyRuntimeVoiceProcessing(
             soundIsolationEnabled: soundIsolationEnabled,
             otherAudioDuckingEnabled: otherAudioDuckingEnabled
         )
         soundIsolationEnabled = applied.soundIsolationEnabled
         otherAudioDuckingEnabled = applied.otherAudioDuckingEnabled
-        installInputTap()
-        engine.prepare()
-        try engine.start()
-        isRunning = true
     }
 
     func stop() {
@@ -144,15 +140,23 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
         isRunning = false
     }
 
-    private func applyVoiceProcessing(
+    private func applySoundIsolation(_ enabled: Bool) -> Bool {
+        guard SoundIsolationBackend.isSupported else { return false }
+
+        do {
+            try SoundIsolationBackend.setSoundIsolationEnabled(enabled, on: engine.inputNode)
+            return enabled
+        } catch {
+            return false
+        }
+    }
+
+    private func applyRuntimeVoiceProcessing(
         soundIsolationEnabled: Bool,
         otherAudioDuckingEnabled: Bool
     ) -> (soundIsolationEnabled: Bool, otherAudioDuckingEnabled: Bool) {
-        let shouldEnableVoiceProcessing = soundIsolationEnabled || otherAudioDuckingEnabled
-
         do {
             try SoundIsolationBackend.configureVoiceProcessing(
-                enabled: shouldEnableVoiceProcessing,
                 soundIsolationEnabled: soundIsolationEnabled,
                 otherAudioDuckingEnabled: otherAudioDuckingEnabled,
                 on: engine.inputNode
@@ -201,14 +205,16 @@ private enum SoundIsolationBackend {
     }
 
     static func configureVoiceProcessing(
-        enabled: Bool,
         soundIsolationEnabled: Bool,
         otherAudioDuckingEnabled: Bool,
         on inputNode: AVAudioInputNode
     ) throws {
-        try inputNode.setVoiceProcessingEnabled(enabled)
+        let shouldEnableVoiceProcessing = soundIsolationEnabled || otherAudioDuckingEnabled
+        if inputNode.isVoiceProcessingEnabled != shouldEnableVoiceProcessing {
+            try inputNode.setVoiceProcessingEnabled(shouldEnableVoiceProcessing)
+        }
         #if os(iOS)
-        guard enabled else { return }
+        guard shouldEnableVoiceProcessing else { return }
         inputNode.voiceProcessingOtherAudioDuckingConfiguration =
             AVAudioVoiceProcessingOtherAudioDuckingConfiguration(
                 enableAdvancedDucking: ObjCBool(otherAudioDuckingEnabled),
@@ -218,6 +224,17 @@ private enum SoundIsolationBackend {
         #else
         _ = soundIsolationEnabled
         _ = otherAudioDuckingEnabled
+        #endif
+    }
+
+    static func setSoundIsolationEnabled(_ enabled: Bool, on inputNode: AVAudioInputNode) throws {
+        if inputNode.isVoiceProcessingEnabled != enabled {
+            try inputNode.setVoiceProcessingEnabled(enabled)
+        }
+        #if os(iOS)
+        if enabled {
+            inputNode.isVoiceProcessingBypassed = false
+        }
         #endif
     }
 }
