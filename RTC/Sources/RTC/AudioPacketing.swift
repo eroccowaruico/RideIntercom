@@ -282,8 +282,7 @@ enum MultipeerPayloadBuilder {
             data = try AudioPacketCodec.encode(envelope)
         }
         let metadata = AudioTransmitMetadata(
-            mediaCodec: envelope.encodedVoice?.codec ?? .pcm16,
-            fallbackReason: envelope.encodedVoice == nil ? .encodingFailed : nil
+            mediaCodec: envelope.encodedVoice?.codec ?? .pcm16
         )
         return AudioPayloadBuildResult(
             payload: MultipeerPayload(data: data, mode: .unreliable),

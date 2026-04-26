@@ -1401,8 +1401,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     ) -> AudioTransmitMetadata {
         AudioTransmitMetadata(
             requestedCodec: requestedCodec,
-            mediaCodec: makeAppCodecIdentifier(from: metadata.mediaCodec),
-            fallbackReason: metadata.fallbackReason.map(makeAppFallbackReason(from:))
+            mediaCodec: makeAppCodecIdentifier(from: metadata.mediaCodec)
         )
     }
 
@@ -1417,16 +1416,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
         }
     }
 
-    private nonisolated static func makeAppFallbackReason(from reason: RTC.AudioCodecFallbackReason) -> AudioCodecFallbackReason {
-        switch reason {
-        case .codecUnavailable:
-            .codecUnavailable
-        case .encoderReturnedEmptyPayload:
-            .encoderReturnedEmptyPayload
-        case .encodingFailed:
-            .encodingFailed
-        }
-    }
+
 }
 
 enum VoiceActivityState: Equatable {
@@ -1592,16 +1582,11 @@ struct EncodedVoicePacket: Codable, Equatable {
     }
 }
 
-enum AudioCodecFallbackReason: String, Codable, Equatable {
-    case codecUnavailable
-    case encoderReturnedEmptyPayload
-    case encodingFailed
-}
+
 
 struct AudioTransmitMetadata: Codable, Equatable {
     let requestedCodec: AudioCodecIdentifier
     let mediaCodec: AudioCodecIdentifier
-    let fallbackReason: AudioCodecFallbackReason?
 }
 
 enum RemoteMemberAudioStateService {
@@ -3315,18 +3300,14 @@ final class IntercomViewModel {
         guard let rawMetadata = diagnostics.metadata else { return }
         let metadata = AudioTransmitMetadata(
             requestedCodec: preferredTransmitCodec,
-            mediaCodec: rawMetadata.mediaCodec,
-            fallbackReason: rawMetadata.fallbackReason
+            mediaCodec: rawMetadata.mediaCodec
         )
         setLocalActiveCodec(metadata.mediaCodec)
-        let hasFallback = metadata.fallbackReason != nil || metadata.requestedCodec != metadata.mediaCodec
-        guard hasFallback else { return }
 
         transmitFallbackCount += 1
-        let reason = metadata.fallbackReason?.rawValue ?? "codecMismatch"
-        let summary = "TX FB #\(transmitFallbackCount) / \(metadata.requestedCodec.rawValue)->\(metadata.mediaCodec.rawValue) / \(reason)"
+        let summary = "TX FB #\(transmitFallbackCount) / \(metadata.requestedCodec.rawValue)->\(metadata.mediaCodec.rawValue) "
         lastTransmitFallbackSummary = summary
-        diagnosticsLogger.error("tx fallback route=\(diagnostics.route.rawValue, privacy: .public) stream=\(diagnostics.streamID.uuidString, privacy: .public) seq=\(diagnostics.sequenceNumber) req=\(metadata.requestedCodec.rawValue, privacy: .public) media=\(metadata.mediaCodec.rawValue, privacy: .public) reason=\(reason, privacy: .public)")
+        diagnosticsLogger.error("tx fallback route=\(diagnostics.route.rawValue, privacy: .public) stream=\(diagnostics.streamID.uuidString, privacy: .public) seq=\(diagnostics.sequenceNumber) req=\(metadata.requestedCodec.rawValue, privacy: .public) media=\(metadata.mediaCodec.rawValue, privacy: .public) ")
     }
 
     private func setLocalVoiceLevel(_ level: Float) {

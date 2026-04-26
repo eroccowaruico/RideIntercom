@@ -53,11 +53,7 @@ public enum AudioCodecIdentifier: String, Codable, Equatable, Sendable {
     case opus
 }
 
-public enum AudioCodecFallbackReason: String, Codable, Equatable, Sendable {
-    case codecUnavailable
-    case encoderReturnedEmptyPayload
-    case encodingFailed
-}
+
 
 public enum ApplicationDataDelivery: String, Codable, Equatable, Sendable {
     case reliable
@@ -78,14 +74,14 @@ public struct ApplicationDataMessage: Codable, Equatable, Sendable {
 
 public struct AudioTransmitMetadata: Codable, Equatable, Sendable {
     public let mediaCodec: AudioCodecIdentifier
-    public let fallbackReason: AudioCodecFallbackReason?
+
 
     public init(
-        mediaCodec: AudioCodecIdentifier,
-        fallbackReason: AudioCodecFallbackReason?
+        mediaCodec: AudioCodecIdentifier
+
     ) {
         self.mediaCodec = mediaCodec
-        self.fallbackReason = fallbackReason
+
     }
 }
 
