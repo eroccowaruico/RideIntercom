@@ -89,49 +89,20 @@ private struct GroupSelectionView: View {
                     Button {
                         viewModel.selectGroup(group)
                     } label: {
-                        HStack(spacing: AppSpacing.xl) {
-                            Image(systemName: "person.3")
-                                .foregroundStyle(groupRowIconColor(for: group))
-                                .frame(width: AppSize.iconM)
-
-                            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                                Text(group.name)
-                                    .font(AppTypography.rowTitle)
-                                    .lineLimit(2)
-                                Text("\(group.members.count) members")
-                                    .font(AppTypography.subheadline)
-                                    .foregroundStyle(AppColorPalette.textSecondary)
-                            }
-
-                            Spacer(minLength: AppSpacing.xl)
-
-                            Image(systemName: "chevron.right")
-                                .font(AppTypography.footnoteStrong)
-                                .foregroundStyle(AppColorPalette.textTertiary)
-                        }
-                        .appCallCardStyle()
-                        .contentShape(Rectangle())
+                        GroupRowView(
+                            title: group.name,
+                            subtitle: "\(group.members.count) members",
+                            iconColor: groupRowIconColor(for: group)
+                        )
                     }
                     .buttonStyle(.plain)
-                    .listRowInsets(EdgeInsets(top: AppSpacing.m, leading: AppSpacing.screen, bottom: AppSpacing.m, trailing: AppSpacing.screen))
-                    .listRowBackground(Color.clear)
+                    .appListCardRowStyle()
                     .accessibilityLabel(group.name)
                     .accessibilityValue("\(group.members.count) members")
                     .accessibilityHint("Opens the call screen for this group.")
                     .accessibilityIdentifier("groupRow-\(group.name)")
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            viewModel.deleteGroup(group.id)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            viewModel.deleteGroup(group.id)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
+                    .appDeleteActions {
+                        viewModel.deleteGroup(group.id)
                     }
                 }
             }
@@ -186,27 +157,11 @@ private struct CallView: View {
                             RemoteParticipantRowView(
                                 index: index,
                                 member: member,
-                                outputVolume: Binding(
-                                    get: { Double(viewModel.remoteOutputVolume(for: member.id)) },
-                                    set: { viewModel.setRemoteOutputVolume(peerID: member.id, value: Float($0)) }
-                                )
+                                outputVolume: remoteOutputVolumeBinding(for: member)
                             )
                             .accessibilityIdentifier("remoteParticipantRow\(index)")
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(role: .destructive) {
-                                    guard let selectedGroup = viewModel.selectedGroup else { return }
-                                    viewModel.removeMember(member.id, from: selectedGroup.id)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            .contextMenu {
-                                Button(role: .destructive) {
-                                    guard let selectedGroup = viewModel.selectedGroup else { return }
-                                    viewModel.removeMember(member.id, from: selectedGroup.id)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
+                            .appDeleteActions {
+                                removeMember(member.id)
                             }
                         }
                     }
@@ -323,6 +278,18 @@ private struct CallView: View {
         Array(viewModel.selectedGroup?.members.dropFirst() ?? [])
     }
 
+    private func remoteOutputVolumeBinding(for member: GroupMember) -> Binding<Double> {
+        Binding(
+            get: { Double(viewModel.remoteOutputVolume(for: member.id)) },
+            set: { viewModel.setRemoteOutputVolume(peerID: member.id, value: Float($0)) }
+        )
+    }
+
+    private func removeMember(_ memberID: GroupMember.ID) {
+        guard let selectedGroup = viewModel.selectedGroup else { return }
+        viewModel.removeMember(memberID, from: selectedGroup.id)
+    }
+
     private var outputPercentLabel: String {
         let percent = Int((viewModel.masterOutputVolume * 100).rounded())
         let label = viewModel.masterOutputVolume > IntercomViewModel.normalMasterOutputVolume ? "Output Boost" : "Output"
@@ -347,21 +314,8 @@ private struct CallView: View {
 
     private var controls: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: AppSpacing.l) {
-                primaryConnectionButton
-
-                if let inviteURL = viewModel.selectedGroupInviteURL {
-                    inviteLink(inviteURL)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: AppSpacing.l) {
-                primaryConnectionButton
-
-                if let inviteURL = viewModel.selectedGroupInviteURL {
-                    inviteLink(inviteURL)
-                }
-            }
+            controlStack(horizontal: true)
+            controlStack(horizontal: false)
         }
     }
 
@@ -405,6 +359,31 @@ private struct CallView: View {
         .accessibilityLabel("Invite Group")
         .accessibilityHint("Opens sharing options for this group invite.")
         .accessibilityIdentifier("inviteButton")
+    }
+
+    @ViewBuilder
+    private func controlStack(horizontal: Bool) -> some View {
+        let spacing = AppSpacing.l
+        Group {
+            if horizontal {
+                HStack(spacing: spacing) {
+                    primaryConnectionButton
+                    inviteAction
+                }
+            } else {
+                VStack(alignment: .leading, spacing: spacing) {
+                    primaryConnectionButton
+                    inviteAction
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inviteAction: some View {
+        if let inviteURL = viewModel.selectedGroupInviteURL {
+            inviteLink(inviteURL)
+        }
     }
 
     private var connectionIconName: String {
@@ -545,29 +524,27 @@ private struct AudioIOPanel: View {
     var body: some View {
         Section {
             if viewModel.availableOutputPorts.count > 1 {
-                Picker("Output", selection: Binding(
-                    get: { viewModel.selectedOutputPort },
-                    set: { viewModel.setOutputPort($0) }
-                )) {
-                    ForEach(viewModel.availableOutputPorts) { port in
-                        Text(port.name).tag(port)
-                    }
-                }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("audioCheckOutputPicker")
+                AudioPortPicker(
+                    title: "Output",
+                    selection: Binding(
+                        get: { viewModel.selectedOutputPort },
+                        set: { viewModel.setOutputPort($0) }
+                    ),
+                    ports: viewModel.availableOutputPorts,
+                    accessibilityIdentifier: "audioCheckOutputPicker"
+                )
             }
 
             if viewModel.availableInputPorts.count > 1 {
-                Picker("Input", selection: Binding(
-                    get: { viewModel.selectedInputPort },
-                    set: { viewModel.setInputPort($0) }
-                )) {
-                    ForEach(viewModel.availableInputPorts) { port in
-                        Text(port.name).tag(port)
-                    }
-                }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("audioCheckInputPicker")
+                AudioPortPicker(
+                    title: "Input",
+                    selection: Binding(
+                        get: { viewModel.selectedInputPort },
+                        set: { viewModel.setInputPort($0) }
+                    ),
+                    ports: viewModel.availableInputPorts,
+                    accessibilityIdentifier: "audioCheckInputPicker"
+                )
             }
 
             if viewModel.supportsAdvancedMixingOptions {
@@ -644,30 +621,24 @@ private struct AudioCheckPanel: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: AppSpacing.m) {
-                Label("Microphone Input", systemImage: "mic.fill")
-                    .font(AppTypography.subheadlineStrong)
-                VoiceMeterView(
-                    level: viewModel.diagnosticsInputLevel,
-                    peakLevel: viewModel.diagnosticsInputPeakLevel,
-                    isMuted: viewModel.isMuted,
-                    showsValueText: false
-                )
-                .accessibilityIdentifier("audioCheckInputMeter")
-            }
+            AudioCheckMeterSection(
+                title: "Microphone Input",
+                systemImage: "mic.fill",
+                level: viewModel.diagnosticsInputLevel,
+                peakLevel: viewModel.diagnosticsInputPeakLevel,
+                isMuted: viewModel.isMuted,
+                accessibilityIdentifier: "audioCheckInputMeter"
+            )
             .listRowSeparator(.hidden)
 
-            VStack(alignment: .leading, spacing: AppSpacing.m) {
-                Label("Speaker Output", systemImage: "speaker.wave.2.fill")
-                    .font(AppTypography.subheadlineStrong)
-                VoiceMeterView(
-                    level: viewModel.diagnosticsOutputLevel,
-                    peakLevel: viewModel.diagnosticsOutputPeakLevel,
-                    isMuted: false,
-                    showsValueText: false
-                )
-                .accessibilityIdentifier("audioCheckOutputMeter")
-            }
+            AudioCheckMeterSection(
+                title: "Speaker Output",
+                systemImage: "speaker.wave.2.fill",
+                level: viewModel.diagnosticsOutputLevel,
+                peakLevel: viewModel.diagnosticsOutputPeakLevel,
+                isMuted: false,
+                accessibilityIdentifier: "audioCheckOutputMeter"
+            )
             .listRowSeparator(.hidden)
 
             Text(viewModel.audioCheckStatusMessage)
@@ -807,7 +778,7 @@ private struct LiveTransmitPipelineView: View {
                         .accessibilityIdentifier("transmitPipelineStep\(index)")
 
                     if index < steps.count - 1 {
-                        PipelineConnectorView(color: connectorColor(after: index))
+                        pipelineConnector(color: connectorColor(after: index))
                             .frame(width: AppSize.connector.width, height: AppSize.connector.height)
                             .accessibilityIdentifier("transmitPipelineConnector\(index)")
                     }
@@ -910,6 +881,13 @@ private struct LiveTransmitPipelineView: View {
         }
         return AppColorPalette.connectorNeutral
     }
+
+    private func pipelineConnector(color: Color) -> some View {
+        Text(">")
+            .font(.system(size: 11, weight: .regular, design: .default))
+            .foregroundStyle(color)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
 }
 
 private struct PipelineStep: Equatable {
@@ -960,17 +938,6 @@ private struct PipelineStepView: View {
         }
         .frame(minWidth: AppSize.iconL)
         .accessibilityElement(children: .contain)
-    }
-}
-
-private struct PipelineConnectorView: View {
-    let color: Color
-
-    var body: some View {
-        Text(">")
-            .font(.system(size: 11, weight: .regular, design: .default))
-            .foregroundStyle(color)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 
@@ -1269,6 +1236,97 @@ private struct RemoteParticipantRowView: View {
             AppColorPalette.warning
         case .idle:
             AppColorPalette.neutral
+        }
+    }
+}
+
+private struct GroupRowView: View {
+    let title: String
+    let subtitle: String
+    let iconColor: Color
+
+    var body: some View {
+        HStack(spacing: AppSpacing.xl) {
+            Image(systemName: "person.3")
+                .foregroundStyle(iconColor)
+                .frame(width: AppSize.iconM)
+
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text(title)
+                    .font(AppTypography.rowTitle)
+                    .lineLimit(2)
+                Text(subtitle)
+                    .font(AppTypography.subheadline)
+                    .foregroundStyle(AppColorPalette.textSecondary)
+            }
+
+            Spacer(minLength: AppSpacing.xl)
+
+            Image(systemName: "chevron.right")
+                .font(AppTypography.footnoteStrong)
+                .foregroundStyle(AppColorPalette.textTertiary)
+        }
+        .appCallCardStyle()
+        .contentShape(Rectangle())
+    }
+}
+
+private struct AudioPortPicker: View {
+    let title: String
+    let selection: Binding<AudioPortInfo>
+    let ports: [AudioPortInfo]
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        Picker(title, selection: selection) {
+            ForEach(ports) { port in
+                Text(port.name).tag(port as AudioPortInfo)
+            }
+        }
+        .pickerStyle(.menu)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+private struct AudioCheckMeterSection: View {
+    let title: String
+    let systemImage: String
+    let level: Float
+    let peakLevel: Float
+    let isMuted: Bool
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.m) {
+            Label(title, systemImage: systemImage)
+                .font(AppTypography.subheadlineStrong)
+            VoiceMeterView(
+                level: level,
+                peakLevel: peakLevel,
+                isMuted: isMuted,
+                showsValueText: false
+            )
+            .accessibilityIdentifier(accessibilityIdentifier)
+        }
+    }
+}
+
+private extension View {
+    func appListCardRowStyle() -> some View {
+        listRowInsets(EdgeInsets(top: AppSpacing.m, leading: AppSpacing.screen, bottom: AppSpacing.m, trailing: AppSpacing.screen))
+            .listRowBackground(Color.clear)
+    }
+
+    func appDeleteActions(_ action: @escaping () -> Void) -> some View {
+        swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive, action: action) {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .contextMenu {
+            Button(role: .destructive, action: action) {
+                Label("Delete", systemImage: "trash")
+            }
         }
     }
 }
