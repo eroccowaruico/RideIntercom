@@ -3255,7 +3255,10 @@ final class IntercomViewModel {
     private func hasAudibleOutput(for frames: [JitterBufferedAudioFrame]) -> Bool {
         guard !isOutputMuted, masterOutputVolume > 0 else { return false }
         return frames.contains { frame in
-            remoteOutputVolume(for: frame.peerID) > 0
+            let gain = masterOutputVolume * remoteOutputVolume(for: frame.peerID)
+            guard gain > 0, !frame.samples.isEmpty else { return false }
+            let outputLevel = AudioLevelMeter.rmsLevel(samples: frame.samples) * gain
+            return outputLevel > VoiceActivityDetector.minThreshold
         }
     }
 
