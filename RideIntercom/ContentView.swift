@@ -239,11 +239,17 @@ private struct CallView: View {
                             .font(AppTypography.rowTitle)
                             .lineLimit(2)
                             .accessibilityIdentifier("callPresenceLabel")
-                        Text(viewModel.routeLabel)
-                            .font(AppTypography.captionStrong)
-                            .foregroundStyle(AppColorPalette.textSecondary)
-                            .lineLimit(2)
-                            .accessibilityIdentifier("routeLabel")
+                        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.s) {
+                            Image(systemName: routeIconName)
+                                .foregroundStyle(routeIconColor)
+                                .frame(width: AppSize.iconS)
+
+                            Text(viewModel.routeLabel)
+                                .font(AppTypography.captionStrong)
+                                .foregroundStyle(AppColorPalette.textSecondary)
+                                .lineLimit(2)
+                                .accessibilityIdentifier("routeLabel")
+                        }
                     }
                 }
                 .accessibilityElement(children: .contain)
@@ -264,9 +270,20 @@ private struct CallView: View {
 
             HStack(alignment: .center, spacing: AppSpacing.xl) {
                 VStack(alignment: .leading, spacing: AppSpacing.s) {
-                    Label("Output", systemImage: "speaker.wave.2.fill")
-                        .font(AppTypography.captionStrong)
-                        .foregroundStyle(viewModel.isOutputMuted ? AppColorPalette.danger : AppColorPalette.textSecondary)
+                    HStack(alignment: .firstTextBaseline, spacing: AppSpacing.s) {
+                        Label("Output", systemImage: "speaker.wave.2.fill")
+                            .font(AppTypography.captionStrong)
+                            .foregroundStyle(viewModel.isOutputMuted ? AppColorPalette.danger : AppColorPalette.textSecondary)
+
+                        if showsDuckingStatusIcon {
+                            Image(systemName: "waveform")
+                                .foregroundStyle(duckingStatusIconColor)
+                                .frame(width: AppSize.iconS)
+                                .accessibilityLabel(duckingStatusAccessibilityLabel)
+                                .accessibilityValue(duckingStatusAccessibilityValue)
+                                .accessibilityIdentifier("duckingStatusIcon")
+                        }
+                    }
 
                     Slider(
                         value: Binding(
@@ -310,6 +327,22 @@ private struct CallView: View {
         let percent = Int((viewModel.masterOutputVolume * 100).rounded())
         let label = viewModel.masterOutputVolume > IntercomViewModel.normalMasterOutputVolume ? "Output Boost" : "Output"
         return viewModel.isOutputMuted ? "Output Muted" : "\(label) \(percent)%"
+    }
+
+    private var showsDuckingStatusIcon: Bool {
+        viewModel.supportsAdvancedMixingOptions && viewModel.isDuckOthersEnabled
+    }
+
+    private var duckingStatusIconColor: Color {
+        viewModel.isOtherAudioDuckingActive ? AppColorPalette.info : AppColorPalette.textSecondary
+    }
+
+    private var duckingStatusAccessibilityLabel: String {
+        "Duck Other Audio"
+    }
+
+    private var duckingStatusAccessibilityValue: String {
+        viewModel.isOtherAudioDuckingActive ? "Active" : "Enabled"
     }
 
     private var controls: some View {
@@ -374,9 +407,6 @@ private struct CallView: View {
     }
 
     private var connectionIconName: String {
-        if viewModel.selectedGroupConnectionState != .idle && !viewModel.isAudioReady && viewModel.canDisconnectCall {
-            return "dot.radiowaves.left.and.right"
-        }
         return switch viewModel.selectedGroupConnectionState {
         case .idle:
             "wifi.slash"
@@ -390,9 +420,6 @@ private struct CallView: View {
     }
 
     private var connectionStatusColor: Color {
-        if viewModel.selectedGroupConnectionState != .idle && !viewModel.isAudioReady && viewModel.canDisconnectCall {
-            return AppColorPalette.warning
-        }
         return switch viewModel.selectedGroupConnectionState {
         case .idle:
             AppColorPalette.neutral
@@ -403,6 +430,21 @@ private struct CallView: View {
         case .reconnectingOffline:
             AppColorPalette.danger
         }
+    }
+
+    private var routeIconName: String {
+        switch viewModel.selectedGroupConnectionState {
+        case .localConnected, .localConnecting:
+            "dot.radiowaves.left.and.right"
+        case .internetConnected, .internetConnecting:
+            "network"
+        case .idle, .reconnectingOffline:
+            "network"
+        }
+    }
+
+    private var routeIconColor: Color {
+        AppColorPalette.textSecondary
     }
 }
 
@@ -462,12 +504,12 @@ private struct DiagnosticsView: View {
                             .font(AppTypography.sectionTitle)
 
                         DiagnosticRow(
-                            icon: "hifispeaker.2",
+                            icon: "network",
                             value: viewModel.isAudioDeviceSelectionLive ? "SESSION ACTIVE / I/O ROUTING LIVE" : "SESSION IDLE / I/O ROUTING NEXT START"
                         )
                         .accessibilityIdentifier("audioIOApplyStateLabel")
 
-                        DiagnosticRow(icon: "slider.horizontal.3", value: viewModel.audioInputProcessingSummary)
+                        DiagnosticRow(icon: "waveform", value: viewModel.audioInputProcessingSummary)
                             .accessibilityLabel("Audio input processing")
                             .accessibilityValue(viewModel.audioInputProcessingSummary)
                             .accessibilityIdentifier("audioInputProcessingSummaryLabel")
@@ -538,7 +580,7 @@ private struct AudioIOPanel: View {
                 .accessibilityIdentifier("duckOthersToggle")
             }
         } header: {
-            Label("Audio I/O", systemImage: "slider.horizontal.3")
+            Label("Audio I/O", systemImage: "waveform")
         }
         .accessibilityIdentifier("audioIOPanel")
     }

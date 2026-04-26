@@ -2014,6 +2014,7 @@ final class IntercomViewModel {
     var availableOutputPorts: [AudioPortInfo] { audioSessionManager.availableOutputPorts }
     var isAudioDeviceSelectionLive: Bool { audioSessionManager.isConfigured }
     var supportsAdvancedMixingOptions: Bool { audioSessionManager.supportsAdvancedMixingOptions }
+    var isOtherAudioDuckingActive: Bool { isOtherAudioDuckingActiveInternal }
     var diagnosticsInputLevel: Float {
         if audioCheckPhase == .recording {
             return audioCheckInputLevel
@@ -2094,7 +2095,7 @@ final class IntercomViewModel {
     private var isMicrophoneCaptureSuspendedByMute = false
     private var isLocalStandbyOnly = false
     private var nextAudioFrameID = 1
-    private var isOtherAudioDuckingActive = false
+    private var isOtherAudioDuckingActiveInternal = false
     private let diagnosticsLogger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "codec-diagnostics")
 
     static func makeForCurrentProcess() -> IntercomViewModel {
@@ -3230,8 +3231,8 @@ final class IntercomViewModel {
     }
 
     private func setOtherAudioDuckingActive(_ isActive: Bool) {
-        guard isOtherAudioDuckingActive != isActive else { return }
-        isOtherAudioDuckingActive = isActive
+        guard isOtherAudioDuckingActiveInternal != isActive else { return }
+        isOtherAudioDuckingActiveInternal = isActive
         audioInputMonitor.setOtherAudioDuckingEnabled(isActive)
     }
 
