@@ -632,7 +632,7 @@ struct AudioSessionConfiguration: Equatable {
         }
         return AudioSessionConfiguration(
             category: .playAndRecord,
-            mode: .voiceChat,
+            mode: .default,
             options: options
         )
     }
@@ -1986,6 +1986,7 @@ final class IntercomViewModel {
     nonisolated static let muteAutoStopDelayDefault: Duration = .seconds(2)
     nonisolated static let normalMasterOutputVolume: Float = 1
     nonisolated static let maximumMasterOutputVolume: Float = 2
+    nonisolated private static let otherAudioDuckingHoldDuration: TimeInterval = 1.0
 
     private(set) var groups: [IntercomGroup]
     private(set) var selectedGroup: IntercomGroup?
@@ -2058,6 +2059,7 @@ final class IntercomViewModel {
     private(set) var lastLocalNetworkPeerID: String?
     private(set) var lastLocalNetworkEventAt: TimeInterval?
     private(set) var lastReceivedAudioAt: TimeInterval?
+    private var lastAudibleReceivedAudioAt: TimeInterval?
     private(set) var droppedAudioPacketCount = 0
     private(set) var jitterQueuedFrameCount = 0
     private(set) var inviteStatusMessage: String?
@@ -2092,6 +2094,7 @@ final class IntercomViewModel {
     private var isMicrophoneCaptureSuspendedByMute = false
     private var isLocalStandbyOnly = false
     private var nextAudioFrameID = 1
+    private var isOtherAudioDuckingActive = false
     private let diagnosticsLogger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "codec-diagnostics")
 
     static func makeForCurrentProcess() -> IntercomViewModel {
@@ -2169,7 +2172,7 @@ final class IntercomViewModel {
         self.selectedInputPort = self.audioSessionManager.selectedInputPort
         self.selectedOutputPort = self.audioSessionManager.selectedOutputPort
         self.isDuckOthersEnabled = self.audioSessionManager.isDuckOthersEnabled
-        self.audioInputMonitor.setOtherAudioDuckingEnabled(self.isDuckOthersEnabled)
+        self.audioInputMonitor.setOtherAudioDuckingEnabled(false)
 
         self.callSession.onEvent = { [weak self] event in
             self?.handleTransportEvent(event)
@@ -2586,7 +2589,12 @@ final class IntercomViewModel {
         isLocalStandbyOnly = false
         connectionState = connectedPeerIDs.isEmpty ? .localConnecting : .localConnected
         markMembers(connectionState == .localConnected ? .connected : .connecting)
-        if localNetworkStatus == .idle || localNetworkStatus == .unavailable {
+        let shouldStartOrPromoteLocalConnection =
+            authenticatedPeerIDs.isEmpty &&
+            connectedPeerIDs.isEmpty &&
+            localNetworkStatus != .connected
+
+        if shouldStartOrPromoteLocalConnection {
             var group = selectedGroup
             if let credential = credentialStore.credential(for: selectedGroup.id) {
                 group.accessSecret = credential.secret
@@ -2615,11 +2623,12 @@ final class IntercomViewModel {
         do {
             callSession.startMedia()
             try audioSessionManager.configureForIntercom()
-            audioInputMonitor.setOtherAudioDuckingEnabled(isDuckOthersEnabled)
+            refreshOtherAudioDuckingState()
             try audioInputMonitor.start()
             try audioFramePlayer.start()
             callTicker.start()
             isAudioReady = true
+            refreshOtherAudioDuckingState()
             if isMuted {
                 scheduleMuteAutoStopIfNeeded()
             }
@@ -2634,6 +2643,7 @@ final class IntercomViewModel {
     }
 
     private func stopAudioPipeline() {
+        setOtherAudioDuckingActive(false)
         callSession.stopMedia()
         audioInputMonitor.stop()
         audioFramePlayer.stop()
@@ -2808,7 +2818,7 @@ final class IntercomViewModel {
         do {
             try audioSessionManager.setDuckOthersEnabled(enabled)
             isDuckOthersEnabled = audioSessionManager.isDuckOthersEnabled
-            audioInputMonitor.setOtherAudioDuckingEnabled(isDuckOthersEnabled)
+            refreshOtherAudioDuckingState()
             audioErrorMessage = nil
         } catch {
             audioErrorMessage = "Audio session ducking change failed"
@@ -2881,6 +2891,7 @@ final class IntercomViewModel {
     private func handleCallTick(now: TimeInterval) {
         expireRemoteTalkers(now: now)
         drainJitterBuffer(now: now)
+        refreshOtherAudioDuckingState(now: now)
     }
 
     private func drainJitterBuffer(now: TimeInterval) {
@@ -2889,6 +2900,9 @@ final class IntercomViewModel {
         droppedAudioPacketCount = jitterBuffer.droppedFrameCount
         jitterQueuedFrameCount = jitterBuffer.queuedFrameCount
         markPlayedAudioFrames(readyFrames)
+        if hasAudibleOutput(for: readyFrames) {
+            lastAudibleReceivedAudioAt = now
+        }
         let outputFrames = applyOutputGain(to: readyFrames)
         let mixedOutput = AudioMixer.mix(outputFrames)
         let outputLevel = AudioLevelMeter.rmsLevel(samples: mixedOutput)
@@ -3153,6 +3167,7 @@ final class IntercomViewModel {
             receivedVoicePacketCount += 1
             lastReceivedAudioAt = receivedAt
             remoteVoiceReceivedAt[packet.peerID] = receivedAt
+            refreshOtherAudioDuckingState(now: receivedAt)
             droppedAudioPacketCount = jitterBuffer.droppedFrameCount
             jitterQueuedFrameCount = jitterBuffer.queuedFrameCount
             applyReceivedVoiceMemberState(peerID: packet.peerID, voiceLevel: AudioLevelMeter.rmsLevel(samples: samples))
@@ -3190,6 +3205,7 @@ final class IntercomViewModel {
         scheduledOutputBatchCount = 0
         scheduledOutputFrameCount = 0
         lastReceivedAudioAt = nil
+        lastAudibleReceivedAudioAt = nil
         droppedAudioPacketCount = 0
         jitterQueuedFrameCount = 0
         playbackOutputPeakWindow = VoicePeakWindow()
@@ -3197,6 +3213,33 @@ final class IntercomViewModel {
         receiveMetadataMismatchCount = 0
         lastTransmitFallbackSummary = nil
         lastReceiveMetadataMismatchSummary = nil
+    }
+
+    private func refreshOtherAudioDuckingState(now: TimeInterval = Date().timeIntervalSince1970) {
+        setOtherAudioDuckingActive(shouldApplyOtherAudioDucking(now: now))
+    }
+
+    private func shouldApplyOtherAudioDucking(now: TimeInterval) -> Bool {
+        guard isDuckOthersEnabled, isAudioReady, audioCheckPhase == .idle else { return false }
+        return hasRecentReceivedAudio(now: now)
+    }
+
+    private func hasRecentReceivedAudio(now: TimeInterval) -> Bool {
+        guard let lastAudibleReceivedAudioAt else { return false }
+        return now - lastAudibleReceivedAudioAt <= Self.otherAudioDuckingHoldDuration
+    }
+
+    private func setOtherAudioDuckingActive(_ isActive: Bool) {
+        guard isOtherAudioDuckingActive != isActive else { return }
+        isOtherAudioDuckingActive = isActive
+        audioInputMonitor.setOtherAudioDuckingEnabled(isActive)
+    }
+
+    private func hasAudibleOutput(for frames: [JitterBufferedAudioFrame]) -> Bool {
+        guard !isOutputMuted, masterOutputVolume > 0 else { return false }
+        return frames.contains { frame in
+            remoteOutputVolume(for: frame.peerID) > 0
+        }
     }
 
     private func resetVoiceLevelWindows() {
