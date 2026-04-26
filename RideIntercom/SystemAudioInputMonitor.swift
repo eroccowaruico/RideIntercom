@@ -36,7 +36,7 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
     )
     private let bus: AVAudioNodeBus = 0
     private var isRunning = false
-    private var soundIsolationEnabled = false
+    private var soundIsolationEnabled = SoundIsolationBackend.defaultSoundIsolationEnabled
     private var otherAudioDuckingEnabled = false
 
     init(
@@ -45,6 +45,7 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
     ) {
         self.engine = engine
         self.microphonePermission = microphonePermission
+        self.soundIsolationEnabled = SoundIsolationBackend.defaultSoundIsolationEnabled
     }
 
     var supportsSoundIsolation: Bool {
@@ -92,11 +93,13 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
             throw AudioInputMonitorError.microphonePermissionDenied
         }
 
-        installInputTap()
-        engine.prepare()
-        try engine.start()
+        let applied = try startEngine(
+            soundIsolationEnabled: soundIsolationEnabled,
+            otherAudioDuckingEnabled: otherAudioDuckingEnabled
+        )
         isRunning = true
-        applyConfigurationIfRunning()
+        soundIsolationEnabled = applied.soundIsolationEnabled
+        otherAudioDuckingEnabled = applied.otherAudioDuckingEnabled
     }
 
     func stop() {
@@ -112,7 +115,7 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
         let requestedOtherAudioDucking = otherAudioDuckingEnabled
         soundIsolationQueue.async { [weak self] in
             guard let self else { return }
-            let applied = self.applyVoiceProcessingConfiguration(
+            let applied = self.reconfigureRunningEngine(
                 soundIsolationEnabled: requestedSoundIsolation,
                 otherAudioDuckingEnabled: requestedOtherAudioDucking
             )
@@ -123,22 +126,60 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
         }
     }
 
-    private func applyVoiceProcessingConfiguration(
+    private func startEngine(
         soundIsolationEnabled: Bool,
         otherAudioDuckingEnabled: Bool
-    ) -> (soundIsolationEnabled: Bool, otherAudioDuckingEnabled: Bool) {
+    ) throws -> (soundIsolationEnabled: Bool, otherAudioDuckingEnabled: Bool) {
         do {
             try SoundIsolationBackend.configureVoiceProcessing(
                 soundIsolationEnabled: soundIsolationEnabled,
                 otherAudioDuckingEnabled: otherAudioDuckingEnabled,
                 on: engine.inputNode
             )
+            installInputTap()
+            engine.prepare()
+            try engine.start()
             return (
                 soundIsolationEnabled: soundIsolationEnabled,
                 otherAudioDuckingEnabled: otherAudioDuckingEnabled && SoundIsolationBackend.supportsOtherAudioDucking
             )
         } catch {
+            try SoundIsolationBackend.configureVoiceProcessing(
+                soundIsolationEnabled: false,
+                otherAudioDuckingEnabled: false,
+                on: engine.inputNode
+            )
+            installInputTap()
+            engine.prepare()
+            try engine.start()
             return (soundIsolationEnabled: false, otherAudioDuckingEnabled: false)
+        }
+    }
+
+    private func reconfigureRunningEngine(
+        soundIsolationEnabled: Bool,
+        otherAudioDuckingEnabled: Bool
+    ) -> (soundIsolationEnabled: Bool, otherAudioDuckingEnabled: Bool) {
+        do {
+            engine.inputNode.removeTap(onBus: bus)
+            engine.stop()
+            let applied = try startEngine(
+                soundIsolationEnabled: soundIsolationEnabled,
+                otherAudioDuckingEnabled: otherAudioDuckingEnabled
+            )
+            return applied
+        } catch {
+            engine.inputNode.removeTap(onBus: bus)
+            engine.stop()
+            do {
+                let fallback = try startEngine(
+                    soundIsolationEnabled: false,
+                    otherAudioDuckingEnabled: false
+                )
+                return fallback
+            } catch {
+                return (soundIsolationEnabled: false, otherAudioDuckingEnabled: false)
+            }
         }
     }
 
@@ -163,11 +204,11 @@ final class SystemAudioInputMonitor: AudioInputMonitoring {
             }
         }
     }
-
 }
 
 private enum SoundIsolationBackend {
     static let isSupported = true
+    static let defaultSoundIsolationEnabled = isSupported
     static var supportsOtherAudioDucking: Bool {
         #if os(iOS)
         true

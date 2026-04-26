@@ -510,8 +510,8 @@ private struct SettingsView: View {
             AudioIOPanel(viewModel: viewModel)
             AudioCheckPanel(viewModel: viewModel)
             TransmitCodecPanel(viewModel: viewModel)
-            SoundIsolationPanel(viewModel: viewModel)
             VADThresholdPanel(viewModel: viewModel)
+            ResetSettingsPanel(viewModel: viewModel)
         }
         .formStyle(.grouped)
         .accessibilityIdentifier("settingsScrollView")
@@ -545,6 +545,17 @@ private struct AudioIOPanel: View {
                     ports: viewModel.availableInputPorts,
                     accessibilityIdentifier: "audioCheckInputPicker"
                 )
+            }
+
+            if viewModel.supportsSoundIsolation {
+                Toggle(
+                    "Sound Isolation",
+                    isOn: Binding(
+                        get: { viewModel.isSoundIsolationEnabled },
+                        set: { viewModel.setSoundIsolationEnabled($0) }
+                    )
+                )
+                .accessibilityIdentifier("soundIsolationToggle")
             }
 
             if viewModel.supportsAdvancedMixingOptions {
@@ -679,29 +690,6 @@ private struct AudioCheckPanel: View {
     }
 
 }
-
-private struct SoundIsolationPanel: View {
-    @Bindable var viewModel: IntercomViewModel
-
-    var body: some View {
-        if viewModel.supportsSoundIsolation {
-            Section {
-                Toggle(
-                    "Sound Isolation",
-                    isOn: Binding(
-                        get: { viewModel.isSoundIsolationEnabled },
-                        set: { viewModel.setSoundIsolationEnabled($0) }
-                    )
-                )
-                .accessibilityIdentifier("soundIsolationToggle")
-            } header: {
-                Label("Sound Isolation", systemImage: "waveform")
-            }
-            .accessibilityIdentifier("soundIsolationPanel")
-        }
-    }
-}
-
 private struct VADThresholdPanel: View {
     @Bindable var viewModel: IntercomViewModel
 
@@ -734,6 +722,24 @@ private struct VADThresholdPanel: View {
             Label("VAD Threshold", systemImage: "waveform.badge.mic")
         }
         .accessibilityIdentifier("vadThresholdPanel")
+    }
+}
+
+private struct ResetSettingsPanel: View {
+    @Bindable var viewModel: IntercomViewModel
+
+    var body: some View {
+        Section {
+            Button(role: .destructive) {
+                viewModel.resetAllSettings()
+            } label: {
+                Label("Reset All Settings", systemImage: "arrow.counterclockwise")
+            }
+            .accessibilityIdentifier("resetAllSettingsButton")
+        } footer: {
+            Text("Resets audio and call settings to their default values. Saved groups and members are not changed.")
+        }
+        .accessibilityIdentifier("resetSettingsPanel")
     }
 }
 

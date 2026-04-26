@@ -1986,6 +1986,9 @@ final class IntercomViewModel {
     nonisolated static let muteAutoStopDelayDefault: Duration = .seconds(2)
     nonisolated static let normalMasterOutputVolume: Float = 1
     nonisolated static let maximumMasterOutputVolume: Float = 2
+    nonisolated static let defaultSoundIsolationEnabled = true
+    nonisolated static let defaultTransmitCodec: AudioCodecIdentifier = .pcm16
+    nonisolated static let defaultHEAACv2Quality: HEAACv2Quality = .medium
     nonisolated private static let otherAudioDuckingHoldDuration: TimeInterval = 1.0
 
     private(set) var groups: [IntercomGroup]
@@ -2000,10 +2003,10 @@ final class IntercomViewModel {
     private(set) var selectedOutputPort: AudioPortInfo = .systemDefault
     private(set) var isDuckOthersEnabled = false
     private(set) var voiceActivityDetectionThreshold: Float = AudioTransmissionController.defaultVoiceActivityThreshold
-    private(set) var isSoundIsolationEnabled = false
-    private(set) var preferredTransmitCodec: AudioCodecIdentifier = .pcm16
-    private(set) var heAACv2Quality: HEAACv2Quality = .medium
-    private(set) var masterOutputVolume: Float = 1
+    private(set) var isSoundIsolationEnabled = IntercomViewModel.defaultSoundIsolationEnabled
+    private(set) var preferredTransmitCodec: AudioCodecIdentifier = IntercomViewModel.defaultTransmitCodec
+    private(set) var heAACv2Quality: HEAACv2Quality = IntercomViewModel.defaultHEAACv2Quality
+    private(set) var masterOutputVolume: Float = IntercomViewModel.normalMasterOutputVolume
     private(set) var isOutputMuted = false
     private(set) var remoteOutputVolumes: [String: Float] = [:]
     var isMicrophoneCaptureRunning: Bool {
@@ -2840,6 +2843,19 @@ final class IntercomViewModel {
 
     func remoteOutputVolume(for peerID: String) -> Float {
         remoteOutputVolumes[peerID] ?? 1
+    }
+
+    func resetAllSettings() {
+        setInputPort(.systemDefault)
+        setOutputPort(.systemDefault)
+        setDuckOthersEnabled(false)
+        setVoiceActivityDetectionThreshold(AudioTransmissionController.defaultVoiceActivityThreshold)
+        setSoundIsolationEnabled(Self.defaultSoundIsolationEnabled)
+        setPreferredTransmitCodec(Self.defaultTransmitCodec)
+        setHEAACv2Quality(Self.defaultHEAACv2Quality)
+        setMasterOutputVolume(Self.normalMasterOutputVolume)
+        isOutputMuted = false
+        remoteOutputVolumes = [:]
     }
 
     func startAudioCheck(recordDuration: Duration = .seconds(5), playbackDuration: Duration = .seconds(5)) {
