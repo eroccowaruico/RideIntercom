@@ -230,7 +230,7 @@ private enum SoundIsolationBackend {
         guard shouldEnableVoiceProcessing else { return }
         inputNode.voiceProcessingOtherAudioDuckingConfiguration =
             AVAudioVoiceProcessingOtherAudioDuckingConfiguration(
-                enableAdvancedDucking: ObjCBool(otherAudioDuckingEnabled),
+                enableAdvancedDucking: ObjCBool(true),
                 duckingLevel: otherAudioDuckingEnabled ? .default : .min
             )
         inputNode.isVoiceProcessingBypassed = !soundIsolationEnabled
