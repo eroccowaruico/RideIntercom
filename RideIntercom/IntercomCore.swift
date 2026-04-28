@@ -3366,9 +3366,12 @@ final class IntercomViewModel {
     }
 
     private func softClippedAudioSample(_ value: Float) -> Float {
-        guard value != 0 else { return 0 }
-        let clipped = tanh(Double(value))
-        return Float(clipped)
+        let threshold: Float = 0.9
+        let absVal = fabsf(value)
+        if absVal <= threshold { return value }
+        let headroom: Float = 1 - threshold
+        let overshoot = (absVal - threshold) / headroom
+        return copysignf(threshold + headroom * (1 - expf(-overshoot)), value)
     }
 
     private func markConnectedMembers(peerIDs: [String]) {
