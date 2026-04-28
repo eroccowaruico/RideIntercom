@@ -6,6 +6,10 @@
 	objectVersion = 100;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		934630852F9C0001001548C3 /* RTC in Frameworks */ = {isa = PBXBuildFile; productRef = 934630842F9C0001001548C3 /* RTC */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		93F300DA2F93829D0046716D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -23,12 +27,7 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXBuildFile section */
-		934630852F9C0001001548C3 /* RTC in Frameworks */ = {isa = PBXBuildFile; productRef = 934630842F9C0001001548C3 /* RTC */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
-		934630832F9B8D1B001548C3 /* RTC */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RTC; sourceTree = "<group>"; };
 		93F300C82F93829C0046716D /* RideIntercom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300D92F93829D0046716D /* RideIntercomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300E32F93829D0046716D /* RideIntercomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -38,7 +37,9 @@
 		93F300EB2F93829D0046716D /* Exceptions for "RideIntercom" folder in "RideIntercom" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				EffectSoundIsolation,
 				Info.plist,
+				RTC,
 			);
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
 		};
@@ -59,6 +60,9 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				93F300EB2F93829D0046716D /* Exceptions for "RideIntercom" folder in "RideIntercom" target */,
+			);
+			explicitFolders = (
+				RTC,
 			);
 			path = RideIntercom;
 			sourceTree = "<group>";
@@ -98,7 +102,6 @@
 		93F300BF2F93829C0046716D = {
 			isa = PBXGroup;
 			children = (
-				934630832F9B8D1B001548C3 /* RTC */,
 				934630812F9B2B73001548C3 /* .github */,
 				93F300CA2F93829C0046716D /* RideIntercom */,
 				93F300DC2F93829D0046716D /* RideIntercomTests */,
@@ -625,21 +628,6 @@
 		};
 /* End XCBuildConfiguration section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = RTC;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		934630842F9C0001001548C3 /* RTC */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */;
-			productName = RTC;
-		};
-/* End XCSwiftPackageProductDependency section */
-
 /* Begin XCConfigurationList section */
 		93F300C32F93829C0046716D /* Build configuration list for PBXProject "RideIntercom" */ = {
 			isa = XCConfigurationList;
@@ -674,6 +662,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RTC;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		934630842F9C0001001548C3 /* RTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */;
+			productName = RTC;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 93F300C02F93829C0046716D /* Project object */;
 }
