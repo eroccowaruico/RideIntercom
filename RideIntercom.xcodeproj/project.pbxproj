@@ -61,9 +61,6 @@
 			exceptions = (
 				93F300EB2F93829D0046716D /* Exceptions for "RideIntercom" folder in "RideIntercom" target */,
 			);
-			explicitFolders = (
-				RTC,
-			);
 			path = RideIntercom;
 			sourceTree = "<group>";
 		};
