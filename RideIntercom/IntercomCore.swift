@@ -2210,16 +2210,16 @@ final class IntercomViewModel {
         self.audioInputMonitor.setOtherAudioDuckingEnabled(false)
 
         self.callSession.onEvent = { [weak self] event in
-            self?.handleTransportEvent(event)
+            DispatchQueue.main.async { self?.handleTransportEvent(event) }
         }
         self.audioSessionManager.onAvailablePortsChanged = { [weak self] in
             self?.handleAvailableAudioPortsChanged()
         }
         self.audioInputMonitor.onLevel = { [weak self] level in
-            self?.handleMicrophoneLevel(level)
+            DispatchQueue.main.async { self?.handleMicrophoneLevel(level) }
         }
         self.audioInputMonitor.onSamples = { [weak self] samples in
-            self?.handleMicrophoneSamples(samples)
+            DispatchQueue.main.async { self?.handleMicrophoneSamples(samples) }
         }
         self.callTicker.onTick = { [weak self] now in
             self?.handleCallTick(now: now)
