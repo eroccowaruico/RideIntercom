@@ -1,5 +1,5 @@
 import Testing
-@testable import EffectSoundIsolation
+@testable import SoundIsolation
 import AudioToolbox
 
 @Test func componentDescriptionTargetsAppleSoundIsolationEffect() {

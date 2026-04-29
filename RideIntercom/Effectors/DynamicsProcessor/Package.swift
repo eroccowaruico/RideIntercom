@@ -3,24 +3,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "EffectSoundIsolation",
+    name: "DynamicsProcessor",
     platforms: [
         .iOS(.v17),
         .macOS(.v14),
     ],
     products: [
         .library(
-            name: "EffectSoundIsolation",
-            targets: ["EffectSoundIsolation"]
+            name: "DynamicsProcessor",
+            targets: ["DynamicsProcessor"]
         ),
     ],
     targets: [
         .target(
-            name: "EffectSoundIsolation"
+            name: "DynamicsProcessor"
         ),
         .testTarget(
-            name: "EffectSoundIsolationTests",
-            dependencies: ["EffectSoundIsolation"]
+            name: "DynamicsProcessorTests",
+            dependencies: ["DynamicsProcessor"]
         ),
     ],
     swiftLanguageModes: [.v6]

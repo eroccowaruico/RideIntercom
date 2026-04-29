@@ -37,7 +37,8 @@
 		93F300EB2F93829D0046716D /* Exceptions for "RideIntercom" folder in "RideIntercom" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				EffectSoundIsolation,
+				Effectors/DynamicsProcessor,
+				Effectors/PeakLimiter,
 				Info.plist,
 				RTC,
 			);
@@ -99,8 +100,8 @@
 		93F300BF2F93829C0046716D = {
 			isa = PBXGroup;
 			children = (
-				934630812F9B2B73001548C3 /* .github */,
 				93F300CA2F93829C0046716D /* RideIntercom */,
+				934630812F9B2B73001548C3 /* .github */,
 				93F300DC2F93829D0046716D /* RideIntercomTests */,
 				93F300E62F93829D0046716D /* RideIntercomUITests */,
 				93F300C92F93829C0046716D /* Products */,

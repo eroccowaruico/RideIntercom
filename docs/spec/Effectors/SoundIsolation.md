@@ -1,6 +1,6 @@
-# EffectSoundIsolation 仕様
+# SoundIsolation 仕様
 
-EffectSoundIsolation は Apple 標準の `AUSoundIsolation` Audio Unit を、RideIntercom の音声パイプラインから再利用しやすい Swift Package として切り出したエフェクトライブラリである。
+SoundIsolation は Apple 標準の `AUSoundIsolation` Audio Unit を、RideIntercom の音声パイプラインから再利用しやすい Swift Package として切り出したエフェクトライブラリである。
 
 このライブラリはマイク入力、受信音声、ミキサー出力など任意の `AVAudioEngine` ノードチェーンに差し込める音声分離エフェクトだけを扱う。音声ルーティング、通信、コーデック、録音、再生デバイス制御は責務に含めない。
 
@@ -17,9 +17,9 @@ EffectSoundIsolation は Apple 標準の `AUSoundIsolation` Audio Unit を、Rid
 
 | 項目 | 内容 |
 |---|---|
-| パス | `RideIntercom/EffectSoundIsolation` |
-| Package 名 | `EffectSoundIsolation` |
-| Product | `EffectSoundIsolation` library |
+| パス | `RideIntercom/Effectors/SoundIsolation` |
+| Package 名 | `SoundIsolation` |
+| Product | `SoundIsolation` library |
 | 対応プラットフォーム | iOS 17 以降、macOS 14 以降 |
 | 使用フレームワーク | `AVFAudio`, `AudioToolbox` |
 | テスト | Swift Testing による SwiftPM テスト |
@@ -82,7 +82,7 @@ EffectSoundIsolation は Apple 標準の `AUSoundIsolation` Audio Unit を、Rid
 
 ```swift
 import AVFAudio
-import EffectSoundIsolation
+import SoundIsolation
 
 let engine = AVAudioEngine()
 let player = AVAudioPlayerNode()
