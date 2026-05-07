@@ -40,5 +40,5 @@ let package = Package(
             dependencies: ["RTC"]
         ),
     ],
-    swiftLanguageModes: [.v5]
+    swiftLanguageModes: [.v6]
 )
