@@ -6,8 +6,7 @@ public struct CallStartRequest: Equatable, Sendable {
     public var expectedPeers: [PeerDescriptor]
     public var credential: RTCCredential?
     public var configuration: CallRouteConfiguration
-    public var audioFormat: AudioFormatDescriptor
-    public var audioCodecConfiguration: AudioCodecConfiguration
+    public var audioPolicy: RTCAudioPolicy
 
     public init(
         sessionID: String,
@@ -15,16 +14,14 @@ public struct CallStartRequest: Equatable, Sendable {
         expectedPeers: [PeerDescriptor] = [],
         credential: RTCCredential? = nil,
         configuration: CallRouteConfiguration = CallRouteConfiguration(),
-        audioFormat: AudioFormatDescriptor = AudioFormatDescriptor(),
-        audioCodecConfiguration: AudioCodecConfiguration = AudioCodecConfiguration()
+        audioPolicy: RTCAudioPolicy = RTCAudioPolicy()
     ) {
         self.sessionID = sessionID
         self.localPeer = localPeer
         self.expectedPeers = expectedPeers
         self.credential = credential
         self.configuration = configuration.normalized()
-        self.audioFormat = audioFormat
-        self.audioCodecConfiguration = audioCodecConfiguration
+        self.audioPolicy = audioPolicy
     }
 }
 
@@ -36,12 +33,11 @@ public protocol CallSession: AnyObject {
     func stopConnection() async
     func startMedia() async
     func stopMedia() async
-    func sendAudioFrame(_ frame: AudioFrame) async
+    func sendAudioPacket(_ packet: RTCAudioPacket) async
     func sendApplicationData(_ message: ApplicationDataMessage) async
     func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport]) async
     func setLocalMute(_ muted: Bool) async
     func setOutputMute(_ muted: Bool) async
-    func setRemoteOutputVolume(peerID: PeerID, volume: Float) async
 }
 
 public extension CallSession {

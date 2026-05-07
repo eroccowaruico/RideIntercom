@@ -1,6 +1,6 @@
 import Foundation
 
-public final class WebRTCInternetRoute: RTCCallRoute {
+public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     public let kind: RouteKind = .webRTC
     public let capabilities = RouteCapabilities(
         supportsLocalDiscovery: false,
@@ -72,7 +72,7 @@ public final class WebRTCInternetRoute: RTCCallRoute {
             eventSource.yield(.stateChanged(kind, .failed))
             return
         }
-        await engine.prepareLocalAudio(peer: request.localPeer, format: request.audioFormat)
+        await engine.prepareLocalAudio(peer: request.localPeer, policy: request.audioPolicy)
         eventSource.yield(.availabilityChanged(RouteAvailability(route: kind, isAvailable: true)))
         eventSource.yield(.stateChanged(kind, .standby))
     }
@@ -112,7 +112,7 @@ public final class WebRTCInternetRoute: RTCCallRoute {
         await engine.setLocalAudioEnabled(false)
     }
 
-    public func sendAudioFrame(_ frame: AudioFrame) async {}
+    public func sendAudioPacket(_ packet: RTCAudioPacket) async {}
 
     public func sendApplicationData(_ message: ApplicationDataMessage) async {
         if await engine.sendApplicationData(message) == false {
@@ -126,10 +126,6 @@ public final class WebRTCInternetRoute: RTCCallRoute {
 
     public func setOutputMute(_ muted: Bool) async {
         await engine.setOutputMuted(muted)
-    }
-
-    public func setRemoteOutputVolume(peerID: PeerID, volume: Float) async {
-        await engine.setRemoteOutputVolume(peerID: peerID, volume: volume)
     }
 
     private func bindSignalingEvents() {
@@ -221,7 +217,7 @@ open class NativeWebRTCEngine: NSObject {
 
     public override init() {}
 
-    open func prepareLocalAudio(peer: PeerDescriptor, format: AudioFormatDescriptor) async {}
+    open func prepareLocalAudio(peer: PeerDescriptor, policy: RTCAudioPolicy) async {}
 
     open func createPeerConnection(for peer: PeerDescriptor) async {}
     open func makeOffer(for peerID: PeerID) async -> WebRTCSessionDescription? { nil }
@@ -234,7 +230,6 @@ open class NativeWebRTCEngine: NSObject {
     open func addCandidate(_ candidate: WebRTCIceCandidate, from peerID: PeerID) async {}
     open func setLocalAudioEnabled(_ enabled: Bool) async {}
     open func setOutputMuted(_ muted: Bool) async {}
-    open func setRemoteOutputVolume(peerID: PeerID, volume: Float) async {}
 
     open func sendApplicationData(_ message: ApplicationDataMessage) async -> Bool {
         false

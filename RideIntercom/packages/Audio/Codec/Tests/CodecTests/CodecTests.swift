@@ -1,3 +1,4 @@
+import AudioCore
 import AudioToolbox
 import Foundation
 import Testing
@@ -9,11 +10,11 @@ import Testing
     #expect(CodecIdentifier.opus.audioFormatID == kAudioFormatOpus)
 }
 
-@Test func defaultConfigurationUsesRideIntercomVoicePreset() {
+@Test func defaultConfigurationUsesAudioCoreVoicePreset() {
     let configuration = CodecEncodingConfiguration()
 
     #expect(configuration.codec == .pcm16)
-    #expect(configuration.format == CodecAudioFormat(sampleRate: 48_000, channelCount: 1))
+    #expect(configuration.format == AudioFormat(sampleRate: 48_000, channelCount: 1))
     #expect(configuration.aacELDv2Options.bitRate == 24_000)
     #expect(configuration.opusOptions.bitRate == 32_000)
 }
@@ -28,16 +29,6 @@ import Testing
     #expect(report.selectedCodec == .pcm16)
     #expect(report.isFallback == false)
     #expect(report.availableCodecs.contains(.pcm16))
-}
-
-@Test func formatClampsToSupportedVoiceRanges() {
-    let low = CodecAudioFormat(sampleRate: 1_000, channelCount: 0)
-    let high = CodecAudioFormat(sampleRate: 192_000, channelCount: 8)
-
-    #expect(low.sampleRate == 8_000)
-    #expect(low.channelCount == 1)
-    #expect(high.sampleRate == 96_000)
-    #expect(high.channelCount == 2)
 }
 
 @Test func codecSpecificOptionsClampBitRates() {
@@ -81,28 +72,55 @@ import Testing
     }
 }
 
-@Test func encoderProducesTransportablePCMFrames() throws {
+@Test func encoderProducesTransportableAudioCorePCMFrames() throws {
     let encoder = CodecEncoder()
-    let frame = try encoder.encode(
-        PCMCodecFrame(
-            sequenceNumber: 42,
-            format: CodecAudioFormat(sampleRate: 48_000, channelCount: 1),
-            capturedAt: 123,
-            samples: [0, 0.25, -0.25]
-        )
+    let pcm = PCMFrame(
+        sequenceNumber: 42,
+        format: AudioFormat(sampleRate: 48_000, channelCount: 1),
+        capturedAt: 123,
+        samples: [0, 0.25, -0.25]
     )
+
+    let frame = try encoder.encode(pcm)
 
     #expect(frame.sequenceNumber == 42)
     #expect(frame.codec == .pcm16)
     #expect(frame.format.sampleRate == 48_000)
     #expect(frame.capturedAt == 123)
     #expect(frame.sampleCount == 3)
+    #expect(frame.metadata == EncodedAudioMetadata(
+        sequenceNumber: 42,
+        codec: "pcm16",
+        format: pcm.format,
+        capturedAt: 123,
+        sampleCount: 3
+    ))
     #expect(frame.payload == PCM16Codec.encode([0, 0.25, -0.25]))
+}
+
+@Test func encoderRejectsMismatchedFormatInsteadOfResampling() {
+    let encoder = CodecEncoder(configuration: CodecEncodingConfiguration(format: AudioFormat(sampleRate: 48_000, channelCount: 1)))
+    let frame = PCMFrame(
+        sequenceNumber: 1,
+        format: AudioFormat(sampleRate: 24_000, channelCount: 2),
+        capturedAt: 0,
+        samples: [0.1, -0.1]
+    )
+
+    do {
+        _ = try encoder.encode(frame)
+        Issue.record("Codec must not resample or channel-mix implicitly")
+    } catch {
+        #expect(error as? CodecError == .formatMismatch(
+            expected: AudioFormat(sampleRate: 48_000, channelCount: 1),
+            actual: AudioFormat(sampleRate: 24_000, channelCount: 2)
+        ))
+    }
 }
 
 @Test func decoderSelectsCodecFromFrameMetadata() throws {
     let codec = AudioCodec()
-    let encoded = try codec.encode(sequenceNumber: 9, samples: [0.1, -0.1], capturedAt: 456)
+    let encoded = try codec.encode(PCMFrame(sequenceNumber: 9, capturedAt: 456, samples: [0.1, -0.1]))
     let decoded = try codec.decode(encoded)
 
     #expect(decoded.sequenceNumber == 9)
@@ -117,7 +135,7 @@ import Testing
     let frame = EncodedCodecFrame(
         sequenceNumber: 1,
         codec: .opus,
-        format: CodecAudioFormat(),
+        format: AudioFormat(),
         capturedAt: 0,
         sampleCount: 0,
         payload: Data([0xde, 0xad, 0xbe, 0xef])

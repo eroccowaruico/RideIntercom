@@ -1,230 +1,357 @@
 # AudioMixer 仕様
 
-AudioMixer は `AVAudioEngine` と `AVAudioMixerNode` を使い、RideIntercom のアプリ内音声を Bus 単位でまとめる Swift Package である。
+`AudioMixer` は送信と受信で同じ形に使う PCM graph package である。format差、peer差、effect配置、音量、mix、最終出力をここで吸収する。
 
-このライブラリはミキサーグラフの作成、Bus 作成、Source 追加、Bus 単位の Effect chain、Bus 間 routing、最終 output への接続だけを扱う。マイク取得、スピーカー出力制御、通信、コーデック、エフェクト生成、Audio Session 管理は責務に含めない。
+この仕様書は、利用者が mixer graph を安全に組み立て、改修者が format 正規化や graph 変更の影響範囲を判断できることを目的とする。
 
-packet audio の受信 frame は再生 stream に変換された source node として Bus へ追加し、`AVAudioEngine` の graph routing で mix する。
+## Package Profile
 
-## 目的
-
-| 観点 | 仕様 |
+| 項目 | 仕様 |
 |---|---|
-| 主目的 | インカム用途のローカル音声、リモート音声、監視音声などを Bus として扱い、同じ API でサブミックスと最終出力へ routing できるようにする |
-| 利用箇所 | 通話画面または音声処理経路で、入力済みの `AVAudioNode` や Effectors の `AVAudioNode` を接続する場所 |
-| 非目的 | BGM/SFX ミキサー、音楽制作用ミキサー、複数 send/aux、parallel effect chain、AUv3 外部公開 |
-| 設計姿勢 | 通常チャンネル、グループ、マスターをすべて `MixerBus` として扱い、API を増やさない |
-
-## パッケージ構成
-
-| 項目 | 内容 |
-|---|---|
-| パス | `RideIntercom/AudioMixer` |
-| Package 名 | `AudioMixer` |
+| パス | `RideIntercom/packages/Audio/AudioMixer` |
 | Product | `AudioMixer` library |
-| 対応プラットフォーム | iOS 17 以降、macOS 14 以降 |
-| 使用フレームワーク | `AVFAudio` |
-| テスト | Swift Testing による SwiftPM テスト |
+| 依存 | `AudioCore` |
+| 実装基盤 | `AVFAudio`, `AVAudioEngine`, `AVAudioMixerNode` |
+| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降 |
+| Swift | Swift `6` |
+| テスト | Swift Testing の SwiftPM テスト |
 
-## 公開API
+## Boundary
 
-| API | 種別 | 役割 |
+| 持つ | 持たない |
+|---|---|
+| PCM source / sink | Audio Session |
+| source ingress正規化 | hardware capture / render |
+| sink egress正規化 | codec encode / decode |
+| bus graph / submix / master mix | RTC route / packet / encryption |
+| effect chain | OS voice processing |
+| source / bus / master volume | AudioCoreのPCM語彙定義 |
+
+## Background
+
+RideIntercom の音声経路では、送信と受信の両方で次の差分が同時に発生する。
+
+| 差分 | 発生元 | Mixerで吸収する理由 |
 |---|---|---|
-| `AudioMixer` | final class | `AVAudioEngine` を保持し、Bus 作成、routing、output 接続、start/stop を行う |
-| `MixerBus` | final class | Bus 内の input mixer、effect chain、fader mixer、source/effect 追加を扱う |
-| `AudioMixerSnapshot` | struct | bus一覧、route、output bus、busごとのsource/effect/volume、描画用 graph を確認する |
-| `MixerGraphSnapshot` | struct | source、bus input、effect、fader、output を node/edge 形式で確認する |
-| `MixerSourceSnapshot` | struct | Bus に追加された source のID、型名、順序、接続先 input bus index を確認する |
-| `MixerEffectSnapshot` | struct | Bus 内 effect chain のID、型名、順序、状態、表示用 parameter を確認する |
-| `MixerEffectState` | enum | `active`、`bypassed`、`unavailable`、`unknown` の effect 状態を表す |
-| `AudioMixerError` | enum | Bus ID 不正、未知 Bus、routing 不正、循環 routing、effect index 不正などの失敗理由を表す |
+| sample rate差 | hardware input、decoded packet、codec target、output hardware | effect chain と bus mix を安定したformatで動かすため |
+| channel count差 | mono mic、stereo output、peer packet | sourceごとの違いを bus へ持ち込まないため |
+| peer別音量 | remote peer、local monitor | transportやcodecではなく音声graphの状態だから |
+| effect順序 | VAD、Dynamics、Limiter、SoundIsolation | effectはbus processing format上でないと結果が安定しないため |
+| send / receive差 | capture send、receive output | 特別APIを増やさず、source/bus/sink構成の違いで表すため |
 
-## 基本グラフ
+`SessionManager` が hardware format を偽装して変換すると、OS/device差分と音声graph差分が混ざる。`Codec` が暗黙変換すると、codec失敗とformat吸収が混ざる。`RTC` が変換するとDSP責務が通信へ漏れる。そのため、PCMの正規化とmixは `AudioMixer` に集約する。
 
-| 要素 | 内部ノード | 役割 |
+## Design Principles
+
+| 原則 | 仕様 |
+|---|---|
+| 対称性 | 送信と受信は同じ `MixerPCMSource -> MixerBus -> MixerPCMSink` で表す |
+| bus format固定 | effect chain と mix は bus processing format だけで動く |
+| ingress / egress分離 | source input と sink output のformat差を別々にreportする |
+| source単位診断 | peerやcapture sourceの失敗はsource snapshotへ閉じる |
+| sink単位診断 | outputやsend sinkの失敗はsink snapshotへ閉じる |
+| App推測禁止 | Appは graph を推測せず `AudioMixerSnapshot` を読む |
+
+## Format Lifecycle
+
+| 段階 | format | 仕様 |
 |---|---|---|
-| Source | 呼び出し側が渡す `AVAudioNode` | マイク入力後のノード、リモート受信再生ノード、検証用プレイヤーなど |
-| `MixerBus.inputMixer` | `AVAudioMixerNode` | Source または子 Bus からの複数入力をまとめる |
-| Effect chain | `[AVAudioNode]` | SoundIsolation、DynamicsProcessor、PeakLimiter などを順番に挿入する |
-| `MixerBus.faderMixer` | `AVAudioMixerNode` | Bus 全体の volume を調整する |
-| Output | `AVAudioEngine.mainMixerNode` | 最終 Bus からシステム出力へ渡す |
-
-Bus 内部の接続は次の形に固定する。
+| source input | source original format | `SessionManager` や `Codec` が出したまま受け取る |
+| source ingress | bus processing format | `AudioMixer` が sample rate / channel count を正規化する |
+| bus / effect chain | bus processing format | Effectors、source volume、bus mix、master mix を同じformatで動かす |
+| sink egress | sink target format | `SessionManager output` や `Codec encoder` が要求するformatへ正規化する |
 
 ```text
-sources or child buses
-  -> inputMixer
-  -> effect1
-  -> effect2
-  -> effect3
-  -> faderMixer
-  -> parent bus or engine.mainMixerNode
+MixerPCMSource(original PCM)
+  -> ingress normalize
+  -> bus processing format
+  -> effects / volume / mix
+  -> egress normalize
+  -> MixerPCMSink(target PCM)
 ```
 
-## フォーマット仕様
+Effect chain は source original format では動かさない。hardware format でしか意味がない処理は `SessionManager` に置く。
 
-| 設定 | 値 |
-|---|---|
-| commonFormat | `.pcmFormatFloat32` |
-| sampleRate | `48_000` |
-| channels | `2` |
-| interleaved | `false` |
+```mermaid
+flowchart LR
+    Source[Source input<br/>original format]
+    Ingress[Source ingress<br/>normalize]
+    Bus[Bus processing format]
+    Effects[Effect chain<br/>VAD / Dynamics / Limiter / SoundIsolation]
+    Mix[Bus / submix / master mix]
+    Egress[Sink egress<br/>normalize]
+    Sink[Sink output<br/>target format]
 
-`AudioMixer.defaultFormat` は上表の固定フォーマットを返す。`AudioMixer.init(engine:format:)` で別 format を渡せるが、RideIntercom の初期利用では stereo / Float32 / 48kHz を基本とする。
-
-## `AudioMixer` 仕様
-
-| 処理 | 仕様 |
-|---|---|
-| 初期化 | `AVAudioEngine` と `AVAudioFormat` を保持する。既定では新規 `AVAudioEngine` と `defaultFormat` を使う |
-| `createBus(_:)` | 空でない ID の Bus を作成し、`inputMixer` と `faderMixer` を attach して直結する。同じ ID がある場合は既存 Bus を返す |
-| `bus(_:)` | 作成済み Bus を ID で取得する |
-| `busIDs` | 作成済み Bus ID を昇順で返す |
-| `route(_:to:)` | 子 Bus の `outputNode` を親 Bus の `inputMixer.nextAvailableInputBus` へ接続する |
-| `routeToOutput(_:)` | Bus の `outputNode` を `engine.mainMixerNode` へ接続する |
-| `start()` | `engine.prepare()` 後に `engine.start()` を呼ぶ |
-| `stop()` | `engine.stop()` を呼ぶ |
-| `snapshot()` | 現在のBus、route、output、source/effect数、volume、Busごとのeffect chain順序、描画用 graph を返す |
-| snapshot transport | `AudioMixerSnapshot` / `MixerBusSnapshot` / `MixerSourceSnapshot` / `MixerEffectSnapshot` / `MixerRouteSnapshot` / `MixerGraphSnapshot` は `Codable` とし、RTC の package runtime report payload にそのまま載せられる |
-
-## Snapshot graph 仕様
-
-| Node kind | ID 形式 | 意味 |
-|---|---|---|
-| `source` | `bus:<busID>:source:<sourceID>` | 呼び出し側が `addSource(_:id:)` で追加した入力 node |
-| `busInput` | `bus:<busID>:input` | Bus 内で source と子 Bus を集約する input mixer |
-| `effect` | `bus:<busID>:effect:<effectID>` | Bus 内の effect chain にある effect node |
-| `busFader` | `bus:<busID>:fader` | Bus 全体の volume を持つ fader mixer |
-| `output` | `mixer:output` | `routeToOutput(_:)` で接続された最終出力 |
-
-| Edge kind | ID 形式 | 接続 |
-|---|---|---|
-| `sourceToBusInput` | `source:<busID>:<sourceID>` | `source -> bus input` |
-| `busSignal` | `chain:<busID>:<from>-><to>` | `bus input -> effect chain -> fader` |
-| `busRoute` | `route:<sourceBusID>-><destinationBusID>` | `child bus fader -> parent bus input` |
-| `outputRoute` | `output:<busID>` | `final bus fader -> mixer output` |
-
-graph は UI 専用ではなく、package が現在の信号経路を説明するための診断データである。描画側は node/edge をそのまま使い、App 固有の推測で経路を補完しない。
-
-## `MixerBus` 仕様
-
-| 処理 | 仕様 |
-|---|---|
-| `volume` | `faderMixer.outputVolume` を読み書きする |
-| `outputNode` | 親 Bus または output へ接続するため `faderMixer` を返す |
-| `addSource(_:id:)` | Source node を engine に attach し、`inputMixer.nextAvailableInputBus` へ接続する。`id` 未指定時は `source-<n>` を snapshot ID にする。engine内部nodeは Swift error として拒否する |
-| `addEffect(_:id:state:parameters:)` | Effect node を engine に attach して末尾に追加し、Bus 内 chain を再構築する。`id` 未指定時は `effect-<n>` を snapshot ID にする。engine内部nodeやsink-only nodeは Swift error として拒否する |
-| `updateEffectSnapshot(id:state:parameters:)` | Effect node を再接続せず、snapshot に出す状態と表示用 parameter だけを更新する。AudioMixer は Effectors の型を知らない |
-| `removeEffect(at:)` | 指定 index の Effect node を chain から外し、engine から detach して chain を再構築する |
-| `effects` | 現在の Effect chain を順序付きで保持する |
-
-`addEffect(_:)` と `removeEffect(at:)` は `inputMixer -> effects -> faderMixer` を再接続する。再生中の頻繁な追加削除はグリッチ原因になるため、基本は start 前に構成を作る。再生中の調整は volume や Effectors 側の parameter 変更を使う。
-
-## Routing 制約
-
-| 制約 | 仕様 |
-|---|---|
-| Bus 管理 | `route` と `routeToOutput` は同じ `AudioMixer` が作成した Bus のみ受け付ける |
-| 親数 | 1つの Bus は親 Bus または output のどちらか1つだけへ送れる |
-| 循環 | `A -> B -> C -> A` になる routing は禁止する |
-| 出力 | v1 では `routeToOutput` できる最終 Bus は1つだけとする |
-| 複数 send | 1つの Bus を複数 Bus へ同時に送る send/aux は扱わない |
-
-## インカム用途の接続例
-
-| Bus | 役割 | 例 |
-|---|---|---|
-| `localVoice` | ローカルマイク処理後の音声 | VAD 後や送信前モニター用の source を追加する |
-| `remotePeer` | 受信した相手音声 | 受信再生用 player node を追加する |
-| `voiceMaster` | 通話音声のサブミックス | local/remote の音量差をまとめて調整する |
-| `finalMaster` | 最終出力 | PeakLimiter などの安全弁を最後に置く |
-
-```swift
-import AVFAudio
-import AudioMixer
-
-let mixer = AudioMixer()
-
-let localVoice = try mixer.createBus("localVoice")
-let remotePeer = try mixer.createBus("remotePeer")
-let voiceMaster = try mixer.createBus("voiceMaster")
-let finalMaster = try mixer.createBus("finalMaster")
-
-try localVoice.addSource(localMonitorNode)
-try remotePeer.addSource(remotePlayerNode)
-
-try localVoice.addEffect(localVoiceLimiterNode)
-try remotePeer.addEffect(remoteDynamicsNode)
-try voiceMaster.addEffect(masterLimiterNode)
-
-localVoice.volume = 0.8
-remotePeer.volume = 1.0
-voiceMaster.volume = 1.0
-finalMaster.volume = 1.0
-
-try mixer.route(localVoice, to: voiceMaster)
-try mixer.route(remotePeer, to: voiceMaster)
-try mixer.route(voiceMaster, to: finalMaster)
-try mixer.routeToOutput(finalMaster)
-
-try mixer.start()
+    Source --> Ingress --> Bus --> Effects --> Mix --> Egress --> Sink
 ```
 
-上記はインカム用途の利用イメージである。BGM/SFX や音楽制作向けのチャンネル設計はこの仕様の対象外とする。
+## External Specification
 
-## Effectors との関係
+| 外部入力 | 正常出力 | エラー出力 | 保証 |
+|---|---|---|---|
+| `AudioMixer(format:)` | mixer instance | `formatCreationFailed` | bus processing format を固定する |
+| `createBus(id)` | `MixerBus` | `emptyBusID` | bus id を mixer内で一意にする |
+| `MixerBus.addPCMSource(id:)` | `MixerPCMSource` | `invalidNodeID`, `duplicateNodeID` | source id を bus 内で一意にする |
+| `MixerPCMSource.schedule(frame)` | source snapshot / scheduled frame | source `lastFailure`, `AudioProcessingReport.failed` | source original format を保持し、bus formatへ正規化して投入する |
+| `MixerBus.installPCMSink(id:targetFormat:onFrame:)` | `MixerPCMSink` と callback frame | sink `lastFailure`, `AudioProcessingReport.failed`, `pcmSinkInstallFailed` | bus format から target format へ正規化して callback へ出す |
+| `MixerBus.addEffect(...)` | effect chain更新 | `incompatibleEffectNode`, `invalidNodeID`, `duplicateNodeID` | effect順序を snapshot と graph に保持する |
+| `route(child, to: parent)` | route snapshot更新 | `unknownBus`, `invalidRoute`, `busAlreadyRouted`, `cycleDetected` | bus routingをDAGとして保つ |
+| `routeToOutput(bus)` | output route snapshot更新 | `unknownBus`, `busAlreadyRouted` | v1では最終output busをひとつにする |
+| `snapshot()` | `AudioMixerSnapshot` | なし | source / sink / route / graph を同じ粒度で診断できる |
 
-| ライブラリ | AudioMixer からの扱い |
+## Source I/O
+
+| 項目 | 仕様 |
 |---|---|
-| SoundIsolation | `VoiceIsolationEffect.node` または `avAudioUnitEffect` を `addEffect(_:)` に渡す |
-| DynamicsProcessor | `DynamicsProcessorEffect.node` または `avAudioUnitEffect` を `addEffect(_:)` に渡す |
-| PeakLimiter | `PeakLimiterEffect.node` または `avAudioUnitEffect` を `addEffect(_:)` に渡す |
+| 入力型 | `AudioCore.PCMFrame` |
+| 入力format | source original format。sourceごと、frameごとに異なってよい |
+| 内部出力 | bus processing format の PCM |
+| 正規化 | sample rate と channel count を bus processing format へ合わせる |
+| 音量 | `MixerPCMSource.volume` で source単位に適用する |
+| 失敗出力 | `MixerSourceSnapshot.lastFailure` と `normalizationReport` |
+| 成功出力 | `scheduledFrameCount` の更新 |
 
-AudioMixer は Effect node の生成や parameter 設定を行わない。Effectors 側で生成済みの `AVAudioNode` を受け取り、Bus 内の順序付き chain に接続する。
+```mermaid
+flowchart LR
+    Frame[PCMFrame<br/>source original format]
+    Validate[validate frame]
+    Normalize[normalize to bus format]
+    Fader[source volume]
+    BusInput[bus input mixer]
+    Snapshot[source snapshot]
 
-## エラー仕様
+    Frame --> Validate --> Normalize --> Fader --> BusInput
+    Validate -. failure .-> Snapshot
+    Normalize -. report .-> Snapshot
+```
 
-| Error | 発生条件 | 呼び出し側の扱い |
+## Sink I/O
+
+| 項目 | 仕様 |
+|---|---|
+| 入力型 | bus processing format の PCM |
+| 出力型 | `AudioCore.PCMFrame` |
+| 出力format | sink target format。consumerごとに異なってよい |
+| consumer例 | `CodecEncoder`、`SessionManager output`、monitor、test harness |
+| 正規化 | bus processing format から sink target format へ合わせる |
+| 失敗出力 | `MixerSinkSnapshot.lastFailure` と `normalizationReport` |
+| 成功出力 | `emittedFrameCount` の更新と callback frame |
+
+```mermaid
+flowchart LR
+    BusPCM[bus processing PCM]
+    Normalize[normalize to target format]
+    Frame[PCMFrame<br/>sink target format]
+    Consumer[consumer callback]
+    Snapshot[sink snapshot]
+
+    BusPCM --> Normalize --> Frame --> Consumer
+    Normalize -. report .-> Snapshot
+```
+
+```text
+external caller
+  -> create bus
+  -> attach source / sink / effects
+  -> start mixer
+  -> schedule or receive PCM
+  -> inspect snapshot
+```
+
+## External Guarantees
+
+| 項目 | 保証 |
+|---|---|
+| send/receive対称性 | capture send と receive output を同じ source/bus/sink 構造で表す |
+| format吸収 | sample rate / channel count 差は source ingress と sink egress で吸収する |
+| report | 正規化の成否を `AudioProcessingReport` と `lastFailure` で外へ出す |
+| isolation | `SessionManager`、`Codec`、`RTC` の型を public API に要求しない |
+| realtime姿勢 | source scheduling failure は graph全体を壊さず source単位で診断する |
+
+## Symmetric Flows
+
+| flow | graph |
+|---|---|
+| capture send | `SessionManager input actual PCM -> MixerPCMSource -> capture bus effects -> MixerPCMSink(send format) -> Codec -> RTC` |
+| receive output | `RTC -> Codec -> peer MixerPCMSource -> peer/master effects -> MixerPCMSink(output hardware format) -> SessionManager output` |
+| local monitor | capture source / bus を monitor bus または output sink へ route する |
+
+送信だけ、受信だけの特別な mixer API は作らない。違いは source、bus、sink の組み方だけで表す。
+
+## 推奨 Bus 構成
+
+| bus | 入力source | effect例 | sink / route |
+|---|---|---|---|
+| `capture` | `SessionManager input actual PCM` | VAD、Dynamics、SoundIsolation | send sink、local monitor route |
+| `peer:<peerID>` | decoded peer PCM | peer用Dynamics、peer volume | receive master route |
+| `receiveMaster` | peer buses | master limiter | output sink |
+| `monitor` | capture bus or selected source | limiter | output sink |
+
+上表は RideIntercom の構成例である。別Appでは必要なbusだけを作る。`AudioMixer` は bus名に意味を持たず、snapshot ID として扱う。
+
+## Public Contract
+
+| 型 | 契約 |
+|---|---|
+| `AudioMixer` | `AVAudioEngine`、bus作成、routing、output接続、snapshot を管理する |
+| `MixerBus` | source、sink、effect chain、bus volume、route を管理する |
+| `MixerPCMSource` | 任意formatの `PCMFrame` を bus processing format に正規化して graph へ入れる |
+| `MixerPCMSink` | bus processing format の PCM を target format に正規化して emit する |
+| `AudioMixerSnapshot` | bus、source、sink、effect、route、graph を診断する |
+| `MixerSourceSnapshot` | source original format、mixer format、scheduled count、normalization report、last failure を持つ |
+| `MixerSinkSnapshot` | mixer format、target format、emitted count、normalization report、last failure を持つ |
+| `MixerEffectSnapshot` | effect id、型名、順序、状態、表示用parameterを持つ |
+| `MixerGraphSnapshot` | node / edge として現在の信号経路を表す |
+
+## Graph Contract
+
+```text
+source nodes / child buses
+  -> input mixer
+  -> effect chain
+  -> fader mixer
+  -> sinks / parent bus / engine output
+```
+
+| 要素 | 役割 |
+|---|---|
+| source node | capture PCM、decoded peer PCM、test PCM の入口 |
+| input mixer | source と child bus の合流点 |
+| effect chain | VAD、Dynamics、Limiter、SoundIsolation などを順序付きに接続する |
+| fader mixer | bus volume、sink tap、parent/output route の起点 |
+| sink node | send PCM、output PCM、monitor PCM の出口 |
+
+```mermaid
+flowchart TB
+    subgraph Bus[MixerBus]
+        SourceA[PCM source]
+        SourceB[Child bus]
+        Input[inputMixer]
+        EffectA[effect]
+        EffectB[effect]
+        Fader[faderMixer]
+        SinkA[PCM sink]
+        Parent[parent bus]
+        Output[engine output]
+    end
+
+    SourceA --> Input
+    SourceB --> Input
+    Input --> EffectA --> EffectB --> Fader
+    Fader --> SinkA
+    Fader --> Parent
+    Fader --> Output
+```
+
+## Snapshot Graph
+
+| node kind | ID形式 | 意味 |
 |---|---|---|
-| `emptyBusID` | `createBus("")` が呼ばれた | 呼び出し側の ID 定義を修正する |
-| `invalidNodeID` | source/effect の snapshot ID が空 | 呼び出し側の ID 定義を修正する |
-| `duplicateNodeID` | 同じ Bus 内で source/effect の snapshot ID が重複した | graph node ID が衝突しないよう ID 定義を修正する |
-| `unknownBus` | 別 mixer の Bus または未管理 Bus を routing した | 同じ `AudioMixer` が作成した Bus を使う |
-| `unknownEffect` | `updateEffectSnapshot` に未知の effect ID を渡した | `addEffect` 済みの ID を使う |
-| `invalidRoute` | 自分自身への route、source/effect の重複追加など不正な操作 | グラフ定義を修正する |
-| `busAlreadyRouted` | Bus がすでに親 Bus または output に接続済み | v1 では複数 send を使わない構成へ直す |
-| `cycleDetected` | 循環 routing になる | Bus 階層を木構造またはDAGとして見直す |
-| `invalidEffectIndex` | 存在しない effect index を削除しようとした | `effects` の範囲内 index を指定する |
+| `source` | `bus:<busID>:source:<sourceID>` | PCM source node |
+| `busInput` | `bus:<busID>:input` | source と child bus の合流点 |
+| `effect` | `bus:<busID>:effect:<effectID>` | effect chain node |
+| `busFader` | `bus:<busID>:fader` | bus volume と route の起点 |
+| `sink` | `bus:<busID>:sink:<sinkID>` | PCM sink node |
+| `output` | `mixer:output` | engine output |
 
-## v1 対応範囲
-
-| 機能 | 対応 |
+| edge kind | 接続 |
 |---|---|
-| Bus 作成 | 対応 |
-| Source 追加 | 対応 |
-| Bus ごとの複数 Effect | 対応 |
-| Source ID snapshot | 対応 |
-| Effect 状態 snapshot | 対応 |
-| 描画用 node/edge graph | 対応 |
-| Bus ごとの volume | 対応 |
-| Bus から Bus への routing | 対応 |
-| 最終 output への接続 | 対応 |
-| Effect 追加後の chain 再構築 | 対応 |
-| Effect 削除後の chain 再構築 | 対応 |
-| 複数 send/aux | 非対応 |
-| parallel effect chain | 非対応 |
-| surround / ambisonics | 非対応 |
-| AUv3 外部公開 | 非対応 |
+| `sourceToBusInput` | source -> bus input |
+| `busSignal` | bus input -> effects -> fader |
+| `busToSink` | fader -> sink |
+| `busRoute` | child bus fader -> parent bus input |
+| `outputRoute` | final bus fader -> engine output |
 
-## テスト仕様
+graph はUI専用ではない。packageが現在の信号経路を説明するための診断データである。描画側やAppは node/edge をそのまま使い、App固有の推測で経路を補完しない。
 
-| テスト観点 | 確認内容 |
+## Volume Ownership
+
+| 操作値 | 所有 |
 |---|---|
-| default format | stereo / Float32 / 48kHz / non-interleaved になっている |
-| Bus 作成 | 同じ ID では既存 Bus を返し、空 ID は拒否する |
-| volume | `MixerBus.volume` が `faderMixer.outputVolume` に反映される |
-| Effect chain | 複数 Effect を追加でき、指定 index の Effect を削除できる |
-| routing 制約 | 循環 routing と複数親 routing を拒否する |
-| snapshot | graph状態とeffect chain順序を診断可能な構造体として返す |
+| source volume | `MixerPCMSource.volume` |
+| peer volume | peer別 `MixerPCMSource.volume` |
+| bus volume | `MixerBus.volume` |
+| master volume | master bus の `MixerBus.volume` |
+| gain / limiter | Effectors を `MixerBus.addEffect` で挿入する |
+| signal measurement | `AudioCore.AudioSignalMeter` |
 
-実音声の音質や実デバイス出力は実行環境に依存するため、単体テストではグラフ定義、設定値、routing 制約を検証する。実マイク・実スピーカーを含む音声品質評価は、このライブラリを呼び出す統合経路側で扱う。
+## Runtime Snapshot
+
+| snapshot | 必須情報 |
+|---|---|
+| source | original format、mixer format、scheduled frame count、normalization report、last failure |
+| sink | mixer format、target format、emitted frame count、normalization report、last failure |
+| bus | source count、sink count、effect count、effect chain |
+| graph | source、bus input、effect、bus fader、sink、output の node / edge |
+
+snapshot は Codable とし、RTC runtime package report へ載せられる。
+
+## Snapshotの読み方
+
+| 見たいこと | 読む場所 | 判断 |
+|---|---|---|
+| peerごとの入力format | `MixerSourceSnapshot.originalFormat` | RTC受信やCodec decodeのformat多様性を確認する |
+| bus処理format | `MixerSourceSnapshot.mixerFormat`, `MixerSinkSnapshot.mixerFormat` | effect chain が動くformatを確認する |
+| output/codec向けformat | `MixerSinkSnapshot.targetFormat` | `SessionManager` や `Codec` が要求するformatに合っているか確認する |
+| source正規化成否 | `MixerSourceSnapshot.normalizationReport` | source ingressの変換有無と失敗を確認する |
+| sink正規化成否 | `MixerSinkSnapshot.normalizationReport` | sink egressの変換有無と失敗を確認する |
+| graph接続 | `MixerGraphSnapshot.nodes/edges` | route、effect順序、sink接続を確認する |
+| effect状態 | `MixerEffectSnapshot.state/parameters` | Effectors側のruntime状態を表示する |
+
+## Routing Constraints
+
+| 制約 | 仕様 | エラー出力 |
+|---|---|---|
+| 空ID禁止 | bus/source/effect/sink id は空にしない | `emptyBusID`, `invalidNodeID` |
+| ID重複禁止 | 同じbus内のsource/effect/sink id は重複しない | `duplicateNodeID` |
+| 管理外bus禁止 | route対象は同じ `AudioMixer` が作成したbusだけ | `unknownBus` |
+| 複数親禁止 | ひとつのbusは親busまたはoutputへ一度だけ送る | `busAlreadyRouted` |
+| 循環禁止 | `A -> B -> C -> A` を作らない | `cycleDetected` |
+| sink-only node禁止 | effect chainにsink専用nodeを入れない | `incompatibleEffectNode` |
+
+## Error I/O
+
+| エラー出力 | 発生条件 | 外部から見える場所 |
+|---|---|---|
+| `formatCreationFailed` | AudioCore `AudioFormat` から `AVAudioFormat` を作れない | throw |
+| `pcmSourceScheduleFailed` | source frameをbus formatへ正規化またはbuffer化できない | source `lastFailure`, normalization report |
+| `pcmSinkInstallFailed` | sink tap / callback setupに失敗 | throw |
+| `AudioProcessingReport.failed` | source ingress / sink egress の正規化失敗 | source / sink snapshot |
+| routing系error | graph制約違反 | throw |
+
+エラーはI/Oである。AppやDiagnosticsは throw だけでなく、snapshot上の `lastFailure` と `normalizationReport` を読む。
+
+## External State
+
+| 状態 | 外部から観測できる値 |
+|---|---|
+| stopped | engine未開始、graph snapshot取得可能 |
+| running | source schedule / sink callback が有効 |
+| source failure | source `lastFailure` と normalization report |
+| sink failure | sink `lastFailure` と normalization report |
+| graph changed | `AudioMixerSnapshot.graph` の node / edge |
+
+## 改修者向け判断表
+
+| 変更したいこと | 変更する場所 | 変更してはいけない場所 | 同時に更新する仕様 |
+|---|---|---|---|
+| source inputの受け口を増やす | `MixerPCMSource` | `SessionManager`, `RTC` | Source I/O, Snapshotの読み方 |
+| sink outputのconsumerを増やす | `MixerPCMSink` | `Codec`, `SessionManager` | Sink I/O |
+| sample rate変換を改善する | AudioMixer内の正規化処理 | `AudioCore`, `Codec`, `RTC` | Format Lifecycle, Error I/O |
+| channel count変換を改善する | AudioMixer内の正規化処理 | `AudioCore`, `SessionManager` | Format Lifecycle, Test Matrix |
+| effect状態を増やす | `MixerEffectSnapshot` と Effectors側snapshot | `RTC` | Public Contract, Snapshotの読み方 |
+| route制約を変える | `AudioMixer.route` / graph snapshot | App | Routing Constraints, Snapshot Graph |
+| peer volume仕様を変える | `MixerPCMSource.volume` | `RTC` | Volume Ownership |
+| master limiterを変える | Effectors + bus構成 | `SessionManager`, `Codec` | 推奨Bus構成 |
+
+## Test Matrix
+
+| 観点 | 確認 |
+|---|---|
+| source ingress | mixed sample rate / channel count の PCM を bus format へ正規化する |
+| sink egress | bus format の PCM を target format へ正規化する |
+| symmetry | source と sink が同じ粒度の report / failure を持つ |
+| graph | source / sink / effect / route が node / edge として診断できる |
+| effect | effect chain が bus processing format 上に接続される |
+| route constraints | 管理外bus、複数親、循環routeを拒否する |
+| snapshot diagnostics | source/sink/effect/graphの外部観測値が欠落しない |

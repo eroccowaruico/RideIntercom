@@ -2,10 +2,10 @@ import Foundation
 import Testing
 @testable import RTC
 
-@Test func codecIdentifiersMatchAudioCodecRawValues() {
-    #expect(AudioCodecIdentifier.pcm16.rawValue == "pcm16")
-    #expect(AudioCodecIdentifier.mpeg4AACELDv2.rawValue == "mpeg4AACELDv2")
-    #expect(AudioCodecIdentifier.opus.rawValue == "opus")
+@Test func codecIdentifiersAreTransportMetadataOnly() {
+    #expect(RTCAudioCodecIdentifier.pcm16.rawValue == "pcm16")
+    #expect(RTCAudioCodecIdentifier.mpeg4AACELDv2.rawValue == "mpeg4AACELDv2")
+    #expect(RTCAudioCodecIdentifier.opus.rawValue == "opus")
 }
 
 @Test func applicationDataAndPacketAudioUseDifferentWirePayloads() throws {
@@ -14,15 +14,10 @@ import Testing
     let appWire = try MultipeerPayloadBuilder.decode(appPayload.data, credential: nil)
 
     let request = makeRequest()
-    let sequencer = PacketAudioSequencer(
-        sessionID: request.sessionID,
-        senderID: request.localPeer.id,
-        codecID: .pcm16,
-        codecRegistry: .packetAudioDefault
-    )
-    let frame = AudioFrame(sequenceNumber: 7, samples: [0.0, 0.5, -0.5])
+    let sequencer = PacketAudioSequencer(sessionID: request.sessionID, senderID: request.localPeer.id)
+    let packet = makePacket(sequenceNumber: 7, payload: Data([0, 1, 2]))
 
-    let audioPayload = try MultipeerPayloadBuilder.makePacketAudioPayload(try sequencer.makeEnvelope(from: frame), credential: nil)
+    let audioPayload = try MultipeerPayloadBuilder.makePacketAudioPayload(sequencer.makeEnvelope(from: packet), credential: nil)
     let audioWire = try MultipeerPayloadBuilder.decode(audioPayload.data, credential: nil)
 
     #expect(appPayload.mode == .reliable)
@@ -39,10 +34,15 @@ import Testing
     }
 
     #expect(decodedMessage == message)
-    #expect(decodedEnvelope.frame.sequenceNumber == frame.sequenceNumber)
+    #expect(decodedEnvelope.packet == packet)
 }
 
 @Test func runtimeStatusApplicationDataRoundTripsThroughPackageNamespace() throws {
+    let audioPolicy = RTCAudioPolicy(
+        preferredSendFormat: RTCAudioFormat(sampleRate: 16_000, channelCount: 1),
+        preferredCodecs: [.opus, .pcm16],
+        maximumBitRate: 32_000
+    )
     let status = RTCRuntimeStatus(
         reason: .connectionStarted,
         generatedAt: 123,
@@ -53,9 +53,6 @@ import Testing
         isMediaStarted: false,
         localMute: false,
         outputMute: false,
-        remoteOutputVolumes: [
-            RTCPeerOutputVolume(peerID: PeerID(rawValue: "remote"), volume: 0.75),
-        ],
         routeSnapshot: ActiveRouteSnapshot(
             activeRoute: .multipeer,
             mediaRoute: .multipeer,
@@ -76,13 +73,13 @@ import Testing
                     supportsReliableApplicationData: true,
                     supportsUnreliableApplicationData: true,
                     requiresSignaling: false,
-                    supportedAudioCodecs: [.pcm16],
+                    supportedAudioCodecs: [.opus, .pcm16],
                     backendName: "test"
                 ),
                 mediaOwnership: .appManagedPacketAudio,
                 isActiveRoute: true,
                 isMediaRoute: true,
-                selectedAudioCodec: .pcm16
+                selectedAudioCodec: .opus
             ),
         ],
         packageReports: [
@@ -94,8 +91,7 @@ import Testing
             ),
         ],
         configuration: CallRouteConfiguration(),
-        audioFormat: AudioFormatDescriptor(),
-        audioCodecConfiguration: AudioCodecConfiguration()
+        audioPolicy: audioPolicy
     )
 
     let message = try RTCRuntimeStatusTransport.makeMessage(status)
@@ -106,22 +102,29 @@ import Testing
     #expect(decoded == status)
 }
 
-@Test func packetAudioUsesSelectedCodecFromRegistry() throws {
-    let codecID = AudioCodecIdentifier.mpeg4AACELDv2
-    let registry = AudioCodecRegistry(codecs: [makeAppBridgeStyleCodec(identifier: codecID), PCM16AudioCodec()])
+@Test func packetAudioPreservesCodecFormatBitRateAndPayloadWithoutDSP() throws {
     let request = makeRequest(
         credential: nil,
-        audioCodecConfiguration: AudioCodecConfiguration(preferredCodecs: [codecID, .pcm16])
+        audioPolicy: RTCAudioPolicy(
+            preferredSendFormat: RTCAudioFormat(sampleRate: 48_000, channelCount: 1),
+            preferredCodecs: [.opus, .pcm16]
+        )
     )
     let session = try MultipeerPacketMediaSession(
         request: request,
-        codecRegistry: registry,
         receiveConfiguration: PacketAudioReceiveConfiguration(playoutDelay: 0)
     )
     session.isActive = true
 
-    let sentFrame = AudioFrame(sequenceNumber: 3, samples: [0.1, -0.25, 0.5])
-    let payload = try #require(try session.makePayload(from: sentFrame))
+    let sentPacket = makePacket(
+        sequenceNumber: 3,
+        codec: .opus,
+        format: RTCAudioFormat(sampleRate: 24_000, channelCount: 2),
+        sampleCount: 960,
+        bitRate: 24_000,
+        payload: Data([9, 8, 7])
+    )
+    let payload = try #require(try session.makePayload(from: sentPacket))
     let message = try MultipeerPayloadBuilder.decode(payload.data, credential: nil)
 
     guard case .packetAudio(let envelope) = message else {
@@ -134,80 +137,97 @@ import Testing
         from: PeerID(rawValue: "remote"),
         receivedAt: 10
     ))
-    let received = try #require(report.readyFrames.first)
-    #expect(envelope.frame.codec == codecID)
-    #expect(envelope.frame.format == sentFrame.format)
-    #expect(envelope.frame.sampleCount == sentFrame.samples.count)
-    #expect(received.frame == sentFrame)
+    let received = try #require(report.readyPackets.first)
+    #expect(envelope.packet == sentPacket)
+    #expect(received.packet == sentPacket)
 }
 
-@Test func packetAudioRejectsUnsupportedCodecPreference() throws {
-    let request = makeRequest(
-        audioCodecConfiguration: AudioCodecConfiguration(preferredCodecs: [.opus])
-    )
+@Test func packetAudioReceiveFilterRejectsUnsupportedCodecsBeforeJitterBuffer() throws {
+    let request = makeRequest(audioPolicy: RTCAudioPolicy(preferredCodecs: [.pcm16]))
+    let sequencer = PacketAudioSequencer(sessionID: request.sessionID, senderID: request.localPeer.id)
+    let envelope = sequencer.makeEnvelope(from: makePacket(sequenceNumber: 1, codec: .opus))
+    var filter = PacketAudioReceiveFilter(sessionID: request.sessionID, acceptedCodecs: request.audioPolicy.preferredCodecs)
 
     do {
-        _ = try MultipeerPacketMediaSession(request: request, codecRegistry: .packetAudioDefault)
-        Issue.record("Expected unsupported codec error")
-    } catch AudioCodecError.noMutuallySupportedCodec(let preferred, let supported) {
-        #expect(preferred == [.opus])
-        #expect(supported == [.pcm16])
+        _ = try filter.accept(envelope, from: PeerID(rawValue: "remote"))
+        Issue.record("Unsupported codec must be rejected by RTC transport policy")
+    } catch {
+        #expect(error as? RTCAudioPolicyError == .unsupportedCodec(.opus))
     }
 }
 
-@Test func packetAudioReceiveBufferDrainsFramesAfterDelayInStableOrder() {
+@Test func packetAudioReceiveFilterDoesNotDropMixedFormatsForSupportedCodec() throws {
+    let request = makeRequest(audioPolicy: RTCAudioPolicy(preferredCodecs: [.pcm16]))
+    let sequencer = PacketAudioSequencer(sessionID: request.sessionID, senderID: request.localPeer.id)
+    var filter = PacketAudioReceiveFilter(sessionID: request.sessionID, acceptedCodecs: request.audioPolicy.preferredCodecs)
+
+    let stereo24k = try #require(try filter.accept(
+        sequencer.makeEnvelope(from: makePacket(
+            sequenceNumber: 1,
+            format: RTCAudioFormat(sampleRate: 24_000, channelCount: 2)
+        )),
+        from: PeerID(rawValue: "remote")
+    ))
+    let mono48k = try #require(try filter.accept(
+        sequencer.makeEnvelope(from: makePacket(
+            sequenceNumber: 2,
+            format: RTCAudioFormat(sampleRate: 48_000, channelCount: 1)
+        )),
+        from: PeerID(rawValue: "remote")
+    ))
+
+    #expect(stereo24k.received.packet.format == RTCAudioFormat(sampleRate: 24_000, channelCount: 2))
+    #expect(mono48k.received.packet.format == RTCAudioFormat(sampleRate: 48_000, channelCount: 1))
+}
+
+@Test func packetAudioReceiveFilterDropsDuplicatePacketsBeforeJitterBuffer() throws {
+    let request = makeRequest()
+    let sequencer = PacketAudioSequencer(sessionID: request.sessionID, senderID: request.localPeer.id)
+    let envelope = sequencer.makeEnvelope(from: makePacket(sequenceNumber: 1))
+    var filter = PacketAudioReceiveFilter(sessionID: request.sessionID, acceptedCodecs: request.audioPolicy.preferredCodecs)
+
+    let first = try filter.accept(envelope, from: PeerID(rawValue: "remote"))
+    let duplicate = try filter.accept(envelope, from: PeerID(rawValue: "remote"))
+
+    #expect(first?.received.packet.sequenceNumber == 1)
+    #expect(duplicate == nil)
+}
+
+@Test func packetAudioReceiveBufferDrainsPacketsAfterDelayInStableOrder() {
     var buffer = PacketAudioReceiveBuffer(configuration: PacketAudioReceiveConfiguration(
         playoutDelay: 0.08,
         packetLifetime: 1.0
     ))
 
-    buffer.enqueue(makeFilteredPacketAudioFrame(peerID: "remote", sequenceNumber: 2), receivedAt: 10.00)
-    buffer.enqueue(makeFilteredPacketAudioFrame(peerID: "remote", sequenceNumber: 1), receivedAt: 10.01)
+    buffer.enqueue(makeFilteredPacketAudioPacket(peerID: "remote", sequenceNumber: 2), receivedAt: 10.00)
+    buffer.enqueue(makeFilteredPacketAudioPacket(peerID: "remote", sequenceNumber: 1), receivedAt: 10.01)
 
-    #expect(buffer.drainReadyFrames(now: 10.05).isEmpty)
+    #expect(buffer.drainReadyPackets(now: 10.05).isEmpty)
 
-    let ready = buffer.drainReadyFrames(now: 10.10)
+    let ready = buffer.drainReadyPackets(now: 10.10)
 
-    #expect(ready.map(\.frame.sequenceNumber) == [1, 2])
-    #expect(buffer.queuedFrameCount == 0)
+    #expect(ready.map(\.packet.sequenceNumber) == [1, 2])
+    #expect(buffer.queuedPacketCount == 0)
 }
 
-@Test func packetAudioReceiveFilterDropsDuplicateFramesBeforeJitterBuffer() throws {
-    let request = makeRequest()
-    let sequencer = PacketAudioSequencer(
-        sessionID: request.sessionID,
-        senderID: request.localPeer.id,
-        codecID: .pcm16,
-        codecRegistry: .packetAudioDefault
-    )
-    let envelope = try sequencer.makeEnvelope(from: AudioFrame(sequenceNumber: 1, samples: [0.4]))
-    var filter = PacketAudioReceiveFilter(sessionID: request.sessionID, codecRegistry: .packetAudioDefault)
-
-    let first = try filter.accept(envelope, from: PeerID(rawValue: "remote"))
-    let duplicate = try filter.accept(envelope, from: PeerID(rawValue: "remote"))
-
-    #expect(first?.received.frame.sequenceNumber == 1)
-    #expect(duplicate == nil)
-}
-
-@Test func packetAudioReceiveBufferDropsExpiredFrames() {
+@Test func packetAudioReceiveBufferDropsExpiredPackets() {
     var buffer = PacketAudioReceiveBuffer(configuration: PacketAudioReceiveConfiguration(
         playoutDelay: 0.01,
         packetLifetime: 0.50
     ))
 
-    buffer.enqueue(makeFilteredPacketAudioFrame(peerID: "remote", sequenceNumber: 1), receivedAt: 20.00)
-    buffer.enqueue(makeFilteredPacketAudioFrame(peerID: "remote", sequenceNumber: 2), receivedAt: 20.00)
+    buffer.enqueue(makeFilteredPacketAudioPacket(peerID: "remote", sequenceNumber: 1), receivedAt: 20.00)
+    buffer.enqueue(makeFilteredPacketAudioPacket(peerID: "remote", sequenceNumber: 2), receivedAt: 20.00)
 
     let report = buffer.drain(now: 20.60)
 
-    #expect(report.readyFrames.isEmpty)
-    #expect(report.expiredFrameCount == 2)
-    #expect(report.receivedFrameCount == 2)
-    #expect(report.droppedFrameCount == 2)
-    #expect(report.queuedFrameCount == 0)
-    #expect(buffer.queuedFrameCount == 0)
-    #expect(buffer.droppedFrameCount == 2)
+    #expect(report.readyPackets.isEmpty)
+    #expect(report.expiredPacketCount == 2)
+    #expect(report.receivedPacketCount == 2)
+    #expect(report.droppedPacketCount == 2)
+    #expect(report.queuedPacketCount == 0)
+    #expect(buffer.queuedPacketCount == 0)
+    #expect(buffer.droppedPacketCount == 2)
 }
 
 @Test func routeManagerFiltersOptedOutRoutes() async {
@@ -286,7 +306,7 @@ import Testing
     let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer)
     let request = makeRequest(
         configuration: configuration,
-        audioCodecConfiguration: AudioCodecConfiguration(preferredCodecs: [.pcm16])
+        audioPolicy: RTCAudioPolicy(preferredCodecs: [.pcm16])
     )
     let manager = RouteManager(routes: [multipeer], configuration: configuration)
 
@@ -300,7 +320,7 @@ import Testing
     #expect(status.sessionID == request.sessionID)
     #expect(status.localPeer == request.localPeer)
     #expect(status.configuration == configuration)
-    #expect(status.audioCodecConfiguration == request.audioCodecConfiguration)
+    #expect(status.audioPolicy == request.audioPolicy)
     #expect(status.routes.first?.selectedAudioCodec == .pcm16)
 }
 
@@ -350,7 +370,7 @@ import Testing
     #expect(webRTC.startConnectionCount >= 1)
 }
 
-@Test func routeManagerForwardsAudioOnlyToMediaRoute() async {
+@Test func routeManagerForwardsAudioPacketsOnlyToMediaRoute() async {
     let multipeer = FakeRoute(kind: .multipeer, supportsPacketAudio: true)
     let webRTC = FakeRoute(kind: .webRTC, supportsPacketAudio: false)
 
@@ -360,10 +380,10 @@ import Testing
     await manager.prepare(makeRequest(configuration: configuration))
     await manager.startConnection()
     await manager.startMedia()
-    await manager.sendAudioFrame(AudioFrame(sequenceNumber: 1, samples: [0.2]))
+    await manager.sendAudioPacket(makePacket(sequenceNumber: 1))
 
-    #expect(multipeer.sentAudioFrames.count == 1)
-    #expect(webRTC.sentAudioFrames.isEmpty)
+    #expect(multipeer.sentAudioPackets.count == 1)
+    #expect(webRTC.sentAudioPackets.isEmpty)
 }
 
 @Test func webRTCRouteSendsOfferWhenRemotePeerJoins() async {
@@ -429,17 +449,36 @@ import Testing
     #expect(signaling.sentAnswers.first?.1 == peerID)
 }
 
+private func makePacket(
+    sequenceNumber: UInt64,
+    codec: RTCAudioCodecIdentifier = .pcm16,
+    format: RTCAudioFormat = RTCAudioFormat(sampleRate: 48_000, channelCount: 1),
+    sampleCount: Int? = 1,
+    bitRate: Int? = nil,
+    payload: Data = Data([1])
+) -> RTCAudioPacket {
+    RTCAudioPacket(
+        sequenceNumber: sequenceNumber,
+        codec: codec,
+        format: format,
+        capturedAt: 100 + TimeInterval(sequenceNumber),
+        sampleCount: sampleCount,
+        bitRate: bitRate,
+        payload: payload
+    )
+}
+
 private func makeRequest(
     configuration: CallRouteConfiguration = CallRouteConfiguration(),
     credential: RTCCredential? = RTCCredential.derived(groupID: "test-group", secret: "secret"),
-    audioCodecConfiguration: AudioCodecConfiguration = AudioCodecConfiguration()
+    audioPolicy: RTCAudioPolicy = RTCAudioPolicy()
 ) -> CallStartRequest {
     CallStartRequest(
         sessionID: "test-session",
         localPeer: PeerDescriptor(id: PeerID(rawValue: "local"), displayName: "Local"),
         credential: credential,
         configuration: configuration,
-        audioCodecConfiguration: audioCodecConfiguration
+        audioPolicy: audioPolicy
     )
 }
 
@@ -451,19 +490,19 @@ private func makeCloudflareConfiguration() -> CloudflareRealtimeConfiguration {
     )
 }
 
-private func makeFilteredPacketAudioFrame(
+private func makeFilteredPacketAudioPacket(
     peerID: String,
     sequenceNumber: UInt64
-) -> FilteredPacketAudioFrame {
-    FilteredPacketAudioFrame(
-        received: ReceivedAudioFrame(
+) -> FilteredPacketAudioPacket {
+    FilteredPacketAudioPacket(
+        received: ReceivedAudioPacket(
             peerID: PeerID(rawValue: peerID),
-            frame: AudioFrame(sequenceNumber: sequenceNumber, samples: [Float(sequenceNumber)])
+            packet: makePacket(sequenceNumber: sequenceNumber)
         )
     )
 }
 
-private final class FakeRoute: RTCCallRoute {
+private final class FakeRoute: RTCCallRoute, @unchecked Sendable {
     let kind: RouteKind
     let capabilities: RouteCapabilities
     let mediaOwnership: AudioMediaOwnership
@@ -474,7 +513,7 @@ private final class FakeRoute: RTCCallRoute {
     private(set) var startConnectionCount = 0
     private(set) var startMediaCount = 0
     private(set) var sentApplicationData: [ApplicationDataMessage] = []
-    private(set) var sentAudioFrames: [AudioFrame] = []
+    private(set) var sentAudioPackets: [RTCAudioPacket] = []
 
     init(kind: RouteKind, supportsPacketAudio: Bool = false) {
         self.kind = kind
@@ -507,8 +546,8 @@ private final class FakeRoute: RTCCallRoute {
 
     func stopMedia() async {}
 
-    func sendAudioFrame(_ frame: AudioFrame) async {
-        sentAudioFrames.append(frame)
+    func sendAudioPacket(_ packet: RTCAudioPacket) async {
+        sentAudioPackets.append(packet)
     }
 
     func sendApplicationData(_ message: ApplicationDataMessage) async {
@@ -517,36 +556,6 @@ private final class FakeRoute: RTCCallRoute {
 
     func setLocalMute(_ muted: Bool) async {}
     func setOutputMute(_ muted: Bool) async {}
-    func setRemoteOutputVolume(peerID: PeerID, volume: Float) async {}
-}
-
-private func makeAppBridgeStyleCodec(identifier: AudioCodecIdentifier) -> AnyAudioFrameCodec {
-    AnyAudioFrameCodec(
-        identifier: identifier,
-        encode: { frame in
-            let payload = try JSONEncoder().encode(Array(frame.samples.reversed()))
-            return EncodedAudioFrame(
-                sequenceNumber: frame.sequenceNumber,
-                codec: identifier,
-                format: frame.format,
-                capturedAt: frame.capturedAt,
-                sampleCount: frame.samples.count,
-                payload: payload
-            )
-        },
-        decode: { frame in
-            guard frame.codec == identifier else {
-                throw AudioCodecError.unsupportedCodec(frame.codec)
-            }
-            let reversedSamples = try JSONDecoder().decode([Float].self, from: frame.payload)
-            return AudioFrame(
-                sequenceNumber: frame.sequenceNumber,
-                format: frame.format,
-                capturedAt: frame.capturedAt,
-                samples: Array(reversedSamples.reversed())
-            )
-        }
-    )
 }
 
 private final class FakeWebRTCEngine: NativeWebRTCEngine {

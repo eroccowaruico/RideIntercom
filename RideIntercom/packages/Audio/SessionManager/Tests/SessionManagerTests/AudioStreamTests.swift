@@ -1,3 +1,4 @@
+import AudioCore
 import Testing
 @testable import SessionManager
 
@@ -5,53 +6,42 @@ import Testing
 import AVFAudio
 #endif
 
-@Test func audioStreamFormatNormalizesAndReportsLevel() {
-    let format = AudioStreamFormat(sampleRate: 2_000, channelCount: 5)
-    let frame = AudioStreamFrame(
-        sequenceNumber: 7,
-        format: format,
-        capturedAt: 10,
-        samples: [0.25, -0.5, 1.0, -1.0]
-    )
-
-    #expect(format.sampleRate == 8_000)
-    #expect(format.channelCount == 2)
-    #expect(frame.level.peak == 1.0)
-    #expect(frame.level.rms > 0.76)
-    #expect(frame.level.rms < 0.77)
-}
-
-@Test func inputCaptureReportsOperationsAndRealtimeFrames() {
-    let backend = FakeInputStreamBackend()
+@Test func inputCaptureReportsHardwareFramesWithoutFormatConversion() {
+    let hardwareFormat = AudioFormat(sampleRate: 24_000, channelCount: 2)
+    let preferredFormat = AudioFormat(sampleRate: 48_000, channelCount: 1)
+    let backend = FakeInputStreamBackend(actualHardwareFormat: hardwareFormat)
     let configuration = AudioInputStreamConfiguration(
-        format: AudioStreamFormat(sampleRate: 16_000, channelCount: 1),
+        preferredFormat: preferredFormat,
         bufferFrameCount: 0
     )
     let capture = AudioInputStreamCapture(configuration: configuration, backend: backend)
     var events: [AudioStreamRuntimeEvent] = []
-    capture.setRuntimeEventHandler { event in
-        events.append(event)
-    }
+    capture.setRuntimeEventHandler { events.append($0) }
 
     let start = capture.start()
-    backend.emit(AudioStreamFrame(sequenceNumber: 1, format: configuration.format, capturedAt: 10, samples: [0.1]))
+    backend.emit(PCMFrame(
+        sequenceNumber: 1,
+        format: hardwareFormat,
+        capturedAt: 10,
+        samples: [0.1, -0.1]
+    ))
     let stop = capture.stop()
     let secondStop = capture.stop()
 
     #expect(configuration.bufferFrameCount == 1)
     #expect(start.result == .applied)
+    #expect(start.snapshot.preferredFormat == preferredFormat)
+    #expect(start.snapshot.actualHardwareFormat == hardwareFormat)
     #expect(stop.result == .applied)
     #expect(secondStop.result == .ignored(.alreadyStopped))
-    #expect(start.snapshot.isRunning)
-    #expect(stop.snapshot.isRunning == false)
     #expect(secondStop.snapshot.processedFrameCount == 1)
     #expect(backend.startCount == 1)
     #expect(backend.stopCount == 1)
-    #expect(events.contains(.inputFrame(AudioStreamFrame(
+    #expect(events.contains(.inputFrame(PCMFrame(
         sequenceNumber: 1,
-        format: configuration.format,
+        format: hardwareFormat,
         capturedAt: 10,
-        samples: [0.1]
+        samples: [0.1, -0.1]
     ))))
 }
 
@@ -61,13 +51,11 @@ import AVFAudio
     let updated = AudioInputVoiceProcessingConfiguration(
         soundIsolationEnabled: false,
         otherAudioDuckingEnabled: true,
-        duckingLevel: .normal,
+        duckingLevel: .maximum,
         inputMuted: true
     )
     var events: [AudioStreamRuntimeEvent] = []
-    capture.setRuntimeEventHandler { event in
-        events.append(event)
-    }
+    capture.setRuntimeEventHandler { events.append($0) }
 
     let report = capture.updateVoiceProcessing(updated)
 
@@ -85,7 +73,7 @@ import AVFAudio
     let voiceProcessing = AudioInputVoiceProcessingConfiguration(
         soundIsolationEnabled: true,
         otherAudioDuckingEnabled: true,
-        duckingLevel: .normal,
+        duckingLevel: .medium,
         inputMuted: false
     )
     let configuration = AudioInputStreamConfiguration(voiceProcessing: voiceProcessing)
@@ -117,7 +105,7 @@ import AVFAudio
     let updated = AudioInputVoiceProcessingConfiguration(
         soundIsolationEnabled: false,
         otherAudioDuckingEnabled: true,
-        duckingLevel: .normal,
+        duckingLevel: .maximum,
         inputMuted: true
     )
     let capture = AudioInputStreamCapture(
@@ -174,59 +162,63 @@ import AVFAudio
     #expect(report.snapshot.isRunning == false)
 }
 
-@Test func outputRendererReportsScheduleAndRejectsMismatchedFormat() {
-    let backend = FakeOutputStreamBackend()
-    let configuration = AudioOutputStreamConfiguration(format: AudioStreamFormat(sampleRate: 16_000, channelCount: 1))
+@Test func outputRendererSchedulesOnlyHardwareFormatFrames() {
+    let hardwareFormat = AudioFormat(sampleRate: 48_000, channelCount: 2)
+    let backend = FakeOutputStreamBackend(actualHardwareFormat: hardwareFormat)
+    let configuration = AudioOutputStreamConfiguration(
+        preferredFormat: AudioFormat(sampleRate: 16_000, channelCount: 1)
+    )
     let renderer = AudioOutputStreamRenderer(configuration: configuration, backend: backend)
     var events: [AudioStreamRuntimeEvent] = []
-    renderer.setRuntimeEventHandler { event in
-        events.append(event)
-    }
+    renderer.setRuntimeEventHandler { events.append($0) }
 
     let start = renderer.start()
-    let scheduled = renderer.schedule(AudioStreamFrame(
+    let scheduled = renderer.schedule(PCMFrame(
         sequenceNumber: 1,
-        format: configuration.format,
+        format: hardwareFormat,
         capturedAt: 10,
-        samples: [0.2, 0.3]
+        samples: [0.2, -0.2]
     ))
-    let rejected = renderer.schedule(AudioStreamFrame(
+    let rejected = renderer.schedule(PCMFrame(
         sequenceNumber: 2,
-        format: AudioStreamFormat(sampleRate: 48_000, channelCount: 1),
+        format: AudioFormat(sampleRate: 48_000, channelCount: 1),
         capturedAt: 10,
         samples: [0.4]
     ))
 
     #expect(start.result == .applied)
+    #expect(start.snapshot.preferredFormat == configuration.preferredFormat)
+    #expect(start.snapshot.actualHardwareFormat == hardwareFormat)
     #expect(scheduled.result == .applied)
     #expect(scheduled.snapshot.processedFrameCount == 1)
     #expect(backend.scheduledFrames.map(\.sequenceNumber) == [1])
-    guard case .failed(.invalidFrame) = rejected.result else {
-        Issue.record("Expected invalid frame failure")
+    guard case .failed(.hardwareFormatMismatch(let expected, let actual)) = rejected.result else {
+        Issue.record("Expected hardware format mismatch")
         return
     }
-    #expect(events.contains(.outputFrameScheduled(AudioStreamFrame(
+    #expect(expected == hardwareFormat)
+    #expect(actual == AudioFormat(sampleRate: 48_000, channelCount: 1))
+    #expect(events.contains(.outputFrameScheduled(PCMFrame(
         sequenceNumber: 1,
-        format: configuration.format,
+        format: hardwareFormat,
         capturedAt: 10,
-        samples: [0.2, 0.3]
+        samples: [0.2, -0.2]
     ))))
 }
 
 #if canImport(AVFAudio)
-@Test func audioStreamFrameRoundTripsThroughPCMBuffer() throws {
-    let frame = AudioStreamFrame(
+@Test func pcmFrameRoundTripsThroughPCMBuffer() throws {
+    let frame = PCMFrame(
         sequenceNumber: 3,
-        format: AudioStreamFormat(sampleRate: 16_000, channelCount: 2),
+        format: AudioFormat(sampleRate: 16_000, channelCount: 2),
         capturedAt: 20,
         samples: [0.1, -0.1, 0.2, -0.2]
     )
 
     let buffer = try frame.makePCMBuffer()
-    let restored = try #require(AudioStreamFrame(
+    let restored = try #require(PCMFrame(
         buffer: buffer,
         sequenceNumber: frame.sequenceNumber,
-        targetFormat: frame.format,
         capturedAt: frame.capturedAt
     ))
 
@@ -244,21 +236,28 @@ private final class FakeInputStreamBackend: AudioInputStreamBackend {
     var events: [Event] = []
     var startCount = 0
     var stopCount = 0
+    var actualHardwareFormat: AudioFormat
     var startError: Error?
     var updateVoiceProcessingError: Error?
     var stopError: Error?
-    var onFrame: ((AudioStreamFrame) -> Void)?
+    var onFrame: ((PCMFrame) -> Void)?
+
+    init(actualHardwareFormat: AudioFormat = AudioFormat()) {
+        self.actualHardwareFormat = actualHardwareFormat
+    }
 
     func startCapture(
         configuration: AudioInputStreamConfiguration,
-        onFrame: @escaping (AudioStreamFrame) -> Void
-    ) throws {
+        onFrame: @escaping (PCMFrame) -> Void
+    ) throws -> AudioFormat {
+        _ = configuration
         events.append(.startCapture)
         startCount += 1
         if let startError {
             throw startError
         }
         self.onFrame = onFrame
+        return actualHardwareFormat
     }
 
     func updateVoiceProcessing(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
@@ -277,7 +276,7 @@ private final class FakeInputStreamBackend: AudioInputStreamBackend {
         onFrame = nil
     }
 
-    func emit(_ frame: AudioStreamFrame) {
+    func emit(_ frame: PCMFrame) {
         onFrame?(frame)
     }
 }
@@ -285,16 +284,23 @@ private final class FakeInputStreamBackend: AudioInputStreamBackend {
 private final class FakeOutputStreamBackend: AudioOutputStreamBackend {
     var startCount = 0
     var stopCount = 0
-    var scheduledFrames: [AudioStreamFrame] = []
+    var scheduledFrames: [PCMFrame] = []
+    var actualHardwareFormat: AudioFormat
     var startError: Error?
     var stopError: Error?
     var scheduleError: Error?
 
-    func startRendering(configuration: AudioOutputStreamConfiguration) throws {
+    init(actualHardwareFormat: AudioFormat = AudioFormat()) {
+        self.actualHardwareFormat = actualHardwareFormat
+    }
+
+    func startRendering(configuration: AudioOutputStreamConfiguration) throws -> AudioFormat {
+        _ = configuration
         startCount += 1
         if let startError {
             throw startError
         }
+        return actualHardwareFormat
     }
 
     func stopRendering() throws {
@@ -304,7 +310,7 @@ private final class FakeOutputStreamBackend: AudioOutputStreamBackend {
         }
     }
 
-    func schedule(_ frame: AudioStreamFrame) throws {
+    func schedule(_ frame: PCMFrame) throws {
         if let scheduleError {
             throw scheduleError
         }

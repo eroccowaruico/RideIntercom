@@ -14,13 +14,20 @@ let package = Package(
             targets: ["Codec"]
         ),
     ],
+    dependencies: [
+        .package(path: "../AudioCore"),
+    ],
     targets: [
         .target(
-            name: "Codec"
+            name: "Codec",
+            dependencies: ["AudioCore"]
         ),
         .testTarget(
             name: "CodecTests",
-            dependencies: ["Codec"]
+            dependencies: [
+                "Codec",
+                "AudioCore",
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

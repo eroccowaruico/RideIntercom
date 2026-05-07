@@ -1,6 +1,6 @@
 import Foundation
 
-final class EventSource<Event> {
+final class EventSource<Event: Sendable>: @unchecked Sendable {
     let stream: AsyncStream<Event>
     private let continuation: AsyncStream<Event>.Continuation
 

@@ -59,7 +59,7 @@ public struct RouteCapabilities: Codable, Equatable, Sendable {
     public var supportsReliableApplicationData: Bool
     public var supportsUnreliableApplicationData: Bool
     public var requiresSignaling: Bool
-    public var supportedAudioCodecs: [AudioCodecIdentifier]
+    public var supportedAudioCodecs: [RTCAudioCodecIdentifier]
     public var backendName: String?
 
     public init(
@@ -70,7 +70,7 @@ public struct RouteCapabilities: Codable, Equatable, Sendable {
         supportsReliableApplicationData: Bool,
         supportsUnreliableApplicationData: Bool,
         requiresSignaling: Bool,
-        supportedAudioCodecs: [AudioCodecIdentifier] = [],
+        supportedAudioCodecs: [RTCAudioCodecIdentifier] = [],
         backendName: String? = nil
     ) {
         self.supportsLocalDiscovery = supportsLocalDiscovery

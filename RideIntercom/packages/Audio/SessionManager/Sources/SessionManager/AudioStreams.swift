@@ -1,3 +1,4 @@
+import AudioCore
 import Foundation
 
 #if canImport(AVFAudio)
@@ -9,105 +10,50 @@ public enum AudioStreamDirection: Codable, Equatable, Sendable {
     case output
 }
 
-public struct AudioStreamFormat: Codable, Equatable, Sendable {
-    public var sampleRate: Double
-    public var channelCount: Int
-
-    public init(sampleRate: Double = 48_000, channelCount: Int = 1) {
-        self.sampleRate = min(96_000, max(8_000, sampleRate))
-        self.channelCount = min(2, max(1, channelCount))
-    }
-}
-
-public struct AudioStreamLevel: Codable, Equatable, Sendable {
-    public var rms: Float
-    public var peak: Float
-
-    public init(samples: [Float]) {
-        guard !samples.isEmpty else {
-            self.rms = 0
-            self.peak = 0
-            return
-        }
-        var sum: Float = 0
-        var peak: Float = 0
-        for sample in samples {
-            let magnitude = abs(sample)
-            sum += sample * sample
-            peak = max(peak, magnitude)
-        }
-        self.rms = sqrt(sum / Float(samples.count))
-        self.peak = peak
-    }
-
-    public init(rms: Float, peak: Float) {
-        self.rms = rms
-        self.peak = peak
-    }
-}
-
-public struct AudioStreamFrame: Codable, Equatable, Sendable {
-    public var sequenceNumber: UInt64
-    public var format: AudioStreamFormat
-    public var capturedAt: TimeInterval
-    public var samples: [Float]
-    public var level: AudioStreamLevel
-
-    public init(
-        sequenceNumber: UInt64,
-        format: AudioStreamFormat = AudioStreamFormat(),
-        capturedAt: TimeInterval = Date().timeIntervalSince1970,
-        samples: [Float]
-    ) {
-        self.sequenceNumber = sequenceNumber
-        self.format = format
-        self.capturedAt = capturedAt
-        self.samples = samples
-        self.level = AudioStreamLevel(samples: samples)
-    }
-}
-
 public struct AudioInputStreamConfiguration: Codable, Equatable, Sendable {
-    public var format: AudioStreamFormat
+    public var preferredFormat: AudioFormat
     public var bufferFrameCount: UInt32
     public var voiceProcessing: AudioInputVoiceProcessingConfiguration
 
     public init(
-        format: AudioStreamFormat = AudioStreamFormat(),
+        preferredFormat: AudioFormat = AudioFormat(),
         bufferFrameCount: UInt32 = 128,
         voiceProcessing: AudioInputVoiceProcessingConfiguration = AudioInputVoiceProcessingConfiguration()
     ) {
-        self.format = format
+        self.preferredFormat = preferredFormat
         self.bufferFrameCount = max(1, bufferFrameCount)
         self.voiceProcessing = voiceProcessing
     }
 }
 
 public struct AudioOutputStreamConfiguration: Codable, Equatable, Sendable {
-    public var format: AudioStreamFormat
+    public var preferredFormat: AudioFormat
 
-    public init(format: AudioStreamFormat = AudioStreamFormat()) {
-        self.format = format
+    public init(preferredFormat: AudioFormat = AudioFormat()) {
+        self.preferredFormat = preferredFormat
     }
 }
 
 public struct AudioStreamSnapshot: Codable, Equatable, Sendable {
     public var direction: AudioStreamDirection
     public var isRunning: Bool
-    public var format: AudioStreamFormat
+    public var preferredFormat: AudioFormat
+    public var actualHardwareFormat: AudioFormat
     public var processedFrameCount: UInt64
     public var inputVoiceProcessing: AudioInputVoiceProcessingConfiguration?
 
     public init(
         direction: AudioStreamDirection,
         isRunning: Bool,
-        format: AudioStreamFormat,
+        preferredFormat: AudioFormat,
+        actualHardwareFormat: AudioFormat,
         processedFrameCount: UInt64,
         inputVoiceProcessing: AudioInputVoiceProcessingConfiguration? = nil
     ) {
         self.direction = direction
         self.isRunning = isRunning
-        self.format = format
+        self.preferredFormat = preferredFormat
+        self.actualHardwareFormat = actualHardwareFormat
         self.processedFrameCount = processedFrameCount
         self.inputVoiceProcessing = inputVoiceProcessing
     }
@@ -130,6 +76,7 @@ public enum AudioStreamIgnoredReason: Codable, Equatable, Sendable {
 
 public enum AudioStreamOperationFailure: Codable, Equatable, Sendable {
     case invalidFrame(String)
+    case hardwareFormatMismatch(expected: AudioFormat, actual: AudioFormat)
     case engineOperationFailed(String)
     case unexpected(String)
 }
@@ -158,23 +105,22 @@ public struct AudioStreamOperationReport: Codable, Equatable, Sendable {
 
 public enum AudioStreamRuntimeEvent: Codable, Equatable, Sendable {
     case operation(AudioStreamOperationReport)
-    case inputFrame(AudioStreamFrame)
-    case outputFrameScheduled(AudioStreamFrame)
+    case inputFrame(PCMFrame)
+    case outputFrameScheduled(PCMFrame)
 }
-
-public typealias AudioStreamRuntimeEventHandler = (AudioStreamRuntimeEvent) -> Void
 
 public enum AudioStreamError: Error, Equatable, Sendable {
     case unsupportedOnCurrentPlatform
     case invalidFrame(String)
+    case hardwareFormatMismatch(expected: AudioFormat, actual: AudioFormat)
     case engineOperationFailed(String)
 }
 
 public protocol AudioInputStreamBackend: AnyObject {
     func startCapture(
         configuration: AudioInputStreamConfiguration,
-        onFrame: @escaping (AudioStreamFrame) -> Void
-    ) throws
+        onFrame: @escaping (PCMFrame) -> Void
+    ) throws -> AudioFormat
     func updateVoiceProcessing(_ configuration: AudioInputVoiceProcessingConfiguration) throws
     func stopCapture() throws
 }
@@ -187,16 +133,17 @@ public extension AudioInputStreamBackend {
 }
 
 public protocol AudioOutputStreamBackend: AnyObject {
-    func startRendering(configuration: AudioOutputStreamConfiguration) throws
+    func startRendering(configuration: AudioOutputStreamConfiguration) throws -> AudioFormat
     func stopRendering() throws
-    func schedule(_ frame: AudioStreamFrame) throws
+    func schedule(_ frame: PCMFrame) throws
 }
 
 public final class AudioInputStreamCapture {
     private let backend: AudioInputStreamBackend
-    private var runtimeEventHandler: AudioStreamRuntimeEventHandler?
+    private var runtimeEventHandler: ((AudioStreamRuntimeEvent) -> Void)?
     private var isRunning = false
     private var capturedFrameCount: UInt64 = 0
+    private var actualHardwareFormat: AudioFormat
     public private(set) var configuration: AudioInputStreamConfiguration
 
     public init(
@@ -205,6 +152,7 @@ public final class AudioInputStreamCapture {
     ) {
         self.configuration = configuration
         self.backend = backend
+        self.actualHardwareFormat = configuration.preferredFormat
     }
 
     #if canImport(AVFAudio)
@@ -219,7 +167,7 @@ public final class AudioInputStreamCapture {
     }
     #endif
 
-    public func setRuntimeEventHandler(_ handler: AudioStreamRuntimeEventHandler?) {
+    public func setRuntimeEventHandler(_ handler: ((AudioStreamRuntimeEvent) -> Void)?) {
         runtimeEventHandler = handler
     }
 
@@ -230,7 +178,7 @@ public final class AudioInputStreamCapture {
         }
         applyVoiceProcessing(configuration.voiceProcessing)
         do {
-            try backend.startCapture(configuration: configuration) { [weak self] frame in
+            actualHardwareFormat = try backend.startCapture(configuration: configuration) { [weak self] frame in
                 self?.handleCapturedFrame(frame)
             }
             isRunning = true
@@ -274,7 +222,8 @@ public final class AudioInputStreamCapture {
         }
     }
 
-    private func handleCapturedFrame(_ frame: AudioStreamFrame) {
+    private func handleCapturedFrame(_ frame: PCMFrame) {
+        actualHardwareFormat = frame.format
         capturedFrameCount += 1
         runtimeEventHandler?(.inputFrame(frame))
     }
@@ -283,7 +232,8 @@ public final class AudioInputStreamCapture {
         AudioStreamSnapshot(
             direction: .input,
             isRunning: isRunning,
-            format: configuration.format,
+            preferredFormat: configuration.preferredFormat,
+            actualHardwareFormat: actualHardwareFormat,
             processedFrameCount: capturedFrameCount,
             inputVoiceProcessing: configuration.voiceProcessing
         )
@@ -305,9 +255,10 @@ public final class AudioInputStreamCapture {
 
 public final class AudioOutputStreamRenderer {
     private let backend: AudioOutputStreamBackend
-    private var runtimeEventHandler: AudioStreamRuntimeEventHandler?
+    private var runtimeEventHandler: ((AudioStreamRuntimeEvent) -> Void)?
     private var isRunning = false
     private var scheduledFrameCount: UInt64 = 0
+    private var actualHardwareFormat: AudioFormat
     public private(set) var configuration: AudioOutputStreamConfiguration
 
     public init(
@@ -316,6 +267,7 @@ public final class AudioOutputStreamRenderer {
     ) {
         self.configuration = configuration
         self.backend = backend
+        self.actualHardwareFormat = configuration.preferredFormat
     }
 
     #if canImport(AVFAudio)
@@ -331,7 +283,7 @@ public final class AudioOutputStreamRenderer {
     }
     #endif
 
-    public func setRuntimeEventHandler(_ handler: AudioStreamRuntimeEventHandler?) {
+    public func setRuntimeEventHandler(_ handler: ((AudioStreamRuntimeEvent) -> Void)?) {
         runtimeEventHandler = handler
     }
 
@@ -341,7 +293,7 @@ public final class AudioOutputStreamRenderer {
             return emitReport(.startOutputRenderer, .ignored(.alreadyRunning))
         }
         do {
-            try backend.startRendering(configuration: configuration)
+            actualHardwareFormat = try backend.startRendering(configuration: configuration)
             isRunning = true
             return emitReport(.startOutputRenderer, .applied)
         } catch {
@@ -364,14 +316,15 @@ public final class AudioOutputStreamRenderer {
     }
 
     @discardableResult
-    public func schedule(_ frame: AudioStreamFrame) -> AudioStreamOperationReport {
-        guard frame.format == configuration.format else {
+    public func schedule(_ frame: PCMFrame) -> AudioStreamOperationReport {
+        guard frame.format == actualHardwareFormat else {
             return emitReport(
                 .scheduleOutputFrame,
-                .failed(.invalidFrame("frame format does not match output configuration"))
+                .failed(.hardwareFormatMismatch(expected: actualHardwareFormat, actual: frame.format))
             )
         }
         do {
+            _ = try frame.validated()
             try backend.schedule(frame)
             scheduledFrameCount += 1
             let report = emitReport(.scheduleOutputFrame, .applied)
@@ -386,7 +339,8 @@ public final class AudioOutputStreamRenderer {
         AudioStreamSnapshot(
             direction: .output,
             isRunning: isRunning,
-            format: configuration.format,
+            preferredFormat: configuration.preferredFormat,
+            actualHardwareFormat: actualHardwareFormat,
             processedFrameCount: scheduledFrameCount
         )
     }
@@ -413,9 +367,14 @@ private extension AudioInputStreamCapture {
                 return .ignored(.unsupportedOnCurrentPlatform)
             case .invalidFrame(let message):
                 return .failed(.invalidFrame(message))
+            case .hardwareFormatMismatch(let expected, let actual):
+                return .failed(.hardwareFormatMismatch(expected: expected, actual: actual))
             case .engineOperationFailed(let message):
                 return .failed(.engineOperationFailed(message))
             }
+        }
+        if let error = error as? AudioProcessingFailure {
+            return .failed(.invalidFrame(error.reason))
         }
         if let error = error as? AudioSessionManagerError {
             switch error {
@@ -454,10 +413,11 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
 
     public func startCapture(
         configuration: AudioInputStreamConfiguration,
-        onFrame: @escaping (AudioStreamFrame) -> Void
-    ) throws {
+        onFrame: @escaping (PCMFrame) -> Void
+    ) throws -> AudioFormat {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: bus)
+        let hardwareFormat = AudioFormat(avAudioFormat: inputFormat, fallback: configuration.preferredFormat)
         inputNode.removeTap(onBus: bus)
         inputNode.installTap(
             onBus: bus,
@@ -465,10 +425,9 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
             format: inputFormat
         ) { [weak self] buffer, time in
             guard let self,
-                  let frame = AudioStreamFrame(
+                  let frame = PCMFrame(
                     buffer: buffer,
                     sequenceNumber: self.nextSequenceNumber,
-                    targetFormat: configuration.format,
                     capturedAt: time.hostTime == 0 ? Date().timeIntervalSince1970 : AVAudioTime.seconds(forHostTime: time.hostTime)
                   )
             else { return }
@@ -482,6 +441,7 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
             inputNode.removeTap(onBus: bus)
             throw AudioStreamError.engineOperationFailed(error.localizedDescription)
         }
+        return hardwareFormat
     }
 
     public func updateVoiceProcessing(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
@@ -503,6 +463,7 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
     private let engine: AVAudioEngine
     private let playerNode: AVAudioPlayerNode
     private var isGraphConfigured = false
+    private var configuredHardwareFormat: AudioFormat?
 
     public init(
         engine: AVAudioEngine = AVAudioEngine(),
@@ -512,16 +473,22 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
         self.playerNode = playerNode
     }
 
-    public func startRendering(configuration: AudioOutputStreamConfiguration) throws {
-        if !isGraphConfigured {
+    public func startRendering(configuration: AudioOutputStreamConfiguration) throws -> AudioFormat {
+        let hardwareFormat = AudioFormat(
+            avAudioFormat: engine.outputNode.inputFormat(forBus: 0),
+            fallback: configuration.preferredFormat
+        )
+        if !isGraphConfigured || configuredHardwareFormat != hardwareFormat {
             if !engine.attachedNodes.contains(playerNode) {
                 engine.attach(playerNode)
             }
-            guard let format = AVAudioFormat(streamFormat: configuration.format) else {
+            guard let format = AVAudioFormat(audioFormat: hardwareFormat) else {
                 throw AudioStreamError.invalidFrame("failed to create output format")
             }
+            engine.disconnectNodeOutput(playerNode)
             engine.connect(playerNode, to: engine.mainMixerNode, format: format)
             isGraphConfigured = true
+            configuredHardwareFormat = hardwareFormat
         }
         engine.prepare()
         do {
@@ -534,6 +501,7 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
         } catch {
             throw AudioStreamError.engineOperationFailed(error.localizedDescription)
         }
+        return hardwareFormat
     }
 
     public func stopRendering() throws {
@@ -541,50 +509,48 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
         engine.stop()
     }
 
-    public func schedule(_ frame: AudioStreamFrame) throws {
+    public func schedule(_ frame: PCMFrame) throws {
         let buffer = try frame.makePCMBuffer()
         playerNode.scheduleBuffer(buffer, at: nil, options: [])
     }
 }
 
 private extension AVAudioFormat {
-    convenience init?(streamFormat: AudioStreamFormat) {
+    convenience init?(audioFormat: AudioFormat) {
         self.init(
             commonFormat: .pcmFormatFloat32,
-            sampleRate: streamFormat.sampleRate,
-            channels: AVAudioChannelCount(streamFormat.channelCount),
+            sampleRate: audioFormat.sampleRate,
+            channels: AVAudioChannelCount(audioFormat.channelCount),
             interleaved: false
         )
     }
 }
 
-extension AudioStreamFrame {
+extension PCMFrame {
     init?(
         buffer: AVAudioPCMBuffer,
         sequenceNumber: UInt64,
-        targetFormat: AudioStreamFormat,
         capturedAt: TimeInterval
     ) {
         guard let channelData = buffer.floatChannelData else { return nil }
+        let format = AudioFormat(avAudioFormat: buffer.format)
         let frameLength = Int(buffer.frameLength)
         guard frameLength > 0 else {
-            self.init(sequenceNumber: sequenceNumber, format: targetFormat, capturedAt: capturedAt, samples: [])
+            self.init(sequenceNumber: sequenceNumber, format: format, capturedAt: capturedAt, samples: [])
             return
         }
 
-        let availableChannels = Int(buffer.format.channelCount)
-        let channelCount = min(targetFormat.channelCount, max(1, availableChannels))
+        let channelCount = Int(buffer.format.channelCount)
         var samples: [Float] = []
-        samples.reserveCapacity(frameLength * targetFormat.channelCount)
+        samples.reserveCapacity(frameLength * channelCount)
         for frameIndex in 0..<frameLength {
-            for channelIndex in 0..<targetFormat.channelCount {
-                let sourceChannel = min(channelIndex, channelCount - 1)
-                samples.append(channelData[sourceChannel][frameIndex])
+            for channelIndex in 0..<channelCount {
+                samples.append(channelData[channelIndex][frameIndex])
             }
         }
         self.init(
             sequenceNumber: sequenceNumber,
-            format: targetFormat,
+            format: format,
             capturedAt: capturedAt,
             samples: samples
         )
@@ -594,7 +560,7 @@ extension AudioStreamFrame {
         guard samples.count.isMultiple(of: format.channelCount) else {
             throw AudioStreamError.invalidFrame("sample count is not divisible by channel count")
         }
-        guard let avFormat = AVAudioFormat(streamFormat: format),
+        guard let avFormat = AVAudioFormat(audioFormat: format),
               let buffer = AVAudioPCMBuffer(
                 pcmFormat: avFormat,
                 frameCapacity: AVAudioFrameCount(samples.count / format.channelCount)
@@ -612,6 +578,18 @@ extension AudioStreamFrame {
             }
         }
         return buffer
+    }
+}
+
+private extension AudioFormat {
+    init(avAudioFormat: AVAudioFormat, fallback: AudioFormat = AudioFormat()) {
+        let sampleRate = avAudioFormat.sampleRate
+        let channelCount = Int(avAudioFormat.channelCount)
+        if sampleRate > 0, channelCount > 0 {
+            self.init(sampleRate: sampleRate, channelCount: channelCount)
+        } else {
+            self = fallback
+        }
     }
 }
 #endif

@@ -194,20 +194,37 @@ import Testing
         AudioInputVoiceProcessingConfiguration(
             soundIsolationEnabled: false,
             otherAudioDuckingEnabled: true,
-            duckingLevel: .normal,
+            duckingLevel: .maximum,
             inputMuted: true
         )
     )
 
     #expect(backend.events == [
         .setVoiceProcessingEnabled(true),
-        .setAdvancedDucking(enabled: true, level: .normal),
+        .setAdvancedDucking(enabled: true, level: .maximum),
         .setVoiceProcessingBypassed(true),
         .setInputMuted(true),
     ])
 }
 
-@Test func voiceProcessingKeepsMinimumDuckingWhenDuckingIsDisabled() throws {
+@Test func voiceProcessingKeepsAllAdvancedDuckingLevels() throws {
+    let levels: [AudioSessionDuckingLevel] = [.systemDefault, .minimum, .medium, .maximum]
+
+    for level in levels {
+        let backend = FakeVoiceProcessingBackend()
+        let manager = AudioInputVoiceProcessingManager(backend: backend)
+
+        try manager.configure(AudioInputVoiceProcessingConfiguration(
+            soundIsolationEnabled: true,
+            otherAudioDuckingEnabled: true,
+            duckingLevel: level
+        ))
+
+        #expect(backend.events.contains(.setAdvancedDucking(enabled: true, level: level)))
+    }
+}
+
+@Test func voiceProcessingDisablesAdvancedDuckingWhenOtherAudioDuckingIsDisabled() throws {
     let backend = FakeVoiceProcessingBackend()
     let manager = AudioInputVoiceProcessingManager(backend: backend)
 
@@ -215,14 +232,14 @@ import Testing
         AudioInputVoiceProcessingConfiguration(
             soundIsolationEnabled: true,
             otherAudioDuckingEnabled: false,
-            duckingLevel: .normal,
+            duckingLevel: .maximum,
             inputMuted: false
         )
     )
 
     #expect(backend.events == [
         .setVoiceProcessingEnabled(true),
-        .setAdvancedDucking(enabled: true, level: .minimum),
+        .setAdvancedDucking(enabled: false, level: .systemDefault),
         .setVoiceProcessingBypassed(false),
         .setInputMuted(false),
     ])
@@ -236,14 +253,14 @@ import Testing
         AudioInputVoiceProcessingConfiguration(
             soundIsolationEnabled: false,
             otherAudioDuckingEnabled: false,
-            duckingLevel: .normal,
+            duckingLevel: .maximum,
             inputMuted: true
         )
     )
 
     #expect(backend.events == [
         .setVoiceProcessingEnabled(false),
-        .setAdvancedDucking(enabled: false, level: .minimum),
+        .setAdvancedDucking(enabled: false, level: .systemDefault),
         .setInputMuted(true),
     ])
 }
@@ -255,7 +272,7 @@ import Testing
         AudioInputVoiceProcessingConfiguration(
             soundIsolationEnabled: true,
             otherAudioDuckingEnabled: true,
-            duckingLevel: .normal,
+            duckingLevel: .medium,
             inputMuted: true
         )
     )
@@ -309,7 +326,7 @@ private final class FakeAudioSessionBackend: AudioSessionBackend {
 
     var events: [Event] = []
     var appliedConfigurations: [ResolvedAudioSessionConfiguration] = []
-    var snapshotChangeHandler: AudioSessionSnapshotChangeHandler?
+    var snapshotChangeHandler: ((AudioSessionSnapshotChange) -> Void)?
     var applyError: Error?
     var activeError: Error?
     var inputError: Error?
@@ -364,7 +381,7 @@ private final class FakeAudioSessionBackend: AudioSessionBackend {
         snapshot
     }
 
-    func setSnapshotChangeHandler(_ handler: AudioSessionSnapshotChangeHandler?) {
+    func setSnapshotChangeHandler(_ handler: ((AudioSessionSnapshotChange) -> Void)?) {
         snapshotChangeHandler = handler
     }
 

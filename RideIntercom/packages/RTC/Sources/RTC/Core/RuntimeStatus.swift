@@ -11,16 +11,6 @@ public enum RTCRuntimeStatusReason: String, Codable, Equatable, Sendable {
     case periodic
 }
 
-public struct RTCPeerOutputVolume: Codable, Equatable, Sendable {
-    public var peerID: PeerID
-    public var volume: Float
-
-    public init(peerID: PeerID, volume: Float) {
-        self.peerID = peerID
-        self.volume = volume
-    }
-}
-
 public struct RTCRouteRuntimeStatus: Codable, Equatable, Sendable {
     public var route: RouteKind
     public var state: RouteConnectionState
@@ -30,7 +20,7 @@ public struct RTCRouteRuntimeStatus: Codable, Equatable, Sendable {
     public var mediaOwnership: AudioMediaOwnership
     public var isActiveRoute: Bool
     public var isMediaRoute: Bool
-    public var selectedAudioCodec: AudioCodecIdentifier?
+    public var selectedAudioCodec: RTCAudioCodecIdentifier?
 
     public init(
         route: RouteKind,
@@ -41,7 +31,7 @@ public struct RTCRouteRuntimeStatus: Codable, Equatable, Sendable {
         mediaOwnership: AudioMediaOwnership,
         isActiveRoute: Bool,
         isMediaRoute: Bool,
-        selectedAudioCodec: AudioCodecIdentifier?
+        selectedAudioCodec: RTCAudioCodecIdentifier?
     ) {
         self.route = route
         self.state = state
@@ -106,13 +96,11 @@ public struct RTCRuntimeStatus: Codable, Equatable, Sendable {
     public var isMediaStarted: Bool
     public var localMute: Bool
     public var outputMute: Bool
-    public var remoteOutputVolumes: [RTCPeerOutputVolume]
     public var routeSnapshot: ActiveRouteSnapshot
     public var routes: [RTCRouteRuntimeStatus]
     public var packageReports: [RTCRuntimePackageReport]
     public var configuration: CallRouteConfiguration
-    public var audioFormat: AudioFormatDescriptor
-    public var audioCodecConfiguration: AudioCodecConfiguration
+    public var audioPolicy: RTCAudioPolicy
 
     public init(
         schemaVersion: Int = 1,
@@ -125,13 +113,11 @@ public struct RTCRuntimeStatus: Codable, Equatable, Sendable {
         isMediaStarted: Bool,
         localMute: Bool,
         outputMute: Bool,
-        remoteOutputVolumes: [RTCPeerOutputVolume],
         routeSnapshot: ActiveRouteSnapshot,
         routes: [RTCRouteRuntimeStatus],
         packageReports: [RTCRuntimePackageReport] = [],
         configuration: CallRouteConfiguration,
-        audioFormat: AudioFormatDescriptor,
-        audioCodecConfiguration: AudioCodecConfiguration
+        audioPolicy: RTCAudioPolicy
     ) {
         self.schemaVersion = schemaVersion
         self.reason = reason
@@ -143,13 +129,11 @@ public struct RTCRuntimeStatus: Codable, Equatable, Sendable {
         self.isMediaStarted = isMediaStarted
         self.localMute = localMute
         self.outputMute = outputMute
-        self.remoteOutputVolumes = remoteOutputVolumes
         self.routeSnapshot = routeSnapshot
         self.routes = routes
         self.packageReports = packageReports
         self.configuration = configuration
-        self.audioFormat = audioFormat
-        self.audioCodecConfiguration = audioCodecConfiguration
+        self.audioPolicy = audioPolicy
     }
 }
 

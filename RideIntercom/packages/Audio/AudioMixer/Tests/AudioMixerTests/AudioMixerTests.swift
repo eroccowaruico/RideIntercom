@@ -1,3 +1,4 @@
+import AudioCore
 import Testing
 @testable import AudioMixer
 import AVFAudio
@@ -8,7 +9,16 @@ import AVFAudio
     #expect(mixer.format.commonFormat == .pcmFormatFloat32)
     #expect(mixer.format.sampleRate == 48_000)
     #expect(mixer.format.channelCount == 2)
+    #expect(mixer.audioFormat == AudioFormat(sampleRate: 48_000, channelCount: 2))
     #expect(!mixer.format.isInterleaved)
+}
+
+@Test func mixerCanBeCreatedFromAudioCoreFormat() throws {
+    let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 24_000, channelCount: 1))
+
+    #expect(mixer.audioFormat == AudioFormat(sampleRate: 24_000, channelCount: 1))
+    #expect(mixer.format.sampleRate == 24_000)
+    #expect(mixer.format.channelCount == 1)
 }
 
 @Test func createBusReturnsExistingBusForSameID() throws {
@@ -259,4 +269,110 @@ import AVFAudio
             ]
         ),
     ])
+}
+
+@Test func pcmSourceNormalizesMixedFormatFramesBeforeBusInput() throws {
+    let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 48_000, channelCount: 1))
+    let bus = try mixer.createBus("remote")
+    let source = try bus.addPCMSource(id: "peer-a")
+
+    let report = try source.schedule(PCMFrame(
+        sequenceNumber: 1,
+        format: AudioFormat(sampleRate: 24_000, channelCount: 2),
+        capturedAt: 10,
+        samples: [0.1, -0.1, 0.3, -0.3]
+    ))
+
+    let snapshot = try #require(bus.snapshot().sources.first)
+    #expect(report.sourceFormat == AudioFormat(sampleRate: 24_000, channelCount: 2))
+    #expect(report.targetFormat == AudioFormat(sampleRate: 48_000, channelCount: 1))
+    #expect(report.result == .applied)
+    #expect(snapshot.id == "peer-a")
+    #expect(snapshot.typeName == "MixerPCMSource")
+    #expect(snapshot.originalFormat == AudioFormat(sampleRate: 24_000, channelCount: 2))
+    #expect(snapshot.mixerFormat == AudioFormat(sampleRate: 48_000, channelCount: 1))
+    #expect(snapshot.scheduledFrameCount == 1)
+    #expect(snapshot.normalizationReport == report)
+    #expect(snapshot.lastFailure == nil)
+}
+
+@Test func pcmSourceReportsConversionFailureWithoutScheduling() throws {
+    let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 48_000, channelCount: 1))
+    let bus = try mixer.createBus("remote")
+    let source = try bus.addPCMSource(id: "peer-a")
+
+    do {
+        _ = try source.schedule(PCMFrame(
+            sequenceNumber: 1,
+            format: AudioFormat(sampleRate: 24_000, channelCount: 2),
+            capturedAt: 10,
+            samples: [0.1]
+        ))
+        Issue.record("PCM source must reject invalid source frame")
+    } catch {
+        let snapshot = try #require(bus.snapshot().sources.first)
+        #expect(snapshot.scheduledFrameCount == 0)
+        #expect(snapshot.originalFormat == AudioFormat(sampleRate: 24_000, channelCount: 2))
+        #expect(snapshot.lastFailure == "sample count is not divisible by channel count")
+    }
+}
+
+@Test func pcmSourceVolumeIsPerPeerAndClamped() throws {
+    let mixer = AudioMixer()
+    let bus = try mixer.createBus("remote")
+    let source = try bus.addPCMSource(id: "peer-a")
+
+    source.volume = 2
+    #expect(source.volume == 1)
+
+    source.volume = -1
+    #expect(source.volume == 0)
+}
+
+@Test func pcmSinkNormalizesBusFormatForConsumerTarget() throws {
+    let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 48_000, channelCount: 2))
+    let bus = try mixer.createBus("capture")
+    var emitted: [PCMFrame] = []
+    var reports: [AudioProcessingReport] = []
+    _ = try bus.installPCMSink(
+        id: "send",
+        targetFormat: AudioFormat(sampleRate: 24_000, channelCount: 1)
+    ) { frame, report in
+        emitted.append(frame)
+        reports.append(report)
+    }
+
+    try bus.emitToSinksForTesting(PCMFrame(
+        sequenceNumber: 7,
+        format: AudioFormat(sampleRate: 48_000, channelCount: 2),
+        capturedAt: 20,
+        samples: [1, -1, 0.5, -0.5]
+    ))
+
+    let snapshot = try #require(bus.snapshot().sinks.first)
+    #expect(emitted.count == 1)
+    #expect(emitted.first?.format == AudioFormat(sampleRate: 24_000, channelCount: 1))
+    #expect(emitted.first?.samples.count == 1)
+    #expect(reports.first?.operation == .normalizeSink)
+    #expect(snapshot.id == "send")
+    #expect(snapshot.mixerFormat == AudioFormat(sampleRate: 48_000, channelCount: 2))
+    #expect(snapshot.targetFormat == AudioFormat(sampleRate: 24_000, channelCount: 1))
+    #expect(snapshot.emittedFrameCount == 1)
+    #expect(snapshot.normalizationReport == reports.first)
+    #expect(snapshot.lastFailure == nil)
+}
+
+@Test func pcmSourceAndSinkSnapshotsAreSymmetric() throws {
+    let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 48_000, channelCount: 1))
+    let bus = try mixer.createBus("voice")
+    _ = try bus.addPCMSource(id: "mic")
+    _ = try bus.installPCMSink(id: "send", targetFormat: AudioFormat(sampleRate: 16_000, channelCount: 1)) { _, _ in }
+
+    let snapshot = bus.snapshot()
+
+    #expect(snapshot.sourceCount == 1)
+    #expect(snapshot.sinkCount == 1)
+    #expect(snapshot.sources.first?.mixerFormat == AudioFormat(sampleRate: 48_000, channelCount: 1))
+    #expect(snapshot.sinks.first?.mixerFormat == AudioFormat(sampleRate: 48_000, channelCount: 1))
+    #expect(snapshot.sinks.first?.targetFormat == AudioFormat(sampleRate: 16_000, channelCount: 1))
 }

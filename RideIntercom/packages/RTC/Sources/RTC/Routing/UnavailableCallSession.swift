@@ -1,6 +1,6 @@
 import Foundation
 
-public final class UnavailableCallSession: CallSession {
+public final class UnavailableCallSession: CallSession, @unchecked Sendable {
     public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
     private let eventSource = EventSource<CallSessionEvent>()
 
@@ -20,9 +20,8 @@ public final class UnavailableCallSession: CallSession {
 
     public func startMedia() async {}
     public func stopMedia() async {}
-    public func sendAudioFrame(_ frame: AudioFrame) async {}
+    public func sendAudioPacket(_ packet: RTCAudioPacket) async {}
     public func sendApplicationData(_ message: ApplicationDataMessage) async {}
     public func setLocalMute(_ muted: Bool) async {}
     public func setOutputMute(_ muted: Bool) async {}
-    public func setRemoteOutputVolume(peerID: PeerID, volume: Float) async {}
 }

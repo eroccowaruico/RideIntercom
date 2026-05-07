@@ -1,3 +1,4 @@
+import AudioCore
 import AudioToolbox
 @preconcurrency import AVFAudio
 import Foundation
@@ -5,7 +6,8 @@ import Foundation
 public enum CodecError: Error, Equatable, Sendable {
     case invalidSampleCount(sampleCount: Int, channelCount: Int)
     case invalidByteCount
-    case invalidFormat(CodecAudioFormat)
+    case invalidFormat(AudioFormat)
+    case formatMismatch(expected: AudioFormat, actual: AudioFormat)
     case unsupportedCodec(CodecIdentifier)
     case encoderUnavailable(CodecIdentifier)
     case decoderUnavailable(CodecIdentifier)
@@ -42,35 +44,6 @@ public enum CodecIdentifier: String, Codable, CaseIterable, Equatable, Sendable 
     }
 }
 
-public struct CodecAudioFormat: Codable, Equatable, Sendable {
-    public static let defaultSampleRate: Double = 48_000
-    public static let allowedSampleRateRange: ClosedRange<Double> = 8_000...96_000
-    public static let allowedChannelCountRange: ClosedRange<Int> = 1...2
-
-    public var sampleRate: Double
-    public var channelCount: Int
-
-    public init(sampleRate: Double = Self.defaultSampleRate, channelCount: Int = 1) {
-        self.sampleRate = Self.clamp(sampleRate, Self.allowedSampleRateRange)
-        self.channelCount = Self.clamp(channelCount, Self.allowedChannelCountRange)
-    }
-
-    func avAudioFrameCount(forSampleCount sampleCount: Int) throws -> AVAudioFrameCount {
-        guard sampleCount.isMultiple(of: channelCount) else {
-            throw CodecError.invalidSampleCount(sampleCount: sampleCount, channelCount: channelCount)
-        }
-        return AVAudioFrameCount(sampleCount / channelCount)
-    }
-
-    private static func clamp(_ value: Double, _ range: ClosedRange<Double>) -> Double {
-        min(max(value, range.lowerBound), range.upperBound)
-    }
-
-    private static func clamp(_ value: Int, _ range: ClosedRange<Int>) -> Int {
-        min(max(value, range.lowerBound), range.upperBound)
-    }
-}
-
 public struct AACELDv2Options: Codable, Equatable, Sendable {
     public static let allowedBitRateRange: ClosedRange<Int> = 12_000...128_000
 
@@ -101,13 +74,13 @@ public struct OpusOptions: Codable, Equatable, Sendable {
 
 public struct CodecEncodingConfiguration: Codable, Equatable, Sendable {
     public var codec: CodecIdentifier
-    public var format: CodecAudioFormat
+    public var format: AudioFormat
     public var aacELDv2Options: AACELDv2Options
     public var opusOptions: OpusOptions
 
     public init(
         codec: CodecIdentifier = .pcm16,
-        format: CodecAudioFormat = CodecAudioFormat(),
+        format: AudioFormat = AudioFormat(),
         aacELDv2Options: AACELDv2Options = AACELDv2Options(),
         opusOptions: OpusOptions = OpusOptions()
     ) {
@@ -117,7 +90,7 @@ public struct CodecEncodingConfiguration: Codable, Equatable, Sendable {
         self.opusOptions = opusOptions
     }
 
-    var activeBitRate: Int? {
+    public var activeBitRate: Int? {
         switch codec {
         case .pcm16:
             nil
@@ -129,47 +102,42 @@ public struct CodecEncodingConfiguration: Codable, Equatable, Sendable {
     }
 }
 
-public struct PCMCodecFrame: Equatable, Sendable {
-    public var sequenceNumber: UInt64
-    public var format: CodecAudioFormat
-    public var capturedAt: TimeInterval
-    public var samples: [Float]
-
-    public init(
-        sequenceNumber: UInt64,
-        format: CodecAudioFormat = CodecAudioFormat(),
-        capturedAt: TimeInterval = Date().timeIntervalSince1970,
-        samples: [Float]
-    ) {
-        self.sequenceNumber = sequenceNumber
-        self.format = format
-        self.capturedAt = capturedAt
-        self.samples = samples
-    }
-}
-
 public struct EncodedCodecFrame: Codable, Equatable, Sendable {
     public var sequenceNumber: UInt64
     public var codec: CodecIdentifier
-    public var format: CodecAudioFormat
+    public var format: AudioFormat
     public var capturedAt: TimeInterval
     public var sampleCount: Int
+    public var bitRate: Int?
     public var payload: Data
 
     public init(
         sequenceNumber: UInt64,
         codec: CodecIdentifier,
-        format: CodecAudioFormat,
+        format: AudioFormat,
         capturedAt: TimeInterval,
         sampleCount: Int,
+        bitRate: Int? = nil,
         payload: Data
     ) {
         self.sequenceNumber = sequenceNumber
         self.codec = codec
         self.format = format
         self.capturedAt = capturedAt
-        self.sampleCount = sampleCount
+        self.sampleCount = max(0, sampleCount)
+        self.bitRate = bitRate.map { max(0, $0) }
         self.payload = payload
+    }
+
+    public var metadata: EncodedAudioMetadata {
+        EncodedAudioMetadata(
+            sequenceNumber: sequenceNumber,
+            codec: codec.rawValue,
+            format: format,
+            capturedAt: capturedAt,
+            sampleCount: sampleCount,
+            bitRate: bitRate
+        )
     }
 }
 
@@ -191,7 +159,10 @@ public enum CodecSupport {
         }
     }
 
-    public static func isDecodingAvailable(for codec: CodecIdentifier, format: CodecAudioFormat = CodecAudioFormat()) -> Bool {
+    public static func isDecodingAvailable(
+        for codec: CodecIdentifier,
+        format: AudioFormat = AudioFormat()
+    ) -> Bool {
         switch codec {
         case .pcm16:
             return true
@@ -288,19 +259,11 @@ public final class AudioCodec {
         runtimeReport = report
     }
 
-    public func encode(_ frame: PCMCodecFrame) throws -> EncodedCodecFrame {
+    public func encode(_ frame: PCMFrame) throws -> EncodedCodecFrame {
         try encoder.encode(frame)
     }
 
-    public func encode(
-        sequenceNumber: UInt64,
-        samples: [Float],
-        capturedAt: TimeInterval = Date().timeIntervalSince1970
-    ) throws -> EncodedCodecFrame {
-        try encoder.encode(sequenceNumber: sequenceNumber, samples: samples, capturedAt: capturedAt)
-    }
-
-    public func decode(_ frame: EncodedCodecFrame) throws -> PCMCodecFrame {
+    public func decode(_ frame: EncodedCodecFrame) throws -> PCMFrame {
         try decoder.decode(frame)
     }
 }
@@ -316,15 +279,9 @@ public final class CodecEncoder {
         self.configuration = configuration
     }
 
-    public func encode(
-        sequenceNumber: UInt64,
-        samples: [Float],
-        capturedAt: TimeInterval = Date().timeIntervalSince1970
-    ) throws -> EncodedCodecFrame {
-        try encode(PCMCodecFrame(sequenceNumber: sequenceNumber, format: configuration.format, capturedAt: capturedAt, samples: samples))
-    }
+    public func encode(_ frame: PCMFrame) throws -> EncodedCodecFrame {
+        try validate(frame)
 
-    public func encode(_ frame: PCMCodecFrame) throws -> EncodedCodecFrame {
         let payload: Data
         switch configuration.codec {
         case .pcm16:
@@ -344,15 +301,30 @@ public final class CodecEncoder {
             format: frame.format,
             capturedAt: frame.capturedAt,
             sampleCount: frame.samples.count,
+            bitRate: configuration.activeBitRate,
             payload: payload
         )
+    }
+
+    private func validate(_ frame: PCMFrame) throws {
+        if frame.format != configuration.format {
+            throw CodecError.formatMismatch(expected: configuration.format, actual: frame.format)
+        }
+        do {
+            _ = try frame.validated()
+        } catch {
+            throw CodecError.invalidSampleCount(
+                sampleCount: frame.samples.count,
+                channelCount: frame.format.channelCount
+            )
+        }
     }
 }
 
 public final class CodecDecoder {
     public init() {}
 
-    public func decode(_ frame: EncodedCodecFrame) throws -> PCMCodecFrame {
+    public func decode(_ frame: EncodedCodecFrame) throws -> PCMFrame {
         let samples: [Float]
         switch frame.codec {
         case .pcm16:
@@ -361,12 +333,21 @@ public final class CodecDecoder {
             samples = try AudioConverterBridge.decode(payload: frame.payload, codec: frame.codec, format: frame.format)
         }
 
-        return PCMCodecFrame(
+        let decoded = PCMFrame(
             sequenceNumber: frame.sequenceNumber,
             format: frame.format,
             capturedAt: frame.capturedAt,
             samples: samples
         )
+        do {
+            _ = try decoded.validated()
+        } catch {
+            throw CodecError.invalidSampleCount(
+                sampleCount: decoded.samples.count,
+                channelCount: decoded.format.channelCount
+            )
+        }
+        return decoded
     }
 }
 
@@ -409,13 +390,13 @@ public enum PCM16Codec {
 }
 
 private enum AudioConverterBridge {
-    static func encode(samples: [Float], codec: CodecIdentifier, format: CodecAudioFormat, bitRate: Int?) throws -> Data {
+    static func encode(samples: [Float], codec: CodecIdentifier, format: AudioFormat, bitRate: Int?) throws -> Data {
         guard codec != .pcm16 else { return PCM16Codec.encode(samples) }
         guard !samples.isEmpty else {
             return try CompressedPayloadEnvelope.empty(codec: codec).encoded()
         }
 
-        let frameCount = try format.avAudioFrameCount(forSampleCount: samples.count)
+        let frameCount = try avAudioFrameCount(forSampleCount: samples.count, format: format)
         guard let pcmFormat = makePCMFormat(format) else {
             throw CodecError.invalidFormat(format)
         }
@@ -455,7 +436,7 @@ private enum AudioConverterBridge {
         ).encoded()
     }
 
-    static func decode(payload: Data, codec: CodecIdentifier, format: CodecAudioFormat) throws -> [Float] {
+    static func decode(payload: Data, codec: CodecIdentifier, format: AudioFormat) throws -> [Float] {
         guard codec != .pcm16 else { return try PCM16Codec.decode(payload) }
         guard !payload.isEmpty else { return [] }
 
@@ -509,7 +490,7 @@ private enum AudioConverterBridge {
         return try samples(from: outputBuffer, format: format, sampleLimit: envelope.sourceSampleCount)
     }
 
-    static func makePCMFormat(_ format: CodecAudioFormat) -> AVAudioFormat? {
+    static func makePCMFormat(_ format: AudioFormat) -> AVAudioFormat? {
         AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: format.sampleRate,
@@ -518,7 +499,7 @@ private enum AudioConverterBridge {
         )
     }
 
-    static func makeCompressedFormat(codec: CodecIdentifier, format: CodecAudioFormat, bitRate: Int?) -> AVAudioFormat? {
+    static func makeCompressedFormat(codec: CodecIdentifier, format: AudioFormat, bitRate: Int?) -> AVAudioFormat? {
         guard codec != .pcm16 else { return makePCMFormat(format) }
 
         var settings: [String: Any] = [
@@ -534,9 +515,16 @@ private enum AudioConverterBridge {
         return AVAudioFormat(settings: settings)
     }
 
+    private static func avAudioFrameCount(forSampleCount sampleCount: Int, format: AudioFormat) throws -> AVAudioFrameCount {
+        guard sampleCount.isMultiple(of: format.channelCount) else {
+            throw CodecError.invalidSampleCount(sampleCount: sampleCount, channelCount: format.channelCount)
+        }
+        return AVAudioFrameCount(sampleCount / format.channelCount)
+    }
+
     private static func makePCMBuffer(
         samples: [Float],
-        format: CodecAudioFormat,
+        format: AudioFormat,
         avFormat: AVAudioFormat,
         frameCount: AVAudioFrameCount
     ) throws -> AVAudioPCMBuffer {
@@ -555,7 +543,7 @@ private enum AudioConverterBridge {
         return buffer
     }
 
-    private static func samples(from buffer: AVAudioPCMBuffer, format: CodecAudioFormat, sampleLimit: Int) throws -> [Float] {
+    private static func samples(from buffer: AVAudioPCMBuffer, format: AudioFormat, sampleLimit: Int) throws -> [Float] {
         guard let channels = buffer.floatChannelData else {
             throw CodecError.audioFormatCreationFailed(.pcm16)
         }

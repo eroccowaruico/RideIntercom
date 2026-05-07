@@ -5,12 +5,12 @@ public enum RouteEvent: Equatable, Sendable {
     case availabilityChanged(RouteAvailability)
     case membersChanged(RouteKind, [CallMemberState])
     case receivedApplicationData(RouteKind, ReceivedApplicationData)
-    case receivedAudioFrame(RouteKind, ReceivedAudioFrame)
+    case receivedAudioPacket(RouteKind, ReceivedAudioPacket)
     case metricsChanged(RouteMetrics)
     case error(RouteKind, CallSessionError)
 }
 
-public protocol RTCCallRoute: AnyObject {
+public protocol RTCCallRoute: AnyObject, Sendable {
     var kind: RouteKind { get }
     var capabilities: RouteCapabilities { get }
     var mediaOwnership: AudioMediaOwnership { get }
@@ -21,11 +21,10 @@ public protocol RTCCallRoute: AnyObject {
     func stopConnection() async
     func startMedia() async
     func stopMedia() async
-    func sendAudioFrame(_ frame: AudioFrame) async
+    func sendAudioPacket(_ packet: RTCAudioPacket) async
     func sendApplicationData(_ message: ApplicationDataMessage) async
     func setLocalMute(_ muted: Bool) async
     func setOutputMute(_ muted: Bool) async
-    func setRemoteOutputVolume(peerID: PeerID, volume: Float) async
 }
 
 public struct AnyRouteFactory: Sendable {

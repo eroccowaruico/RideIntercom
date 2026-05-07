@@ -14,13 +14,20 @@ let package = Package(
             targets: ["AudioMixer"]
         ),
     ],
+    dependencies: [
+        .package(path: "../AudioCore"),
+    ],
     targets: [
         .target(
-            name: "AudioMixer"
+            name: "AudioMixer",
+            dependencies: ["AudioCore"]
         ),
         .testTarget(
             name: "AudioMixerTests",
-            dependencies: ["AudioMixer"]
+            dependencies: [
+                "AudioMixer",
+                "AudioCore",
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

@@ -42,7 +42,7 @@ public enum CallSessionError: Error, Equatable, Sendable {
     case signalingUnavailable(RouteKind)
     case connectionFailed(RouteKind, String)
     case unsupportedApplicationDataDelivery(RouteKind, ApplicationDataDelivery)
-    case unsupportedAudioCodec(RouteKind, requested: [AudioCodecIdentifier], supported: [AudioCodecIdentifier])
+    case unsupportedAudioCodec(RouteKind, requested: [RTCAudioCodecIdentifier], supported: [RTCAudioCodecIdentifier])
 }
 
 public struct RouteAvailability: Codable, Equatable, Sendable {
@@ -97,9 +97,7 @@ public enum CallSessionEvent: Equatable, Sendable {
     case routeAvailabilityChanged([RouteAvailability])
     case membersChanged([CallMemberState])
     case receivedApplicationData(ReceivedApplicationData)
-    case receivedAudioFrame(ReceivedAudioFrame)
-    case localAudioLevelChanged(AudioLevel)
-    case remoteAudioLevelChanged(peerID: PeerID, AudioLevel)
+    case receivedAudioPacket(ReceivedAudioPacket)
     case metricsChanged(RouteMetrics)
     case error(CallSessionError)
 }

@@ -2,7 +2,7 @@ import Foundation
 import RTC
 
 #if canImport(WebRTC)
-import WebRTC
+@preconcurrency import WebRTC
 
 public final class WebRTCNativeEngine: NativeWebRTCEngine {
     public override var isAvailable: Bool { true }
@@ -42,7 +42,8 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         super.init()
     }
 
-    public override func prepareLocalAudio(peer: PeerDescriptor, format: AudioFormatDescriptor) async {
+    public override func prepareLocalAudio(peer: PeerDescriptor, policy: RTCAudioPolicy) async {
+        _ = policy
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         let audioSource = factory.audioSource(with: constraints)
         let track = factory.audioTrack(with: audioSource, trackId: "rideintercom-audio-\(peer.id.rawValue)")
@@ -79,18 +80,16 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
 
     public override func makeOffer(for peerID: PeerID) async -> WebRTCSessionDescription? {
         guard let connection = peerConnections[peerID] else { return nil }
-        guard let description = await connection.makeOffer() else { return nil }
-        guard await connection.rtcSetLocalDescription(description) else { return nil }
-        return WebRTCSessionDescription(kind: .offer, sdp: description.sdp)
+        guard let sdp = await connection.makeAndSetLocalOfferSDP() else { return nil }
+        return WebRTCSessionDescription(kind: .offer, sdp: sdp)
     }
 
     public override func acceptOffer(_ offer: WebRTCSessionDescription, from peerID: PeerID) async -> WebRTCSessionDescription? {
         guard let connection = peerConnections[peerID] else { return nil }
         let remoteDescription = RTCSessionDescription(type: .offer, sdp: offer.sdp)
         guard await connection.rtcSetRemoteDescription(remoteDescription) else { return nil }
-        guard let answer = await connection.makeAnswer() else { return nil }
-        guard await connection.rtcSetLocalDescription(answer) else { return nil }
-        return WebRTCSessionDescription(kind: .answer, sdp: answer.sdp)
+        guard let sdp = await connection.makeAndSetLocalAnswerSDP() else { return nil }
+        return WebRTCSessionDescription(kind: .answer, sdp: sdp)
     }
 
     public override func acceptAnswer(_ answer: WebRTCSessionDescription, from peerID: PeerID) async {
@@ -182,28 +181,32 @@ extension WebRTCNativeEngine: RTCDataChannelDelegate {
 }
 
 private extension RTCPeerConnection {
-    func makeOffer() async -> RTCSessionDescription? {
+    func makeAndSetLocalOfferSDP() async -> String? {
         await withCheckedContinuation { continuation in
             let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
             offer(for: constraints) { description, _ in
-                continuation.resume(returning: description)
+                guard let description else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                self.setLocalDescription(description) { error in
+                    continuation.resume(returning: error == nil ? description.sdp : nil)
+                }
             }
         }
     }
 
-    func makeAnswer() async -> RTCSessionDescription? {
+    func makeAndSetLocalAnswerSDP() async -> String? {
         await withCheckedContinuation { continuation in
             let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
             answer(for: constraints) { description, _ in
-                continuation.resume(returning: description)
-            }
-        }
-    }
-
-    func rtcSetLocalDescription(_ description: RTCSessionDescription) async -> Bool {
-        await withCheckedContinuation { continuation in
-            setLocalDescription(description) { error in
-                continuation.resume(returning: error == nil)
+                guard let description else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                self.setLocalDescription(description) { error in
+                    continuation.resume(returning: error == nil ? description.sdp : nil)
+                }
             }
         }
     }

@@ -18,8 +18,10 @@ public enum AudioSessionManagerError: Error, Equatable, Sendable {
 }
 
 public enum AudioSessionDuckingLevel: Codable, Equatable, Sendable {
+    case systemDefault
     case minimum
-    case normal
+    case medium
+    case maximum
 }
 
 public enum AudioSessionCategory: Codable, Equatable, Sendable {
@@ -286,8 +288,6 @@ public struct AudioSessionSnapshotChange: Codable, Equatable, Sendable {
     }
 }
 
-public typealias AudioSessionSnapshotChangeHandler = (AudioSessionSnapshotChange) -> Void
-
 public struct AudioSessionConfigurationReport: Codable, Equatable, Sendable {
     public var requestedConfiguration: AudioSessionConfiguration
     public var resolvedConfiguration: ResolvedAudioSessionConfiguration
@@ -313,8 +313,6 @@ public enum AudioSessionRuntimeEvent: Codable, Equatable, Sendable {
     case snapshotChanged(AudioSessionSnapshotChange)
 }
 
-public typealias AudioSessionRuntimeEventHandler = (AudioSessionRuntimeEvent) -> Void
-
 public struct AudioInputVoiceProcessingConfiguration: Codable, Equatable, Sendable {
     public var soundIsolationEnabled: Bool
     public var otherAudioDuckingEnabled: Bool
@@ -324,7 +322,7 @@ public struct AudioInputVoiceProcessingConfiguration: Codable, Equatable, Sendab
     public init(
         soundIsolationEnabled: Bool = true,
         otherAudioDuckingEnabled: Bool = false,
-        duckingLevel: AudioSessionDuckingLevel = .minimum,
+        duckingLevel: AudioSessionDuckingLevel = .systemDefault,
         inputMuted: Bool = false
     ) {
         self.soundIsolationEnabled = soundIsolationEnabled
@@ -341,8 +339,12 @@ public struct AudioInputVoiceProcessingConfiguration: Codable, Equatable, Sendab
         !soundIsolationEnabled
     }
 
+    public var advancedDuckingEnabled: Bool {
+        voiceProcessingEnabled && otherAudioDuckingEnabled
+    }
+
     public var resolvedDuckingLevel: AudioSessionDuckingLevel {
-        otherAudioDuckingEnabled ? duckingLevel : .minimum
+        otherAudioDuckingEnabled ? duckingLevel : .systemDefault
     }
 }
 
@@ -353,11 +355,11 @@ public protocol AudioSessionBackend: AnyObject {
     func setPreferredOutput(_ selection: AudioSessionDeviceSelection) throws
     func setPrefersEchoCancelledInput(_ enabled: Bool) throws
     func currentSnapshot() throws -> AudioSessionSnapshot
-    func setSnapshotChangeHandler(_ handler: AudioSessionSnapshotChangeHandler?)
+    func setSnapshotChangeHandler(_ handler: ((AudioSessionSnapshotChange) -> Void)?)
 }
 
 public extension AudioSessionBackend {
-    func setSnapshotChangeHandler(_ handler: AudioSessionSnapshotChangeHandler?) {
+    func setSnapshotChangeHandler(_ handler: ((AudioSessionSnapshotChange) -> Void)?) {
         _ = handler
     }
 }
@@ -371,8 +373,8 @@ public protocol AudioInputVoiceProcessingBackend: AnyObject {
 
 public final class AudioSessionManager {
     private let backend: AudioSessionBackend
-    private var runtimeEventHandler: AudioSessionRuntimeEventHandler?
-    private var snapshotChangeHandler: AudioSessionSnapshotChangeHandler?
+    private var runtimeEventHandler: ((AudioSessionRuntimeEvent) -> Void)?
+    private var snapshotChangeHandler: ((AudioSessionSnapshotChange) -> Void)?
     public private(set) var configuration: AudioSessionConfiguration
     public private(set) var resolvedConfiguration: ResolvedAudioSessionConfiguration
 
@@ -427,12 +429,12 @@ public final class AudioSessionManager {
         try backend.currentSnapshot()
     }
 
-    public func setSnapshotChangeHandler(_ handler: AudioSessionSnapshotChangeHandler?) {
+    public func setSnapshotChangeHandler(_ handler: ((AudioSessionSnapshotChange) -> Void)?) {
         snapshotChangeHandler = handler
         updateBackendSnapshotChangeHandler()
     }
 
-    public func setRuntimeEventHandler(_ handler: AudioSessionRuntimeEventHandler?) {
+    public func setRuntimeEventHandler(_ handler: ((AudioSessionRuntimeEvent) -> Void)?) {
         runtimeEventHandler = handler
         updateBackendSnapshotChangeHandler()
     }
@@ -500,11 +502,12 @@ public final class AudioInputVoiceProcessingManager {
 
     public func configure(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
         try backend.setVoiceProcessingEnabled(configuration.voiceProcessingEnabled)
+        try backend.setAdvancedDucking(
+            enabled: configuration.advancedDuckingEnabled,
+            level: configuration.resolvedDuckingLevel
+        )
         if configuration.voiceProcessingEnabled {
-            try backend.setAdvancedDucking(enabled: true, level: configuration.resolvedDuckingLevel)
             try backend.setVoiceProcessingBypassed(configuration.voiceProcessingBypassed)
-        } else {
-            try backend.setAdvancedDucking(enabled: false, level: .minimum)
         }
         try backend.setInputMuted(configuration.inputMuted)
         self.configuration = configuration
@@ -543,7 +546,7 @@ public final class SystemAudioSessionBackend: AudioSessionBackend, @unchecked Se
     public init() {}
     #endif
 
-    private var snapshotChangeHandler: AudioSessionSnapshotChangeHandler?
+    private var snapshotChangeHandler: ((AudioSessionSnapshotChange) -> Void)?
 
     public func apply(_ configuration: ResolvedAudioSessionConfiguration) throws {
         #if os(iOS)
@@ -663,7 +666,7 @@ public final class SystemAudioSessionBackend: AudioSessionBackend, @unchecked Se
         #endif
     }
 
-    public func setSnapshotChangeHandler(_ handler: AudioSessionSnapshotChangeHandler?) {
+    public func setSnapshotChangeHandler(_ handler: ((AudioSessionSnapshotChange) -> Void)?) {
         snapshotChangeHandler = handler
         #if os(iOS)
         if let routeChangeObserver {
@@ -805,10 +808,14 @@ private extension Set where Element == AudioSessionCategoryOption {
 private extension AudioSessionDuckingLevel {
     var avDuckingLevel: AVAudioVoiceProcessingOtherAudioDuckingConfiguration.Level {
         switch self {
+        case .systemDefault:
+            .default
         case .minimum:
             .min
-        case .normal:
-            .default
+        case .medium:
+            .mid
+        case .maximum:
+            .max
         }
     }
 }

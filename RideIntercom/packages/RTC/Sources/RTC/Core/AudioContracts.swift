@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AudioCodecIdentifier: RawRepresentable, Codable, Hashable, Sendable, ExpressibleByStringLiteral, CustomStringConvertible {
+public struct RTCAudioCodecIdentifier: RawRepresentable, Codable, Hashable, Sendable, ExpressibleByStringLiteral, CustomStringConvertible {
     public let rawValue: String
 
     public init(rawValue: String) {
@@ -23,10 +23,10 @@ public struct AudioCodecIdentifier: RawRepresentable, Codable, Hashable, Sendabl
 
     public var description: String { rawValue }
 
-    public static let pcm16 = AudioCodecIdentifier(rawValue: "pcm16")
-    public static let opus = AudioCodecIdentifier(rawValue: "opus")
-    public static let mpeg4AACELDv2 = AudioCodecIdentifier(rawValue: "mpeg4AACELDv2")
-    public static let routeManaged = AudioCodecIdentifier(rawValue: "route-managed")
+    public static let pcm16 = RTCAudioCodecIdentifier(rawValue: "pcm16")
+    public static let opus = RTCAudioCodecIdentifier(rawValue: "opus")
+    public static let mpeg4AACELDv2 = RTCAudioCodecIdentifier(rawValue: "mpeg4AACELDv2")
+    public static let routeManaged = RTCAudioCodecIdentifier(rawValue: "route-managed")
 }
 
 public enum AudioMediaOwnership: String, Codable, Equatable, Sendable {
@@ -34,7 +34,7 @@ public enum AudioMediaOwnership: String, Codable, Equatable, Sendable {
     case routeManagedMediaStream
 }
 
-public struct AudioFormatDescriptor: Codable, Equatable, Sendable {
+public struct RTCAudioFormat: Codable, Equatable, Sendable {
     public var sampleRate: Double
     public var channelCount: Int
 
@@ -44,151 +44,61 @@ public struct AudioFormatDescriptor: Codable, Equatable, Sendable {
     }
 }
 
-public struct AudioCodecConfiguration: Codable, Equatable, Sendable {
-    public var preferredCodecs: [AudioCodecIdentifier]
+public struct RTCAudioPolicy: Codable, Equatable, Sendable {
+    public var preferredSendFormat: RTCAudioFormat
+    public var preferredCodecs: [RTCAudioCodecIdentifier]
+    public var maximumBitRate: Int?
 
-    public init(preferredCodecs: [AudioCodecIdentifier] = [.pcm16]) {
+    public init(
+        preferredSendFormat: RTCAudioFormat = RTCAudioFormat(),
+        preferredCodecs: [RTCAudioCodecIdentifier] = [.pcm16],
+        maximumBitRate: Int? = nil
+    ) {
+        self.preferredSendFormat = preferredSendFormat
         self.preferredCodecs = preferredCodecs.isEmpty ? [.pcm16] : preferredCodecs
+        self.maximumBitRate = maximumBitRate.map { max(0, $0) }
     }
 }
 
-public enum AudioCodecError: Error, Equatable, Sendable {
-    case unsupportedCodec(AudioCodecIdentifier)
-    case noMutuallySupportedCodec(preferred: [AudioCodecIdentifier], supported: [AudioCodecIdentifier])
+public enum RTCAudioPolicyError: Error, Equatable, Sendable {
+    case unsupportedCodec(RTCAudioCodecIdentifier)
+    case noMutuallySupportedCodec(preferred: [RTCAudioCodecIdentifier], supported: [RTCAudioCodecIdentifier])
 }
 
-public protocol AudioFrameCodec: Sendable {
-    var identifier: AudioCodecIdentifier { get }
-
-    func encode(_ frame: AudioFrame) throws -> EncodedAudioFrame
-    func decode(_ frame: EncodedAudioFrame) throws -> AudioFrame
-}
-
-public struct AnyAudioFrameCodec: AudioFrameCodec {
-    public let identifier: AudioCodecIdentifier
-    private let encodeFrame: @Sendable (AudioFrame) throws -> EncodedAudioFrame
-    private let decodeFrame: @Sendable (EncodedAudioFrame) throws -> AudioFrame
-
-    public init(
-        identifier: AudioCodecIdentifier,
-        encode: @escaping @Sendable (AudioFrame) throws -> EncodedAudioFrame,
-        decode: @escaping @Sendable (EncodedAudioFrame) throws -> AudioFrame
-    ) {
-        self.identifier = identifier
-        self.encodeFrame = encode
-        self.decodeFrame = decode
-    }
-
-    public func encode(_ frame: AudioFrame) throws -> EncodedAudioFrame {
-        try encodeFrame(frame)
-    }
-
-    public func decode(_ frame: EncodedAudioFrame) throws -> AudioFrame {
-        try decodeFrame(frame)
-    }
-}
-
-public struct AudioCodecRegistry: Sendable {
-    private var codecs: [AudioCodecIdentifier: any AudioFrameCodec]
-
-    public init(codecs: [any AudioFrameCodec]) {
-        var registeredCodecs: [AudioCodecIdentifier: any AudioFrameCodec] = [:]
-        for codec in codecs {
-            registeredCodecs[codec.identifier] = codec
-        }
-        self.codecs = registeredCodecs
-    }
-
-    public var supportedCodecs: [AudioCodecIdentifier] {
-        codecs.keys.sorted { $0.rawValue < $1.rawValue }
-    }
-
-    public func codec(for identifier: AudioCodecIdentifier) -> (any AudioFrameCodec)? {
-        codecs[identifier]
-    }
-
-    public func selectCodec(preferred: [AudioCodecIdentifier]) throws -> AudioCodecIdentifier {
-        for identifier in preferred where codecs[identifier] != nil {
-            return identifier
-        }
-        throw AudioCodecError.noMutuallySupportedCodec(preferred: preferred, supported: supportedCodecs)
-    }
-
-    public func encode(_ frame: AudioFrame, using identifier: AudioCodecIdentifier) throws -> EncodedAudioFrame {
-        guard let codec = codec(for: identifier) else {
-            throw AudioCodecError.unsupportedCodec(identifier)
-        }
-        return try codec.encode(frame)
-    }
-
-    public func decode(_ frame: EncodedAudioFrame) throws -> AudioFrame {
-        guard let codec = codec(for: frame.codec) else {
-            throw AudioCodecError.unsupportedCodec(frame.codec)
-        }
-        return try codec.decode(frame)
-    }
-}
-
-public struct AudioFrame: Equatable, Sendable {
+public struct RTCAudioPacket: Codable, Equatable, Sendable {
     public var sequenceNumber: UInt64
-    public var format: AudioFormatDescriptor
-    public var capturedAt: TimeInterval
-    public var samples: [Float]
-
-    public init(
-        sequenceNumber: UInt64,
-        format: AudioFormatDescriptor = AudioFormatDescriptor(),
-        capturedAt: TimeInterval = Date().timeIntervalSince1970,
-        samples: [Float]
-    ) {
-        self.sequenceNumber = sequenceNumber
-        self.format = format
-        self.capturedAt = capturedAt
-        self.samples = samples
-    }
-}
-
-public struct EncodedAudioFrame: Codable, Equatable, Sendable {
-    public var sequenceNumber: UInt64
-    public var codec: AudioCodecIdentifier
-    public var format: AudioFormatDescriptor
+    public var codec: RTCAudioCodecIdentifier
+    public var format: RTCAudioFormat
     public var capturedAt: TimeInterval
     public var sampleCount: Int?
+    public var bitRate: Int?
     public var payload: Data
 
     public init(
         sequenceNumber: UInt64,
-        codec: AudioCodecIdentifier,
-        format: AudioFormatDescriptor,
-        capturedAt: TimeInterval,
+        codec: RTCAudioCodecIdentifier,
+        format: RTCAudioFormat = RTCAudioFormat(),
+        capturedAt: TimeInterval = Date().timeIntervalSince1970,
         sampleCount: Int? = nil,
+        bitRate: Int? = nil,
         payload: Data
     ) {
         self.sequenceNumber = sequenceNumber
         self.codec = codec
         self.format = format
         self.capturedAt = capturedAt
-        self.sampleCount = sampleCount
+        self.sampleCount = sampleCount.map { max(0, $0) }
+        self.bitRate = bitRate.map { max(0, $0) }
         self.payload = payload
     }
 }
 
-public struct ReceivedAudioFrame: Equatable, Sendable {
+public struct ReceivedAudioPacket: Equatable, Sendable {
     public var peerID: PeerID
-    public var frame: AudioFrame
+    public var packet: RTCAudioPacket
 
-    public init(peerID: PeerID, frame: AudioFrame) {
+    public init(peerID: PeerID, packet: RTCAudioPacket) {
         self.peerID = peerID
-        self.frame = frame
-    }
-}
-
-public struct AudioLevel: Codable, Equatable, Sendable {
-    public var rms: Float
-    public var peak: Float
-
-    public init(rms: Float, peak: Float) {
-        self.rms = rms
-        self.peak = peak
+        self.packet = packet
     }
 }

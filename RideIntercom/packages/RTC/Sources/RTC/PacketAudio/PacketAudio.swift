@@ -1,128 +1,52 @@
 import CryptoKit
 import Foundation
 
-public enum PCMAudioCodec {
-    public enum CodecError: Error, Equatable {
-        case invalidByteCount
-    }
-
-    public static func encode(_ samples: [Float]) -> Data {
-        var data = Data()
-        data.reserveCapacity(samples.count * MemoryLayout<Int16>.size)
-        for sample in samples {
-            let clamped = min(1, max(-1, sample))
-            let scale: Float = clamped < 0 ? 32_768 : 32_767
-            let rounded = Int((clamped * scale).rounded(.toNearestOrAwayFromZero))
-            let bounded = min(Int(Int16.max), max(Int(Int16.min), rounded))
-            let encoded = Int16(bounded).littleEndian
-            data.append(UInt8(truncatingIfNeeded: encoded))
-            data.append(UInt8(truncatingIfNeeded: encoded >> 8))
-        }
-        return data
-    }
-
-    public static func decode(_ data: Data) throws -> [Float] {
-        guard data.count.isMultiple(of: MemoryLayout<Int16>.size) else {
-            throw CodecError.invalidByteCount
-        }
-        return stride(from: 0, to: data.count, by: MemoryLayout<Int16>.size).map { offset in
-            let low = UInt16(data[offset])
-            let high = UInt16(data[offset + 1]) << 8
-            let value = Int16(littleEndian: Int16(bitPattern: low | high))
-            if value == Int16.min { return -1 }
-            if value < 0 { return Float(value) / 32_768 }
-            return Float(value) / Float(Int16.max)
-        }
-    }
-}
-
-public struct PCM16AudioCodec: AudioFrameCodec {
-    public let identifier: AudioCodecIdentifier = .pcm16
-
-    public init() {}
-
-    public func encode(_ frame: AudioFrame) throws -> EncodedAudioFrame {
-        EncodedAudioFrame(
-            sequenceNumber: frame.sequenceNumber,
-            codec: identifier,
-            format: frame.format,
-            capturedAt: frame.capturedAt,
-            sampleCount: frame.samples.count,
-            payload: PCMAudioCodec.encode(frame.samples)
-        )
-    }
-
-    public func decode(_ frame: EncodedAudioFrame) throws -> AudioFrame {
-        guard frame.codec == identifier else {
-            throw AudioCodecError.unsupportedCodec(frame.codec)
-        }
-        return AudioFrame(
-            sequenceNumber: frame.sequenceNumber,
-            format: frame.format,
-            capturedAt: frame.capturedAt,
-            samples: try PCMAudioCodec.decode(frame.payload)
-        )
-    }
-}
-
-public extension AudioCodecRegistry {
-    static var packetAudioDefault: AudioCodecRegistry {
-        AudioCodecRegistry(codecs: [PCM16AudioCodec()])
-    }
-}
-
 struct PacketAudioEnvelope: Codable, Equatable, Sendable {
     var sessionID: String
     var senderID: PeerID
-    var frame: EncodedAudioFrame
+    var packet: RTCAudioPacket
 }
 
 struct PacketAudioSequencer: Sendable {
     private let sessionID: String
     private let senderID: PeerID
-    private let codecID: AudioCodecIdentifier
-    private let codecRegistry: AudioCodecRegistry
 
-    init(
-        sessionID: String,
-        senderID: PeerID,
-        codecID: AudioCodecIdentifier,
-        codecRegistry: AudioCodecRegistry
-    ) {
+    init(sessionID: String, senderID: PeerID) {
         self.sessionID = sessionID
         self.senderID = senderID
-        self.codecID = codecID
-        self.codecRegistry = codecRegistry
     }
 
-    func makeEnvelope(from frame: AudioFrame) throws -> PacketAudioEnvelope {
+    func makeEnvelope(from packet: RTCAudioPacket) -> PacketAudioEnvelope {
         PacketAudioEnvelope(
             sessionID: sessionID,
             senderID: senderID,
-            frame: try codecRegistry.encode(frame, using: codecID)
+            packet: packet
         )
     }
 }
 
 struct PacketAudioReceiveFilter: Sendable {
     private let sessionID: String
-    private let codecRegistry: AudioCodecRegistry
+    private let acceptedCodecs: Set<RTCAudioCodecIdentifier>
     private var seenPackets: Set<PacketID> = []
 
-    init(sessionID: String, codecRegistry: AudioCodecRegistry) {
+    init(sessionID: String, acceptedCodecs: [RTCAudioCodecIdentifier]) {
         self.sessionID = sessionID
-        self.codecRegistry = codecRegistry
+        self.acceptedCodecs = Set(acceptedCodecs)
     }
 
-    mutating func accept(_ envelope: PacketAudioEnvelope, from peerID: PeerID) throws -> FilteredPacketAudioFrame? {
+    mutating func accept(_ envelope: PacketAudioEnvelope, from peerID: PeerID) throws -> FilteredPacketAudioPacket? {
         guard envelope.sessionID == sessionID else { return nil }
-        let packetID = PacketID(peerID: peerID, sequenceNumber: envelope.frame.sequenceNumber)
+        guard acceptedCodecs.contains(envelope.packet.codec) else {
+            throw RTCAudioPolicyError.unsupportedCodec(envelope.packet.codec)
+        }
+        let packetID = PacketID(peerID: peerID, sequenceNumber: envelope.packet.sequenceNumber)
         guard !seenPackets.contains(packetID) else { return nil }
         seenPackets.insert(packetID)
-        return FilteredPacketAudioFrame(
-            received: ReceivedAudioFrame(
+        return FilteredPacketAudioPacket(
+            received: ReceivedAudioPacket(
                 peerID: peerID,
-                frame: try codecRegistry.decode(envelope.frame)
+                packet: envelope.packet
             )
         )
     }
@@ -133,8 +57,8 @@ struct PacketAudioReceiveFilter: Sendable {
     }
 }
 
-struct FilteredPacketAudioFrame: Equatable, Sendable {
-    var received: ReceivedAudioFrame
+struct FilteredPacketAudioPacket: Equatable, Sendable {
+    var received: ReceivedAudioPacket
 }
 
 public struct PacketAudioReceiveConfiguration: Equatable, Sendable {
@@ -148,98 +72,98 @@ public struct PacketAudioReceiveConfiguration: Equatable, Sendable {
 }
 
 struct PacketAudioReceiveBufferReport: Equatable, Sendable {
-    var readyFrames: [ReceivedAudioFrame]
-    var expiredFrameCount: Int
-    var receivedFrameCount: Int
-    var droppedFrameCount: Int
-    var queuedFrameCount: Int
+    var readyPackets: [ReceivedAudioPacket]
+    var expiredPacketCount: Int
+    var receivedPacketCount: Int
+    var droppedPacketCount: Int
+    var queuedPacketCount: Int
 
     init(
-        readyFrames: [ReceivedAudioFrame],
-        expiredFrameCount: Int,
-        receivedFrameCount: Int,
-        droppedFrameCount: Int,
-        queuedFrameCount: Int
+        readyPackets: [ReceivedAudioPacket],
+        expiredPacketCount: Int,
+        receivedPacketCount: Int,
+        droppedPacketCount: Int,
+        queuedPacketCount: Int
     ) {
-        self.readyFrames = readyFrames
-        self.expiredFrameCount = expiredFrameCount
-        self.receivedFrameCount = receivedFrameCount
-        self.droppedFrameCount = droppedFrameCount
-        self.queuedFrameCount = queuedFrameCount
+        self.readyPackets = readyPackets
+        self.expiredPacketCount = expiredPacketCount
+        self.receivedPacketCount = receivedPacketCount
+        self.droppedPacketCount = droppedPacketCount
+        self.queuedPacketCount = queuedPacketCount
     }
 }
 
 struct PacketAudioReceiveBuffer: Sendable {
     let configuration: PacketAudioReceiveConfiguration
-    private var queuedFrames: [QueuedFrame] = []
-    private(set) var receivedFrameCount = 0
-    private(set) var droppedFrameCount = 0
+    private var queuedPackets: [QueuedPacket] = []
+    private(set) var receivedPacketCount = 0
+    private(set) var droppedPacketCount = 0
 
-    var queuedFrameCount: Int {
-        queuedFrames.count
+    var queuedPacketCount: Int {
+        queuedPackets.count
     }
 
     init(configuration: PacketAudioReceiveConfiguration = PacketAudioReceiveConfiguration()) {
         self.configuration = configuration
     }
 
-    mutating func enqueue(_ filtered: FilteredPacketAudioFrame, receivedAt: TimeInterval) {
-        receivedFrameCount += 1
-        queuedFrames.append(QueuedFrame(filtered: filtered, receivedAt: receivedAt))
+    mutating func enqueue(_ filtered: FilteredPacketAudioPacket, receivedAt: TimeInterval) {
+        receivedPacketCount += 1
+        queuedPackets.append(QueuedPacket(filtered: filtered, receivedAt: receivedAt))
     }
 
     mutating func drain(now: TimeInterval) -> PacketAudioReceiveBufferReport {
-        let queuedCountBeforeExpiration = queuedFrames.count
-        queuedFrames.removeAll { queuedFrame in
-            now - queuedFrame.receivedAt >= configuration.packetLifetime
+        let queuedCountBeforeExpiration = queuedPackets.count
+        queuedPackets.removeAll { queuedPacket in
+            now - queuedPacket.receivedAt >= configuration.packetLifetime
         }
-        let expiredFrameCount = queuedCountBeforeExpiration - queuedFrames.count
-        droppedFrameCount += expiredFrameCount
+        let expiredPacketCount = queuedCountBeforeExpiration - queuedPackets.count
+        droppedPacketCount += expiredPacketCount
 
-        var readyFrames: [QueuedFrame] = []
-        var pendingFrames: [QueuedFrame] = []
-        for queuedFrame in queuedFrames {
-            if now - queuedFrame.receivedAt >= configuration.playoutDelay {
-                readyFrames.append(queuedFrame)
+        var readyPackets: [QueuedPacket] = []
+        var pendingPackets: [QueuedPacket] = []
+        for queuedPacket in queuedPackets {
+            if now - queuedPacket.receivedAt >= configuration.playoutDelay {
+                readyPackets.append(queuedPacket)
             } else {
-                pendingFrames.append(queuedFrame)
+                pendingPackets.append(queuedPacket)
             }
         }
-        queuedFrames = pendingFrames
+        queuedPackets = pendingPackets
 
-        let ready = readyFrames
+        let ready = readyPackets
             .sorted { left, right in
                 left.sortKey < right.sortKey
             }
             .map(\.filtered.received)
 
         return PacketAudioReceiveBufferReport(
-            readyFrames: ready,
-            expiredFrameCount: expiredFrameCount,
-            receivedFrameCount: receivedFrameCount,
-            droppedFrameCount: droppedFrameCount,
-            queuedFrameCount: queuedFrames.count
+            readyPackets: ready,
+            expiredPacketCount: expiredPacketCount,
+            receivedPacketCount: receivedPacketCount,
+            droppedPacketCount: droppedPacketCount,
+            queuedPacketCount: queuedPackets.count
         )
     }
 
-    mutating func drainReadyFrames(now: TimeInterval) -> [ReceivedAudioFrame] {
-        drain(now: now).readyFrames
+    mutating func drainReadyPackets(now: TimeInterval) -> [ReceivedAudioPacket] {
+        drain(now: now).readyPackets
     }
 
-    func timeUntilNextReadyFrame(now: TimeInterval) -> TimeInterval? {
-        queuedFrames
+    func timeUntilNextReadyPacket(now: TimeInterval) -> TimeInterval? {
+        queuedPackets
             .map { max(0, configuration.playoutDelay - (now - $0.receivedAt)) }
             .min()
     }
 
-    private struct QueuedFrame: Sendable {
-        var filtered: FilteredPacketAudioFrame
+    private struct QueuedPacket: Sendable {
+        var filtered: FilteredPacketAudioPacket
         var receivedAt: TimeInterval
 
         var sortKey: SortKey {
             SortKey(
                 peerID: filtered.received.peerID.rawValue,
-                sequenceNumber: filtered.received.frame.sequenceNumber
+                sequenceNumber: filtered.received.packet.sequenceNumber
             )
         }
     }

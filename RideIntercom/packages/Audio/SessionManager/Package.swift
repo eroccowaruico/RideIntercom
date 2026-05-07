@@ -14,13 +14,17 @@ let package = Package(
             targets: ["SessionManager"]
         ),
     ],
+    dependencies: [
+        .package(path: "../AudioCore"),
+    ],
     targets: [
         .target(
-            name: "SessionManager"
+            name: "SessionManager",
+            dependencies: ["AudioCore"]
         ),
         .testTarget(
             name: "SessionManagerTests",
-            dependencies: ["SessionManager"]
+            dependencies: ["SessionManager", "AudioCore"]
         ),
     ],
     swiftLanguageModes: [.v6]

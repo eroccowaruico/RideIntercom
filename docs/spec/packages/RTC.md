@@ -1,306 +1,743 @@
 # RTC パッケージ仕様
 
-## 目的
+`RTC` は通信 package である。音声信号の内容は変更しない。`RTC` が扱う音声は、通信で必要な codec、format、sequence、timestamp、bit rate、payload などの metadata と opaque payload だけである。
 
-`RTC` は RideIntercom の通話経路を統合する Swift Package として、近距離の `MultipeerConnectivity` と広域の WebRTC を同じ `CallSession` から扱えるようにする。
+## 最初に読む結論
 
-アプリ本体は UI、グループ管理、secret 管理、音声デバイス選択、診断表示を担当する。`RTC` は接続、経路選択、handover、アプリデータ配送、経路ごとの音声 media 起動停止を担当する。
-
-本パッケージが接続方式差異の全て吸収する。アプリは全く同じ処理を接続方式の区別なく呼び出すことが可能になる。本パッケージは呼び出された接続方式固有処理を無視して取り扱うことが可能。
-
-## 採用方針
-
-| 項目 | 方針 |
+| 観点 | 仕様 |
 |---|---|
-| 近距離経路 | `MultipeerConnectivity` を使用する。オフライン動作と低遅延を優先する |
-| 広域経路 | native WebRTC SDK を使用する。Cloudflare Realtime SFU and TURN services を前提にする |
-| WebRTC public API | `RTC` の public API に native WebRTC 型を露出しない |
-| WebRTC 実装配置 | 共通 `RTC` target から分離し、native WebRTC adapter target に閉じ込める |
-| WebRTC binary供給 | `webrtc.googlesource.com/src` から自前ビルドした `WebRTC.xcframework` をlocal binary targetとして取り込む |
-| 音声codec | `AudioFrameCodec` と `AudioCodecRegistry` で複数codecを扱う。`RTC` はPCM16だけをbuilt-inで持ち、`mpeg4AACELDv2` と `opus` はアプリが `RideIntercom/packages/Audio/Codec` を使ってregistryへ注入する |
-| Audio package連携 | `RTC` は `RideIntercom/packages/Audio` に依存しない。アプリが `RTC` と `Audio/Codec` の両方をimportし、`AnyAudioFrameCodec` または `AudioFrameCodec` 実装で橋渡しする |
-| サポートOS | RideIntercom本体と同じ最新OSのみを対象にし、iOSとmacOSの最低deployment targetを `26.4` に揃える。Mac CatalystとvisionOSは対象外にする |
-| ビルド caveat | native WebRTC binary framework は SwiftPM 単体テストで header 解決に失敗する場合がある。共通 `RTC` target はSDK非依存でテスト可能に保つ |
+| packageの役務 | 接続、route選択、handover、packet envelope、暗号化、jitter/lifetime、application data、runtime status |
+| packageの非役務 | resample、channel mix、gain、volume、limiter、VAD、noise reduction、encode/decode、transcoding、bit rate fallback |
+| Multipeer | 近距離端末をApple `MultipeerConnectivity`で探し、App管理の encrypted packet audio を送受信するroute |
+| WebRTC | internet越しのWebRTC接続を扱い、native WebRTC engineがmedia streamを所有するroute |
+| Appの責務 | `SessionManager`、`AudioMixer`、`Codec`、`RTC` を接続し、routeごとのmedia ownershipに従う |
+| 旧App互換 | 旧RTC audio API、thin wrapper、typealias互換層は作らない。Appはpackage APIへ移行する |
 
-## パッケージ構成
+```mermaid
+flowchart LR
+    subgraph AudioPackages[Audio packages]
+        SessionManager[SessionManager\nhardware I/O]
+        Mixer[AudioMixer\nsource/sink/effects/mix]
+        Codec[Codec\nPCM <-> encoded payload]
+    end
+
+    subgraph RTCPackage[RTC package]
+        RTC[CallSession / RouteManager]
+        Multipeer[Multipeer route\napp-managed packet audio]
+        WebRTC[WebRTC route\nroute-managed media stream]
+    end
+
+    SessionManager --> Mixer --> Codec --> RTC --> Multipeer
+    Multipeer --> RTC --> Codec --> Mixer --> SessionManager
+    RTC --> WebRTC
+```
+
+## 背景
+
+| 問題 | RTCの解決 | RTC以外の解決 |
+|---|---|---|
+| 近くの端末とinternetなしで接続したい | `MultipeerLocalRoute` がlocal discoveryと`MCSession`を使う | AppはLocal Network/Bonjour権限を用意する |
+| internet越しに接続したい | `WebRTCInternetRoute` がsignaling、SDP、ICE、native WebRTC engineをつなぐ | App/backendはCloudflare Realtime設定とproduction signalingを用意する |
+| routeが変わってもApp側の呼び出しを変えたくない | `CallSession` がroute実装を隠し、`CallSessionEvent`で状態を出す | Appはeventを必ず購読してUIと診断へ反映する |
+| sample rate、channel、bit rateが混在する | RTCはmetadataを保持し、format差だけではdropしない | `AudioMixer`がPCM source/sinkで正規化し、`Codec`がpayloadをdecodeする |
+| Appをpackage化したら接続できない | 仕様上の境界をevent、route capability、media ownershipで明示する | Appは旧RTC audio APIを捨て、package接続を作り直す |
+
+## Package Profile
+
+| 項目 | 仕様 |
+|---|---|
+| パス | `RideIntercom/packages/RTC` |
+| Products | `RTC`, `RTCNativeWebRTC` |
+| `RTC` target依存 | 外部package依存なし |
+| `RTCNativeWebRTC` target依存 | `RTC`, local binary target `WebRTC` |
+| 近距離route | `MultipeerConnectivity` |
+| 広域route | native WebRTC SDK、Cloudflare Realtime SFU/TURN前提 |
+| 対応プラットフォーム | iOS `26.4`以降、macOS `26.4`以降 |
+| Swift | Swift `6` |
+| テスト | `RTC` targetはSDK非依存でSwiftPMテスト可能に保つ |
+
+## 外部仕様参照
+
+| 領域 | 参照 | RTCでの扱い |
+|---|---|---|
+| Multipeer Connectivity | https://developer.apple.com/documentation/multipeerconnectivity | nearby discovery、advertise/browse、`MCSession`、reliable/unreliable data送信の土台 |
+| `MCNearbyServiceBrowser` | https://developer.apple.com/documentation/MultipeerConnectivity/MCNearbyServiceBrowser | service type `ride-intercom` のpeer探索とinvite |
+| `MCNearbyServiceAdvertiser` | https://developer.apple.com/documentation/MultipeerConnectivity/MCNearbyServiceAdvertiser | service type `ride-intercom` のadvertiseとinvitation受理 |
+| `MCSession` | https://developer.apple.com/documentation/multipeerconnectivity/mcsession | peer connection、暗号化必須session、data送受信 |
+| WebRTC peer connection | https://webrtc.org/getting-started/peer-connections | SDP offer/answer、ICE candidate、STUN/TURN、connection stateの考え方 |
+| WebRTC data channel | https://webrtc.org/getting-started/data-channels | `ApplicationDataMessage`のWebRTC DataChannel搬送 |
+| Cloudflare Realtime | https://developers.cloudflare.com/realtime/ | SFU/TURNを使ったinternet routeのbackend前提 |
+| Cloudflare TURN | https://developers.cloudflare.com/realtime/turn/ | NAT/firewall越えのrelay候補 |
+
+## Package Structure
 
 | パス | 役割 | 代表型 |
 |---|---|---|
-| `Sources/RTC/Core` | アプリ向けの共通 contract | `CallSession`, `CallStartRequest`, `PeerDescriptor`, `RTCCredential`, `ApplicationDataMessage`, `AudioFrame`, `AudioFrameCodec`, `AudioCodecRegistry` |
-| `Sources/RTC/Routing` | 経路 plugin 境界、session factory、自動切替 | `CallSessionFactory`, `CallSessionFactoryConfiguration`, `RTCCallRoute`, `RouteManager`, `AnyRouteFactory`, `UnavailableCallSession` |
-| `Sources/RTC/PacketAudio` | Multipeer 用 packet audio と wire payload | `PCM16AudioCodec`, `PCMAudioCodec`, `PacketAudioEnvelope`, `PacketCrypto`, `MultipeerWireMessage` |
-| `Sources/RTC/Multipeer` | 近距離 route 実装 | `MultipeerLocalRoute`, `MultipeerConnectionTransport`, `MultipeerPacketMediaSession` |
-| `Sources/RTC/WebRTC` | WebRTC 共通 contract と Cloudflare signaling 境界 | `WebRTCInternetRoute`, `NativeWebRTCEngine`, `CloudflareRealtimeConfiguration`, `WebRTCSignalingClient` |
-| `Sources/RTC/Support` | 小さな共通補助 | `EventSource` |
+| `Sources/RTC/Core` | App向け共通contract | `CallSession`, `CallStartRequest`, `RTCAudioPacket`, `CallSessionEvent` |
+| `Sources/RTC/Routing` | route plugin境界、factory、自動切替 | `RTCCallRoute`, `RouteManager`, `CallSessionFactory` |
+| `Sources/RTC/PacketAudio` | packet envelope、暗号化、重複排除、期限管理 | `PacketAudioSequencer`, `PacketAudioReceiveFilter`, `PacketCrypto` |
+| `Sources/RTC/Multipeer` | 近距離route実装 | `MultipeerLocalRoute`, `MultipeerPacketMediaSession` |
+| `Sources/RTC/WebRTC` | WebRTC route contract、Cloudflare設定、signaling境界 | `WebRTCInternetRoute`, `NativeWebRTCEngine`, `WebRTCSignalingClient` |
 | `Sources/RTCNativeWebRTC` | native WebRTC adapter | `WebRTCNativeEngine` |
 
 ```mermaid
 flowchart TB
-    App[RideIntercom App] --> Session[RTC.CallSession]
-
-    subgraph Core[RTC target]
-        Session --> Manager[RouteManager]
-        Manager --> RouteAPI[RTCCallRoute]
-        RouteAPI --> MCRoute[MultipeerLocalRoute]
-        RouteAPI --> WebRoute[WebRTCInternetRoute]
-        WebRoute --> EngineAPI[NativeWebRTCEngine]
-        WebRoute --> Signaling[WebRTCSignalingClient]
-    end
-
-    subgraph Adapter[RTCNativeWebRTC target]
-        NativeEngine[WebRTCNativeEngine]
-    end
-
-    subgraph NativeSDK[External SDK]
-        LibWebRTC[WebRTC.xcframework]
-    end
-
-    EngineAPI -. implemented by .-> NativeEngine
-    NativeEngine --> LibWebRTC
-    MCRoute --> Multipeer[MultipeerConnectivity]
-    Signaling --> Cloudflare[Cloudflare Realtime SFU and TURN]
+    App[App / package composition] --> Session[CallSession]
+    Session --> Manager[RouteManager]
+    Manager --> RouteAPI[RTCCallRoute]
+    RouteAPI --> MCRoute[MultipeerLocalRoute]
+    RouteAPI --> WebRoute[WebRTCInternetRoute]
+    MCRoute --> MC[MultipeerConnectivity]
+    WebRoute --> EngineAPI[NativeWebRTCEngine]
+    WebRoute --> Signaling[WebRTCSignalingClient]
+    EngineAPI -. implemented by .-> Native[RTCNativeWebRTC.WebRTCNativeEngine]
+    Native --> SDK[WebRTC.xcframework]
 ```
 
-## アプリとの責務境界
+## Route比較
 
-| 領域 | RideIntercom App | RTC |
+| 観点 | Multipeer | WebRTC |
 |---|---|---|
-| UI | 表示、操作、アクセシビリティ、診断画面 | UIを持たない |
-| グループ | group ID、secret、表示名、招待導線を管理 | `RTCCredential` と `PeerDescriptor` だけを受け取る |
-| 音声デバイス | 入出力デバイス選択、OS permission、アプリ側音声処理 | routeごとの media lifecycle を制御する |
-| 音声codec実装 | `RideIntercom/packages/Audio/Codec` を使い、RTC向け `AudioFrameCodec` としてregistryへ注入する | codec contract、codec選択、wire envelope、未対応codecエラーを担当する |
-| Multipeer 音声 | `AudioFrame` を生成して `sendAudioFrame` に渡す | 選択codecでencode/decode、packet化、暗号化、送信、受信filterを担当する |
-| WebRTC 音声 | WebRTC経路ではサンプル送信をしない | `RTCAudioTrack` の有効化と peer connection を担当する |
-| アプリデータ | namespace と payload schema を定義する | binary payload と配送信頼性だけを扱う |
-| 接続設定 | ユーザー設定から有効routeを決める | `CallRouteConfiguration` に従って選択とhandoverを行う |
+| `RouteKind` | `.multipeer` | `.webRTC` |
+| 想定範囲 | 近くの端末、同一空間、internetなしでも可 | internet越し、NAT/firewall越え、遠隔参加 |
+| 外部基盤 | Apple `MultipeerConnectivity` | Cloudflare Realtime + native WebRTC SDK |
+| discovery | `MCNearbyServiceBrowser` / `MCNearbyServiceAdvertiser` | Cloudflare room / participant signaling |
+| connection | `MCSession` | `RTCPeerConnection` |
+| signaling | 不要 | 必須。SDP offer/answerとICE candidateを交換する |
+| app data | `MCSession.send` | DataChannel優先、失敗時signaling fallback |
+| audio media | App管理の`RTCAudioPacket` | WebRTC engine管理のmedia stream |
+| `supportsAppManagedPacketAudio` | `true` | `false` |
+| `supportsRouteManagedMedia` | `false` | `true` |
+| `mediaOwnership` | `.appManagedPacketAudio` | `.routeManagedMediaStream` |
+| `sendAudioPacket` | 送信する | no-op |
+| `receivedAudioPacket` | 受信eventを出す | 出さない |
+| local mute | 現状route内no-op | local audio trackを無効化する |
+| output mute | 現状routeへ転送されるが、route実装次第 | native engineへ転送する |
+| codec negotiation | App/Codecが決めたpayloadをmetadata付きで流す | native WebRTC側に閉じる |
+| DSP | 禁止 | 禁止 |
+| 典型的な接続不能原因 | Local Network/Bonjour未設定、groupHash不一致、`startMedia`未呼び出し | signaling未注入、WebRTC binary unavailable、Cloudflare設定なし |
 
-## 公開 contract
+## Route選択
 
-| 型 | 説明 |
+| 設定 | 意味 | 実装上の結果 |
+|---|---|---|
+| `enabledRoutes` | 利用可能にするroute集合 | `CallSessionFactory`が構築対象を絞る |
+| `preferredRoute` | 最初にactiveにするroute | `RouteManager.startConnection()`が最初に接続する |
+| `.singleRoute` | fallbackしない | active route失敗で`failed`へ進む |
+| `.automaticFallback` | preferred失敗時にfallbackする | 復帰してもpreferredへ戻さない |
+| `.automaticFallbackAndRestore` | fallback後、preferred復帰時に戻す | `restoreProbeDuration`後にhandoverする |
+| `fallbackDelay` | preferred routeを待つ時間 | 超過後にfallback候補を起動する |
+| `handoverFadeDuration` | media route切替時の旧route停止遅延 | media開始済みの場合だけ使う |
+| `keepsPreferredRouteInStandby` | preferred以外も先に接続開始する | fallbackを速くするが通信資源を使う |
+| `keepsFallbackRouteWarm` | fallback後も旧route接続を残す | 復帰や再fallbackを速くする |
+
+## Route Opt-out
+
+| 設定 | 仕様 | 外部から見える結果 |
+|---|---|---|
+| `enabledRoutes`から`.multipeer`を外す | `CallSessionFactory`は`MultipeerLocalRoute`を構築しない | advertise/browseしない。Multipeerへのfallbackもしない |
+| `enabledRoutes`から`.webRTC`を外す | `CallSessionFactory`は`WebRTCInternetRoute`を構築しない | signaling接続しない。WebRTC binaryやCloudflare設定を要求しない |
+| `enabledRoutes`が空 | 構築可能routeがない | `CallSessionEvent.error(.noEnabledRoute)`と`stateChanged(.failed)`を出す |
+| `preferredRoute`が`enabledRoutes`にない | `CallRouteConfiguration.normalized()`が有効routeの先頭へ補正する | 補正後routeがactive候補になる |
+| opt-out済みroute | route setに存在しない | `routeAvailabilityChanged`も`metricsChanged`も出さない |
+| 通話中のroute enable/disable | `CallSession`の差分更新APIでは扱わない | Appはmedia/connectionを停止し、新しいconfigurationでsessionを作り直す |
+
+```mermaid
+flowchart LR
+    Settings[App settings\nenabledRoutes] --> Factory[CallSessionFactory]
+    Factory -->|contains multipeer| MC[MultipeerLocalRoute]
+    Factory -->|contains webRTC| WR[WebRTCInternetRoute]
+    Factory --> Manager[RouteManager]
+    Manager -->|only built routes| Start[startConnection]
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> idle
+    idle --> preparing: prepare(request)
+    preparing --> connecting: startConnection()
+    connecting --> connected: active route connected/authenticated
+    connected --> mediaReady: startMedia()
+    mediaReady --> connected: stopMedia()
+    connected --> reconnecting: active route failed
+    mediaReady --> reconnecting: media route failed
+    reconnecting --> mediaReady: handover complete
+    reconnecting --> failed: no route
+    connected --> disconnected: stopConnection()
+    mediaReady --> disconnected: stopConnection()
+    failed --> disconnected: stopConnection()
+```
+
+## Audio Boundary
+
+| 持つ | 持たない |
 |---|---|
-| `CallSession` | アプリが保持する単一の通話 facade。接続とmedia lifecycleを分けて操作する |
-| `CallSessionFactory` | `CallSessionFactoryConfiguration` から package-owned route set を構築し、`CallSession` を返す |
-| `CallSessionFactoryConfiguration` | local display name、route設定、packet audio codec registry、WebRTC route factory設定を渡す |
-| `WebRTCRouteFactoryConfiguration` | WebRTC route の signaling client、engine、Cloudflare configuration provider を差し替える |
-| `CallStartRequest` | local peer、期待peer、credential、audio format、route設定を渡す |
-| `CallRouteConfiguration` | 有効route、優先route、fallback、自動復帰、standby/warm設定を定義する |
-| `CallSessionEvent` | 接続状態、route状態、member、metrics、application data、errorを通知する |
-| `AudioCodecIdentifier` | codecを識別する拡張可能な値型。built-inは `pcm16`、`mpeg4AACELDv2`、`opus`、`route-managed` を定義する |
-| `AudioCodecConfiguration` | `CallStartRequest` に含めるcodec優先順。空配列は `pcm16` に正規化する |
-| `AudioFrameCodec` | `AudioFrame` と `EncodedAudioFrame` の相互変換を行うcodec実装境界 |
-| `AnyAudioFrameCodec` | アプリがclosureで `Audio/Codec` との橋渡しを作るための軽量wrapper |
-| `AudioCodecRegistry` | codec実装を登録し、優先順とroute対応codecから使用codecを選択する |
-| `PacketAudioReceiveConfiguration` | Multipeer packet audio の playout delay と packet lifetime を route へ渡す設定 |
-| `RouteMetrics` | route共通のRTT、jitter、packet loss、peer数、audio playout delay、音声受信/drop/queue数を通知する |
-| `RTCRuntimeStatus` | package が生成する接続、route、media、codec設定、local control状態のruntime snapshot |
-| `RTCRuntimeStatusTransport` | package-owned namespace の `ApplicationDataMessage` として runtime snapshot をencode/decodeする |
-| `RTCRuntimePackageReport` | SessionManager / Codec / AudioMixer など他 package が生成した Codable runtime report をRTC statusへ同梱する汎用payload |
-| `RTCRuntimeStatusPolicy` | 接続時、変更時、定期送信の有効化と周期を指定する |
-| `RTCCallRoute` | `RouteManager` が扱う経路plugin境界。アプリは直接保持しない |
-| `NativeWebRTCEngine` | `WebRTCInternetRoute` が使うWebRTC engine抽象。native SDK型を隠す |
+| route selection / handover | Audio package dependency |
+| connection lifecycle | resample / channel mix |
+| packet envelope | gain / volume |
+| encryption | limiter / dynamics |
+| duplicate / lifetime / jitter handling | VAD / noise reduction |
+| audio metadata transport | codec encode / decode / transcoding |
+| runtime status | bit rate adjustment |
 
-## 接続とmediaの分離
+RTC targetは`SessionManager`、`AudioMixer`、`Codec`、Effectorsをimportしない。
 
-| lifecycle | 意味 | Multipeer | WebRTC |
+```mermaid
+flowchart LR
+    PCM[AudioCore.PCMFrame] --> Encode[Codec.encode]
+    Encode --> Encoded[Codec.EncodedCodecFrame]
+    Encoded --> Packet[RTC.RTCAudioPacket]
+    Packet --> Route[RTC route]
+    Route --> Received[RTC.ReceivedAudioPacket]
+    Received --> Decode[Codec.decode]
+    Decode --> Mixer[AudioMixer.MixerPCMSource]
+```
+
+## Audio Contract
+
+| 型 | 契約 |
+|---|---|
+| `RTCAudioCodecIdentifier` | 通信metadata用のcodec identifier。Codec packageの型ではない |
+| `RTCAudioFormat` | packet metadata用のsample rate / channel count。AudioCoreの処理formatではない |
+| `RTCAudioPolicy` | route上の希望codec、希望送信format、maximum bit rateを持つ |
+| `RTCAudioPacket` | codec、format、sequence、timestamp、sample count、bit rate、opaque payloadを持つ |
+| `ReceivedAudioPacket` | peerIDと`RTCAudioPacket`を束ねる |
+
+| 変換 | 所有package | RTCでの扱い |
+|---|---|---|
+| `PCMFrame -> EncodedCodecFrame` | `Codec` | 関与しない |
+| `EncodedCodecFrame -> RTCAudioPacket` | App composition | metadataを詰め替える |
+| `RTCAudioPacket -> EncodedCodecFrame` | App composition | metadataを詰め替える |
+| `EncodedCodecFrame -> PCMFrame` | `Codec` | 関与しない |
+| mixed sample rate / channel | `AudioMixer` | format差だけではdropしない |
+| bit rate fallback | `Codec` | `bitRate` metadataを保持するだけ |
+
+`RTCAudioPolicy.preferredSendFormat`は通信上の希望であり、playback format、mixer format、hardware formatを固定しない。
+
+## DSP禁止
+
+| 禁止 | 所有package |
+|---|---|
+| sample rate変換 | `AudioMixer` |
+| channel count変換 | `AudioMixer` |
+| gain / volume | `AudioMixer` |
+| limiter / dynamics / VAD gate | Effectors in `AudioMixer` graph |
+| OS voice processing / input mute | `SessionManager` |
+| encode / decode / transcoding | `Codec` |
+| codec bit rate fallback | `Codec` |
+
+RTC route、packet filter、jitter buffer、WebRTC adapterのどこにもDSPを入れない。
+
+## Receive Policy
+
+| 条件 | 扱い | 理由 |
+|---|---|---|
+| sample rateがpacketごとに違う | dropしない | 受信sourceの正規化は`AudioMixer`の責務 |
+| channel countがpacketごとに違う | dropしない | 受信sourceの正規化は`AudioMixer`の責務 |
+| bit rateがpacketごとに違う | dropしない | codec runtime差分として扱う |
+| codecがpacketごとに違う | policyで許可されていればdropしない | payload decode可否は`Codec`で判断する |
+| unsupported codec | drop / error | route policy外のpayloadはdecodeできない |
+| duplicate sequence | drop | 同一peer/sequenceの二重再生を防ぐ |
+| expired packet | drop | 遅延しすぎた音声を再生しない |
+| decrypt failure | drop | credential不一致または改ざんの疑い |
+
+decode failureは`Codec`の失敗として扱う。RTCはcodec payloadを解釈しない。
+
+## Multipeerの背景
+
+| Apple概念 | RTCでの実装 | 利用者が知るべきこと |
+|---|---|---|
+| `MCPeerID` | `localDisplayName`から生成 | peerの表示名兼近距離識別子になる |
+| `MCNearbyServiceAdvertiser` | `serviceType = ride-intercom`でadvertise | iOS/macOSのLocal Network/Bonjour設定が必要 |
+| `MCNearbyServiceBrowser` | 同じ`serviceType`をbrowse | 見つけたpeerへ自動inviteする |
+| `discoveryInfo` | `groupHash`を小さなTXT情報として渡す | group不一致のpeerを発見段階で避ける |
+| invitation context | `groupHash`を渡す | invite受理前にgroup不一致を拒否する |
+| `MCSession` | `encryptionPreference = .required` | transport自体も暗号化必須 |
+| `MCSessionSendDataMode.reliable` | control、handshake、reliable app data | 順序と到達を優先する |
+| `MCSessionSendDataMode.unreliable` | packet audio、keepalive、unreliable app data | 遅延の小ささを優先する |
+
+```mermaid
+sequenceDiagram
+    participant A as Device A
+    participant B as Device B
+    A->>B: advertise/browse serviceType ride-intercom
+    A->>B: invite with groupHash context
+    B-->>A: accept if groupHash matches
+    A->>B: MCSession connected
+    A->>B: HMAC handshake
+    B-->>A: authenticated
+    A->>B: encrypted packetAudio envelope
+    B-->>A: metrics / receivedAudioPacket event
+```
+
+## Multipeer利用条件
+
+| 条件 | 必須設定 | 接続不能時の見え方 |
+|---|---|---|
+| Local Network許可 | `NSLocalNetworkUsageDescription` | advertise/browse開始失敗、peerが見えない |
+| Bonjour service宣言 | `NSBonjourServices`に`_ride-intercom._tcp` | iOSで探索できない |
+| service type | `ride-intercom` | 違うservice typeのAppとは見つからない |
+| group認証 | 同じ`groupID`とsecretから`RTCCredential.derived` | invite拒否、handshake rejected |
+| packet audio開始 | `startMedia()`を呼ぶ | connectedでもaudio packetが送られない |
+| codec policy | 送信packet codecが`preferredCodecs`に含まれる | unsupported codec error/drop |
+| background復帰 | App側でconnection lifecycleを再開する | OSがadvertise/browseやsessionを止める場合がある |
+
+## WebRTCの背景
+
+| WebRTC概念 | RTCでの実装 | 利用者が知るべきこと |
+|---|---|---|
+| signaling | `WebRTCSignalingClient` | WebRTC仕様外なのでApp/backendが実装または注入する |
+| SDP offer/answer | `WebRTCSessionDescription` | remote peerとmedia/data能力を交換する |
+| ICE candidate | `WebRTCIceCandidate` | NAT/firewall越えの接続候補を交換する |
+| STUN/TURN | `WebRTCIceServer` / Cloudflare TURN | 直接接続できない環境でrelay候補になる |
+| peer connection | `NativeWebRTCEngine.createPeerConnection` | native WebRTC SDKが所有する |
+| local audio track | `NativeWebRTCEngine.prepareLocalAudio` | `startMedia()`までdisabled |
+| DataChannel | `NativeWebRTCEngine.sendApplicationData` | app dataの第一候補 |
+| SFU | Cloudflare Realtime | 複数参加や広域routeの中継基盤 |
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant RTC as WebRTCInternetRoute
+    participant Sig as WebRTCSignalingClient
+    participant Engine as NativeWebRTCEngine
+    participant CF as Cloudflare Realtime
+    App->>RTC: prepare(request)
+    RTC->>Engine: prepareLocalAudio(policy)
+    App->>RTC: startConnection()
+    RTC->>Sig: connect(CloudflareRealtimeConfiguration)
+    Sig->>CF: join room
+    Sig-->>RTC: remotePeerJoined(peer)
+    RTC->>Engine: createPeerConnection(peer)
+    RTC->>Engine: makeOffer(peer)
+    RTC->>Sig: sendOffer
+    Sig-->>RTC: answer / iceCandidate
+    RTC->>Engine: acceptAnswer / addCandidate
+    App->>RTC: startMedia()
+    RTC->>Engine: setLocalAudioEnabled(true)
+```
+
+## WebRTC利用条件
+
+| 条件 | 必須設定 | 接続不能時の見え方 |
+|---|---|---|
+| WebRTC binary | `RTCNativeWebRTC` productと`WebRTC.xcframework` | `Native WebRTC SDK is unavailable` |
+| native engine | `engineFactory: { WebRTCNativeEngine(...) }` | base `NativeWebRTCEngine`は`isAvailable == false` |
+| signaling | production `WebRTCSignalingClient` | default clientは意図的にfailure eventを出す |
+| Cloudflare設定 | `CloudflareRealtimeConfiguration`をproviderで返す | `WebRTC route configuration is unavailable` |
+| room/participant | `roomID`, `participantToken` | signaling接続失敗、remote peerが現れない |
+| ICE server | 必要な`iceServers` / TURN設定 | peer connectionが`failed`または`disconnected` |
+| media開始 | `startMedia()`を呼ぶ | local audio trackが有効化されない |
+| app-managed packet audio | 使わない | `sendAudioPacket`はWebRTC routeでは送られない |
+
+## 必要な設定
+
+| 対象 | 要否 | 設定 | 設定する場所 | 欠けた場合 |
+|---|---|---|---|---|
+| 共通 | 必須 | `sessionID` | `CallStartRequest.sessionID` | packet envelope、runtime status、room紐付けが成立しない |
+| 共通 | 必須 | `localPeer` | `CallStartRequest.localPeer` | peer識別、handshake、member表示が成立しない |
+| 共通 | 推奨 | `expectedPeers` | `CallStartRequest.expectedPeers` | member診断や期待参加者の表示精度が落ちる |
+| 共通 | 必須、既定値可 | `configuration` | `CallStartRequest.configuration` | 明示しない場合はroute選択、fallback、handoverが既定値に従う |
+| 共通 | 必須、既定値可 | `audioPolicy` | `CallStartRequest.audioPolicy` | 明示しない場合は`pcm16`、48kHz、monoの通信希望になる |
+| Multipeer | 必須 | `localDisplayName` | `CallSessionFactoryConfiguration.localDisplayName` | `MCPeerID`の表示名が決まらずfactory設定が成立しない |
+| Multipeer | 条件付き必須 | `RTCCredential` | `CallStartRequest.credential` | 未指定なら認証なし接続になる。group分離が必要な通話では必ず指定する |
+| Multipeer | 必須 | `NSLocalNetworkUsageDescription` | App `Info.plist` | local network許可が出ずpeer探索できない |
+| Multipeer | 必須 | `NSBonjourServices` | App `Info.plist` | Bonjour service `ride-intercom`を探索できない |
+| WebRTC | 必須 | `CloudflareRealtimeConfiguration` | `WebRTCRouteFactoryConfiguration.cloudflareConfigurationProvider` | `WebRTC route configuration is unavailable` |
+| WebRTC | 必須 | production signaling | `WebRTCRouteFactoryConfiguration.signalingClientFactory` | default signalingがfailure eventを出す |
+| WebRTC | 必須 | native engine | `WebRTCRouteFactoryConfiguration.engineFactory` | base engineは`isAvailable == false` |
+| WebRTC | 必須 | `RTCNativeWebRTC` product | App package dependency | native WebRTC routeが実体化しない |
+| WebRTC | 必須 | `WebRTC.xcframework` | `RTCNativeWebRTC` binary target | `Native WebRTC SDK is unavailable` |
+
+## 必要なサーバー / Backend
+
+| route | 必要なサーバー | RTC packageが持つもの | App/backendが持つもの |
 |---|---|---|---|
-| `prepare` | credential、peer、audio format、route設定を受け取る | advertiser/browser準備 | signalingとengine準備 |
-| `startConnection` | control planeを開始する | discovery、invite、handshake | Cloudflare signaling接続、room参加 |
-| `startMedia` | 音声mediaを開始する | packet audioを送受信可能にする | `RTCAudioTrack` を有効化する |
-| `stopMedia` | 音声mediaだけ停止する | packet audio送受信を止める | `RTCAudioTrack` を無効化する |
-| `stopConnection` | route接続を終了する | `MCSession` と discovery を終了する | signalingとpeer connectionを終了する |
+| Multipeer | 不要 | local discovery、invite、`MCSession`接続、packet envelope、AES-GCM | Local Network/Bonjour権限、group secret管理、App lifecycle再接続 |
+| WebRTC | 必須 | WebRTC route contract、Cloudflare設定型、signaling client protocol、native engine境界 | Cloudflare room作成、participant token発行、production signaling、TURN/ICE設定 |
 
-接続済みでもmedia未開始の状態を正式な状態として扱う。これにより、接続準備、認証、member同期、アプリデータ配送を音声開始より先に成立させられる。
+| WebRTC backend要素 | 要否 | 必須情報 | 役割 |
+|---|---|---|---|
+| SFU endpoint | 必須 | `CloudflareRealtimeConfiguration.sfuEndpoint` | room参加とmedia/data中継の接続先 |
+| TURN endpoint | 条件付き | `CloudflareRealtimeConfiguration.turnEndpoint` | NAT/firewallで直接接続できない場合のrelay候補 |
+| room | 必須 | `roomID` | 通話sessionとCloudflare側roomを結びつける |
+| participant credential | 必須 | `participantToken` | Cloudflare側participant権限 |
+| ICE servers | 条件付き、推奨 | `iceServers` | `RTCPeerConnection`へ渡すSTUN/TURN候補 |
+| signaling transport | 必須 | `WebRTCSignalingClient`実装 | join、presence、offer、answer、ICE candidate、app data fallbackを運ぶ |
 
-## Control Plane と Media Plane
+`CloudflareRealtimeSignalingClient`はproduction server clientではない。実運用では、App/backendが上表のsignaling transportを実装して注入する。
+
+## Control Plane / Media Plane
 
 | 種別 | Multipeer | WebRTC |
 |---|---|---|
 | discovery | Bonjour service `ride-intercom` | Cloudflare room / participant |
-| 認証 | group hash と HMAC handshake | Cloudflare participant token と app-level credential |
-| route内部control | `MultipeerWireMessage.control` | signaling または DataChannel |
-| アプリデータ | `MultipeerWireMessage.applicationData` | `RTCDataChannel`、失敗時は signaling fallback |
-| 音声media | `MultipeerWireMessage.packetAudio` | RTP/SRTP media stream |
-| 音声codec | `AudioCodecRegistry` で選択したpacket audio codec | WebRTC native codec selection |
+| auth | group hash と HMAC handshake | Cloudflare participant token と app-level credential |
+| route control | `MultipeerWireMessage.control` | signaling またはDataChannel |
+| app data | `MultipeerWireMessage.applicationData` | DataChannel、失敗時はsignaling fallback |
+| audio media | encrypted packet audio | native WebRTC media stream |
+| codec payload | opaque `RTCAudioPacket.payload` | native WebRTC codec selection |
+| error output | `CallSessionEvent.error`, `RouteAvailability.reason`, metrics | `CallSessionEvent.error`, `RouteAvailability.reason`, route state |
 
-`ApplicationDataMessage` は namespace、payload、配送信頼性だけを持つ。RTC内部の handshake、keepalive、fallback diagnostics はアプリ定義 namespace に混ぜない。package が送る runtime status は package-owned namespace を使い、同じ配送面だけを共有する。
+## Public Contract
 
-## Runtime status
+| 型 | 契約 |
+|---|---|
+| `CallSession` | prepare、connection、media、packet audio、application data、runtime reportを扱うfacade |
+| `CallStartRequest` | peer、credential、route configuration、audio policyを渡す |
+| `CallRouteConfiguration` | enabled route、preferred route、fallback / restore policyを持つ |
+| `CallSessionEvent` | state、route、member、metrics、application data、audio packet、errorを通知する |
+| `RTCCallRoute` | route plugin境界。Appは直接保持しない |
+| `RouteManager` | route set、active route、media route、handover、runtime statusを管理する |
+| `PacketAudioSequencer` | `RTCAudioPacket`をsession / sender metadata付きenvelopeにする |
+| `PacketAudioReceiveFilter` | codec policy、duplicate、lifetime、decrypt結果を検証する |
+| `RTCRuntimeStatus` | connection、route、media、audio policy、package reportsを診断用に保持する |
 
-`RTC` は route ごとの接続方式差異を App に露出させず、`RTCRuntimeStatus` として現在値を送信する。App は `ApplicationDataMessage` の任意 namespace を解釈する必要がある場合だけ `RTCRuntimeStatusTransport.decode(_:)` を呼び、表示文字列や route 固有の状態推測を App 側へ固定しない。
+## Input / Output
+
+| 外部入力 | 正常出力 | エラー出力 | 保証 |
+|---|---|---|---|
+| `CallStartRequest` | route prepare結果 / events | `CallSessionEvent.error` | peer、credential、route設定、audio policyを各routeへ渡す |
+| `startConnection()` | connection events | failed / unavailable event | control planeを開始する |
+| `startMedia()` | media route events | route error event | active routeのmedia ownershipに従って開始する |
+| `sendAudioPacket(RTCAudioPacket)` | route payload | route未対応時は送らない | app-managed packet audio routeだけへ送る |
+| route受信packet | `CallSessionEvent.receivedAudioPacket` | policy drop / decrypt failure / expired / duplicate metrics | metadataとopaque payloadを変更せず通知する |
+| `sendApplicationData` | route payload | `unsupportedApplicationDataDelivery` | delivery modeをroute capabilityに照合する |
+| `updateRuntimePackageReports` | runtime status payload | encode不可なら送らない | 他package reportを解釈せず同梱する |
+| `setLocalMute` | routeへmute要求 | routeごとのunsupportedは状態/reportで見る | RTCはgain処理をしない |
+| `setOutputMute` | routeへmute要求 | routeごとのunsupportedは状態/reportで見る | RTCはmix/output処理をしない |
+
+```mermaid
+flowchart LR
+    App[App] --> Call[CallSession]
+    Call --> Manager[RouteManager]
+    Manager --> Active[active RTCCallRoute]
+    Active --> RE[RouteEvent]
+    RE --> CE[CallSessionEvent]
+    CE --> App
+```
+
+## 利用手順
+
+| 手順 | Appが行うこと | 必須理由 |
+|---|---|---|
+| event購読 | `session.events`を先に購読する | 接続、認証、route失敗、受信packet、診断はeventで出る |
+| factory設定 | `CallSessionFactoryConfiguration`を作る | route実装とWebRTC injectionを決める |
+| request作成 | `CallStartRequest`を作る | session、peer、expected peers、credential、route、audio policyを固定する |
+| prepare | `await session.prepare(request)` | 各routeが利用可能性、codec policy、engine availabilityを確認する |
+| connection開始 | `await session.startConnection()` | discovery/signaling/control planeを開始する |
+| connected判定 | `stateChanged`, `membersChanged`, `routeChanged`を見る | Appが勝手に接続済みと見なさない |
+| audio package開始 | `SessionManager`、`AudioMixer`、`Codec`を起動する | RTCは音声I/Oやencode/decodeをしない |
+| media開始 | `await session.startMedia()` | Multipeer packet audioやWebRTC local trackを有効化する |
+| packet送信 | Multipeer active時だけ`sendAudioPacket`する | WebRTCではpacket audioは送られない |
+| packet受信 | `receivedAudioPacket`を`Codec -> AudioMixer -> SessionManager`へ渡す | RTCはdecode/mix/outputしない |
+| runtime report | 他package reportを`updateRuntimePackageReports`で渡す | peerへ診断情報を届ける |
+| 停止 | `stopMedia()`、`stopConnection()` | mediaとconnectionを別状態で閉じる |
+
+## 利用例
+
+### Multipeer packet audio
+
+```swift
+import Foundation
+import RTC
+
+let routeConfiguration = CallRouteConfiguration(
+    enabledRoutes: [.multipeer],
+    preferredRoute: .multipeer
+)
+
+let audioPolicy = RTCAudioPolicy(
+    preferredSendFormat: RTCAudioFormat(sampleRate: 48_000, channelCount: 1),
+    preferredCodecs: [.opus, .pcm16],
+    maximumBitRate: 32_000
+)
+
+let session = CallSessionFactory.makeSession(
+    CallSessionFactoryConfiguration(
+        localDisplayName: localPeerID.rawValue,
+        routeConfiguration: routeConfiguration,
+        audioPolicy: audioPolicy
+    )
+)
+
+Task {
+    for await event in session.events {
+        handleRTCEvent(event)
+    }
+}
+
+let request = CallStartRequest(
+    sessionID: groupID,
+    localPeer: PeerDescriptor(id: localPeerID, displayName: displayName),
+    expectedPeers: expectedPeers,
+    credential: RTCCredential.derived(groupID: groupID, secret: groupSecret),
+    configuration: routeConfiguration,
+    audioPolicy: audioPolicy
+)
+
+await session.prepare(request)
+await session.startConnection()
+await session.startMedia()
+
+let packet = RTCAudioPacket(
+    sequenceNumber: sequenceNumber,
+    codec: .opus,
+    format: audioPolicy.preferredSendFormat,
+    capturedAt: capturedAt,
+    sampleCount: sampleCount,
+    bitRate: 32_000,
+    payload: encodedPayload
+)
+await session.sendAudioPacket(packet)
+```
+
+### WebRTC route-managed media
+
+```swift
+import Foundation
+import RTC
+import RTCNativeWebRTC
+
+let routeConfiguration = CallRouteConfiguration(
+    enabledRoutes: [.webRTC],
+    preferredRoute: .webRTC
+)
+
+let audioPolicy = RTCAudioPolicy(preferredCodecs: [.routeManaged])
+
+let webRTC = WebRTCRouteFactoryConfiguration(
+    cloudflareConfigurationProvider: { request in
+        CloudflareRealtimeConfiguration(
+            sfuEndpoint: sfuEndpoint,
+            turnEndpoint: turnEndpoint,
+            roomID: request.sessionID,
+            participantToken: participantToken,
+            iceServers: iceServers
+        )
+    },
+    signalingClientFactory: { ProductionWebRTCSignalingClient() },
+    engineFactory: { WebRTCNativeEngine(iceServers: iceServers) }
+)
+
+let session = CallSessionFactory.makeSession(
+    CallSessionFactoryConfiguration(
+        localDisplayName: localPeerID.rawValue,
+        routeConfiguration: routeConfiguration,
+        audioPolicy: audioPolicy,
+        webRTC: webRTC
+    )
+)
+
+let request = CallStartRequest(
+    sessionID: groupID,
+    localPeer: PeerDescriptor(id: localPeerID, displayName: displayName),
+    expectedPeers: expectedPeers,
+    credential: RTCCredential.derived(groupID: groupID, secret: groupSecret),
+    configuration: routeConfiguration,
+    audioPolicy: audioPolicy
+)
+
+await session.prepare(request)
+await session.startConnection()
+await session.startMedia()
+```
+
+| 注意 | 理由 |
+|---|---|
+| `ProductionWebRTCSignalingClient`はApp/backend側で実装する | default `CloudflareRealtimeSignalingClient`は注入境界を示すplaceholderで、接続成功させない |
+| WebRTCでは`sendAudioPacket`を呼んでも送られない | route capabilityが`supportsAppManagedPacketAudio == false` |
+| WebRTCの受信音声は`receivedAudioPacket`として出ない | route-managed media streamとしてnative engineが所有する |
+
+| 修正者向け注意 | 現実装 |
+|---|---|
+| `NativeWebRTCEngine` base class | `RTC` target単体では`isAvailable == false`。WebRTC接続には`RTCNativeWebRTC.WebRTCNativeEngine`か同等実装が必要 |
+| `CloudflareRealtimeSignalingClient` | production transportではない。`connect`時にfailure eventを出す注入境界 |
+| WebRTC DataChannel | 現実装は`rideintercom.application`のordered channelを作る。delivery品質を厳密に分ける場合はengine側でchannel設定を分ける |
+| WebRTC output mute | `CallSession`からrouteへ要求は流れる。実際のmute可否はnative engine実装で保証する |
+
+## App package化で接続不能になる典型原因
+
+| 症状 | 仕様上の意味 | 修正方針 |
+|---|---|---|
+| `RTC.AudioFormatDescriptor`がない | PCM/format共通語彙はRTCから外した | 音声formatは`AudioCore.AudioFormat`、通信metadataは`RTCAudioFormat`へ分ける |
+| `RTC.AudioFrame` / `RTC.ReceivedAudioFrame`がない | RTCはPCM frameを持たない | `AudioCore.PCMFrame`と`Codec.EncodedCodecFrame`をApp compositionで`RTCAudioPacket`へ詰め替える |
+| `AudioFrameCodec` / `PCM16AudioCodec`がない | encode/decodeは`Codec` packageへ移した | RTCへcodec registryを渡さず、App側で`CodecEncoder` / `CodecDecoder`を使う |
+| `packetAudioCodecRegistry`引数がない | RTCはcodec実装を保持しない | `CallSessionFactoryConfiguration.audioPolicy`だけを渡す |
+| `startConnection`で失敗する | `prepare`未実行、route構築不可、preferred route不在 | eventの`connectionFailed`、`noEnabledRoute`、`routeAvailabilityChanged`を読む |
+| Multipeerでpeerが見えない | advertise/browse前提が満たされていない | Local Network/Bonjour、service type、同一ネットワーク、groupHashを確認する |
+| Multipeerでconnectedだが音声なし | media未開始またはpacket audio inactive | `startMedia()`後に`sendAudioPacket`し、`receivedAudioPacket`をCodec/Mixerへ流す |
+| WebRTCで即failed | signalingまたはengineが未注入 | `WebRTCRouteFactoryConfiguration`にproduction signalingと`WebRTCNativeEngine`を渡す |
+| WebRTCでpacket送信しても音声なし | WebRTCはroute-managed media | `sendAudioPacket`ではなくWebRTC engineのmedia lifecycleを使う |
+| format違いで受信が止まると思っている | RTCはformat差でdropしない | `Codec` decode後、`AudioMixer.MixerPCMSource`へ入れて正規化する |
+| route切替後にUIが古い | event購読漏れ | `stateChanged`, `routeChanged`, `membersChanged`, `metricsChanged`, `error`を状態源にする |
+| remote診断が来ない | runtime report送信条件が満たされていない | active route、app data capability、`updateRuntimePackageReports`のpayload化を確認する |
+
+## Multipeer Packet Flow
+
+| flow | 経路 | RTCの責務 |
+|---|---|---|
+| capture send | `SessionManager input -> AudioMixer TX bus -> Codec -> RTCAudioPacket -> RTC` | envelope化、暗号化、unreliable送信 |
+| receive output | `RTC -> ReceivedAudioPacket -> Codec -> AudioMixer RX bus -> SessionManager output` | 復号、重複排除、lifetime、playout delay、event出力 |
+| app data | `ApplicationDataMessage -> MultipeerWireMessage.applicationData` | reliable/unreliableを`MCSessionSendDataMode`へ写す |
+| control | `RouteHandshakeMessage -> MultipeerWireMessage.control` | groupHash/HMACで認証する |
+
+```mermaid
+flowchart LR
+    Capture[SessionManager input\nactual PCM] --> TXSource[MixerPCMSource\ncapture]
+    TXSource --> TXBus[AudioMixer TX bus\nnormalization/effects]
+    TXBus --> SendSink[MixerPCMSink\nsend format]
+    SendSink --> Encode[CodecEncoder]
+    Encode --> Packet[RTCAudioPacket]
+    Packet --> MC[MultipeerLocalRoute\nAES-GCM + MCSession]
+    MC --> Received[ReceivedAudioPacket]
+    Received --> Decode[CodecDecoder]
+    Decode --> RXSource[MixerPCMSource\npeer]
+    RXSource --> RXBus[AudioMixer RX/master bus]
+    RXBus --> OutputSink[MixerPCMSink\nhardware output format]
+    OutputSink --> Output[SessionManager output]
+```
+
+## WebRTC Media Flow
+
+| flow | 経路 | RTCの責務 |
+|---|---|---|
+| connection | `CallSession -> WebRTCInternetRoute -> WebRTCSignalingClient -> Cloudflare` | signaling接続を開始する |
+| peer setup | `remotePeerJoined -> NativeWebRTCEngine.createPeerConnection` | peer connection生成を指示する |
+| offer/answer | `NativeWebRTCEngine <-> WebRTCSignalingClient` | SDPを運ぶ |
+| ICE | `NativeWebRTCEngine <-> WebRTCSignalingClient` | candidateを運ぶ |
+| media | `NativeWebRTCEngine local/remote audio track` | lifecycleを開始/停止する |
+| app data | `DataChannel -> signaling fallback` | delivery差異を吸収する |
+
+```mermaid
+flowchart TB
+    Call[CallSession] --> WebRoute[WebRTCInternetRoute]
+    WebRoute --> Signaling[WebRTCSignalingClient]
+    WebRoute --> Engine[NativeWebRTCEngine]
+    Signaling --> Cloudflare[Cloudflare Realtime\nSFU/TURN]
+    Engine --> PeerConnection[RTCPeerConnection]
+    PeerConnection --> Media[WebRTC media stream]
+    PeerConnection --> DataChannel[RTCDataChannel]
+```
+
+## Route Ownership
+
+| route | media ownership | audio behavior | Appの扱い |
+|---|---|---|---|
+| Multipeer | `.appManagedPacketAudio` | encrypted packet audioを送受信する | Codec/Mixer/SessionManagerをApp compositionで接続する |
+| WebRTC | `.routeManagedMediaStream` | native WebRTC media streamのlifecycleだけを扱う | packet audio pipelineへ流さない |
+
+WebRTC active時にapp-managed packet audioを流さない。WebRTC codec negotiationはnative WebRTC側に閉じる。
+
+## Handover
+
+| 条件 | `.singleRoute` | `.automaticFallback` | `.automaticFallbackAndRestore` |
+|---|---|---|---|
+| preferred route接続失敗 | `failed`へ進む | fallback候補へ切り替える | fallback候補へ切り替える |
+| active route切断 | `failed`へ進む | fallback候補へ切り替える | fallback候補へ切り替える |
+| fallback後にpreferred復帰 | 戻らない | 戻らない | `restoreProbeDuration`後にpreferredへ戻す |
+| opt-out済みroute | 候補にしない | 候補にしない | 候補にしない |
+| fallback候補なし | `failed`へ進む | `error(.noEnabledRoute)`または`failed` | `error(.noEnabledRoute)`または`failed` |
+
+| media状態 | handover動作 | 外部出力 |
+|---|---|---|
+| media未開始 | 新routeのconnectionだけを開始する | `routeChanged(isHandoverInProgress: true/false)` |
+| media開始済み | 新routeで`startMedia()`し、`handoverFadeDuration`後に旧routeのmediaを止める | `routeChanged`, `stateChanged(.mediaReady)` |
+| `keepsFallbackRouteWarm == true` | 旧route connectionを残せる | runtime statusでactive/media route差分を見る |
+| `keepsFallbackRouteWarm == false` | handover後に旧route connectionを止める | `routeChanged` |
+| `keepsPreferredRouteInStandby == true` | preferred以外もstandby接続できる | fallbackまでの待ち時間を短くできる |
+
+```mermaid
+sequenceDiagram
+    participant RM as RouteManager
+    participant Old as old active route
+    participant New as fallback route
+    Old-->>RM: failed / disconnected
+    RM-->>RM: select enabled fallback route
+    RM->>New: startConnection()
+    alt media already started
+        RM->>New: startMedia()
+        RM-->>RM: wait handoverFadeDuration
+        RM->>Old: stopMedia()
+    end
+    opt keep old route not warm
+        RM->>Old: stopConnection()
+    end
+    RM-->>App: routeChanged + runtimeStatus
+```
+
+## Runtime Status
 
 | 項目 | 仕様 |
 |---|---|
 | namespace | `rideintercom.rtc.runtimeStatus` |
-| 送信契機 | `RouteManager` が接続開始、route状態変更、media開始/停止、local mute / output mute / remote volume変更、package report更新、定期周期で送信する |
-| delivery | routeがunreliable application dataに対応する場合は `.unreliable`、非対応の場合は `.reliable` を使う |
-| periodic | `RTCRuntimeStatusPolicy.periodicInterval` に従う。既定は5秒。`nil` または0以下で定期送信しない |
-| 受信 | 通常の `.receivedApplicationData` として通知し、`RTCRuntimeStatusTransport.decode(_:)` で package status か判定できる |
-| 状態粒度 | session ID、local / expected peers、`CallConnectionState`、media開始状態、mute、peer volume、active/media route、route availability、route capabilities、media ownership、selected audio codec、route設定、audio format、codec設定、他packageのruntime report |
-| package report | `updateRuntimePackageReports(_:)` で `RTCRuntimePackageReport` を渡す。RTC はpayloadを解釈せず、package名、kind、contentType、payloadをstatusへ同梱する |
-| App境界 | App は RTC接続状態、通信設定、codec設定、media ownership を表示用に再構成しない。package status をそのまま Diagnostics の入力にする |
+| delivery | unreliableが使えるrouteではunreliable、使えない場合はreliable |
+| trigger | connection、route、media、local mute、output mute、package report、periodic |
+| payload | session、peers、connection state、active/media route、route capabilities、audio policy、package reports |
+| package report | RTCはpayloadを解釈せず、package名、kind、contentType、payloadを保持する |
 
-## Audio codec
+RTC statusは通信状態だけを確定情報として持つ。Mixer volume、Codec fallback、hardware formatは各packageのreportとして同梱する。
 
-| 項目 | 仕様 |
-|---|---|
-| codec識別子 | `AudioCodecIdentifier` は文字列値型とする。固定enumにせず、Audio packageや将来codecが独自identifierを追加できるようにする |
-| Audio/Codecとの対応 | `pcm16`、`mpeg4AACELDv2`、`opus` は `Audio/Codec.CodecIdentifier.rawValue` と同じ文字列にする |
-| codec設定 | `CallStartRequest.audioCodecConfiguration.preferredCodecs` に優先順を渡す。既定は `pcm16` とする |
-| codec実装 | `AudioFrameCodec` が `AudioFrame` から `EncodedAudioFrame` へのencodeと、逆方向のdecodeを提供する |
-| app bridge | アプリは `Audio/Codec.AudioCodec` のencode/decodeを `AnyAudioFrameCodec` または独自 `AudioFrameCodec` に包み、`AudioCodecRegistry` として `CallSessionFactoryConfiguration.packetAudioCodecRegistry` に渡す |
-| codec登録 | `AudioCodecRegistry` に複数の `AudioFrameCodec` を登録する。登録済みcodecだけがpacket audio routeで選択可能になる |
-| built-in codec | `PCM16AudioCodec` を標準提供する。既存の `PCMAudioCodec.encode/decode` はAudio/CodecのPCM16と同じsigned little-endian変換に揃える |
-| 未対応codec | 優先codecとroute対応codecが一致しない場合は `unsupportedAudioCodec` を通知し、routeをavailableにしない |
-| wire envelope | `EncodedAudioFrame.codec`、`AudioFormatDescriptor`、sequence、capturedAt、sampleCount、payloadを保持する。受信側はcodec identifierでdecode実装を選ぶ |
-| WebRTC route | `route-managed` として扱う。アプリから `sendAudioFrame` されたPCM/encoded packetをWebRTCへ流さず、native WebRTC側のcodec negotiationに任せる |
+## Error I/O
 
-| codec | 提供元 | RTC依存 | Audio package連携 | 主用途 |
-|---|---|---|---|---|
-| `pcm16` | `RTC` built-in | なし | Audio package不要 | Multipeer packet audioの標準経路とテスト基準 |
-| `mpeg4AACELDv2` | `Audio/Codec` | `RTC` はidentifierだけを定義 | アプリが `AudioFrameCodec` としてregistryへ注入 | AVFoundation系低遅延codec候補 |
-| `opus` | `Audio/Codec` | `RTC` はidentifierだけを定義 | アプリが `AudioFrameCodec` としてregistryへ注入 | 低bitrate packet audio候補 |
-| `route-managed` | route実装 | `WebRTCInternetRoute` のcapabilityで表現 | Audio packageとは接続しない | WebRTC native media stream |
-
-| アプリでの接続手順 | 依存方向 | 実装内容 | 完了条件 |
+| エラー出力 | 発生条件 | 外部から見える場所 | 利用者が取る行動 |
 |---|---|---|---|
-| package import | App -> RTC / App -> Audio/Codec | アプリtargetが `RTC` と `Codec` をimportする | `RTC` package manifestにAudio package dependencyを追加しない |
-| format変換 | App内 | `AudioFormatDescriptor` と `CodecAudioFormat` を同じsampleRate/channelCountで相互変換する | アプリがOSやroute別にformat差分を持ち込まない |
-| codec変換 | App内 | `EncodedAudioFrame` と `EncodedCodecFrame` を同じsequence/capturedAt/sampleCount/payloadで相互変換する | packet audio envelopeがAudio/Codecのdecodeに必要なmetadataを失わない |
-| registry注入 | App -> RTC | `AudioCodecRegistry(codecs:)` を作り `CallSessionFactoryConfiguration.packetAudioCodecRegistry` に渡す。RTC package が必要な route に registry を配る | `CallStartRequest.audioCodecConfiguration.preferredCodecs` の優先順でcodecが選ばれる |
-| built-in fallback | RTCのみ | `PCM16AudioCodec` を使用する | Audio/Codecをまだ接続しなくてもRTC単体テストとMultipeer packet audioが動作する |
+| `noEnabledRoute` | enabled routeが空、または構築可能routeがない | `CallSessionEvent.error` | route設定とplatform import可否を確認する |
+| `routeUnavailable` | preferred routeが使えない | `CallSessionEvent.error` | preferredをenabled routeへ含めるかfallbackを有効にする |
+| `signalingUnavailable` | WebRTC signaling設定がない | `CallSessionEvent.error`, `RouteAvailability` | production `WebRTCSignalingClient`とCloudflare設定を渡す |
+| `connectionFailed` | route接続が失敗した | `CallSessionEvent.error`, `stateChanged(.failed)` | error message、OS権限、backend状態を見る |
+| `unsupportedApplicationDataDelivery` | route capabilityとdelivery modeが一致しない | `CallSessionEvent.error` | reliable/unreliable指定をroute capabilityへ合わせる |
+| `unsupportedAudioCodec` | packet codecがroute policyにない | route error、packet drop | `RTCAudioPolicy.preferredCodecs`とCodec設定を合わせる |
+| duplicate packet | 同一peer/sequenceを受信した | drop metrics | 送信sequence管理を確認する |
+| expired packet | packet lifetimeを超えた | drop metrics | network delay、packet lifetime、playout delayを確認する |
+| decrypt failure | AES-GCM復号に失敗した | drop / route error | credentialのgroupID/secret不一致を確認する |
+| `Native WebRTC SDK is unavailable` | base engineまたはbinary import不可 | `RouteAvailability.reason` | `RTCNativeWebRTC` productと`WebRTC.xcframework`を確認する |
+| `WebRTC route configuration is unavailable` | providerが`nil`を返した | `RouteAvailability.reason` | `CloudflareRealtimeConfiguration`を返す |
 
-## 音声責務
+エラーはI/Oである。RTCではthrowだけでなく、`CallSessionEvent.error`、`RouteAvailability.reason`、`RouteMetrics.droppedAudioFrameCount`、runtime statusを外部出力として扱う。
 
-| 経路 | `AudioMediaOwnership` | アプリから `sendAudioFrame` | RTC側責務 |
-|---|---|---|---|
-| Multipeer | `appManagedPacketAudio` | 使用する | codec選択、encode、encrypt、sequence、receive filter、decode、send/receive |
-| WebRTC | `routeManagedMediaStream` | 使用しない | `RTCAudioTrack`、peer connection、DataChannel、stats取得境界 |
+## Diagnostics Matrix
 
-`RouteManager` は active route が `appManagedPacketAudio` を持つ場合だけ `sendAudioFrame` を転送する。WebRTC active時にアプリが `sendAudioFrame` を呼んでも、音声サンプルは route に渡さない。
+| 観点 | 見るevent/report | 読み方 |
+|---|---|---|
+| lifecycle | `stateChanged` | `preparing -> connecting -> connected -> mediaReady`へ進むか |
+| active route | `routeChanged.activeRoute` | control/app dataを送るroute |
+| media route | `routeChanged.mediaRoute` | mediaを持つroute |
+| availability | `routeAvailabilityChanged` | OS/backend/credential前提の失敗理由 |
+| member | `membersChanged` | 認証済みpeerの集合 |
+| packet receive | `receivedAudioPacket` | Multipeer packet audioだけで出る |
+| app data | `receivedApplicationData` | runtime statusやmute stateもここに入る |
+| packet quality | `metricsChanged` | received/drop/queued、playout delay、active peer count |
+| package reports | `RTCRuntimeStatus.packageReports` | Audio/Codec/Mixer/SessionManagerの状態はここで読む |
 
-## 経路選択
-
-| 設定 | 意味 |
-|---|---|
-| `enabledRoutes` | ユーザー設定で opt-in / opt-out されたrouteだけを使用する |
-| `preferredRoute` | 最初に接続するroute。通常は `.multipeer` |
-| `selectionMode.singleRoute` | 優先routeだけを使う |
-| `selectionMode.automaticFallback` | 優先routeが失敗したら別routeへ切り替える |
-| `selectionMode.automaticFallbackAndRestore` | fallback後も優先routeを監視し、復帰可能なら戻す |
-| `startsStandbyConnections` | fallback候補routeを接続standbyまで進める |
-| `keepsPreviousRouteWarmDuringHandover` | handover中に旧routeを即切断せず、media fade後に停止する |
-
-アプリは route 実体を組み立てない。アプリは `CallSessionFactoryConfiguration` に `CallRouteConfiguration` と bridge 済みの `AudioCodecRegistry` を渡し、RTC package が `.multipeer` と `.webRTC` の route set を構築する。これにより route 追加、WebRTC engine 差し替え、signaling 差し替え、fallback policy は RTC package の責務として閉じる。
-
-```mermaid
-sequenceDiagram
-    participant App as RideIntercom App
-    participant Session as RTC.CallSession
-    participant Manager as RouteManager
-    participant MC as MultipeerLocalRoute
-    participant WEB as WebRTCInternetRoute
-    App->>Session: prepare request
-    Session->>Manager: prepare enabled routes
-    Manager->>MC: prepare
-    Manager->>WEB: prepare
-    App->>Session: startConnection
-    Manager->>MC: startConnection
-    Manager->>WEB: startConnection when standby enabled
-    MC-->>Manager: failed or disconnected
-    Manager->>WEB: handover startConnection
-    WEB-->>Manager: connected
-    App->>Session: startMedia
-    Manager->>WEB: startMedia
-    MC-->>Manager: available again
-    Manager->>MC: restore when policy allows
-```
-
-## Multipeer route
-
-| 項目 | 仕様 |
-|---|---|
-| service type | `ride-intercom` |
-| discovery info | `groupHash` を含める |
-| invite context | `groupHash` を含める |
-| handshake | `RouteHandshakeMessage` を HMAC-SHA256 で検証する |
-| payload | `MultipeerWireMessage` で control / application data / packet audio を分離する |
-| 暗号化 | packet audio payload は `RTCCredential.sharedSecret` から AES-GCM で保護する |
-| media開始前 | control と handshake は可能。packet audioは送受信しない |
-| codec選択 | `CallStartRequest.audioCodecConfiguration.preferredCodecs` と `MultipeerLocalRoute` の `AudioCodecRegistry.supportedCodecs` から最初に一致したcodecを使う |
-| codec注入 | `MultipeerLocalRoute(displayName:codecRegistry:packetAudioReceiveConfiguration:)` で外部codecと受信timing設定を注入できる。未指定時は `PCM16AudioCodec` と標準receive設定を使う |
-| 重複排除 | `PacketAudioReceiveFilter` が `peerID + sequenceNumber` の重複packetを破棄する |
-| playout制御 | route内部の受信bufferが受信済みpacketを指定delay後に peer / sequence 順で `receivedAudioFrame` event として渡す |
-| 受信診断 | ready化、期限切れdrop、queue数は public buffer report ではなく `RouteMetrics` に正規化して通知する |
-
-## WebRTC route
-
-| 項目 | 仕様 |
-|---|---|
-| backend | Cloudflare Realtime SFU and TURN services |
-| signaling | `WebRTCSignalingClient` で差し替え可能にする |
-| native SDK | `RTCNativeWebRTC.WebRTCNativeEngine` がlocal binary targetの `WebRTC.xcframework` を使用する |
-| public API | `WebRTCSessionDescription`, `WebRTCIceCandidate`, `WebRTCIceServer` のwrapperだけを公開する |
-| audio | `RTCAudioTrack` をroute-managed mediaとして扱う |
-| offer / answer | remote peer 参加時に offer を生成し、incoming offer には peer connection を確保して answer を返す |
-| ICE candidate | native engine が生成した local candidate を `WebRTCSignalingClient` へ渡す |
-| app data | `RTCDataChannel` を優先し、未接続時は signaling client にfallbackする |
-| DataChannel受信 | `ApplicationDataMessage` としてdecodeし、`RouteEvent.receivedApplicationData` へ正規化する |
-| build分離 | `RTC` targetはnative SDK非依存、`RTCNativeWebRTC` targetだけが `import WebRTC` する |
-
-### WebRTC binary の自前ビルド
+## WebRTC Binary
 
 | 項目 | 方針 |
 |---|---|
-| source | `https://webrtc.googlesource.com/src` を使用する |
-| checkout | Chromium / WebRTC source は RideIntercom repository に含めない。`WEBRTC_BUILD_ROOT` 配下に取得する |
-| depot_tools | `DEPOT_TOOLS_DIR` で指定する。未指定時はrepository親ディレクトリの `../depot_tools` を使う |
-| build wrapper | `scripts/build-webrtc-xcframework.sh` を使用する |
-| 通常コマンド | `scripts/build-current-webrtc-xcframework.sh` を使用する。`WEBRTC_BRANCH` 未指定時はChromium DashboardからstableのWebRTC branch-headを取得する |
-| header検証 | `scripts/verify-webrtc-xcframework.sh` で `RTCAudioSource.h`、`RTCPeerConnection.h`、`RTCDataChannel.h` などを各sliceで検証する |
-| 成果物 | 検証済みの `WebRTC.xcframework` を binary target の入力にする。巨大なWebRTC source treeはcommitしない |
-| 後片付け | `scripts/clean-webrtc-build-resources.sh` を使用する。標準はdry-runで、削除時は `DRY_RUN=false` を明示する |
+| source | `https://webrtc.googlesource.com/src` |
+| repo管理 | Chromium / WebRTC source treeはrepositoryに含めない |
+| artifact | 検証済み`WebRTC.xcframework`をbinary targetに渡す |
+| build wrapper | `scripts/build-webrtc-xcframework.sh` |
+| stable build | `scripts/build-current-webrtc-xcframework.sh` |
+| header検証 | `scripts/verify-webrtc-xcframework.sh` |
+| cleanup | `scripts/clean-webrtc-build-resources.sh`。削除時はdry-run解除を明示する |
 
 | platform | build target | framework構造 | 差分の扱い |
 |---|---|---|---|
-| iOS device | `framework_objc` / `target_os="ios"` / `target_environment="device"` | `WebRTC.framework/Headers` | arm64のみをxcframework sliceに入れる |
-| iOS simulator | `framework_objc` / `target_os="ios"` / `target_environment="simulator"` | `WebRTC.framework/Headers` | x86_64とarm64をlipoで統合する |
-| macOS | `mac_framework_objc` / `target_os="mac"` | `WebRTC.framework/Versions/A/Headers` | x86_64とarm64をlipoで統合する。Headers欠落がある場合はiOS device sliceのpublic headersで補完してから検証する |
+| iOS device | `framework_objc`, `target_environment="device"` | `WebRTC.framework/Headers` | arm64 slice |
+| iOS simulator | `framework_objc`, `target_environment="simulator"` | `WebRTC.framework/Headers` | x86_64 / arm64を統合 |
+| macOS | `mac_framework_objc`, `target_os="mac"` | `WebRTC.framework/Versions/A/Headers` | x86_64 / arm64を統合 |
 
-`CloudflareRealtimeSignalingClient` は production 実装ではなく placeholder とする。実運用では Cloudflare room作成、participant token、offer / answer / ICE candidate 送受信を実装した `WebRTCSignalingClient` を注入する。
+## Test Matrix
 
-## Handover
-
-| 状態 | 動作 |
+| 観点 | 確認 |
 |---|---|
-| active route が失敗 | `RouteManager` が fallback候補を選び、`startConnection` を呼ぶ |
-| media開始済み | 新routeでmediaを開始し、`handoverFadeDuration` 後に旧routeのmediaを止める |
-| 旧route warm維持 | 設定が有効なら旧connectionは維持し、mediaだけ止める |
-| 優先route復帰 | `automaticFallbackAndRestore` の場合だけ優先routeへ戻す |
-| 有効routeなし | `UnavailableCallSession` が明示的に `noEnabledRoute` を通知する |
-
-## テスト方針
-
-| テスト対象 | 検証内容 |
-|---|---|
-| wire payload | application data と packet audio が別 payload として扱われる |
-| codec selection | 優先codecがregistryに存在する場合、そのcodec identifierがpacket audio envelopeに保持される |
-| codec rejection | 優先codecがregistryに存在しない場合、packet audio routeが未対応codecとして失敗する |
-| route filtering | `enabledRoutes` でopt-outされたrouteを準備しない |
-| fallback | Multipeer失敗時にWebRTCへ自動切替する |
-| audio ownership | `routeManagedMediaStream` active時に `sendAudioFrame` を転送しない |
-| packet audio receive filter | 重複packetが `PacketAudioReceiveFilter` で破棄される |
-| packet audio receive buffer | delay前のframeを返さず、ready frameを peer / sequence 順で返し、期限切れframeをdrop数へ反映する |
-| packet audio metrics | 受信数、drop数、queue数が `RouteMetrics` に正規化される |
-| SDK adapter | local binary targetのSwiftPM解決と `RTCNativeWebRTC` buildを検証する |
-
-## 実装上の注意
-
-| 項目 | 注意 |
-|---|---|
-| native型の漏れ | app-facing API と `RTC` target public API に `RTCPeerConnection` などを出さない |
-| route追加 | 新routeは `RTCCallRoute` と `RouteCapabilities` から追加する |
-| codec追加 | 新codecはアプリ側で `AudioFrameCodec` 実装または `AnyAudioFrameCodec` として登録する。`RTC` targetからAudio packageへ直接依存しない |
-| app data schema | アプリ定義 namespace のschemaはRTC packageに置かない。RTC runtime status の package-owned namespace だけは `RTCRuntimeStatusTransport` で定義する |
-| audio format | Multipeer packet audioではcodec identifier、`AudioFormatDescriptor`、sampleCountをwire envelopeに含める |
-| 診断 | TX/RX/JIT、route metrics、backend detail はCall画面ではなくDiagnosticsへ集約する |
-| サーバー | Cloudflare以外の独自サーバー機能は追加しない |
+| metadata | codec、format、bit rate、payloadをenvelope後も保持する |
+| mixed format receive | sample rate / channel count / bit rateの違いでdropしない |
+| drop policy | unsupported codec、duplicate、expired、decrypt failureをdropする |
+| DSP absence | RTC targetがAudio packageとDSP型に依存しない |
+| Multipeer route | advertise/browse、groupHash filter、HMAC handshake、AES-GCM packet audioを確認する |
+| WebRTC route | signaling injection、SDP/ICE relay、route-managed media、DataChannel fallbackを確認する |
+| route-managed media | WebRTCがapp-managed packet audioを使わない |
+| runtime status | route状態、audio policy、package reportを送信できる |
+| App migration | 旧RTC audio APIなしで、AudioCore/Codec/AudioMixer/RTCをcompositionできる |

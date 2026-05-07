@@ -1,6 +1,6 @@
 import Foundation
 
-public final class RouteManager: CallSession {
+public final class RouteManager: CallSession, @unchecked Sendable {
     public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
 
     private let eventSource = EventSource<CallSessionEvent>()
@@ -17,7 +17,6 @@ public final class RouteManager: CallSession {
     private var routeAvailabilities: [RouteKind: RouteAvailability] = [:]
     private var localMute = false
     private var outputMute = false
-    private var remoteOutputVolumes: [PeerID: Float] = [:]
     private var runtimePackageReports: [RTCRuntimePackageReport] = []
     private var fallbackTask: Task<Void, Never>?
     private var restoreTask: Task<Void, Never>?
@@ -72,8 +71,7 @@ public final class RouteManager: CallSession {
             expectedPeers: request.expectedPeers,
             credential: request.credential,
             configuration: request.configuration.normalized(),
-            audioFormat: request.audioFormat,
-            audioCodecConfiguration: request.audioCodecConfiguration
+            audioPolicy: request.audioPolicy
         )
 
         self.request = normalizedRequest
@@ -164,9 +162,9 @@ public final class RouteManager: CallSession {
         await sendRuntimeStatus(reason: .mediaStopped)
     }
 
-    public func sendAudioFrame(_ frame: AudioFrame) async {
+    public func sendAudioPacket(_ packet: RTCAudioPacket) async {
         guard let route = mediaRoute.flatMap({ routes[$0] }), route.capabilities.supportsAppManagedPacketAudio else { return }
-        await route.sendAudioFrame(frame)
+        await route.sendAudioPacket(packet)
     }
 
     public func sendApplicationData(_ message: ApplicationDataMessage) async {
@@ -204,14 +202,6 @@ public final class RouteManager: CallSession {
         await sendRuntimeStatus(reason: .localControlsChanged)
     }
 
-    public func setRemoteOutputVolume(peerID: PeerID, volume: Float) async {
-        remoteOutputVolumes[peerID] = volume
-        for route in routes.values {
-            await route.setRemoteOutputVolume(peerID: peerID, volume: volume)
-        }
-        await sendRuntimeStatus(reason: .localControlsChanged)
-    }
-
     private func bindRouteEvents() {
         routeTasks.forEach { $0.cancel() }
         routeTasks = routes.values.map { route in
@@ -243,8 +233,8 @@ public final class RouteManager: CallSession {
             await sendRuntimeStatus(reason: .routeChanged)
         case .receivedApplicationData(_, let data):
             emit(.receivedApplicationData(data))
-        case .receivedAudioFrame(_, let frame):
-            emit(.receivedAudioFrame(frame))
+        case .receivedAudioPacket(_, let packet):
+            emit(.receivedAudioPacket(packet))
         case .metricsChanged(let metrics):
             emit(.metricsChanged(metrics))
         case .error(_, let error):
@@ -427,9 +417,6 @@ public final class RouteManager: CallSession {
             isMediaStarted: isMediaStarted,
             localMute: localMute,
             outputMute: outputMute,
-            remoteOutputVolumes: remoteOutputVolumes
-                .map { RTCPeerOutputVolume(peerID: $0.key, volume: $0.value) }
-                .sorted { $0.peerID.rawValue < $1.peerID.rawValue },
             routeSnapshot: routeSnapshot(),
             routes: routes.values
                 .sorted { $0.kind.rawValue < $1.kind.rawValue }
@@ -448,20 +435,19 @@ public final class RouteManager: CallSession {
                 },
             packageReports: runtimePackageReports,
             configuration: configuration,
-            audioFormat: request.audioFormat,
-            audioCodecConfiguration: request.audioCodecConfiguration
+            audioPolicy: request.audioPolicy
         )
     }
 
     private func selectedAudioCodec(
         for route: RTCCallRoute,
         request: CallStartRequest
-    ) -> AudioCodecIdentifier? {
+    ) -> RTCAudioCodecIdentifier? {
         let supported = route.capabilities.supportedAudioCodecs
         if route.mediaOwnership == .routeManagedMediaStream {
             return supported.first ?? .routeManaged
         }
-        return request.audioCodecConfiguration.preferredCodecs.first { supported.contains($0) } ?? supported.first
+        return request.audioPolicy.preferredCodecs.first { supported.contains($0) } ?? supported.first
     }
 
     private func emitState(_ state: CallConnectionState) {

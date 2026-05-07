@@ -1,199 +1,237 @@
 # Codec 仕様
 
-Codec は RideIntercom のアプリ管理音声を、RTC へ渡せる packet payload に変換する Swift Package である。
+`Codec` は `AudioCore.PCMFrame` と encoded payload を相互変換する Swift Package である。PCM の format 変換は行わない。
 
-このライブラリは Float PCM の encode、受信 payload の自動 decode、codec ごとの設定値、transport 可能な frame metadata だけを扱う。マイク取得、ミキシング、Effect chain、RTC 経路選択、暗号化、jitter buffer、WebRTC route-managed media は責務に含めない。
+この仕様書は利用者が外部I/Oを理解し、改修者が codec 追加や payload 変更の影響範囲を判断できることを目的とする。
 
-## 目的
-
-| 観点 | 仕様 |
-|---|---|
-| 主目的 | App が codec 差分を意識せず `PCMCodecFrame -> EncodedCodecFrame`、`EncodedCodecFrame -> PCMCodecFrame` を呼べるようにする |
-| 利用箇所 | Mixer に入る前の受信 decode、Mixer 以降または送信直前の encode、RTC packet payload 生成前後 |
-| 非目的 | capture / playback device 制御、sample rate 変換、音声品質評価、network packetization、WebRTC native codec negotiation |
-| 設計姿勢 | encode は App 設定で codec と codec 固有 option を選ぶ。decode は frame metadata の `codec` を見て自動選択する |
-
-## パッケージ構成
-
-| 項目 | 内容 |
-|---|---|
-| パス | `RideIntercom/packages/Audio/Codec` |
-| Package 名 | `Codec` |
-| Product | `Codec` library |
-| 対応プラットフォーム | iOS 26.4 以降、macOS 26.4 以降 |
-| 使用フレームワーク | `Foundation`, `AVFAudio`, `AudioToolbox` |
-| テスト | Swift Testing による SwiftPM テスト |
-
-## 対応 codec
-
-| `CodecIdentifier` | 表示名 | AudioToolbox format | encode | decode | 備考 |
-|---|---|---|---|---|---|
-| `pcm16` | PCM 16-bit | `kAudioFormatLinearPCM` | 常時対応 | 常時対応 | signed 16-bit little-endian。外部依存なし |
-| `mpeg4AACELDv2` | MPEG-4 AAC-ELD v2 | `kAudioFormatMPEG4AAC_ELD_V2` | `AVAudioConverter` が対応する環境で対応 | `AVAudioConverter` が対応する環境で対応 | payload 内に packet description を含める |
-| `opus` | Opus | `kAudioFormatOpus` | `AVAudioConverter` が対応する環境で対応 | `AVAudioConverter` が対応する環境で対応 | payload 内に packet description を含める |
-
-`CodecSupport.isEncodingAvailable(for:)` と `CodecSupport.isDecodingAvailable(for:format:)` は現在環境で `AVAudioConverter` が該当 codec を扱えるかを返す。PCM16 は常に `true` を返す。
-
-## 公開 API
-
-| API | 種別 | 役割 |
-|---|---|---|
-| `AudioCodec` | final class | App が気軽に使うための encode/decode 兼用 facade |
-| `CodecEncoder` | final class | `CodecEncodingConfiguration` に従って `PCMCodecFrame` を `EncodedCodecFrame` に変換する |
-| `CodecDecoder` | final class | `EncodedCodecFrame.codec` を見て自動 decode する |
-| `CodecEncodingConfiguration` | struct | 送信 codec、既定 audio format、AAC/Opus option を保持する |
-| `CodecRuntimeReport` | struct | requested configuration、実際に使う active configuration、利用可能 codec、fallback有無を返す |
-| `CodecIdentifier` | enum | `pcm16`, `mpeg4AACELDv2`, `opus` を表す |
-| `CodecAudioFormat` | struct | sample rate と channel count を表す |
-| `PCMCodecFrame` | struct | Float PCM samples と sequence / format / timestamp を持つ |
-| `EncodedCodecFrame` | struct | codec、format、timestamp、sample count、transport payload を持つ |
-| `PCM16Codec` | enum | PCM16 の純 Swift encode/decode helper |
-| `CodecSupport` | enum | codec availability を確認する |
-| `CodecError` | enum | codec 不対応、payload 不正、変換失敗などの失敗理由を表す |
-
-## 設定仕様
-
-### `CodecAudioFormat`
-
-| 設定 | 型 | 入力範囲 | 既定値 | 備考 |
-|---|---|---|---|---|
-| `sampleRate` | `Double` | `8_000...96_000` | `48_000` | 範囲外入力は初期化時に丸める |
-| `channelCount` | `Int` | `1...2` | `1` | samples は frame ごとの interleaved 配列として扱う |
-
-`channelCount = 2` の場合、`samples` は `[L0, R0, L1, R1, ...]` の順で渡す。sample 数が channel 数で割り切れない場合、圧縮 codec encode は `CodecError.invalidSampleCount` を返す。
-
-### `CodecEncodingConfiguration`
-
-| 設定 | 型 | 既定値 | 備考 |
-|---|---|---|---|
-| `codec` | `CodecIdentifier` | `pcm16` | encode 時に使う codec |
-| `format` | `CodecAudioFormat` | `48kHz / mono` | `AudioCodec.encode(sequenceNumber:samples:)` の既定 format |
-| `aacELDv2Options` | `AACELDv2Options` | `bitRate = 24_000` | `mpeg4AACELDv2` 選択時だけ使う |
-| `opusOptions` | `OpusOptions` | `bitRate = 32_000` | `opus` 選択時だけ使う |
-
-| Options | 設定 | 入力範囲 | 既定値 |
-|---|---|---|---|
-| `AACELDv2Options` | `bitRate` | `12_000...128_000` | `24_000` |
-| `OpusOptions` | `bitRate` | `6_000...128_000` | `32_000` |
-
-## Encode / Decode 仕様
-
-| 処理 | 仕様 |
-|---|---|
-| PCM encode | Float sample を `-1.0...1.0` に丸め、signed 16-bit little-endian の `Data` にする |
-| PCM decode | byte 数が偶数であることを検証し、signed 16-bit little-endian から Float PCM に戻す |
-| AAC / Opus encode | Float32 PCM の `AVAudioPCMBuffer` を `AVAudioConverter` で compressed buffer に変換する |
-| AAC / Opus decode | payload 内の packet description と compressed bytes を使い `AVAudioConverter` で Float32 PCM に戻す |
-| Decode 自動選択 | `EncodedCodecFrame.codec` を見て codec を選ぶ。decoder 側に送信設定は渡さない |
-| 空 samples | PCM は空 `Data`、AAC / Opus は空 payload envelope として扱い、decode 結果は空 samples になる |
-
-AAC / Opus の payload は raw compressed bytes だけではなく、`AVAudioCompressedBuffer` の packet description、packet count、元の sample count を含む opaque `Data` である。RTC や保存層は `EncodedCodecFrame.payload` をそのまま transport し、内容を解釈しない。
-
-## 接続例
-
-### 送信側
-
-```swift
-import Codec
-
-let codec = AudioCodec(
-    configuration: CodecEncodingConfiguration(
-        codec: .pcm16,
-        format: CodecAudioFormat(sampleRate: 48_000, channelCount: 1)
-    )
-)
-
-let encoded = try codec.encode(
-    sequenceNumber: nextSequenceNumber,
-    samples: mixedSamples
-)
-
-// RTC 側 envelope には encoded.codec / encoded.format / encoded.payload を渡す。
-```
-
-### 受信側
-
-```swift
-import Codec
-
-let decoder = CodecDecoder()
-let decoded = try decoder.decode(encodedFrameFromRTC)
-
-// decoded.samples を Mixer または playback queue に渡す。
-```
-
-### codec availability による fallback
-
-```swift
-let requested = CodecEncodingConfiguration(codec: .opus)
-let report = CodecRuntimeReport.resolving(requested)
-let configuration = report.activeConfiguration
-
-let codec = AudioCodec(configuration: configuration)
-```
-
-## Runtime report
+## Package Profile
 
 | 項目 | 仕様 |
 |---|---|
-| 解決API | `CodecRuntimeReport.resolving(_:)` は requested configuration を受け取り、現在環境で使える active configuration を返す |
-| facade挙動 | `AudioCodec.init(configuration:)` と `AudioCodec.apply(_:)` は `CodecRuntimeReport` で解決した active configuration を encoder に適用する |
-| selected codec | `selectedCodec` は実際に encode へ使う codec を表す |
-| fallback | requested codec が利用不可の場合、`pcm16` へfallbackし、`isFallback = true` として report に残す |
-| available codecs | `availableCodecs` は現在環境で encode/decode の両方が成立する codec 一覧を返す |
-| Diagnostics | App は codec の可用性判定やfallback表示文字列を自前で作らず、`CodecRuntimeReport` の requested / active / fallback を表示へ渡す |
-| transport | `CodecRuntimeReport` は `Codable` とし、RTC の package runtime report payload にそのまま載せられる |
+| パス | `RideIntercom/packages/Audio/Codec` |
+| Product | `Codec` library |
+| 依存 | `AudioCore` |
+| 実装基盤 | `Foundation`, `AVFAudio`, `AudioToolbox`, `AVAudioConverter` |
+| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降 |
+| Swift | Swift `6` |
+| テスト | Swift Testing の SwiftPM テスト |
 
-## RTC との境界
+## Boundary
 
-| 項目 | Codec 側 | RTC 側 |
+| 持つ | 持たない |
+|---|---|
+| `PCMFrame -> EncodedCodecFrame` | resample |
+| `EncodedCodecFrame -> PCMFrame` | channel mix |
+| codec identifier | gain / volume |
+| codec option / bit rate | mixer routing |
+| encode / decode availability | packet envelope / encryption / jitter |
+| fallback runtime report | WebRTC native codec negotiation |
+| payload validation | hardware capture / render |
+
+```mermaid
+flowchart LR
+    MixerSend[AudioMixer sink<br/>codec target format]
+    Encoder[CodecEncoder]
+    Encoded[EncodedCodecFrame<br/>metadata + opaque payload]
+    RTC[RTC / storage / transport]
+    Decoder[CodecDecoder]
+    MixerRecv[AudioMixer source<br/>decoded original format]
+
+    MixerSend --> Encoder --> Encoded --> RTC --> Encoded --> Decoder --> MixerRecv
+```
+
+## Public Contract
+
+| 型 | 種別 | 外部仕様 |
 |---|---|---|
-| codec 選択 | `CodecEncodingConfiguration.codec` | route policy や signaling で許可 codec を決める |
-| payload 生成 | `EncodedCodecFrame.payload` | packet envelope に格納して送る |
-| payload 解釈 | `CodecDecoder` | transport では opaque `Data` として扱う |
-| sequence / timestamp | `PCMCodecFrame` / `EncodedCodecFrame` に保持 | RTC の envelope と対応付ける |
-| 暗号化 / 重複排除 | 対象外 | RTC package 側の責務 |
+| `AudioCodec` | facade | `CodecEncoder` と `CodecDecoder` をまとめ、configuration適用時に `CodecRuntimeReport` を更新する |
+| `CodecEncoder` | class | `CodecEncodingConfiguration.format` と一致する `PCMFrame` だけ encode する |
+| `CodecDecoder` | class | `EncodedCodecFrame.codec` から decode 経路を選び、`EncodedCodecFrame.format` の `PCMFrame` を返す |
+| `CodecEncodingConfiguration` | struct | encode codec、入力 `AudioFormat`、codec option を持つ |
+| `EncodedCodecFrame` | struct | sequence、codec、format、timestamp、sample count、bit rate、payload、`EncodedAudioMetadata` を持つ |
+| `CodecRuntimeReport` | struct | requested / active configuration、available codecs、selected codec、fallback有無を持つ |
+| `CodecSupport` | enum | 現在環境で codec encode / decode が可能かを返す |
+| `CodecIdentifier` | enum | `pcm16`, `mpeg4AACELDv2`, `opus` を表す |
+| `PCM16Codec` | enum | PCM16 の pure Swift encode / decode helper |
+| `CodecError` | enum | format不一致、payload不正、availability失敗、AudioConverter失敗を外部出力する |
 
-WebRTC が route-managed media を持つ場合、App 管理 packet audio は RTC 側で送らない。Codec は app-managed packet audio 経路でのみ使う。
+PCM の共通型は `AudioCore.AudioFormat` と `AudioCore.PCMFrame` だけを使う。Codec package 固有のPCM型は作らない。
 
-## エラー仕様
+## External I/O
+
+| 外部入力 | 正常出力 | エラー出力 | 保証 |
+|---|---|---|---|
+| `CodecEncodingConfiguration` | `CodecRuntimeReport` | なし | requested と active codec を分けて返す |
+| `AudioCodec.apply(configuration)` | `runtimeReport` 更新 | なし | availability解決後の active configuration を encoder に適用する |
+| `CodecEncoder.encode(PCMFrame)` | `EncodedCodecFrame` | `CodecError` | metadata と payload を生成する |
+| `CodecDecoder.decode(EncodedCodecFrame)` | `PCMFrame` | `CodecError` | encoded metadata の format で PCM を復元する |
+| `CodecSupport.isEncodingAvailable` | `Bool` | なし | 現在環境で encoder生成可能かを返す |
+| `CodecSupport.isDecodingAvailable` | `Bool` | なし | 現在環境で decoder生成可能かを返す |
+
+```text
+PCMFrame(format A)
+  -> CodecEncoder(configuration.format A)
+  -> EncodedCodecFrame(format A, opaque payload)
+  -> CodecDecoder
+  -> PCMFrame(format A)
+```
+
+## 対応 Codec
+
+| `CodecIdentifier` | 表示名 | AudioToolbox format | encode | decode | payload |
+|---|---|---|---|---|---|
+| `pcm16` | PCM 16-bit | `kAudioFormatLinearPCM` | 常時対応 | 常時対応 | signed 16-bit little-endian bytes |
+| `mpeg4AACELDv2` | MPEG-4 AAC-ELD v2 | `kAudioFormatMPEG4AAC_ELD_V2` | `AVAudioConverter` が対応する環境で対応 | `AVAudioConverter` が対応する環境で対応 | Codec専用 compressed envelope |
+| `opus` | Opus | `kAudioFormatOpus` | `AVAudioConverter` が対応する環境で対応 | `AVAudioConverter` が対応する環境で対応 | Codec専用 compressed envelope |
+
+| codec | 想定用途 | 運用上の注意 |
+|---|---|---|
+| `pcm16` | fallback、テスト基準、環境差を受けないpacket audio | bitrateは高い。低帯域transportでは別codecを検討する |
+| `mpeg4AACELDv2` | Apple環境での低遅延音声候補 | availability は OS / SDK / 実行環境の AudioConverter 実装に依存する |
+| `opus` | 低bitrate packet audio候補 | availability は OS / SDK / 実行環境の AudioConverter 実装に依存する |
+
+`CodecSupport` は `AVAudioConverter` を生成できるかで availability を判定する。PCM16 は外部依存がないため常に available とする。
+
+## Configuration
+
+| 設定 | 型 | 既定値 | 正規化 | 使うcodec |
+|---|---|---|---|---|
+| `codec` | `CodecIdentifier` | `pcm16` | なし | 全codec |
+| `format` | `AudioCore.AudioFormat` | `48_000Hz / mono` | `AudioFormat` の範囲正規化 | 全codec |
+| `aacELDv2Options.bitRate` | `Int` | `24_000` | `12_000...128_000` | `mpeg4AACELDv2` |
+| `opusOptions.bitRate` | `Int` | `32_000` | `6_000...128_000` | `opus` |
+
+| format項目 | 範囲 | 備考 |
+|---|---|---|
+| sample rate | `8_000...96_000` | `AudioCore.AudioFormat` が範囲外入力を丸める |
+| channel count | `1...2` | mono / stereo の interleaved samples |
+| samples | `Float` | `PCMFrame.samples` は interleaved として扱う |
+
+`CodecEncodingConfiguration.format` は encoder が受け入れるPCM formatである。入力frameと一致しない場合、Codecは変換せず `formatMismatch` を返す。
+
+## Encode / Decode
+
+| 処理 | 入力 | 出力 | 失敗 |
+|---|---|---|---|
+| PCM16 encode | `PCMFrame.samples` | signed little-endian `Data` | sample count不整合 |
+| PCM16 decode | signed little-endian `Data` | `[Float]` | odd byte count |
+| AAC / Opus encode | Float32 PCM buffer | compressed envelope `Data` | format生成失敗、encoder unavailable、conversion failed |
+| AAC / Opus decode | compressed envelope `Data` | Float32 PCM samples | malformed payload、decoder unavailable、conversion failed |
+| empty PCM | 空 samples | 空 payload または空 envelope | なし |
+| empty compressed payload | 空 envelope | 空 samples | malformed envelope の場合は失敗 |
+
+### PCM16
+
+| 項目 | 仕様 |
+|---|---|
+| sample clamp | `-1.0...1.0` |
+| 正値scale | `Int16.max` |
+| 負値scale | `32_768` |
+| endian | little-endian |
+| invalid payload | byte count が `Int16` サイズで割り切れない場合は `invalidByteCount` |
+
+### Compressed Envelope
+
+| フィールド | 目的 |
+|---|---|
+| codec | payloadを作ったcodecを検証する |
+| source sample count | decode後に元sample数へ切り詰める |
+| source frame count | output buffer容量を決める |
+| maximum packet size | compressed bufferを復元する |
+| packet count | compressed packet数を復元する |
+| packet descriptions | `AVAudioCompressedBuffer` の packet description を復元する |
+| data | compressed bytes |
+
+AAC / Opus の payload は raw compressed bytes ではない。Codec package 専用 envelope として transport し、外部decoderへ直接渡さない。
+
+## Format Policy
+
+| 項目 | 仕様 |
+|---|---|
+| 入力PCM型 | `AudioCore.PCMFrame` |
+| encode format | `CodecEncodingConfiguration.format` |
+| decode format | `EncodedCodecFrame.format` |
+| encode mismatch | `CodecError.formatMismatch(expected:actual:)` |
+| 暗黙変換 | 行わない |
+| 変換するpackage | `AudioMixer` の source ingress / sink egress |
+
+```mermaid
+flowchart LR
+    Hardware[SessionManager<br/>hardware PCM]
+    Source[MixerPCMSource]
+    Bus[AudioMixer bus format]
+    Sink[MixerPCMSink<br/>Codec format]
+    Codec[CodecEncoder]
+
+    Hardware --> Source --> Bus --> Sink --> Codec
+```
+
+送信用formatは `MixerPCMSink(targetFormat:)` を `CodecEncodingConfiguration.format` と同じ値にして作る。Codec は最終確認だけを行う。
+
+## Runtime Report
+
+| フィールド | 意味 | 利用者の扱い |
+|---|---|---|
+| `requestedConfiguration` | 呼び出し側が要求した codec / format / option | Settings や Diagnostics に表示する |
+| `activeConfiguration` | availability 解決後に実際に使う codec / format / option | encoderへ適用される設定として扱う |
+| `availableCodecs` | 現在環境で encode と decode が成立する codec | codec選択UIやfallback診断に使う |
+| `selectedCodec` | encode に使う codec | RTC metadataやDiagnosticsへ渡す |
+| `isFallback` | requested codec と selected codec が違う場合に `true` | UI通知やログに使う |
+
+`CodecRuntimeReport` は Codec package の判断だけを表す。RTC route、Mixer graph、hardware状態は推測しない。
+
+## RTC Boundary
+
+| 項目 | Codec | RTC |
+|---|---|---|
+| codec実装 | encode / decode を行う | codec identifier と payload を運ぶ |
+| payload | `EncodedCodecFrame.payload` を生成 / 解釈する | opaque `Data` として扱う |
+| format | `AudioCore.AudioFormat` を encoded metadata に保持する | `RTCAudioFormat` として通信metadataに保持する |
+| bit rate | codec option と encoded metadata に保持する | 通信上の希望や制約として運ぶ |
+| drop判断 | decode失敗を `CodecError` として返す | unsupported codec、duplicate、expired、decrypt failure を扱う |
+
+WebRTC route-managed media は native WebRTC 側の codec negotiation を使うため、この package の encode / decode 経路を通らない。
+
+## Error I/O
 
 | Error | 発生条件 | 呼び出し側の扱い |
 |---|---|---|
-| `invalidSampleCount` | samples 数が channel 数で割り切れない | capture / mixer adapter の frame 生成を修正する |
-| `invalidByteCount` | PCM16 payload の byte 数が奇数 | packet 破損として破棄する |
-| `invalidFormat` | `AVAudioFormat` を作れない format | App の format 設定を見直す |
-| `unsupportedCodec` | ライブラリ未定義 codec を扱おうとした | codec policy を修正する |
-| `encoderUnavailable` | 現在環境で該当 codec の encoder を生成できない | PCM16 へ fallback する |
-| `decoderUnavailable` | 現在環境で該当 codec の decoder を生成できない | 受信 frame を破棄し、diagnostics に残す |
-| `audioFormatCreationFailed` | compressed / PCM format 生成に失敗 | codec と format の組み合わせを見直す |
-| `conversionFailed` | `AVAudioConverter` が変換 error を返した | frame を破棄し、必要なら codec fallback する |
-| `malformedPayload` | AAC / Opus payload envelope を decode できない | packet 破損または互換性不一致として破棄する |
+| `invalidSampleCount` | samples 数が channel count で割り切れない | frame生成元を修正し、対象frameを破棄する |
+| `formatMismatch` | encoder設定formatと `PCMFrame.format` が一致しない | `MixerPCMSink` target format か codec設定を修正する |
+| `invalidByteCount` | PCM16 payload の byte count が不正 | packet破損として破棄する |
+| `invalidFormat` | `AVAudioFormat` を作れない | `AudioFormat` 設定を修正する |
+| `unsupportedCodec` | package が扱わない codec | codec policy を修正する |
+| `encoderUnavailable` | 現在環境で encoder を作れない | `CodecRuntimeReport` を確認し、別codecへ切り替える |
+| `decoderUnavailable` | 現在環境で decoder を作れない | 受信frameを破棄し、Diagnosticsへ出す |
+| `audioFormatCreationFailed` | compressed / PCM format生成に失敗 | codecとformatの組み合わせを見直す |
+| `malformedPayload` | compressed payload envelope を読めない | packet破損または互換性不一致として破棄する |
+| `conversionFailed` | codec encode / decode の AudioConverter 失敗 | frameを破棄し、必要ならfallbackする |
 
-## 制約と注意点
+エラーはI/Oである。`CodecError` は呼び出し側が握りつぶす内部例外ではなく、packet drop、Diagnostics、fallback判断へ渡す外部出力として扱う。
 
-| 観点 | 内容 |
-|---|---|
-| sample rate 変換 | 行わない。入力 PCM と `CodecAudioFormat` は一致している前提 |
-| channel layout | mono / stereo の interleaved samples のみ扱う |
-| AAC / Opus availability | OS、SDK、実行環境の AudioConverter 実装に依存する。利用前に `CodecSupport` を確認する |
-| payload 互換性 | AAC / Opus payload は Codec package 専用 envelope であり、外部 decoder へ raw bytes として直接渡さない |
-| 低遅延性 | frame size、bit rate、codec の実遅延は統合経路で実測する |
-| WebRTC native codec | WebRTC route-managed media の codec negotiation は RTC / WebRTC 側の責務 |
+## 改修者向け判断表
 
-## テスト仕様
+| 変更内容 | 変更する場所 | 同時に更新する仕様 |
+|---|---|---|
+| codec identifierを追加 | `CodecIdentifier` | 対応Codec、Configuration、Runtime Report、Test Matrix |
+| AudioToolbox formatを変更 | `CodecIdentifier.audioFormatID` | 対応Codec、Payload Specification |
+| compressed payload envelopeを変更 | `CompressedPayloadEnvelope` | Payload Specification、Error I/O、互換性テスト |
+| bit rate optionを追加 | option struct と `CodecEncodingConfiguration` | Configuration、Runtime Report |
+| format変換を入れたくなった | 変更しない。`AudioMixer` に置く | Format Policy |
+| RTC metadataを変えたくなった | `RTC` 側で扱う | RTC Boundary |
 
-| テスト観点 | 確認内容 |
+## Test Matrix
+
+| 観点 | 確認 |
 |---|---|
 | codec identifier | PCM16 / AAC-ELD v2 / Opus が期待する AudioToolbox format ID を持つ |
-| default configuration | PCM16 / 48kHz / mono / AAC 24kbps / Opus 32kbps になっている |
-| format 正規化 | sample rate と channel count が範囲内へ丸められる |
-| option 正規化 | AAC / Opus の bit rate が範囲内へ丸められる |
-| PCM16 encode | signed little-endian、clamp、round-trip を検証する |
-| PCM16 decode | 奇数 byte payload を拒否する |
-| frame metadata | sequence、format、timestamp、sample count、payload が保持される |
-| decode 自動選択 | `EncodedCodecFrame.codec` を見て PCM decode できる |
-| compressed payload validation | AAC / Opus で Codec envelope ではない payload を拒否する |
-| support | PCM16 は encode / decode とも常に available として返る |
+| default configuration | PCM16 / `48_000Hz` / mono / AAC `24kbps` / Opus `32kbps` |
+| option normalization | AAC / Opus bit rate が範囲内へ丸められる |
+| AudioCore frame | sequence、format、timestamp、sample count を encoded metadata に保持する |
+| format mismatch | 暗黙変換せず拒否する |
+| PCM16 encode | signed little-endian、clamp、round trip |
+| PCM16 decode | odd byte payload を拒否する |
+| compressed payload | Codec envelope ではない payload を拒否する |
+| runtime report | requested / active / fallback / availability を保持する |
 
-実 AudioConverter による AAC / Opus の音質、遅延、環境差は単体テストでは固定しない。統合テストまたは実機検証で、利用環境ごとの availability と品質を確認する。
+実 AudioConverter による AAC / Opus の音質、遅延、availability は環境差があるため、単体テストでは固定しない。利用環境ごとの品質と遅延は統合経路または実機検証で確認する。
