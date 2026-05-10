@@ -31,7 +31,7 @@ extension IntercomViewModel {
             if let credential = credentialStore.credential(for: selectedGroup.id) {
                 group.accessSecret = credential.secret
             }
-            callSession.setPreferredAudioCodec(preferredTransmitCodec)
+            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
             publishRuntimePackageReports(force: true)
             callSession.connect(group: group)
         }
@@ -58,14 +58,17 @@ extension IntercomViewModel {
         guard configureAudioSession(active: true),
               applyCurrentVoiceProcessingConfiguration(),
               startInputCapture(),
-              startOutputRenderer() else {
+              startOutputRenderer(),
+              rebuildAudioPipeline() else {
             callSession.stopMedia()
+            audioPipeline.stop()
             isAudioReady = false
             return false
         }
 
         callTicker.start()
         isAudioReady = true
+        callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
         refreshOtherAudioDuckingState()
         publishRuntimePackageReports(force: true)
         audioErrorMessage = nil
@@ -83,6 +86,7 @@ extension IntercomViewModel {
         let wasAudioReady = isAudioReady
         setOtherAudioDuckingActive(false)
         callSession.stopMedia()
+        audioPipeline.stop()
         _ = audioInputCapture.stop()
         _ = audioOutputRenderer.stop()
         callTicker.stop()
@@ -112,7 +116,7 @@ extension IntercomViewModel {
         if let credential = credentialStore.credential(for: selectedGroup.id) {
             group.accessSecret = credential.secret
         }
-        callSession.setPreferredAudioCodec(preferredTransmitCodec)
+        callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
         publishRuntimePackageReports(force: true)
         callSession.startStandby(group: group)
     }
@@ -228,7 +232,7 @@ extension IntercomViewModel {
         SessionManager.AudioInputVoiceProcessingConfiguration(
             soundIsolationEnabled: false,
             otherAudioDuckingEnabled: isOtherAudioDuckingActiveInternal,
-            duckingLevel: isOtherAudioDuckingActiveInternal ? .normal : .minimum,
+            duckingLevel: isOtherAudioDuckingActiveInternal ? .medium : .minimum,
             inputMuted: isMuted
         )
     }

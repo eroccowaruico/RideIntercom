@@ -1,3 +1,4 @@
+import AudioCore
 import Foundation
 import SessionManager
 
@@ -58,9 +59,9 @@ extension IntercomViewModel {
         audioCheckOutputPeakLevel = audioCheckOutputPeakWindow.record(audioCheckOutputLevel)
         audioCheckPhase = .playing
         audioCheckStatusMessage = "Playing recorded audio for 5 seconds"
-        _ = audioOutputRenderer.schedule(SessionManager.AudioStreamFrame(
+        _ = audioOutputRenderer.schedule(PCMFrame(
             sequenceNumber: 1,
-            format: .intercom,
+            format: .intercomHardwarePreferred,
             capturedAt: Date().timeIntervalSince1970,
             samples: recordedSamples
         ))

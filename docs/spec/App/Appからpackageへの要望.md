@@ -12,10 +12,10 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 
 ## 現在の package 要求
 
-| package | 不足している責務 | App に暫定実装しない理由 | App から消す条件 |
-|---|---|---|---|
-| Audio/SessionManager | ハードウェア入出力の実 format と App が要求する stream format を分離して扱う。ハードウェア側はデバイス要求を尊重しつつ既定 48kHz / mono を優先し、実 format が requested stream format と異なる場合は package 内で PCM を変換してから `AudioStreamFrame` と output renderer へ渡す。input/output snapshot と operation report には requested stream format、実 hardware format、変換有無、変換失敗時の continuable な report を含める | hardware format は iOS / macOS、Audio Session mode、入力デバイス、出力デバイスで変わる OS 依存点であり、App が AVAudioEngine / AVAudioConverter / CoreAudio 差分を持つと package 独立性と同一呼び出し方が崩れるため | `AudioInputStreamCapture` と `AudioOutputStreamRenderer` が requested stream format と actual hardware format の不一致を package 内で吸収し、App は同じ `AudioInputStreamConfiguration` / `AudioOutputStreamConfiguration` を渡すだけで 48kHz 基準の入出力または必要な変換済み frame を受け取れる |
-| RTC | RTC packet audio の target format を route / session 設定として切り替え可能にし、送信 frame、codec、packet envelope、jitter buffer、受信 frame の sampleRate / channelCount を常に target format と一致させる。入力 frame format が target format と異なる場合は RTC package 内で PCM 変換してから codec encode へ渡す。WebRTC route-managed media では App managed sample を使わず、WebRTC 側の media format / codec negotiation 状態を runtime report に出す | packet audio format、codec format、route-managed media format は通信方式差分であり、App が route ごとの resample や codec 前後の format 整合を持つと transport abstraction が崩れるため | `CallStartRequest.audioFormat` または後継設定で target sampleRate / channelCount を指定でき、`CallSession.sendAudioFrame(_:)` は source format の違いを RTC 内で吸収する。RTC runtime status / metrics が target format、source format、変換有無、変換失敗 drop を報告する |
+| 状態 | 内容 |
+|---|---|
+| 追加要求 | なし |
+| 解決済み | `d54673f58d7769d017edd8bc751d3aa0f4fb5a9a` の SessionManager / RTC / AudioCore API を App 実装へ反映済み。App 側で package 不足として残す内容はない |
 
 ## 追記ルール
 

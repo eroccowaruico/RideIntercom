@@ -1,6 +1,6 @@
+import AudioCore
 import Foundation
 import Logging
-import RTC
 import SessionManager
 
 extension IntercomViewModel {
@@ -43,28 +43,24 @@ extension IntercomViewModel {
         applyCurrentVoiceProcessingConfiguration()
     }
 
-    func scheduleOutputFrame(peerID: String, frame: RTC.AudioFrame, receivedAt: TimeInterval) {
-        let peerOutputVolume = remoteOutputVolume(for: peerID)
-        guard !isOutputMuted, masterOutputVolume > 0, peerOutputVolume > 0 else {
+    func scheduleOutputFrame(frame: PCMFrame, receivedAt: TimeInterval) {
+        guard !isOutputMuted, masterOutputVolume > 0 else {
             lastScheduledOutputRMS = 0
             lastScheduledOutputPeakRMS = playbackOutputPeakWindow.record(0)
             return
         }
 
-        let outputGain = masterOutputVolume * peerOutputVolume
-        let outputSamples = applyReceiveMasterPeakLimiter(frame.samples.map { $0 * outputGain })
-        let level = AudioLevelMeter.rmsLevel(samples: outputSamples)
+        let level = AudioLevelMeter.rmsLevel(samples: frame.samples)
         lastScheduledOutputRMS = level
         lastScheduledOutputPeakRMS = playbackOutputPeakWindow.record(level)
         scheduledOutputBatchCount += 1
         scheduledOutputFrameCount += 1
         playedAudioFrameCount += 1
-        markPlayedAudioFrame(peerID: peerID)
-        let report = audioOutputRenderer.schedule(SessionManager.AudioStreamFrame(
+        let report = audioOutputRenderer.schedule(PCMFrame(
             sequenceNumber: frame.sequenceNumber,
-            format: .intercom,
+            format: frame.format,
             capturedAt: receivedAt,
-            samples: outputSamples
+            samples: frame.samples
         ))
         lastOutputStreamOperationReport = report
         if !report.result.isContinuable {
@@ -80,14 +76,6 @@ extension IntercomViewModel {
         if level > Self.audibleOutputLevelThreshold {
             lastAudibleReceivedAudioAt = receivedAt
         }
-    }
-
-    private func applyReceiveMasterPeakLimiter(_ samples: [Float]) -> [Float] {
-        samples.map(limitReceiveMasterPeak)
-    }
-
-    private func limitReceiveMasterPeak(_ sample: Float) -> Float {
-        max(-Self.receiveMasterPeakLimiterCeiling, min(Self.receiveMasterPeakLimiterCeiling, sample))
     }
 }
 

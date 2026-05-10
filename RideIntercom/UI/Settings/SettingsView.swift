@@ -177,6 +177,18 @@ struct TransmitCodecPanel: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("transmitCodecPicker")
 
+            Picker("RTC Audio", selection: Binding(
+                get: { viewModel.rtcAudioFormatPreset },
+                set: { viewModel.setRTCAudioFormatPreset($0) }
+            )) {
+                ForEach(RTCAudioFormatPreset.allCases) { preset in
+                    Text(preset.label).tag(preset)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("rtcAudioFormatPicker")
+
             if viewModel.preferredTransmitCodec == .mpeg4AACELDv2 {
                 BitRateStepper(
                     title: "AAC-ELD v2 Bitrate",

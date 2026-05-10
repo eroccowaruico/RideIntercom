@@ -1,13 +1,6 @@
-import CryptoKit
-import AVFoundation
-import Codec
 import Foundation
-import Observation
-import OSLog
 import RTC
 import RTCNativeWebRTC
-import SessionManager
-import VADGate
 
 enum ControlMessage: Equatable {
     case keepalive
@@ -78,7 +71,7 @@ enum TransportEvent: Equatable {
     case receivedApplicationData(peerID: String, message: ApplicationDataMessage)
     case disconnected
     case linkFailed(internetAvailable: Bool)
-    case receivedAudioFrame(RTC.ReceivedAudioFrame)
+    case receivedAudioPacket(RTC.ReceivedAudioPacket)
     case routeMetrics(RTC.RouteMetrics)
 }
 
@@ -91,14 +84,12 @@ protocol CallSession: AnyObject {
     func startMedia()
     func stopMedia()
     func disconnect()
-    func setPreferredAudioCodec(_ codec: AudioCodecIdentifier)
-    func setAudioCodecOptions(aacELDv2BitRate: Int, opusBitRate: Int)
+    func setAudioPolicy(_ policy: RTC.RTCAudioPolicy)
     func setEnabledRoutes(_ routes: Set<RTC.RouteKind>)
     func setLocalMute(_ muted: Bool)
     func setOutputMute(_ muted: Bool)
-    func setRemoteOutputVolume(peerID: String, volume: Float)
     func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport])
-    func sendAudioFrame(_ frame: OutboundAudioPacket)
+    func sendAudioPacket(_ packet: RTC.RTCAudioPacket)
     func sendControl(_ message: ControlMessage)
     func sendApplicationData(_ message: ApplicationDataMessage)
 }
@@ -119,20 +110,17 @@ final class RideIntercomCallSessionAdapter: CallSession {
     private nonisolated static let peerMuteStateNamespace = "rideintercom.peerMuteState"
     private let memberID: String
     private var rtcSession: RTC.CallSession
-    private let audioCodecOptions: AppAudioCodecOptions
     private let ownsRTCSession: Bool
     private var eventTask: Task<Void, Never>?
-    private var preferredAudioCodec: AudioCodecIdentifier = .pcm16
+    private var audioPolicy: RTC.RTCAudioPolicy = .intercomDefault
     private var enabledRoutes: Set<RTC.RouteKind> = AppRTCTransportRoutePolicy.supportedRoutes
 
     init(memberID: String) {
         self.memberID = memberID
-        let audioCodecOptions = AppAudioCodecOptions()
-        self.audioCodecOptions = audioCodecOptions
         self.ownsRTCSession = true
         self.rtcSession = Self.makeRTCSession(
             memberID: memberID,
-            audioCodecOptions: audioCodecOptions,
+            audioPolicy: .intercomDefault,
             enabledRoutes: AppRTCTransportRoutePolicy.supportedRoutes
         )
         bindEvents()
@@ -140,7 +128,6 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     init(memberID: String = "member-local", rtcSession: RTC.CallSession) {
         self.memberID = memberID
-        self.audioCodecOptions = AppAudioCodecOptions()
         self.ownsRTCSession = false
         self.rtcSession = rtcSession
         bindEvents()
@@ -181,12 +168,11 @@ final class RideIntercomCallSessionAdapter: CallSession {
         }
     }
 
-    func setPreferredAudioCodec(_ codec: AudioCodecIdentifier) {
-        preferredAudioCodec = AppAudioCodecBridge.resolvedPreferredCodec(codec, format: .intercomPacketAudio)
-    }
-
-    func setAudioCodecOptions(aacELDv2BitRate: Int, opusBitRate: Int) {
-        audioCodecOptions.update(aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
+    func setAudioPolicy(_ policy: RTC.RTCAudioPolicy) {
+        guard policy != audioPolicy else { return }
+        audioPolicy = policy
+        guard ownsRTCSession else { return }
+        rebuildOwnedRTCSession()
     }
 
     func setEnabledRoutes(_ routes: Set<RTC.RouteKind>) {
@@ -195,13 +181,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
         guard normalizedRoutes != enabledRoutes else { return }
         enabledRoutes = normalizedRoutes
         guard ownsRTCSession else { return }
-        rtcSession = Self.makeRTCSession(
-            memberID: memberID,
-            audioCodecOptions: audioCodecOptions,
-            enabledRoutes: normalizedRoutes
-        )
-        activeRouteDebugTypeName = "RTC RouteManager"
-        bindEvents()
+        rebuildOwnedRTCSession()
     }
 
     func setLocalMute(_ muted: Bool) {
@@ -216,40 +196,22 @@ final class RideIntercomCallSessionAdapter: CallSession {
         }
     }
 
-    func setRemoteOutputVolume(peerID: String, volume: Float) {
-        Task { [rtcSession] in
-            await rtcSession.setRemoteOutputVolume(peerID: RTC.PeerID(rawValue: peerID), volume: volume)
-        }
-    }
-
     func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport]) {
         Task { [rtcSession] in
             await rtcSession.updateRuntimePackageReports(reports)
         }
     }
 
-    func sendAudioFrame(_ frame: OutboundAudioPacket) {
-        guard case .voice(let frameID, let samples) = frame else {
-            sendControl(.keepalive)
-            return
-        }
-
-        let sequenceNumber = UInt64(max(0, frameID))
-        let audioFrame = RTC.AudioFrame(
-            sequenceNumber: sequenceNumber,
-            format: RTC.AudioFormatDescriptor(sampleRate: 16_000, channelCount: 1),
-            capturedAt: Date().timeIntervalSince1970,
-            samples: samples
-        )
+    func sendAudioPacket(_ packet: RTC.RTCAudioPacket) {
         Task { [rtcSession] in
-            await rtcSession.sendAudioFrame(audioFrame)
+            await rtcSession.sendAudioPacket(packet)
         }
     }
 
     func sendControl(_ message: ControlMessage) {
         switch message {
         case .keepalive:
-            let payload = try? JSONEncoder().encode(PeerMetadataApplicationPayload(activeCodec: preferredAudioCodec))
+            let payload = try? JSONEncoder().encode(PeerMetadataApplicationPayload(activeCodec: activeAudioCodec()))
             sendApplicationData(ApplicationDataMessage(
                 namespace: Self.keepaliveNamespace,
                 payload: payload ?? Data(),
@@ -289,12 +251,10 @@ final class RideIntercomCallSessionAdapter: CallSession {
             onEvent?(.authenticated(peerIDs: peerIDs))
         case .receivedApplicationData(let received):
             onEvent?(Self.makeAppEvent(peerID: received.peerID.rawValue, applicationData: received.message))
-        case .receivedAudioFrame(let received):
-            onEvent?(.receivedAudioFrame(received))
+        case .receivedAudioPacket(let received):
+            onEvent?(.receivedAudioPacket(received))
         case .metricsChanged(let metrics):
             onEvent?(.routeMetrics(metrics))
-        case .localAudioLevelChanged, .remoteAudioLevelChanged:
-            break
         case .error(let error):
             handleRTCError(error)
         }
@@ -339,6 +299,20 @@ final class RideIntercomCallSessionAdapter: CallSession {
         ))
     }
 
+    private func activeAudioCodec() -> AudioCodecIdentifier {
+        audioPolicy.preferredCodecs.first ?? .pcm16
+    }
+
+    private func rebuildOwnedRTCSession() {
+        rtcSession = Self.makeRTCSession(
+            memberID: memberID,
+            audioPolicy: audioPolicy,
+            enabledRoutes: enabledRoutes
+        )
+        activeRouteDebugTypeName = "RTC RouteManager"
+        bindEvents()
+    }
+
     private static func makeAppEvent(peerID: String, applicationData message: RTC.ApplicationDataMessage) -> TransportEvent {
         if let status = try? RTCRuntimeStatusTransport.decode(message) {
             return .remoteRuntimeStatus(peerID: peerID, status: status)
@@ -370,13 +344,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
             expectedPeers: expectedPeers,
             credential: group.accessSecret.map { RTC.RTCCredential.derived(groupID: group.id.uuidString, secret: $0) },
             configuration: makeRouteConfiguration(),
-            audioFormat: RTC.AudioFormatDescriptor(sampleRate: 16_000, channelCount: 1),
-            audioCodecConfiguration: RTC.AudioCodecConfiguration(
-                preferredCodecs: AppAudioCodecBridge.preferredRTCCodecs(
-                    preferredAudioCodec,
-                    format: .intercomPacketAudio
-                )
-            )
+            audioPolicy: audioPolicy
         )
     }
 
@@ -386,17 +354,14 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     private static func makeRTCSession(
         memberID: String,
-        audioCodecOptions: AppAudioCodecOptions,
+        audioPolicy: RTC.RTCAudioPolicy,
         enabledRoutes: Set<RTC.RouteKind>
     ) -> RTC.CallSession {
         RTC.CallSessionFactory.makeSession(
             RTC.CallSessionFactoryConfiguration(
                 localDisplayName: memberID,
                 routeConfiguration: makeRouteConfiguration(enabledRoutes: enabledRoutes),
-                packetAudioCodecRegistry: AppAudioCodecBridge.makeRTCCodecRegistry(
-                    format: .intercomPacketAudio,
-                    options: audioCodecOptions
-                ),
+                audioPolicy: audioPolicy,
                 webRTC: RTC.WebRTCRouteFactoryConfiguration(
                     engineFactory: { WebRTCNativeEngine() }
                 )

@@ -1,4 +1,5 @@
 import AVFAudio
+import AudioCore
 import AudioMixer
 import Codec
 import DynamicsProcessor
@@ -10,31 +11,30 @@ import SoundIsolation
 import VADGate
 
 extension IntercomViewModel {
-    nonisolated static func emptyAudioMixerSnapshot() -> AudioMixerSnapshot {
+    static func emptyAudioMixerSnapshot() -> AudioMixerSnapshot {
         AudioMixerSnapshot(busIDs: [], buses: [], routes: [], outputBusID: nil)
     }
 
-    nonisolated static func makeCodecRuntimeReport(
+    static func makeCodecRuntimeReport(
         preferredCodec: AudioCodecIdentifier,
+        rtcSendFormat: AudioFormat = .intercomPacketAudio,
         aacELDv2BitRate: Int,
         opusBitRate: Int
     ) -> CodecRuntimeReport {
-        let requestedCodec = Codec.CodecIdentifier(rawValue: preferredCodec.rawValue) ?? .pcm16
-        let requestedConfiguration = Codec.CodecEncodingConfiguration(
-            codec: requestedCodec,
-            format: Codec.CodecAudioFormat(
-                sampleRate: RTC.AudioFormatDescriptor.intercomPacketAudio.sampleRate,
-                channelCount: RTC.AudioFormatDescriptor.intercomPacketAudio.channelCount
-            ),
-            aacELDv2Options: Codec.AACELDv2Options(bitRate: aacELDv2BitRate),
-            opusOptions: Codec.OpusOptions(bitRate: opusBitRate)
+        AppAudioCodecBridge.runtimeReport(
+            for: preferredCodec,
+            format: rtcSendFormat,
+            options: AppAudioCodecOptions(
+                aacELDv2BitRate: aacELDv2BitRate,
+                opusBitRate: opusBitRate
+            )
         )
-        return CodecRuntimeReport.resolving(requestedConfiguration)
     }
 
     func refreshPackageRuntimeSnapshots(now: TimeInterval = Date().timeIntervalSince1970) {
         codecRuntimeReport = Self.makeCodecRuntimeReport(
             preferredCodec: preferredTransmitCodec,
+            rtcSendFormat: rtcAudioFormatPreset.audioFormat,
             aacELDv2BitRate: aacELDv2BitRate,
             opusBitRate: opusBitRate
         )
@@ -106,17 +106,8 @@ extension IntercomViewModel {
     }
 
     private func makeAudioMixerSnapshot() -> AudioMixerSnapshot {
-        guard let format = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: RTC.AudioFormatDescriptor.intercomPacketAudio.sampleRate,
-            channels: AVAudioChannelCount(RTC.AudioFormatDescriptor.intercomPacketAudio.channelCount),
-            interleaved: false
-        ) else {
-            return Self.emptyAudioMixerSnapshot()
-        }
-
-        let mixer = AudioMixer(format: format)
         do {
+            let mixer = try AudioMixer(audioFormat: .intercomPacketAudio)
             let transmitBus = try mixer.createBus("tx-bus")
             transmitBus.volume = isMuted ? 0 : 1
             try transmitBus.addSource(AVAudioPlayerNode(), id: "microphone-input")

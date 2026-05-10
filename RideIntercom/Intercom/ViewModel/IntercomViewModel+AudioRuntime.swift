@@ -1,4 +1,7 @@
+import AudioCore
 import Foundation
+import Logging
+import RTC
 import SessionManager
 
 extension IntercomViewModel {
@@ -21,7 +24,7 @@ extension IntercomViewModel {
             handleMicrophoneFrame(frame)
         case .operation(let report):
             recordAudioStreamReport(report)
-        case .outputFrameScheduled:
+        case .outputFrameScheduled(_):
             break
         }
     }
@@ -40,12 +43,85 @@ extension IntercomViewModel {
         publishRuntimePackageReports(force: true)
     }
 
-    func handleMicrophoneFrame(_ frame: SessionManager.AudioStreamFrame) {
-        processMicrophoneFrame(level: frame.level.rms, samples: frame.samples)
+    func handleMicrophoneFrame(_ frame: PCMFrame) {
+        let level = (try? AudioSignalMeter.measure(frame).rms) ?? AudioLevelMeter.rmsLevel(samples: frame.samples)
+        processMicrophoneFrame(frame: frame, level: level)
+    }
+
+    func currentAudioPipelineConfiguration() -> AppAudioPipelineConfiguration {
+        AppAudioPipelineConfiguration(
+            rtcSendFormat: rtcAudioFormatPreset.audioFormat,
+            outputHardwareFormat: lastOutputStreamOperationReport?.snapshot.actualHardwareFormat ?? .intercomHardwarePreferred,
+            preferredCodec: preferredTransmitCodec,
+            aacELDv2BitRate: aacELDv2BitRate,
+            opusBitRate: opusBitRate,
+            masterOutputVolume: masterOutputVolume,
+            isOutputMuted: isOutputMuted,
+            peerOutputVolumes: remoteOutputVolumes
+        )
+    }
+
+    @discardableResult
+    func rebuildAudioPipeline() -> Bool {
+        do {
+            try audioPipeline.rebuild(
+                configuration: currentAudioPipelineConfiguration(),
+                peerIDs: receivePeerIDsForAudioPipeline()
+            )
+            return true
+        } catch {
+            audioErrorMessage = "Audio pipeline failed"
+            AppLoggers.audio.warning(
+                "audio.pipeline.rebuild_failed",
+                metadata: .event("audio.pipeline.rebuild_failed", [
+                    "errorType": "\(type(of: error))",
+                    "isRecoverable": "true"
+                ])
+            )
+            return false
+        }
+    }
+
+    func rebuildAudioPipelineIfRunning() {
+        guard isAudioReady else {
+            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+            return
+        }
+        if rebuildAudioPipeline() {
+            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+            publishRuntimePackageReports(force: true)
+        }
+    }
+
+    func updateAudioPipelineOutputSettings() {
+        audioPipeline.updateOutput(
+            masterVolume: masterOutputVolume,
+            isMuted: isOutputMuted,
+            peerOutputVolumes: remoteOutputVolumes
+        )
+    }
+
+    func handleTransmitAudioPacket(_ packet: RTC.RTCAudioPacket) {
+        sentVoicePacketCount += 1
+        callSession.sendAudioPacket(packet)
     }
 
     func processMicrophoneFrame(level: Float, samples: [Float]) {
-        processAudioCheckInput(level: level, samples: samples)
+        let frameID = nextAudioFrameID
+        nextAudioFrameID += 1
+        processMicrophoneFrame(
+            frame: PCMFrame(
+                sequenceNumber: UInt64(max(0, frameID)),
+                format: .intercomPacketAudio,
+                capturedAt: Date().timeIntervalSince1970,
+                samples: samples
+            ),
+            level: level
+        )
+    }
+
+    func processMicrophoneFrame(frame: PCMFrame, level: Float) {
+        processAudioCheckInput(level: level, samples: frame.samples)
 
         guard isAudioReady else { return }
 
@@ -55,11 +131,8 @@ extension IntercomViewModel {
             return
         }
 
-        let frameID = nextAudioFrameID
-        nextAudioFrameID += 1
-
         setLocalVoiceLevel(level)
-        let packets = audioTransmissionController.process(frameID: frameID, level: level, samples: samples)
+        let packets = audioTransmissionController.process(frame: frame, level: level)
         latestVADAnalysis = audioTransmissionController.lastAnalysis
         vadGateRuntimeSnapshot = audioTransmissionController.runtimeSnapshot
         for packet in packets {
@@ -73,5 +146,16 @@ extension IntercomViewModel {
             return false
         })
         publishRuntimePackageReports(now: Date().timeIntervalSince1970)
+    }
+
+    private func receivePeerIDsForAudioPipeline() -> [String] {
+        var peerIDs = Set(authenticatedPeerIDs)
+        peerIDs.formUnion(connectedPeerIDs)
+        peerIDs.formUnion(remoteOutputVolumes.keys)
+        if let selectedGroup {
+            peerIDs.formUnion(selectedGroup.members.map(\.id))
+        }
+        peerIDs.remove(localMemberIdentity.memberID)
+        return peerIDs.sorted()
     }
 }

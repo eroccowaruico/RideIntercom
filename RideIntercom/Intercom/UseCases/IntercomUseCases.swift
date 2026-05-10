@@ -1,6 +1,7 @@
 import CryptoKit
 import AVFoundation
 import Codec
+import AudioCore
 import Foundation
 import Observation
 import OSLog
@@ -101,11 +102,10 @@ enum HandleMicrophoneInputUseCase {
 
     static func execute(
         controller: inout AudioTransmissionController,
-        frameID: Int,
+        frame: PCMFrame,
         level: Float,
-        samples: [Float]
     ) -> Result {
-        let packets = controller.process(frameID: frameID, level: level, samples: samples)
+        let packets = controller.process(frame: frame, level: level)
         let isVoiceActive = packets.contains { packet in
             if case .voice = packet {
                 return true

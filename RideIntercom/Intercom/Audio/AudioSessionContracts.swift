@@ -1,4 +1,5 @@
 import Foundation
+import AudioCore
 import SessionManager
 
 enum AudioSessionProfile: String, CaseIterable, Identifiable, Sendable {
@@ -121,18 +122,18 @@ extension SessionManager.AudioSessionConfiguration {
     }
 }
 
-extension SessionManager.AudioStreamFormat {
-    static let intercom = SessionManager.AudioStreamFormat(sampleRate: 16_000, channelCount: 1)
-}
-
 extension SessionManager.AudioInputStreamConfiguration {
     static func intercom(voiceProcessing: SessionManager.AudioInputVoiceProcessingConfiguration) -> Self {
-        Self(format: .intercom, bufferFrameCount: 128, voiceProcessing: voiceProcessing)
+        Self(
+            preferredFormat: .intercomHardwarePreferred,
+            bufferFrameCount: 128,
+            voiceProcessing: voiceProcessing
+        )
     }
 }
 
 extension SessionManager.AudioOutputStreamConfiguration {
-    static let intercom = Self(format: .intercom)
+    static let intercom = Self(preferredFormat: .intercomHardwarePreferred)
 }
 
 protocol CallTicking: AnyObject {

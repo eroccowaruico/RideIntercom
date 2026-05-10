@@ -1,4 +1,5 @@
 import AVFoundation
+import AudioCore
 import Codec
 import CryptoKit
 import Foundation
@@ -133,7 +134,7 @@ extension IntercomViewModel {
     func setPreferredTransmitCodec(_ codec: AudioCodecIdentifier) {
         preferredTransmitCodec = codec
         refreshPackageRuntimeSnapshots()
-        callSession.setPreferredAudioCodec(codec)
+        rebuildAudioPipelineIfRunning()
         setLocalActiveCodec(selectedTransmitCodec)
         saveAppSettings()
         AppLoggers.settings.info(
@@ -152,7 +153,7 @@ extension IntercomViewModel {
         aacELDv2BitRate = Codec.AACELDv2Options(bitRate: bitRate).bitRate
         refreshPackageRuntimeSnapshots()
         setLocalActiveCodec(selectedTransmitCodec)
-        callSession.setAudioCodecOptions(aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
+        rebuildAudioPipelineIfRunning()
         saveAppSettings()
         AppLoggers.settings.info(
             "settings.codec.bitrate_changed",
@@ -168,13 +169,29 @@ extension IntercomViewModel {
         opusBitRate = Codec.OpusOptions(bitRate: bitRate).bitRate
         refreshPackageRuntimeSnapshots()
         setLocalActiveCodec(selectedTransmitCodec)
-        callSession.setAudioCodecOptions(aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
+        rebuildAudioPipelineIfRunning()
         saveAppSettings()
         AppLoggers.settings.info(
             "settings.codec.bitrate_changed",
             metadata: .event("settings.codec.bitrate_changed", [
                 "codec": "\(AudioCodecIdentifier.opus.rawValue)",
                 "bitRate": "\(opusBitRate)"
+            ])
+        )
+        publishRuntimePackageReports(force: true)
+    }
+
+    func setRTCAudioFormatPreset(_ preset: RTCAudioFormatPreset) {
+        guard rtcAudioFormatPreset != preset else { return }
+        rtcAudioFormatPreset = preset
+        refreshPackageRuntimeSnapshots()
+        rebuildAudioPipelineIfRunning()
+        saveAppSettings()
+        AppLoggers.settings.info(
+            "settings.rtc_audio_format.changed",
+            metadata: .event("settings.rtc_audio_format.changed", [
+                "preset": "\(preset.rawValue)",
+                "sampleRate": "\(Int(preset.audioFormat.sampleRate))"
             ])
         )
         publishRuntimePackageReports(force: true)
@@ -241,6 +258,7 @@ extension IntercomViewModel {
 
     func setMasterOutputVolume(_ volume: Float) {
         masterOutputVolume = min(2, max(0, volume))
+        updateAudioPipelineOutputSettings()
         publishRuntimePackageReports(force: true)
     }
 
@@ -255,7 +273,7 @@ extension IntercomViewModel {
         } else {
             remoteOutputVolumes[peerID] = normalizedVolume
         }
-        callSession.setRemoteOutputVolume(peerID: peerID, volume: normalizedVolume)
+        updateAudioPipelineOutputSettings()
         AppLoggers.settings.info(
             "settings.remote_output_volume.changed",
             metadata: .event("settings.remote_output_volume.changed", [
@@ -294,6 +312,7 @@ extension IntercomViewModel {
                 "enabled": "\(enabled)"
             ])
         )
+        rebuildAudioPipelineIfRunning()
         publishRuntimePackageReports(force: true)
     }
 
@@ -305,6 +324,7 @@ extension IntercomViewModel {
                 "enabled": "\(enabled)"
             ])
         )
+        rebuildAudioPipelineIfRunning()
         publishRuntimePackageReports(force: true)
     }
 
@@ -354,6 +374,7 @@ extension IntercomViewModel {
     func toggleOutputMute() {
         isOutputMuted.toggle()
         callSession.setOutputMute(isOutputMuted)
+        updateAudioPipelineOutputSettings()
         publishRuntimePackageReports(force: true)
     }
 
@@ -365,19 +386,20 @@ extension IntercomViewModel {
         setVADSensitivity(Self.defaultVADSensitivity)
         setSoundIsolationEnabled(Self.defaultSoundIsolationEnabled)
         setPreferredTransmitCodec(Self.defaultTransmitCodec)
+        setRTCAudioFormatPreset(Self.defaultRTCAudioFormatPreset)
         setAACELDv2BitRate(Self.defaultAACELDv2BitRate)
         setOpusBitRate(Self.defaultOpusBitRate)
         setRTCTransportRoutes(Self.defaultEnabledRTCTransportRoutes)
         setMasterOutputVolume(Self.defaultMasterOutputVolume)
         let resetRemoteOutputPeerIDs = Array(remoteOutputVolumes.keys)
         remoteOutputVolumes.removeAll()
-        for peerID in resetRemoteOutputPeerIDs {
-            callSession.setRemoteOutputVolume(peerID: peerID, volume: Self.defaultRemoteOutputVolume)
-        }
+        _ = resetRemoteOutputPeerIDs
+        updateAudioPipelineOutputSettings()
         receiveMasterSoundIsolationEnabled = Self.defaultReceiveSoundIsolationEnabled
         remoteSoundIsolationEnabled.removeAll()
         isOutputMuted = false
         callSession.setOutputMute(false)
+        updateAudioPipelineOutputSettings()
         publishRuntimePackageReports(force: true)
         let operationID = UUID().uuidString
         AppLoggers.settings.notice(
@@ -393,6 +415,7 @@ extension IntercomViewModel {
             audioSessionProfile: audioSessionProfile,
             vadSensitivity: vadSensitivity,
             preferredTransmitCodec: preferredTransmitCodec,
+            rtcAudioFormatPreset: rtcAudioFormatPreset,
             aacELDv2BitRate: aacELDv2BitRate,
             opusBitRate: opusBitRate,
             enabledRTCTransportRoutes: enabledRTCTransportRoutes

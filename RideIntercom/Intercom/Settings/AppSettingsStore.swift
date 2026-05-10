@@ -6,6 +6,7 @@ struct AppSettings: Equatable {
     var audioSessionProfile: AudioSessionProfile
     var vadSensitivity: VoiceActivitySensitivity
     var preferredTransmitCodec: AudioCodecIdentifier
+    var rtcAudioFormatPreset: RTCAudioFormatPreset
     var aacELDv2BitRate: Int
     var opusBitRate: Int
     var enabledRTCTransportRoutes: Set<RTC.RouteKind>
@@ -14,6 +15,7 @@ struct AppSettings: Equatable {
         audioSessionProfile: AudioSessionProfile = IntercomViewModel.defaultAudioSessionProfile,
         vadSensitivity: VoiceActivitySensitivity = IntercomViewModel.defaultVADSensitivity,
         preferredTransmitCodec: AudioCodecIdentifier = IntercomViewModel.defaultTransmitCodec,
+        rtcAudioFormatPreset: RTCAudioFormatPreset = IntercomViewModel.defaultRTCAudioFormatPreset,
         aacELDv2BitRate: Int = IntercomViewModel.defaultAACELDv2BitRate,
         opusBitRate: Int = IntercomViewModel.defaultOpusBitRate,
         enabledRTCTransportRoutes: Set<RTC.RouteKind> = IntercomViewModel.defaultEnabledRTCTransportRoutes
@@ -21,6 +23,7 @@ struct AppSettings: Equatable {
         self.audioSessionProfile = audioSessionProfile
         self.vadSensitivity = vadSensitivity
         self.preferredTransmitCodec = preferredTransmitCodec
+        self.rtcAudioFormatPreset = rtcAudioFormatPreset
         self.aacELDv2BitRate = Codec.AACELDv2Options(bitRate: aacELDv2BitRate).bitRate
         self.opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
         self.enabledRTCTransportRoutes = IntercomViewModel.normalizedRTCTransportRoutes(enabledRTCTransportRoutes)
@@ -53,6 +56,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     private let audioSessionProfileKey = "RideIntercom.settings.audioSessionProfile"
     private let vadSensitivityKey = "RideIntercom.settings.vadSensitivity"
     private let preferredTransmitCodecKey = "RideIntercom.settings.preferredTransmitCodec"
+    private let rtcAudioFormatPresetKey = "RideIntercom.settings.rtcAudioFormatPreset"
     private let aacELDv2BitRateKey = "RideIntercom.settings.aacELDv2BitRate"
     private let opusBitRateKey = "RideIntercom.settings.opusBitRate"
     private let enabledRTCTransportRoutesKey = "RideIntercom.settings.enabledRTCTransportRoutes"
@@ -68,6 +72,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
             audioSessionProfile: loadAudioSessionProfile(),
             vadSensitivity: loadVADSensitivity(),
             preferredTransmitCodec: loadPreferredTransmitCodec(),
+            rtcAudioFormatPreset: loadRTCAudioFormatPreset(),
             aacELDv2BitRate: loadInt(
                 forKey: aacELDv2BitRateKey,
                 defaultValue: IntercomViewModel.defaultAACELDv2BitRate
@@ -84,6 +89,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
         defaults.set(settings.audioSessionProfile.rawValue, forKey: audioSessionProfileKey)
         defaults.set(settings.vadSensitivity.rawValue, forKey: vadSensitivityKey)
         defaults.set(settings.preferredTransmitCodec.rawValue, forKey: preferredTransmitCodecKey)
+        defaults.set(settings.rtcAudioFormatPreset.rawValue, forKey: rtcAudioFormatPresetKey)
         defaults.set(settings.aacELDv2BitRate, forKey: aacELDv2BitRateKey)
         defaults.set(settings.opusBitRate, forKey: opusBitRateKey)
         defaults.set(
@@ -118,6 +124,14 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
             return IntercomViewModel.defaultTransmitCodec
         }
         return codec
+    }
+
+    private func loadRTCAudioFormatPreset() -> RTCAudioFormatPreset {
+        guard let rawValue = defaults.string(forKey: rtcAudioFormatPresetKey),
+              let preset = RTCAudioFormatPreset(rawValue: rawValue) else {
+            return IntercomViewModel.defaultRTCAudioFormatPreset
+        }
+        return preset
     }
 
     private func loadInt(forKey key: String, defaultValue: Int) -> Int {

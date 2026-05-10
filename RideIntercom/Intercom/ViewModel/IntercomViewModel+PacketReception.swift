@@ -1,15 +1,28 @@
+import AudioCore
 import Foundation
 import Logging
 import RTC
 
 extension IntercomViewModel {
-    func handleReceivedAudioFrame(_ received: RTC.ReceivedAudioFrame) {
+    func handleReceivedAudioPacket(_ received: RTC.ReceivedAudioPacket) {
         let peerID = received.peerID.rawValue
         guard authenticatedPeerIDs.isEmpty || authenticatedPeerIDs.contains(peerID) else {
             return
         }
 
-        let frame = received.frame
+        let frame: PCMFrame
+        do {
+            frame = try audioPipeline.processReceivedAudioPacket(received)
+        } catch {
+            AppLoggers.audio.warning(
+                "audio.pipeline.receive_failed",
+                metadata: .event("audio.pipeline.receive_failed", [
+                    "errorType": "\(type(of: error))",
+                    "isRecoverable": "true"
+                ])
+            )
+            return
+        }
         let receivedAt = frame.capturedAt < 1_000_000
             ? Date().timeIntervalSince1970
             : frame.capturedAt
@@ -17,7 +30,10 @@ extension IntercomViewModel {
         lastReceivedAudioAt = receivedAt
         remoteVoiceReceivedAt[peerID] = receivedAt
         applyReceivedVoiceMemberState(peerID: peerID, voiceLevel: AudioLevelMeter.rmsLevel(samples: frame.samples))
-        scheduleOutputFrame(peerID: peerID, frame: frame, receivedAt: receivedAt)
+        if !isOutputMuted, masterOutputVolume > 0, remoteOutputVolume(for: peerID) > 0 {
+            markPlayedAudioFrame(peerID: peerID)
+        }
+        setRemotePeerCodec(peerID, codec: received.packet.codec)
         refreshOtherAudioDuckingState(now: receivedAt)
     }
 

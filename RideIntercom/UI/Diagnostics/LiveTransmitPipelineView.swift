@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioCore
 import AudioMixer
 import RTC
 import SessionManager
@@ -252,10 +253,10 @@ struct LiveTransmitPipelineView: View {
     private func inputStreamDetail(_ prefix: String) -> String {
         let snapshot = viewModel.lastInputStreamOperationReport?.snapshot ?? viewModel.lastVoiceProcessingOperationReport?.snapshot
         guard let snapshot else { return prefix }
-        return "\(prefix) / \(streamFormatSummary(snapshot.format)) / F \(snapshot.processedFrameCount)"
+        return "\(prefix) / \(streamFormatSummary(snapshot.actualHardwareFormat)) / F \(snapshot.processedFrameCount)"
     }
 
-    private func streamFormatSummary(_ format: SessionManager.AudioStreamFormat) -> String {
+    private func streamFormatSummary(_ format: AudioFormat) -> String {
         "\(Int(format.sampleRate / 1_000))k/\(format.channelCount)ch"
     }
 

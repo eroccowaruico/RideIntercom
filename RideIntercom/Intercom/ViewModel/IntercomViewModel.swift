@@ -1,6 +1,7 @@
 import CryptoKit
 import AVFoundation
 import AVFAudio
+import AudioCore
 import AudioMixer
 import Codec
 import Foundation
@@ -21,6 +22,7 @@ final class IntercomViewModel {
     nonisolated static let defaultDuckOthersEnabled = true
     nonisolated static let defaultVADSensitivity = VoiceActivitySensitivity.standard
     nonisolated static let defaultTransmitCodec: AudioCodecIdentifier = .mpeg4AACELDv2
+    nonisolated static let defaultRTCAudioFormatPreset: RTCAudioFormatPreset = .mono48k
     nonisolated static let defaultAACELDv2BitRate = 32_000
     nonisolated static let defaultOpusBitRate = 32_000
     nonisolated static let supportedRTCTransportRoutes = AppRTCTransportRoutePolicy.supportedRoutes
@@ -48,6 +50,7 @@ final class IntercomViewModel {
     var latestVADAnalysis: VADGateAnalysis?
     var isSoundIsolationEnabled = IntercomViewModel.defaultSoundIsolationEnabled
     var preferredTransmitCodec: AudioCodecIdentifier = IntercomViewModel.defaultTransmitCodec
+    var rtcAudioFormatPreset: RTCAudioFormatPreset = IntercomViewModel.defaultRTCAudioFormatPreset
     var aacELDv2BitRate = IntercomViewModel.defaultAACELDv2BitRate
     var opusBitRate = IntercomViewModel.defaultOpusBitRate
     var enabledRTCTransportRoutes = IntercomViewModel.defaultEnabledRTCTransportRoutes
@@ -130,6 +133,7 @@ final class IntercomViewModel {
     let appSettingsStore: AppSettingsStoring
     let localMemberIdentity: LocalMemberIdentity
     let remoteTalkerTimeout: TimeInterval
+    let audioPipeline: AppAudioPipeline
     var audioTransmissionController: AudioTransmissionController
     var audioSessionSnapshot: SessionManager.AudioSessionSnapshot
     var remoteVoiceReceivedAt: [String: TimeInterval] = [:]
@@ -189,6 +193,7 @@ final class IntercomViewModel {
         self.audioSessionManager = sessionManager
         self.audioInputCapture = audioInputCapture ?? Self.makeDefaultAudioInputCapture()
         self.audioOutputRenderer = audioOutputRenderer ?? Self.makeDefaultAudioOutputRenderer()
+        self.audioPipeline = AppAudioPipeline()
         self.audioTransmissionController = audioTransmissionController ?? AudioTransmissionController()
         self.callTicker = callTicker ?? RepeatingCallTicker()
         self.credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
@@ -201,6 +206,7 @@ final class IntercomViewModel {
         self.audioSessionProfile = appSettings.audioSessionProfile
         self.vadSensitivity = appSettings.vadSensitivity
         self.preferredTransmitCodec = appSettings.preferredTransmitCodec
+        self.rtcAudioFormatPreset = appSettings.rtcAudioFormatPreset
         self.aacELDv2BitRate = appSettings.aacELDv2BitRate
         self.opusBitRate = appSettings.opusBitRate
         self.enabledRTCTransportRoutes = Self.normalizedRTCTransportRoutes(appSettings.enabledRTCTransportRoutes)
@@ -209,8 +215,7 @@ final class IntercomViewModel {
         self.audioTransmissionController.applyVADSensitivity(vadSensitivity)
         self.refreshPackageRuntimeSnapshots()
         self.callSession.setEnabledRoutes(enabledRTCTransportRoutes)
-        self.callSession.setPreferredAudioCodec(preferredTransmitCodec)
-        self.callSession.setAudioCodecOptions(aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
+        self.callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
 
         self.callSession.onEvent = { [weak self] event in
             DispatchQueue.main.async { self?.handleTransportEvent(event) }
@@ -220,6 +225,12 @@ final class IntercomViewModel {
         }
         self.audioInputCapture.setRuntimeEventHandler { [weak self] event in
             DispatchQueue.main.async { self?.handleAudioStreamRuntimeEvent(event) }
+        }
+        self.audioPipeline.onTransmitPacket = { [weak self] packet in
+            DispatchQueue.main.async { self?.handleTransmitAudioPacket(packet) }
+        }
+        self.audioPipeline.onOutputFrame = { [weak self] frame in
+            DispatchQueue.main.async { self?.scheduleOutputFrame(frame: frame, receivedAt: frame.capturedAt) }
         }
         self.callTicker.onTick = { [weak self] now in
             self?.handleCallTick(now: now)

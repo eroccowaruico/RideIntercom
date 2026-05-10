@@ -1,155 +1,187 @@
+import AudioCore
 import Codec
 import Foundation
 import RTC
 
 enum OutboundAudioPacket: Equatable {
-    case voice(frameID: Int, samples: [Float] = [])
+    case voice(PCMFrame)
     case keepalive
 }
 
-typealias AudioCodecIdentifier = RTC.AudioCodecIdentifier
+typealias AudioCodecIdentifier = RTC.RTCAudioCodecIdentifier
 
-extension RTC.AudioFormatDescriptor {
-    nonisolated static let intercomPacketAudio = RTC.AudioFormatDescriptor(sampleRate: 16_000, channelCount: 1)
+enum RTCAudioFormatPreset: String, CaseIterable, Identifiable, Codable, Sendable {
+    case mono48k
+    case mono24k
+    case mono16k
 
-    init(codecFormat: Codec.CodecAudioFormat) {
-        self.init(sampleRate: codecFormat.sampleRate, channelCount: codecFormat.channelCount)
+    var id: String { rawValue }
+
+    var audioFormat: AudioFormat {
+        switch self {
+        case .mono48k:
+            AudioFormat(sampleRate: 48_000, channelCount: 1)
+        case .mono24k:
+            AudioFormat(sampleRate: 24_000, channelCount: 1)
+        case .mono16k:
+            AudioFormat(sampleRate: 16_000, channelCount: 1)
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .mono48k:
+            "48 kHz"
+        case .mono24k:
+            "24 kHz"
+        case .mono16k:
+            "16 kHz"
+        }
     }
 }
 
-private extension Codec.CodecAudioFormat {
-    init(rtcFormat: RTC.AudioFormatDescriptor) {
+extension AudioFormat {
+    nonisolated static let intercomHardwarePreferred = AudioFormat(sampleRate: 48_000, channelCount: 1)
+    nonisolated static let intercomMixer = AudioFormat(sampleRate: 48_000, channelCount: 1)
+    nonisolated static let intercomPacketAudio = AudioFormat(sampleRate: 48_000, channelCount: 1)
+}
+
+extension RTC.RTCAudioFormat {
+    nonisolated static let intercomPacketAudio = RTC.RTCAudioFormat(audioFormat: .intercomPacketAudio)
+
+    init(audioFormat: AudioFormat) {
+        self.init(sampleRate: audioFormat.sampleRate, channelCount: audioFormat.channelCount)
+    }
+
+    var audioFormat: AudioFormat {
+        AudioFormat(sampleRate: sampleRate, channelCount: channelCount)
+    }
+}
+
+extension RTC.RTCAudioPolicy {
+    nonisolated static let intercomDefault = RTC.RTCAudioPolicy(
+        preferredSendFormat: .intercomPacketAudio,
+        preferredCodecs: [.pcm16]
+    )
+}
+
+private extension AudioFormat {
+    init(rtcFormat: RTC.RTCAudioFormat) {
         self.init(sampleRate: rtcFormat.sampleRate, channelCount: rtcFormat.channelCount)
     }
 }
 
 private extension Codec.CodecIdentifier {
-    var rtcIdentifier: RTC.AudioCodecIdentifier {
-        RTC.AudioCodecIdentifier(rawValue: rawValue)
+    var rtcIdentifier: RTC.RTCAudioCodecIdentifier {
+        RTC.RTCAudioCodecIdentifier(rawValue: rawValue)
     }
 }
 
-final class AppAudioCodecOptions: @unchecked Sendable {
-    private let lock = NSLock()
-    private var aacELDv2BitRate: Int
-    private var opusBitRate: Int
+private extension RTC.RTCAudioCodecIdentifier {
+    var codecIdentifier: Codec.CodecIdentifier {
+        Codec.CodecIdentifier(rawValue: rawValue) ?? .pcm16
+    }
+}
+
+struct AppAudioCodecOptions: Sendable {
+    private let aacELDv2BitRate: Int
+    private let opusBitRate: Int
 
     init(aacELDv2BitRate: Int = 32_000, opusBitRate: Int = 32_000) {
         self.aacELDv2BitRate = Codec.AACELDv2Options(bitRate: aacELDv2BitRate).bitRate
         self.opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
     }
 
-    func update(aacELDv2BitRate: Int, opusBitRate: Int) {
-        lock.withLock {
-            self.aacELDv2BitRate = Codec.AACELDv2Options(bitRate: aacELDv2BitRate).bitRate
-            self.opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
-        }
-    }
-
     var aacELDv2Options: Codec.AACELDv2Options {
-        lock.withLock { Codec.AACELDv2Options(bitRate: aacELDv2BitRate) }
+        Codec.AACELDv2Options(bitRate: aacELDv2BitRate)
     }
 
     var opusOptions: Codec.OpusOptions {
-        lock.withLock { Codec.OpusOptions(bitRate: opusBitRate) }
-    }
-}
-
-private struct PackageAudioFrameCodec: RTC.AudioFrameCodec {
-    let identifier: RTC.AudioCodecIdentifier
-    private let codecIdentifier: Codec.CodecIdentifier
-    private let options: AppAudioCodecOptions
-
-    init(
-        codecIdentifier: Codec.CodecIdentifier,
-        options: AppAudioCodecOptions
-    ) {
-        self.identifier = codecIdentifier.rtcIdentifier
-        self.codecIdentifier = codecIdentifier
-        self.options = options
-    }
-
-    func encode(_ frame: RTC.AudioFrame) throws -> RTC.EncodedAudioFrame {
-        let codecFormat = Codec.CodecAudioFormat(rtcFormat: frame.format)
-        let configuration = Codec.CodecEncodingConfiguration(
-            codec: codecIdentifier,
-            format: codecFormat,
-            aacELDv2Options: options.aacELDv2Options,
-            opusOptions: options.opusOptions
-        )
-        let encoded = try Codec.CodecEncoder(configuration: configuration).encode(Codec.PCMCodecFrame(
-            sequenceNumber: frame.sequenceNumber,
-            format: codecFormat,
-            capturedAt: frame.capturedAt,
-            samples: frame.samples
-        ))
-        return RTC.EncodedAudioFrame(
-            sequenceNumber: encoded.sequenceNumber,
-            codec: encoded.codec.rtcIdentifier,
-            format: RTC.AudioFormatDescriptor(codecFormat: encoded.format),
-            capturedAt: encoded.capturedAt,
-            sampleCount: encoded.sampleCount,
-            payload: encoded.payload
-        )
-    }
-
-    func decode(_ frame: RTC.EncodedAudioFrame) throws -> RTC.AudioFrame {
-        guard frame.codec == identifier else {
-            throw RTC.AudioCodecError.unsupportedCodec(frame.codec)
-        }
-        let codecFormat = Codec.CodecAudioFormat(rtcFormat: frame.format)
-        let decoded = try Codec.CodecDecoder().decode(Codec.EncodedCodecFrame(
-            sequenceNumber: frame.sequenceNumber,
-            codec: codecIdentifier,
-            format: codecFormat,
-            capturedAt: frame.capturedAt,
-            sampleCount: frame.sampleCount ?? 0,
-            payload: frame.payload
-        ))
-        return RTC.AudioFrame(
-            sequenceNumber: decoded.sequenceNumber,
-            format: RTC.AudioFormatDescriptor(codecFormat: decoded.format),
-            capturedAt: decoded.capturedAt,
-            samples: decoded.samples
-        )
+        Codec.OpusOptions(bitRate: opusBitRate)
     }
 }
 
 enum AppAudioCodecBridge {
-    static func makeRTCCodecRegistry(
-        format: RTC.AudioFormatDescriptor,
+    static func makeRTCAudioPolicy(
+        preferred codec: AudioCodecIdentifier,
+        format: AudioFormat = .intercomPacketAudio,
         options: AppAudioCodecOptions = AppAudioCodecOptions()
-    ) -> RTC.AudioCodecRegistry {
-        var codecs: [any RTC.AudioFrameCodec] = [RTC.PCM16AudioCodec()]
-        for codecIdentifier in [Codec.CodecIdentifier.mpeg4AACELDv2, .opus]
-        where runtimeReport(for: codecIdentifier, format: format).availableCodecs.contains(codecIdentifier) {
-            codecs.append(PackageAudioFrameCodec(codecIdentifier: codecIdentifier, options: options))
-        }
-        return RTC.AudioCodecRegistry(codecs: codecs)
+    ) -> RTC.RTCAudioPolicy {
+        let selectedCodec = selectedRTCCodec(codec, format: format, options: options)
+        let availableCodecs = availableRTCCodecs(format: format, options: options)
+        let preferredCodecs = ([selectedCodec] + availableCodecs)
+            .reduce(into: [AudioCodecIdentifier]()) { codecs, codec in
+                if !codecs.contains(codec) {
+                    codecs.append(codec)
+                }
+            }
+        return RTC.RTCAudioPolicy(
+            preferredSendFormat: RTC.RTCAudioFormat(audioFormat: format),
+            preferredCodecs: preferredCodecs,
+            maximumBitRate: runtimeReport(for: codec, format: format, options: options)
+                .activeConfiguration
+                .activeBitRate
+        )
     }
 
-    static func preferredRTCCodecs(
-        _ preferred: RTC.AudioCodecIdentifier,
-        format: RTC.AudioFormatDescriptor
-    ) -> [RTC.AudioCodecIdentifier] {
-        let resolved = resolvedPreferredCodec(preferred, format: format)
-        return resolved == .pcm16 ? [.pcm16] : [resolved, .pcm16]
+    static func availableRTCCodecs(
+        format: AudioFormat = .intercomPacketAudio,
+        options: AppAudioCodecOptions = AppAudioCodecOptions()
+    ) -> [AudioCodecIdentifier] {
+        let available = Set(runtimeReport(for: .pcm16, format: format, options: options)
+            .availableCodecs
+            .map(\.rtcIdentifier))
+        return [AudioCodecIdentifier.mpeg4AACELDv2, .opus, .pcm16].filter { available.contains($0) }
     }
 
-    static func resolvedPreferredCodec(
-        _ preferred: RTC.AudioCodecIdentifier,
-        format: RTC.AudioFormatDescriptor
-    ) -> RTC.AudioCodecIdentifier {
-        let codecIdentifier = Codec.CodecIdentifier(rawValue: preferred.rawValue) ?? .pcm16
-        return runtimeReport(for: codecIdentifier, format: format).selectedCodec.rtcIdentifier
+    static func selectedRTCCodec(
+        _ preferred: AudioCodecIdentifier,
+        format: AudioFormat = .intercomPacketAudio,
+        options: AppAudioCodecOptions = AppAudioCodecOptions()
+    ) -> AudioCodecIdentifier {
+        runtimeReport(for: preferred, format: format, options: options).selectedCodec.rtcIdentifier
     }
 
-    private static func runtimeReport(
-        for codecIdentifier: Codec.CodecIdentifier,
-        format: RTC.AudioFormatDescriptor
+    static func runtimeReport(
+        for preferred: AudioCodecIdentifier,
+        format: AudioFormat = .intercomPacketAudio,
+        options: AppAudioCodecOptions = AppAudioCodecOptions()
     ) -> CodecRuntimeReport {
-        let codecFormat = Codec.CodecAudioFormat(rtcFormat: format)
-        let configuration = Codec.CodecEncodingConfiguration(codec: codecIdentifier, format: codecFormat)
-        return CodecRuntimeReport.resolving(configuration)
+        CodecRuntimeReport.resolving(Codec.CodecEncodingConfiguration(
+            codec: preferred.codecIdentifier,
+            format: format,
+            aacELDv2Options: options.aacELDv2Options,
+            opusOptions: options.opusOptions
+        ))
+    }
+
+    static func encode(
+        _ frame: PCMFrame,
+        preferred codec: AudioCodecIdentifier,
+        options: AppAudioCodecOptions = AppAudioCodecOptions()
+    ) throws -> RTC.RTCAudioPacket {
+        let report = runtimeReport(for: codec, format: frame.format, options: options)
+        let encoded = try Codec.CodecEncoder(configuration: report.activeConfiguration).encode(frame)
+        return RTC.RTCAudioPacket(
+            sequenceNumber: encoded.sequenceNumber,
+            codec: encoded.codec.rtcIdentifier,
+            format: RTC.RTCAudioFormat(audioFormat: encoded.format),
+            capturedAt: encoded.capturedAt,
+            sampleCount: encoded.sampleCount,
+            bitRate: encoded.bitRate,
+            payload: encoded.payload
+        )
+    }
+
+    static func decode(_ packet: RTC.RTCAudioPacket) throws -> PCMFrame {
+        try Codec.CodecDecoder().decode(Codec.EncodedCodecFrame(
+            sequenceNumber: packet.sequenceNumber,
+            codec: packet.codec.codecIdentifier,
+            format: AudioFormat(rtcFormat: packet.format),
+            capturedAt: packet.capturedAt,
+            sampleCount: packet.sampleCount ?? 0,
+            bitRate: packet.bitRate,
+            payload: packet.payload
+        ))
     }
 }

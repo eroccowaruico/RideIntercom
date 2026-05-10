@@ -1,3 +1,4 @@
+import AudioCore
 import Foundation
 import VADGate
 
@@ -5,8 +6,7 @@ struct AudioTransmissionController {
     static let defaultVADSensitivity = VoiceActivitySensitivity.standard
 
     private struct CapturedFrame {
-        let frameID: Int
-        let samples: [Float]
+        let frame: PCMFrame
     }
 
     private let vadGate: VADGate
@@ -31,19 +31,19 @@ struct AudioTransmissionController {
         self.keepaliveIntervalFrames = keepaliveIntervalFrames
     }
 
-    mutating func process(frameID: Int, level: Float, samples: [Float] = []) -> [OutboundAudioPacket] {
-        let analysis = analyze(level: level, samples: samples)
+    mutating func process(frame: PCMFrame, level: Float) -> [OutboundAudioPacket] {
+        let analysis = analyze(level: level, samples: frame.samples)
         var packets: [OutboundAudioPacket] = []
 
         if analysis.state == .speech {
             if !wasSendingVoice {
-                packets.append(contentsOf: preRoll.map { .voice(frameID: $0.frameID, samples: $0.samples) })
+                packets.append(contentsOf: preRoll.map { .voice($0.frame) })
             }
-            packets.append(.voice(frameID: frameID, samples: samples))
+            packets.append(.voice(frame))
             framesSinceKeepalive = 0
             wasSendingVoice = true
         } else {
-            appendToPreRoll(frameID: frameID, samples: samples)
+            appendToPreRoll(frame)
             framesSinceKeepalive += 1
             wasSendingVoice = false
 
@@ -65,8 +65,8 @@ struct AudioTransmissionController {
         wasSendingVoice = false
     }
 
-    private mutating func appendToPreRoll(frameID: Int, samples: [Float]) {
-        preRoll.append(CapturedFrame(frameID: frameID, samples: samples))
+    private mutating func appendToPreRoll(_ frame: PCMFrame) {
+        preRoll.append(CapturedFrame(frame: frame))
         if preRoll.count > preRollLimit {
             preRoll.removeFirst(preRoll.count - preRollLimit)
         }

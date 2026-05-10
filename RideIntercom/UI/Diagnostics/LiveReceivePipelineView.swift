@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioCore
 import AudioMixer
 import RTC
 import SessionManager
@@ -337,10 +338,10 @@ struct LiveReceivePipelineView: View {
         guard let snapshot else {
             return viewModel.playedAudioFrameCount > 0 ? "Scheduled" : "Ready"
         }
-        return "\(snapshot.isRunning ? "Run" : "Idle") / \(streamFormatSummary(snapshot.format)) / F \(snapshot.processedFrameCount)"
+        return "\(snapshot.isRunning ? "Run" : "Idle") / \(streamFormatSummary(snapshot.actualHardwareFormat)) / F \(snapshot.processedFrameCount)"
     }
 
-    private func streamFormatSummary(_ format: SessionManager.AudioStreamFormat) -> String {
+    private func streamFormatSummary(_ format: AudioFormat) -> String {
         "\(Int(format.sampleRate / 1_000))k/\(format.channelCount)ch"
     }
 

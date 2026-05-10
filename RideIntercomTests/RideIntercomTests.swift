@@ -1,4 +1,5 @@
 import Foundation
+import AudioCore
 import AudioMixer
 import Codec
 import RTC
@@ -7,6 +8,7 @@ import Testing
 import VADGate
 @testable import RideIntercom
 
+@Suite(.serialized)
 @MainActor
 struct RideIntercomTests {
     @Test func appTargetSupportsIOSAndMacOSWithoutAudioUnitLinkage() throws {
@@ -28,8 +30,13 @@ struct RideIntercomTests {
             "JitterBuffer",
             "AudioFrameMixer",
             "AudioPacketEnvelope",
-            "ReceivedAudioPacket",
-            "streamID"
+            "streamID",
+            "AudioStreamFrame",
+            "RTC.AudioFrame",
+            "AudioFormatDescriptor",
+            "PCMCodecFrame",
+            "AudioCodecConfiguration",
+            "packetAudioCodecRegistry"
         ]
         for sourcePath in try Self.appSwiftSourcePaths() {
             let source = try Self.source(sourcePath)
@@ -106,7 +113,7 @@ struct RideIntercomTests {
         #expect(callSessionAdapter.contains("case .noEnabledRoute"))
         #expect(callSessionAdapter.contains("makeRouteConfiguration"))
         #expect(callSessionAdapter.contains("RTCRuntimeStatusTransport.decode(message)"))
-        #expect(callSessionAdapter.contains("PeerMetadataApplicationPayload(activeCodec: preferredAudioCodec)"))
+        #expect(callSessionAdapter.contains("PeerMetadataApplicationPayload(activeCodec: activeAudioCodec())"))
         #expect(callSessionAdapter.contains("return .remotePeerMetadata(peerID: peerID, activeCodec: payload.activeCodec)"))
         #expect(diagnosticsSpec.contains("receive-master-effect-stage-peak-limiter"))
         #expect(audioSpec.contains("master effect chain の最後は PeakLimiter 固定"))
@@ -213,16 +220,24 @@ struct RideIntercomTests {
             preRollLimit: 2,
             keepaliveIntervalFrames: 3
         )
+        func frame(_ sequenceNumber: UInt64, _ sample: Float) -> PCMFrame {
+            PCMFrame(
+                sequenceNumber: sequenceNumber,
+                format: .intercomPacketAudio,
+                capturedAt: TimeInterval(sequenceNumber),
+                samples: [sample]
+            )
+        }
 
-        #expect(controller.process(frameID: 1, level: 0, samples: [0.0]).isEmpty)
-        #expect(controller.process(frameID: 2, level: 0, samples: [0.0]).isEmpty)
-        #expect(controller.process(frameID: 3, level: 0, samples: [0.0]) == [.keepalive])
+        #expect(controller.process(frame: frame(1, 0), level: 0).isEmpty)
+        #expect(controller.process(frame: frame(2, 0), level: 0).isEmpty)
+        #expect(controller.process(frame: frame(3, 0), level: 0) == [.keepalive])
 
-        let voicePackets = controller.process(frameID: 4, level: 0.3, samples: [0.3])
+        let voicePackets = controller.process(frame: frame(4, 0.3), level: 0.3)
         #expect(voicePackets == [
-            .voice(frameID: 2, samples: [0.0]),
-            .voice(frameID: 3, samples: [0.0]),
-            .voice(frameID: 4, samples: [0.3])
+            .voice(frame(2, 0)),
+            .voice(frame(3, 0)),
+            .voice(frame(4, 0.3))
         ])
     }
 
@@ -277,26 +292,34 @@ struct RideIntercomTests {
 
     @Test func viewModelSendsVoiceSamplesFromPackageInputFrames() async throws {
         let harness = Self.makeHarness()
+        let hardwareFormat = AudioFormat(sampleRate: 44_100, channelCount: 2)
 
+        harness.viewModel.setRTCAudioFormatPreset(.mono24k)
+        harness.viewModel.setPreferredTransmitCodec(.pcm16)
         harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
         harness.callSession.authenticate(["member-108"])
         await Self.waitUntil { harness.viewModel.isAudioReady }
-        harness.inputBackend.emit(AudioStreamFrame(sequenceNumber: 1, format: .intercom, capturedAt: 100, samples: [0.3]))
-        harness.inputBackend.emit(AudioStreamFrame(sequenceNumber: 2, format: .intercom, capturedAt: 101, samples: [0.4]))
-        harness.inputBackend.emit(AudioStreamFrame(sequenceNumber: 3, format: .intercom, capturedAt: 102, samples: [0.4]))
-        harness.inputBackend.emit(AudioStreamFrame(sequenceNumber: 4, format: .intercom, capturedAt: 103, samples: [0.4]))
-        await Self.waitUntil { harness.callSession.sentAudioPackets.count >= 4 }
+        for sequenceNumber in 1...8 {
+            harness.inputBackend.emit(PCMFrame(
+                sequenceNumber: UInt64(sequenceNumber),
+                format: hardwareFormat,
+                capturedAt: TimeInterval(100 + sequenceNumber),
+                samples: Array(repeating: [Float(0.7), Float(0.8)], count: 2_048).flatMap { $0 }
+            ))
+        }
+        await Self.waitUntil(timeout: .seconds(5)) { harness.callSession.sentAudioPackets.isEmpty == false }
 
-        #expect(harness.callSession.sentAudioPackets.prefix(2) == [
-            .voice(frameID: 1, samples: [0.3]),
-            .voice(frameID: 2, samples: [0.4])
-        ])
+        let packet = try #require(harness.callSession.sentAudioPackets.first)
+        let decoded = try AppAudioCodecBridge.decode(packet)
+        #expect(packet.format == RTC.RTCAudioFormat(audioFormat: RTCAudioFormatPreset.mono24k.audioFormat))
+        #expect(decoded.format == RTCAudioFormatPreset.mono24k.audioFormat)
+        #expect(harness.callSession.audioPolicies.last?.preferredSendFormat == RTC.RTCAudioFormat(audioFormat: RTCAudioFormatPreset.mono24k.audioFormat))
     }
 
     @Test func viewModelReceivesRTCFrameAndSchedulesPackageOutput() async throws {
         let harness = Self.makeHarness()
         let group = IntercomSeedData.recentGroups[0]
-        let frame = RTC.AudioFrame(
+        let frame = PCMFrame(
             sequenceNumber: 7,
             format: .intercomPacketAudio,
             capturedAt: 100,
@@ -306,16 +329,18 @@ struct RideIntercomTests {
         harness.viewModel.selectGroup(group)
         harness.callSession.authenticate(["member-108"])
         await Self.waitUntil { harness.viewModel.isAudioReady }
-        harness.callSession.receive(RTC.ReceivedAudioFrame(peerID: RTC.PeerID(rawValue: "member-108"), frame: frame))
+        harness.callSession.receive(try Self.receivedAudioPacket(peerID: "member-108", frame: frame, codec: .pcm16))
         await Self.waitUntil { harness.outputBackend.scheduledFrames.count == 1 }
 
         let remoteMember = try #require(harness.viewModel.selectedGroup?.members.first { $0.id == "member-108" })
+        let scheduledFrame = try #require(harness.outputBackend.scheduledFrames.first)
         #expect(remoteMember.isTalking)
         #expect(remoteMember.receivedAudioPacketCount == 1)
         #expect(remoteMember.playedAudioFrameCount == 1)
         #expect(harness.viewModel.playedAudioFrameCount == 1)
-        #expect(harness.outputBackend.scheduledFrames[0].sequenceNumber == 7)
-        #expect(harness.outputBackend.scheduledFrames[0].samples == [0.2, -0.2])
+        #expect(scheduledFrame.format == .intercomHardwarePreferred)
+        #expect(scheduledFrame.samples.contains { abs($0 - 0.2) < 0.001 })
+        #expect(scheduledFrame.samples.contains { abs($0 + 0.2) < 0.001 })
     }
 
     @Test func viewModelUsesRTCMetricsForReceiveBufferDiagnostics() async {
@@ -354,7 +379,7 @@ struct RideIntercomTests {
         let harness = Self.makeHarness(groups: [])
 
         harness.viewModel.startAudioCheck(recordDuration: .milliseconds(20), playbackDuration: .seconds(5))
-        harness.inputBackend.emit(AudioStreamFrame(sequenceNumber: 1, format: .intercom, capturedAt: 100, samples: [0.5, -0.5]))
+        harness.inputBackend.emit(PCMFrame(sequenceNumber: 1, format: .intercomHardwarePreferred, capturedAt: 100, samples: [0.5, -0.5]))
         await Self.waitUntil { harness.viewModel.audioCheckInputLevel > 0 }
         harness.viewModel.finishAudioCheckRecording(playbackDuration: .seconds(5))
 
@@ -399,52 +424,42 @@ struct RideIntercomTests {
         #expect(harness.viewModel.enabledRTCTransportRoutes == IntercomViewModel.defaultEnabledRTCTransportRoutes)
         #expect(!harness.viewModel.isOutputMuted)
         #expect(harness.viewModel.groups.count == IntercomSeedData.recentGroups.count)
-        #expect(harness.callSession.remoteOutputVolumeValues.last?.peerID == "member-108")
-        #expect(harness.callSession.remoteOutputVolumeValues.last?.volume == IntercomViewModel.defaultRemoteOutputVolume)
         #expect(harness.callSession.enabledRouteValues.last == IntercomViewModel.defaultEnabledRTCTransportRoutes)
         #expect(harness.callSession.outputMuteValues.last == false)
     }
 
-    @Test func viewModelAppliesParticipantOutputVolumeToPlaybackAndRTC() {
+    @Test func viewModelKeepsParticipantOutputVolumeInsideAppAudioPipeline() async {
         let harness = Self.makeHarness()
         let peerID = "member-108"
 
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate([peerID])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        let policiesBefore = harness.callSession.audioPolicies
         harness.viewModel.setRemoteOutputVolume(peerID: peerID, volume: 0.25)
-        harness.viewModel.scheduleOutputFrame(
-            peerID: peerID,
-            frame: RTC.AudioFrame(
-                sequenceNumber: 1,
-                format: RTC.AudioFormatDescriptor(sampleRate: 16_000, channelCount: 1),
-                capturedAt: 100,
-                samples: [0.5, -0.5]
-            ),
-            receivedAt: 100
-        )
+        let peerSource = harness.viewModel.audioPipeline.snapshot.buses
+            .first { $0.id == "rx-peer-\(peerID)" }?
+            .sources
+            .first { $0.id == "rtc-audio-\(peerID)" }
 
         #expect(harness.viewModel.remoteOutputVolume(for: peerID) == 0.25)
-        #expect(harness.callSession.remoteOutputVolumeValues.last?.peerID == peerID)
-        #expect(harness.callSession.remoteOutputVolumeValues.last?.volume == 0.25)
-        #expect(harness.outputBackend.scheduledFrames.last?.samples == [0.125, -0.125])
+        #expect(harness.callSession.audioPolicies == policiesBefore)
+        #expect(peerSource?.id == "rtc-audio-\(peerID)")
     }
 
-    @Test func viewModelAppliesReceiveMasterPeakLimiterAfterOutputGain() {
+    @Test func viewModelAppliesMasterOutputSettingsThroughAudioMixer() async {
         let harness = Self.makeHarness()
-        let peerID = "member-108"
 
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
         harness.viewModel.setMasterOutputVolume(2)
-        harness.viewModel.scheduleOutputFrame(
-            peerID: peerID,
-            frame: RTC.AudioFrame(
-                sequenceNumber: 1,
-                format: RTC.AudioFormatDescriptor(sampleRate: 16_000, channelCount: 1),
-                capturedAt: 100,
-                samples: [0.75, -0.75, 0.25]
-            ),
-            receivedAt: 100
-        )
+        let activeMasterBus = harness.viewModel.audioPipeline.snapshot.buses.first { $0.id == "rx-master" }
+        harness.viewModel.toggleOutputMute()
+        let mutedMasterBus = harness.viewModel.audioPipeline.snapshot.buses.first { $0.id == "rx-master" }
 
-        #expect(harness.outputBackend.scheduledFrames.last?.samples == [1, -1, 0.5])
-        #expect(harness.viewModel.lastScheduledOutputRMS <= IntercomViewModel.receiveMasterPeakLimiterCeiling)
+        #expect(activeMasterBus?.volume == 2)
+        #expect(mutedMasterBus?.volume == 0)
     }
 
     @Test func viewModelTracksReceiveVoiceIsolationControls() {
@@ -615,9 +630,8 @@ struct RideIntercomTests {
         #expect(harness.viewModel.preferredTransmitCodec == .mpeg4AACELDv2)
         #expect(harness.viewModel.aacELDv2BitRate == 32_000)
         #expect(harness.viewModel.opusBitRate == 32_000)
-        #expect(harness.callSession.preferredCodecs.last == .mpeg4AACELDv2)
-        #expect(harness.callSession.codecOptions.last?.aacELDv2BitRate == 32_000)
-        #expect(harness.callSession.codecOptions.last?.opusBitRate == 32_000)
+        #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(.mpeg4AACELDv2))
+        #expect(harness.callSession.audioPolicies.last?.preferredSendFormat == RTC.RTCAudioFormat(audioFormat: .intercomPacketAudio))
 
         harness.viewModel.setPreferredTransmitCodec(.mpeg4AACELDv2)
         harness.viewModel.setAACELDv2BitRate(11_000)
@@ -626,9 +640,10 @@ struct RideIntercomTests {
         #expect(harness.viewModel.preferredTransmitCodec == .mpeg4AACELDv2)
         #expect(harness.viewModel.aacELDv2BitRate == 12_000)
         #expect(harness.viewModel.opusBitRate == 128_000)
-        #expect(harness.callSession.preferredCodecs.last == .mpeg4AACELDv2)
-        #expect(harness.callSession.codecOptions.last?.aacELDv2BitRate == 12_000)
-        #expect(harness.callSession.codecOptions.last?.opusBitRate == 128_000)
+        #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(
+            .mpeg4AACELDv2,
+            options: AppAudioCodecOptions(aacELDv2BitRate: 12_000, opusBitRate: 128_000)
+        ))
     }
 
     @Test func viewModelAppliesAudioSessionMatrixProfilesThroughSessionManager() {
@@ -670,6 +685,7 @@ struct RideIntercomTests {
             audioSessionProfile: .voiceChat,
             vadSensitivity: .noisy,
             preferredTransmitCodec: .opus,
+            rtcAudioFormatPreset: .mono16k,
             aacELDv2BitRate: 11_000,
             opusBitRate: 129_000
         ))
@@ -678,21 +694,27 @@ struct RideIntercomTests {
         #expect(harness.viewModel.audioSessionProfile == .voiceChat)
         #expect(harness.viewModel.vadSensitivity == .noisy)
         #expect(harness.viewModel.preferredTransmitCodec == .opus)
+        #expect(harness.viewModel.rtcAudioFormatPreset == .mono16k)
         #expect(harness.viewModel.aacELDv2BitRate == 12_000)
         #expect(harness.viewModel.opusBitRate == 128_000)
-        #expect(harness.callSession.preferredCodecs.last == .opus)
-        #expect(harness.callSession.codecOptions.last?.aacELDv2BitRate == 12_000)
-        #expect(harness.callSession.codecOptions.last?.opusBitRate == 128_000)
+        #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(
+            .opus,
+            format: RTCAudioFormatPreset.mono16k.audioFormat,
+            options: AppAudioCodecOptions(aacELDv2BitRate: 12_000, opusBitRate: 128_000)
+        ))
+        #expect(harness.callSession.audioPolicies.last?.preferredSendFormat == RTC.RTCAudioFormat(audioFormat: RTCAudioFormatPreset.mono16k.audioFormat))
 
         harness.viewModel.setAudioSessionProfile(.echoCancelledInput)
         harness.viewModel.setVADSensitivity(.lowNoise)
         harness.viewModel.setPreferredTransmitCodec(.mpeg4AACELDv2)
+        harness.viewModel.setRTCAudioFormatPreset(.mono24k)
         harness.viewModel.setAACELDv2BitRate(40_000)
 
         let saved = settingsStore.load()
         #expect(saved.audioSessionProfile == .echoCancelledInput)
         #expect(saved.vadSensitivity == .lowNoise)
         #expect(saved.preferredTransmitCodec == .mpeg4AACELDv2)
+        #expect(saved.rtcAudioFormatPreset == .mono24k)
         #expect(saved.aacELDv2BitRate == 40_000)
         #expect(saved.opusBitRate == 128_000)
     }
@@ -892,6 +914,17 @@ struct RideIntercomTests {
             return url.path.replacingOccurrences(of: workspaceRoot().path + "/", with: "")
         }
     }
+
+    private static func receivedAudioPacket(
+        peerID: String,
+        frame: PCMFrame,
+        codec: AudioCodecIdentifier
+    ) throws -> RTC.ReceivedAudioPacket {
+        RTC.ReceivedAudioPacket(
+            peerID: RTC.PeerID(rawValue: peerID),
+            packet: try AppAudioCodecBridge.encode(frame, preferred: codec)
+        )
+    }
 }
 
 private final class RecordingCallSession: RideIntercom.CallSession {
@@ -901,14 +934,12 @@ private final class RecordingCallSession: RideIntercom.CallSession {
     private(set) var startMediaCallCount = 0
     private(set) var stopMediaCallCount = 0
     private(set) var disconnectCallCount = 0
-    private(set) var preferredCodecs: [AudioCodecIdentifier] = []
-    private(set) var codecOptions: [(aacELDv2BitRate: Int, opusBitRate: Int)] = []
+    private(set) var audioPolicies: [RTC.RTCAudioPolicy] = []
     private(set) var localMuteValues: [Bool] = []
     private(set) var outputMuteValues: [Bool] = []
-    private(set) var remoteOutputVolumeValues: [(peerID: String, volume: Float)] = []
     private(set) var enabledRouteValues: [Set<RTC.RouteKind>] = []
     private(set) var runtimePackageReports: [[RTCRuntimePackageReport]] = []
-    private(set) var sentAudioPackets: [OutboundAudioPacket] = []
+    private(set) var sentAudioPackets: [RTC.RTCAudioPacket] = []
     private(set) var sentControlMessages: [ControlMessage] = []
     private(set) var sentApplicationDataMessages: [ApplicationDataMessage] = []
 
@@ -938,12 +969,8 @@ private final class RecordingCallSession: RideIntercom.CallSession {
         onEvent?(.disconnected)
     }
 
-    func setPreferredAudioCodec(_ codec: AudioCodecIdentifier) {
-        preferredCodecs.append(codec)
-    }
-
-    func setAudioCodecOptions(aacELDv2BitRate: Int, opusBitRate: Int) {
-        codecOptions.append((aacELDv2BitRate, opusBitRate))
+    func setAudioPolicy(_ policy: RTC.RTCAudioPolicy) {
+        audioPolicies.append(policy)
     }
 
     func setLocalMute(_ muted: Bool) {
@@ -954,10 +981,6 @@ private final class RecordingCallSession: RideIntercom.CallSession {
         outputMuteValues.append(muted)
     }
 
-    func setRemoteOutputVolume(peerID: String, volume: Float) {
-        remoteOutputVolumeValues.append((peerID, volume))
-    }
-
     func setEnabledRoutes(_ routes: Set<RTC.RouteKind>) {
         enabledRouteValues.append(routes)
     }
@@ -966,8 +989,8 @@ private final class RecordingCallSession: RideIntercom.CallSession {
         runtimePackageReports.append(reports)
     }
 
-    func sendAudioFrame(_ frame: OutboundAudioPacket) {
-        sentAudioPackets.append(frame)
+    func sendAudioPacket(_ packet: RTC.RTCAudioPacket) {
+        sentAudioPackets.append(packet)
     }
 
     func sendControl(_ message: ControlMessage) {
@@ -982,8 +1005,8 @@ private final class RecordingCallSession: RideIntercom.CallSession {
         onEvent?(.authenticated(peerIDs: peerIDs))
     }
 
-    func receive(_ frame: RTC.ReceivedAudioFrame) {
-        onEvent?(.receivedAudioFrame(frame))
+    func receive(_ packet: RTC.ReceivedAudioPacket) {
+        onEvent?(.receivedAudioPacket(packet))
     }
 
     func publishMetrics(_ metrics: RTC.RouteMetrics) {
@@ -1025,12 +1048,11 @@ private final class FakeRTCCallSession: RTC.CallSession {
     func stopConnection() async {}
     func startMedia() async {}
     func stopMedia() async {}
-    func sendAudioFrame(_ frame: RTC.AudioFrame) async {}
+    func sendAudioPacket(_ packet: RTC.RTCAudioPacket) async {}
     func sendApplicationData(_ message: RTC.ApplicationDataMessage) async {}
     func updateRuntimePackageReports(_ reports: [RTC.RTCRuntimePackageReport]) async {}
     func setLocalMute(_ muted: Bool) async {}
     func setOutputMute(_ muted: Bool) async {}
-    func setRemoteOutputVolume(peerID: RTC.PeerID, volume: Float) async {}
 }
 
 private final class TransportEventRecorder {
@@ -1058,7 +1080,7 @@ private final class TransportEventRecorder {
 private final class FakeAudioSessionBackend: SessionManager.AudioSessionBackend {
     private(set) var appliedConfigurations: [SessionManager.ResolvedAudioSessionConfiguration] = []
     private(set) var activeValues: [Bool] = []
-    private var snapshotChangeHandler: SessionManager.AudioSessionSnapshotChangeHandler?
+    private var snapshotChangeHandler: ((SessionManager.AudioSessionSnapshotChange) -> Void)?
     var current = AudioSessionSnapshot(
         isActive: false,
         availableInputs: [
@@ -1104,7 +1126,7 @@ private final class FakeAudioSessionBackend: SessionManager.AudioSessionBackend 
         current
     }
 
-    func setSnapshotChangeHandler(_ handler: SessionManager.AudioSessionSnapshotChangeHandler?) {
+    func setSnapshotChangeHandler(_ handler: ((SessionManager.AudioSessionSnapshotChange) -> Void)?) {
         snapshotChangeHandler = handler
     }
 }
@@ -1113,15 +1135,15 @@ private final class FakeInputStreamBackend: SessionManager.AudioInputStreamBacke
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var voiceProcessingConfigurations: [SessionManager.AudioInputVoiceProcessingConfiguration] = []
-    private var onFrame: ((SessionManager.AudioStreamFrame) -> Void)?
+    private var onFrame: ((PCMFrame) -> Void)?
 
     func startCapture(
         configuration: SessionManager.AudioInputStreamConfiguration,
-        onFrame: @escaping (SessionManager.AudioStreamFrame) -> Void
-    ) throws {
-        _ = configuration
+        onFrame: @escaping (PCMFrame) -> Void
+    ) throws -> AudioFormat {
         startCount += 1
         self.onFrame = onFrame
+        return configuration.preferredFormat
     }
 
     func stopCapture() throws {
@@ -1133,7 +1155,7 @@ private final class FakeInputStreamBackend: SessionManager.AudioInputStreamBacke
         voiceProcessingConfigurations.append(configuration)
     }
 
-    func emit(_ frame: SessionManager.AudioStreamFrame) {
+    func emit(_ frame: PCMFrame) {
         onFrame?(frame)
     }
 }
@@ -1141,18 +1163,18 @@ private final class FakeInputStreamBackend: SessionManager.AudioInputStreamBacke
 private final class FakeOutputStreamBackend: SessionManager.AudioOutputStreamBackend {
     private(set) var startCount = 0
     private(set) var stopCount = 0
-    private(set) var scheduledFrames: [SessionManager.AudioStreamFrame] = []
+    private(set) var scheduledFrames: [PCMFrame] = []
 
-    func startRendering(configuration: SessionManager.AudioOutputStreamConfiguration) throws {
-        _ = configuration
+    func startRendering(configuration: SessionManager.AudioOutputStreamConfiguration) throws -> AudioFormat {
         startCount += 1
+        return configuration.preferredFormat
     }
 
     func stopRendering() throws {
         stopCount += 1
     }
 
-    func schedule(_ frame: SessionManager.AudioStreamFrame) throws {
+    func schedule(_ frame: PCMFrame) throws {
         scheduledFrames.append(frame)
     }
 }

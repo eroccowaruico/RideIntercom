@@ -35,6 +35,10 @@ extension IntercomViewModel {
         guard isAudioReady || audioCheckPhase == .playing else { return }
         lastOutputStreamOperationReport = audioOutputRenderer.stop()
         lastOutputStreamOperationReport = audioOutputRenderer.start()
+        if isAudioReady {
+            _ = rebuildAudioPipeline()
+            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+        }
     }
 
     func deduplicatedPorts(_ ports: [AudioPortInfo]) -> [AudioPortInfo] {
