@@ -25,10 +25,6 @@
 		9374C4CB2FA3657700D259B2 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9374C4C92FA3657700D259B2 /* AudioToolbox.framework */; };
 		9374C4D82FA3670400D259B2 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9374C4D72FA3670400D259B2 /* MultipeerConnectivity.framework */; };
 		93C60CE62FA3B46A00841E64 /* SafetyKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C60CE52FA3B46A00841E64 /* SafetyKit.framework */; platformFilters = (ios, macos, ); };
-		93C60CE92FA3B53300841E64 /* AudioMixer in Frameworks */ = {isa = PBXBuildFile; productRef = 93C60CE82FA3B53300841E64 /* AudioMixer */; };
-		93C60CEC2FA3B54D00841E64 /* DynamicsProcessor in Frameworks */ = {isa = PBXBuildFile; productRef = 93C60CEB2FA3B54D00841E64 /* DynamicsProcessor */; };
-		93C60CF02FA3B57100841E64 /* SoundIsolation in Frameworks */ = {isa = PBXBuildFile; productRef = 93C60CEF2FA3B57100841E64 /* SoundIsolation */; };
-		93C60CF32FA3B58400841E64 /* VADGate in Frameworks */ = {isa = PBXBuildFile; productRef = 93C60CF22FA3B58400841E64 /* VADGate */; };
 		93DCB0832FA3864000B921FA /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93DCB0822FA3864000B921FA /* CryptoKit.framework */; };
 /* End PBXBuildFile section */
 
@@ -50,15 +46,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		9306F0272FA8DFBA0030B045 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/AVFoundation.framework; sourceTree = DEVELOPER_DIR; };
-		9306F0292FA8DFD30030B045 /* AVFAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFAudio.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/AVFAudio.framework; sourceTree = DEVELOPER_DIR; };
-		9374C4C92FA3657700D259B2 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/AudioToolbox.framework; sourceTree = DEVELOPER_DIR; };
-		9374C4D72FA3670400D259B2 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = DEVELOPER_DIR; };
+		9306F0272FA8DFBA0030B045 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		9306F0292FA8DFD30030B045 /* AVFAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFAudio.framework; path = System/Library/Frameworks/AVFAudio.framework; sourceTree = SDKROOT; };
+		9374C4C92FA3657700D259B2 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		9374C4D72FA3670400D259B2 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = SDKROOT; };
 		93BD72B32FACCD4900CBA553 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
 		93BD72B42FACCD4900CBA553 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
-		93C60CE32FA3B45100841E64 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
-		93C60CE52FA3B46A00841E64 /* SafetyKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafetyKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/SafetyKit.framework; sourceTree = DEVELOPER_DIR; };
-		93DCB0822FA3864000B921FA /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/CryptoKit.framework; sourceTree = DEVELOPER_DIR; };
+		93C60CE32FA3B45100841E64 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		93C60CE52FA3B46A00841E64 /* SafetyKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafetyKit.framework; path = System/Library/Frameworks/SafetyKit.framework; sourceTree = SDKROOT; };
+		93DCB0822FA3864000B921FA /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		93F300C82F93829C0046716D /* RideIntercom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300D92F93829D0046716D /* RideIntercomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300E32F93829D0046716D /* RideIntercomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -69,14 +65,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				packages/Audio/AudioMixer,
-				packages/Audio/Codec,
-				packages/Audio/Effectors/DynamicsProcessor,
-				packages/Audio/Effectors/PeakLimiter,
-				packages/Audio/Effectors/SoundIsolation,
-				packages/Audio/Effectors/VADGate,
-				packages/Audio/SessionManager,
-				packages/RTC,
+				packages,
 			);
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
 		};
@@ -108,6 +97,9 @@
 			exceptions = (
 				93F300EB2F93829D0046716D /* Exceptions for "RideIntercom" folder in "RideIntercom" target */,
 			);
+			explicitFolders = (
+				packages,
+			);
 			path = RideIntercom;
 			sourceTree = "<group>";
 		};
@@ -134,18 +126,14 @@
 				9374C4D82FA3670400D259B2 /* MultipeerConnectivity.framework in Frameworks */,
 				9306F0932FA8E0D40030B045 /* Codec in Frameworks */,
 				9306F0962FA8E5000030B045 /* SessionManager in Frameworks */,
-				93C60CF32FA3B58400841E64 /* VADGate in Frameworks */,
 				9374C4CB2FA3657700D259B2 /* AudioToolbox.framework in Frameworks */,
 				9374C4BF2FA3657600D259B2 /* AudioMixer in Frameworks */,
 				9374C4C12FA3657600D259B2 /* DynamicsProcessor in Frameworks */,
 				9374C4BA2FA364F000D259B2 /* Logging in Frameworks */,
 				9374C4C72FA3657600D259B2 /* VADGate in Frameworks */,
-				93C60CEC2FA3B54D00841E64 /* DynamicsProcessor in Frameworks */,
 				934630852F9C0001001548C3 /* RTC in Frameworks */,
 				934630872F9C0001001548C3 /* RTCNativeWebRTC in Frameworks */,
-				93C60CF02FA3B57100841E64 /* SoundIsolation in Frameworks */,
 				934E4A8B2FAD040600A1EDFC /* AudioCore in Frameworks */,
-				93C60CE92FA3B53300841E64 /* AudioMixer in Frameworks */,
 				9374C4C32FA3657600D259B2 /* PeakLimiter in Frameworks */,
 				9374C4C52FA3657600D259B2 /* SoundIsolation in Frameworks */,
 			);
@@ -232,10 +220,6 @@
 				9374C4C22FA3657600D259B2 /* PeakLimiter */,
 				9374C4C42FA3657600D259B2 /* SoundIsolation */,
 				9374C4C62FA3657600D259B2 /* VADGate */,
-				93C60CE82FA3B53300841E64 /* AudioMixer */,
-				93C60CEB2FA3B54D00841E64 /* DynamicsProcessor */,
-				93C60CEF2FA3B57100841E64 /* SoundIsolation */,
-				93C60CF22FA3B58400841E64 /* VADGate */,
 				9306F0922FA8E0D40030B045 /* Codec */,
 				9306F0952FA8E5000030B045 /* SessionManager */,
 				934E4A8A2FAD040600A1EDFC /* AudioCore */,
@@ -325,6 +309,14 @@
 			mainGroup = 93F300BF2F93829C0046716D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A10000000000000000000001 /* XCLocalSwiftPackageReference "AudioCore" */,
+				A10000000000000000000002 /* XCLocalSwiftPackageReference "AudioMixer" */,
+				A10000000000000000000003 /* XCLocalSwiftPackageReference "Codec" */,
+				A10000000000000000000004 /* XCLocalSwiftPackageReference "SessionManager" */,
+				A10000000000000000000005 /* XCLocalSwiftPackageReference "DynamicsProcessor" */,
+				A10000000000000000000006 /* XCLocalSwiftPackageReference "PeakLimiter" */,
+				A10000000000000000000007 /* XCLocalSwiftPackageReference "SoundIsolation" */,
+				A10000000000000000000008 /* XCLocalSwiftPackageReference "VADGate" */,
 				934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */,
 				9374C4B62FA364F000D259B2 /* XCRemoteSwiftPackageReference "swift-log" */,
 			);
@@ -772,7 +764,39 @@
 /* Begin XCLocalSwiftPackageReference section */
 		934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = RTC;
+			relativePath = RideIntercom/packages/RTC;
+		};
+		A10000000000000000000001 /* XCLocalSwiftPackageReference "AudioCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/AudioCore;
+		};
+		A10000000000000000000002 /* XCLocalSwiftPackageReference "AudioMixer" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/AudioMixer;
+		};
+		A10000000000000000000003 /* XCLocalSwiftPackageReference "Codec" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/Codec;
+		};
+		A10000000000000000000004 /* XCLocalSwiftPackageReference "SessionManager" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/SessionManager;
+		};
+		A10000000000000000000005 /* XCLocalSwiftPackageReference "DynamicsProcessor" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/Effectors/DynamicsProcessor;
+		};
+		A10000000000000000000006 /* XCLocalSwiftPackageReference "PeakLimiter" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/Effectors/PeakLimiter;
+		};
+		A10000000000000000000007 /* XCLocalSwiftPackageReference "SoundIsolation" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/Effectors/SoundIsolation;
+		};
+		A10000000000000000000008 /* XCLocalSwiftPackageReference "VADGate" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RideIntercom/packages/Audio/Effectors/VADGate;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -790,10 +814,12 @@
 /* Begin XCSwiftPackageProductDependency section */
 		9306F0922FA8E0D40030B045 /* Codec */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000003 /* XCLocalSwiftPackageReference "Codec" */;
 			productName = Codec;
 		};
 		9306F0952FA8E5000030B045 /* SessionManager */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000004 /* XCLocalSwiftPackageReference "SessionManager" */;
 			productName = SessionManager;
 		};
 		934630842F9C0001001548C3 /* RTC */ = {
@@ -808,6 +834,7 @@
 		};
 		934E4A8A2FAD040600A1EDFC /* AudioCore */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCLocalSwiftPackageReference "AudioCore" */;
 			productName = AudioCore;
 		};
 		9374C4B72FA364F000D259B2 /* InMemoryLogging */ = {
@@ -827,38 +854,27 @@
 		};
 		9374C4BE2FA3657600D259B2 /* AudioMixer */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000002 /* XCLocalSwiftPackageReference "AudioMixer" */;
 			productName = AudioMixer;
 		};
 		9374C4C02FA3657600D259B2 /* DynamicsProcessor */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000005 /* XCLocalSwiftPackageReference "DynamicsProcessor" */;
 			productName = DynamicsProcessor;
 		};
 		9374C4C22FA3657600D259B2 /* PeakLimiter */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000006 /* XCLocalSwiftPackageReference "PeakLimiter" */;
 			productName = PeakLimiter;
 		};
 		9374C4C42FA3657600D259B2 /* SoundIsolation */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000007 /* XCLocalSwiftPackageReference "SoundIsolation" */;
 			productName = SoundIsolation;
 		};
 		9374C4C62FA3657600D259B2 /* VADGate */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = VADGate;
-		};
-		93C60CE82FA3B53300841E64 /* AudioMixer */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = AudioMixer;
-		};
-		93C60CEB2FA3B54D00841E64 /* DynamicsProcessor */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = DynamicsProcessor;
-		};
-		93C60CEF2FA3B57100841E64 /* SoundIsolation */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = SoundIsolation;
-		};
-		93C60CF22FA3B58400841E64 /* VADGate */ = {
-			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000008 /* XCLocalSwiftPackageReference "VADGate" */;
 			productName = VADGate;
 		};
 /* End XCSwiftPackageProductDependency section */

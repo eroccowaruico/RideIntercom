@@ -1,6 +1,23 @@
-/.DS_Store
-*.xcuserstate
-/.derivedData
-
+# macOS and user-specific Xcode state
 .DS_Store
+xcuserdata/
+*.xcuserstate
+
+# Generated build and dependency directories (at every level)
+.build/
+DerivedData/
+.derivedData/
 node_modules/
+
+# Worker local state, bundles, and local credentials
+server/.wrangler/
+server/dist/
+server/.dev.vars
+server/.dev.vars.*
+server/.env
+server/.env.*
+!server/.env.example
+!server/.dev.vars.example
+
+# Reproducible validation output
+.validation/
