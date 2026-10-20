@@ -75,8 +75,8 @@
 
 | 領域 | 正本 |
 |---|---|
-| UI | `docs/spec/画面項目定義.md` |
-| 状態遷移 | `docs/spec/画面・状態遷移.md` |
-| 通信 | `docs/spec/通信仕様.md` |
-| 音声 | `docs/spec/音声処理仕様.md` |
-| 設定 | `docs/spec/設定値一覧.md` |
+| UI | `docs/spec/App/UI/画面項目定義.md` |
+| 状態遷移 | `docs/spec/App/UI/画面・状態遷移.md` |
+| 通信 | `docs/spec/App/通信仕様.md` |
+| 音声 | `docs/spec/App/音声処理仕様.md` |
+| 設定 | `docs/spec/App/setting parameters/App/設定値一覧.md` |

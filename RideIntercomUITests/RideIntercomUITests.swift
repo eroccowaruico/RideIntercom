@@ -28,8 +28,65 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testGroupSelectionOpensCallScreen() throws {
+    func testRecoveryWorkflowInOneLaunch() throws {
         createTalkGroupAndOpenCall()
+        try checkGroupSelectionOpensCallScreen()
+        try checkManualAddRiderButtonIsNotShownInCallUI()
+        try checkParticipantDeletionIsNotShownForLocalMemberOnly()
+        try checkCallKeepsDiagnosticsOutOfPrimaryExperience()
+        try checkMuteControlLivesWithHeaderMicrophoneMeter()
+        try checkVoiceActivityAndHandoverCanBeExercisedFromUI()
+        try checkDisconnectAndReconnectButtonsTransitionInCall()
+        attachScreen("Call")
+        try checkShowGroupsButtonReturnsFromCallToGroupSelection()
+        app.buttons.matching(identifier: "groupRow-Talk Group").firstMatch.tap()
+        try checkGroupDeletionCanBeExercisedFromUI()
+        try checkDiagnosticsKeepsMicrophoneIndicatorVisibleWithoutGroup()
+        try checkDiagnosticsShowRealDeviceSetupIdentifiers()
+        attachScreen("Diagnostics")
+        try checkTabNavigationShowsExpectedRootSections()
+        try checkSettingsShowsConfigPanelsWithoutDiagnosticsRows()
+        try checkAudioCheckControlsAreAvailableFromSettings()
+        checkSettingsChangesPersistAcrossTabs()
+        attachScreen("Settings")
+    }
+
+    private func checkSettingsChangesPersistAcrossTabs() {
+        openSettingsTab()
+        attachScreen("Settings before edits")
+        let local = app.switches["Local Network"].firstMatch
+        let internet = app.switches["Internet"].firstMatch
+        XCTAssertTrue(local.waitForExistence(timeout: 3))
+        let original = local.value as? String
+        local.switches.firstMatch.tap()
+        XCTAssertNotEqual(local.value as? String, original)
+        XCTAssertFalse(internet.isEnabled) // The remaining route cannot be disabled.
+        openGroupsTab()
+        openSettingsTab()
+        XCTAssertNotEqual(local.value as? String, original)
+        local.switches.firstMatch.tap()
+        XCTAssertEqual(local.value as? String, original)
+        revealSettingsPanelIfNeeded(identifier: "transmitCodecPanel")
+        let codec = app.segmentedControls.containing(.button, identifier: "PCM 16-bit").firstMatch
+        codec.buttons["Opus"].tap()
+        XCTAssertTrue(codec.buttons["Opus"].isSelected)
+        codec.buttons["PCM 16-bit"].tap()
+        XCTAssertTrue(codec.buttons["PCM 16-bit"].isSelected)
+    }
+
+    private func attachScreen(_ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "\(name) accessibility"
+        tree.lifetime = .keepAlways
+        add(tree)
+    }
+
+    @MainActor
+    private func checkGroupSelectionOpensCallScreen() throws {
 
         XCTAssertTrue(app.staticTexts["Participants"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.descendants(matching: .any)["localMicrophonePanel"].exists)
@@ -49,16 +106,14 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testManualAddRiderButtonIsNotShownInCallUI() throws {
-        createTalkGroupAndOpenCall()
+    private func checkManualAddRiderButtonIsNotShownInCallUI() throws {
 
         XCTAssertFalse(app.buttons["Add Rider"].exists)
         XCTAssertTrue(app.buttons["inviteButton"].waitForExistence(timeout: 3))
     }
 
     @MainActor
-    func testMuteControlLivesWithHeaderMicrophoneMeter() throws {
-        createTalkGroupAndOpenCall()
+    private func checkMuteControlLivesWithHeaderMicrophoneMeter() throws {
 
         XCTAssertTrue(app.descendants(matching: .any)["localMicrophoneMeter"].waitForExistence(timeout: 3))
         let muteButton = app.buttons["localMicrophoneMuteButton"]
@@ -68,8 +123,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testParticipantDeletionIsNotShownForLocalMemberOnly() throws {
-        createTalkGroupAndOpenCall()
+    private func checkParticipantDeletionIsNotShownForLocalMemberOnly() throws {
 
         XCTAssertFalse(app.buttons["Add Rider"].exists)
         XCTAssertFalse(app.buttons["removeParticipantButton0"].exists)
@@ -77,8 +131,8 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testDiagnosticsShowRealDeviceSetupIdentifiers() throws {
-        relaunchOnDiagnosticsTab()
+    private func checkDiagnosticsShowRealDeviceSetupIdentifiers() throws {
+        showEmptyDiagnostics()
 
         XCTAssertTrue(app.descendants(matching: .any)["liveTransmitPipelineView"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["liveReceivePipelineView"].waitForExistence(timeout: 3))
@@ -87,6 +141,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["receive-pipeline-mix-step"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["receive-mix-topology"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["receive-pipeline-output-step"].exists)
+        revealDiagnosticOverview()
         XCTAssertTrue(app.descendants(matching: .any)["realDeviceCallDebugSummaryLabel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioIOPanel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioCheckPanel"].exists)
@@ -95,7 +150,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testAudioCheckControlsAreAvailableFromSettings() throws {
+    private func checkAudioCheckControlsAreAvailableFromSettings() throws {
         openSettingsTab()
 
         XCTAssertTrue(app.descendants(matching: .any)["audioIOPanel"].firstMatch.waitForExistence(timeout: 3))
@@ -107,8 +162,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testVoiceActivityAndHandoverCanBeExercisedFromUI() throws {
-        createTalkGroupAndOpenCall()
+    private func checkVoiceActivityAndHandoverCanBeExercisedFromUI() throws {
 
         XCTAssertTrue(app.buttons["disconnectButton"].exists)
         XCTAssertFalse(app.buttons["Refresh"].exists)
@@ -117,8 +171,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testCallKeepsDiagnosticsOutOfPrimaryExperience() throws {
-        createTalkGroupAndOpenCall()
+    private func checkCallKeepsDiagnosticsOutOfPrimaryExperience() throws {
 
         XCTAssertFalse(app.descendants(matching: .any)["realDeviceCallDebugSummaryLabel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["transportDebugSummaryLabel"].exists)
@@ -127,8 +180,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testGroupDeletionCanBeExercisedFromUI() throws {
-        createTalkGroupAndOpenCall()
+    private func checkGroupDeletionCanBeExercisedFromUI() throws {
         openGroupsTab()
 
         let groupRows = app.buttons.matching(identifier: "groupRow-Talk Group")
@@ -142,28 +194,29 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testDiagnosticsKeepsMicrophoneIndicatorVisibleWithoutGroup() throws {
-        relaunchOnDiagnosticsTab()
+    private func checkDiagnosticsKeepsMicrophoneIndicatorVisibleWithoutGroup() throws {
+        showEmptyDiagnostics()
 
         XCTAssertTrue(app.descendants(matching: .any)["liveTransmitPipelineView"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["liveReceivePipelineView"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["pipeline-input-step"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["pipeline-effect-stage-vad-gate"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["pipeline-effect-stage-vad-gate"].exists) // No invented idle Mixer effects.
     }
 
     @MainActor
-    func testTabNavigationShowsExpectedRootSections() throws {
+    private func checkTabNavigationShowsExpectedRootSections() throws {
         openGroupsTab()
         XCTAssertTrue(app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3))
 
         openDiagnosticsTab()
         XCTAssertTrue(app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["audioIOApplyStateLabel"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["audioInputProcessingSummaryLabel"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["pipeline-session-step"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["pipeline-input-step"].firstMatch.waitForExistence(timeout: 3))
 
         openSettingsTab()
         XCTAssertTrue(app.descendants(matching: .any)["settingsScrollView"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.waitForExistence(timeout: 3))
+        revealSettingsPanelIfNeeded(identifier: "transmitCodecPanel")
         XCTAssertTrue(app.descendants(matching: .any)["transmitCodecPanel"].firstMatch.waitForExistence(timeout: 3))
         revealSettingsPanelIfNeeded(identifier: "voiceActivityPanel")
         XCTAssertTrue(app.descendants(matching: .any)["voiceActivityPanel"].firstMatch.waitForExistence(timeout: 3))
@@ -173,8 +226,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testShowGroupsButtonReturnsFromCallToGroupSelection() throws {
-        createTalkGroupAndOpenCall()
+    private func checkShowGroupsButtonReturnsFromCallToGroupSelection() throws {
 
         XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["showGroupsButton"].firstMatch.waitForExistence(timeout: 3))
@@ -184,8 +236,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testDisconnectAndReconnectButtonsTransitionInCall() throws {
-        createTalkGroupAndOpenCall()
+    private func checkDisconnectAndReconnectButtonsTransitionInCall() throws {
 
         let disconnectButton = app.buttons["disconnectButton"].firstMatch
         XCTAssertTrue(disconnectButton.waitForExistence(timeout: 3))
@@ -199,14 +250,16 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    func testSettingsShowsConfigPanelsWithoutDiagnosticsRows() throws {
+    private func checkSettingsShowsConfigPanelsWithoutDiagnosticsRows() throws {
         openSettingsTab()
 
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["audioSessionModeDescription"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "mode uses")).firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioSessionProfileStatus"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["audioIOPanel"].firstMatch.waitForExistence(timeout: 3))
+        revealAudioCheckControlsIfNeeded()
         XCTAssertTrue(app.descendants(matching: .any)["audioCheckPanel"].firstMatch.waitForExistence(timeout: 3))
+        revealSettingsPanelIfNeeded(identifier: "transmitCodecPanel")
         XCTAssertTrue(app.descendants(matching: .any)["transmitCodecPanel"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertFalse(app.descendants(matching: .any)["transmitCodecStatus"].firstMatch.exists)
         revealSettingsPanelIfNeeded(identifier: "voiceActivityPanel")
@@ -228,9 +281,10 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Participants"].waitForExistence(timeout: 3))
     }
 
-    private func relaunchOnDiagnosticsTab() {
-        app.terminate()
-        launchApp(startOnDiagnostics: true)
+    private func showEmptyDiagnostics() {
+        openGroupsTab()
+        removeExistingTalkGroups()
+        openDiagnosticsTab()
     }
 
     private func openGroupsTab() {
@@ -279,6 +333,13 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func openDiagnosticsTab() {
+        defer {
+            let scroll = app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch
+            for _ in 0..<6 {
+                if app.descendants(matching: .any)["pipeline-session-step"].firstMatch.isHittable { break }
+                scroll.swipeDown()
+            }
+        }
         if app.descendants(matching: .any)["liveTransmitPipelineView"].firstMatch.exists {
             return
         }
@@ -300,6 +361,14 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func openSettingsTab() {
+        defer {
+            let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+            for _ in 0..<6 {
+                let toggle = app.switches["Local Network"].firstMatch
+                if toggle.exists && toggle.isHittable { break }
+                scroll.swipeDown()
+            }
+        }
         if app.descendants(matching: .any)["settingsScrollView"].firstMatch.exists {
             return
         }
@@ -322,6 +391,14 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["settingsScrollView"].firstMatch.waitForExistence(timeout: 3))
     }
 
+    private func revealDiagnosticOverview() {
+        let scroll = app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch
+        for _ in 0..<8 {
+            if app.descendants(matching: .any)["realDeviceCallDebugSummaryLabel"].exists { return }
+            scroll.swipeUp()
+        }
+    }
+
     private func revealAudioCheckControlsIfNeeded() {
         let audioCheckButton = audioCheckButtonElement()
         let audioCheckPanel = app.descendants(matching: .any)["audioCheckPanel"].firstMatch
@@ -339,6 +416,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func revealSettingsPanelIfNeeded(identifier: String) {
+        openSettingsTab()
         let targetPanel = app.descendants(matching: .any)[identifier].firstMatch
         if targetPanel.exists {
             return

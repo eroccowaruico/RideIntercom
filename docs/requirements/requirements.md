@@ -28,12 +28,12 @@
 | パス | 役割 |
 |---|---|
 | `docs/requirements/ios-intercom-spec-v1.md` | 初期構想と現行との差分整理 |
-| `docs/spec/画面項目定義.md` | 現行 UI の正本 |
-| `docs/spec/画面・状態遷移.md` | 現行遷移の正本 |
-| `docs/spec/通信仕様.md` | 現行通信仕様の正本 |
-| `docs/spec/音声処理仕様.md` | 現行音声仕様の正本 |
-| `docs/spec/設定値一覧.md` | 現行設定値の正本 |
-| `docs/spec/ログ・保守・運用仕様.md` | 現行診断/運用仕様の正本 |
+| `docs/spec/App/UI/画面項目定義.md` | 現行 UI の正本 |
+| `docs/spec/App/UI/画面・状態遷移.md` | 現行遷移の正本 |
+| `docs/spec/App/通信仕様.md` | 現行通信仕様の正本 |
+| `docs/spec/App/音声処理仕様.md` | 現行音声仕様の正本 |
+| `docs/spec/App/setting parameters/App/設定値一覧.md` | 現行設定値の正本 |
+| `docs/spec/App/ログ仕様.md` | 現行診断/運用仕様の正本 |
 
 ## 更新ルール
 
