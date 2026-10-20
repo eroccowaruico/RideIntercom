@@ -90,3 +90,7 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 表示仕様 | 異常系の考え方 |
 |---|---|---|---|---|---|---|
 | 音声エラーメッセージ | `audioErrorLabel` | `audioErrorLabel` | 音声エラー文言 | `String` | 赤色フットノート | 画面全体を塞がず、その場で読める補助文言として扱う |
+
+## Voice Isolationの現在の提供状態
+
+Appの実MixerにはSoundIsolationノードが未接続のため、送信・peer・masterのVoice Isolation操作は表示しない。既存設定値は保全するが、通話へ適用済みとは扱わない。packageの対応OS判定だけでApp機能を有効にしない。

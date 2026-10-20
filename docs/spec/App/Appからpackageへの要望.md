@@ -15,7 +15,6 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 | 状態 | 内容 |
 |---|---|
 | 追加要求 | なし |
-| 解決済み | `d54673f58d7769d017edd8bc751d3aa0f4fb5a9a` の SessionManager / RTC / AudioCore API を App 実装へ反映済み。App 側で package 不足として残す内容はない |
 
 ## 追記ルール
 

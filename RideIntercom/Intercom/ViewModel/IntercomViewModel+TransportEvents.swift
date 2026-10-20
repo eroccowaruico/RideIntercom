@@ -59,11 +59,12 @@ extension IntercomViewModel {
             connectedPeerIDs = peerIDs
             addDiscoveredMembersIfNeeded(peerIDs: peerIDs)
             removeDisconnectedAuthenticatedPeers(connectedPeerIDs: peerIDs)
-            localNetworkStatus = .connected
+            if authenticatedPeerIDs.isEmpty, isAudioReady { stopAudioPipeline() }
+            localNetworkStatus = peerIDs.isEmpty ? .advertisingBrowsing : .connected
             if isLocalStandbyOnly {
                 connectionState = .idle
             } else {
-                connectionState = .localConnected
+                connectionState = peerIDs.isEmpty ? .localConnecting : .localConnected
             }
             markConnectedMembers(peerIDs: peerIDs)
             publishRuntimePackageReports(force: true)
@@ -80,12 +81,15 @@ extension IntercomViewModel {
             sendStateMetadataSnapshot()
             publishRuntimePackageReports(force: true)
         case .remotePeerMuteState(let peerID, let isMuted):
+            guard authenticatedPeerIDs.contains(peerID) else { return }
             setRemotePeerMuteState(peerID: peerID, isMuted: isMuted)
         case .remotePeerMetadata(let peerID, let activeCodec):
+            guard authenticatedPeerIDs.contains(peerID) else { return }
             if let activeCodec {
                 setRemotePeerCodec(peerID, codec: activeCodec)
             }
         case .remoteRuntimeStatus(let peerID, let status):
+            guard authenticatedPeerIDs.contains(peerID) else { return }
             remoteRuntimeStatuses[peerID] = status
         case .receivedApplicationData:
             break

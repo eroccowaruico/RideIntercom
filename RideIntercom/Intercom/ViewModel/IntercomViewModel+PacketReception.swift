@@ -6,7 +6,7 @@ import RTC
 extension IntercomViewModel {
     func handleReceivedAudioPacket(_ received: RTC.ReceivedAudioPacket) {
         let peerID = received.peerID.rawValue
-        guard authenticatedPeerIDs.isEmpty || authenticatedPeerIDs.contains(peerID) else {
+        guard isAudioReady, authenticatedPeerIDs.contains(peerID) else {
             return
         }
 
@@ -73,6 +73,7 @@ extension IntercomViewModel {
         authenticatedPeerIDs.removeAll { !connectedPeerIDSet.contains($0) }
 
         for peerID in disconnectedPeerIDs {
+            audioPipeline.stopReceivePeer(peerID)
             remoteVoiceReceivedAt.removeValue(forKey: peerID)
             setRemotePeer(peerID, isTalking: false)
         }

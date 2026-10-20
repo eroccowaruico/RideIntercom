@@ -10,10 +10,10 @@
 
 | package 設定 | App から渡す値 | 種別 |
 |---|---|---|
-| format | package default、または capture / output adapter が要求する format | adapter 導出 |
-| TX bus effect chain | `AudioMixerSnapshot.buses[id == "tx-bus"].effectChain`。初期構成は SoundIsolation、VADGate、DynamicsProcessor、PeakLimiter | adapter 導出 |
-| RX peer bus effect chain | `AudioMixerSnapshot.buses[id == "rx-peer-{peerID}"].effectChain`。peer 単位で `remoteSoundIsolationEnabled[peerID, default: false]` を反映する | 画面設定から導出 |
-| RX master bus effect chain | `AudioMixerSnapshot.buses[id == "rx-master"].effectChain`。`receiveMasterSoundIsolationEnabled` に応じた SoundIsolation と、最後に必ず挿入する PeakLimiter | 画面設定 + adapter 固定 |
+| format | 48kHz mono。TX sinkは選択RTC format、RX sinkはSessionManagerのactualHardwareFormat | adapter 導出 |
+| TX bus effect chain | `AudioMixerSnapshot.buses[id == "tx-bus"].effectChain`。現在は空。VADGateはMixer前段で適用し、他のeffect実ノードは未接続 | adapter 導出 |
+| RX peer bus effect chain | `AudioMixerSnapshot.buses[id == "rx-peer-{peerID}"].effectChain`。現在は空。`remoteSoundIsolationEnabled` は設定値のみで、実ノードは未接続 | 画面設定から導出 |
+| RX master bus effect chain | `AudioMixerSnapshot.buses[id == "rx-master"].effectChain`。現在は空。SoundIsolation / PeakLimiterの実ノードは未接続 | 画面設定 + adapter 固定 |
 | master bus volume | `isOutputMuted ? 0 : masterOutputVolume` | 画面設定から導出 |
 | peer bus volume | `remoteOutputVolumes[peerID]`。未設定 peer は `1.0` | 画面設定から導出 |
 

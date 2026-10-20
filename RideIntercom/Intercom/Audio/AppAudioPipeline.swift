@@ -1,3 +1,4 @@
+import AVFAudio
 import AudioCore
 import AudioMixer
 import Codec
@@ -60,6 +61,7 @@ struct AppAudioPipelineConfiguration: Equatable {
 
 enum AppAudioPipelineError: Error, Equatable {
     case notConfigured
+    case invalidFormat
 }
 
 final class AppAudioPipeline {
@@ -67,6 +69,15 @@ final class AppAudioPipeline {
 
     var onTransmitPacket: ((RTC.RTCAudioPacket) -> Void)?
     var onOutputFrame: ((PCMFrame) -> Void)?
+
+    private let makeEngine: () -> AVAudioEngine
+    private var generation = UUID()
+
+    init(makeEngine: @escaping () -> AVAudioEngine = { AVAudioEngine() }) {
+        self.makeEngine = makeEngine
+    }
+
+    deinit { mixer?.stop() }
 
     private var configuration = AppAudioPipelineConfiguration()
     private var mixer: AudioMixer?
@@ -87,18 +98,27 @@ final class AppAudioPipeline {
     }
 
     func rebuild(configuration: AppAudioPipelineConfiguration, peerIDs: [String]) throws {
-        mixer?.stop()
+        stop()
+        var completed = false
+        defer { if !completed { stop() } }
+        guard configuration.mixerFormat.sampleRate > 0, configuration.mixerFormat.channelCount > 0 else {
+            throw AppAudioPipelineError.invalidFormat
+        }
+        let generation = self.generation
         self.configuration = configuration
         rxSourcesByPeerID.removeAll()
 
-        let mixer = try AudioMixer(audioFormat: configuration.mixerFormat)
+        let mixer = try AudioMixer(engine: makeEngine(), audioFormat: configuration.mixerFormat)
         let txBus = try mixer.createBus("tx-bus")
         let txSource = try txBus.addPCMSource(id: "microphone-input")
         _ = try txBus.installPCMSink(
             id: "rtc-send",
             targetFormat: configuration.rtcSendFormat
         ) { [weak self] frame, _ in
-            self?.encodeAndPublish(frame)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.generation == generation else { return }
+                self.encodeAndPublish(frame)
+            }
         }
 
         let rxMasterBus = try mixer.createBus("rx-master")
@@ -107,7 +127,10 @@ final class AppAudioPipeline {
             id: "speaker-output",
             targetFormat: configuration.outputHardwareFormat
         ) { [weak self] frame, _ in
-            self?.publishOutput(frame)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.generation == generation else { return }
+                self.publishOutput(frame)
+            }
         }
         let engineOutputBus = try mixer.createBus("engine-output")
         engineOutputBus.volume = 0
@@ -126,9 +149,11 @@ final class AppAudioPipeline {
         try mixer.start()
         txSource.start()
         rxSourcesByPeerID.values.forEach { $0.start() }
+        completed = true
     }
 
     func stop() {
+        generation = UUID()
         mixer?.stop()
         mixer = nil
         txSource = nil
@@ -156,8 +181,18 @@ final class AppAudioPipeline {
         let frame = try AppAudioCodecBridge.decode(received.packet)
         let source = try ensureReceivePeer(received.peerID.rawValue)
         _ = try source.schedule(frame)
-        source.start()
+        if !source.playerNode.isPlaying { source.start() }
         return frame
+    }
+
+    func processPlaybackFrame(_ frame: PCMFrame) throws {
+        let source = try ensureReceivePeer("audio-check")
+        _ = try source.schedule(frame)
+        if !source.playerNode.isPlaying { source.start() }
+    }
+
+    func stopReceivePeer(_ peerID: String) {
+        rxSourcesByPeerID[peerID]?.stop()
     }
 
     private func ensureReceivePeer(_ peerID: String) throws -> MixerPCMSource {
@@ -170,6 +205,7 @@ final class AppAudioPipeline {
         source.volume = configuration.peerOutputVolumes[peerID] ?? 1
         try mixer.route(peerBus, to: rxMasterBus)
         rxSourcesByPeerID[peerID] = source
+        if mixer.engine.isRunning { source.start() }
         return source
     }
 

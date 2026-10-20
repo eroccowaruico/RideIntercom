@@ -18,7 +18,7 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 | `VADGateRuntimeSnapshot` | `vadGateRuntimeSnapshot` | VAD stage、発話状態、noise floor、threshold、gain |
 | `VoiceIsolationRuntimeSnapshot` | SoundIsolation report / AudioMixer effect metadata | SoundIsolation stage |
 | `DynamicsProcessorRuntimeSnapshot` | DynamicsProcessor report / AudioMixer effect metadata | DynamicsProcessor stage |
-| `PeakLimiterRuntimeSnapshot` | PeakLimiter report / AudioMixer effect metadata | PeakLimiter stage |
+| `PeakLimiterConfiguration` | 要求設定。実行状態とは区別 | 実ノード未接続のためstageは表示しない |
 | `SessionManager` report / snapshot | session、input、output、voice processing の直近 report | Session、Input、Output |
 | `RTC.RouteMetrics` | `lastRouteMetrics` | Network Quality |
 | `RTCRuntimeStatus` | `remoteRuntimeStatuses` | remote package runtime 状態の入力 |
@@ -30,7 +30,7 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 |---|---|---|---|---|---|
 | 診断画面 | `diagnosticsScrollView` | package runtime report と App 状態を要約する | `DiagnosticsView` | 0.5 秒 | `TimelineView` + `ScrollView` |
 | 送信パイプライン | `liveTransmitPipelineView` | ローカル送信がどこまで進んでいるかを読む | `LiveTransmitPipelineView` | 0.5 秒 | compact row。effect chain は TX bus 内に内包表示 |
-| 受信パイプライン | `liveReceivePipelineView` | 受信音声が出力までどこまで進んでいるかを読む | `LiveReceivePipelineView` | 0.5 秒 | compact row。peer bus は複数行一覧、effect chain は該当 bus 内に内包表示。RX master FX は最後に PeakLimiter を持つ |
+| 受信パイプライン | `liveReceivePipelineView` | 受信音声が出力までどこまで進んでいるかを読む | `LiveReceivePipelineView` | 0.5 秒 | compact row。peer bus は複数行一覧、effect chain は該当 bus 内に内包表示。RX master FXは実グラフの内容のみを表示する（現在空） |
 | 現在状態一覧 | `diagnosticsOverviewGrid` | pipeline と重複しない App 状態を見る | `DiagnosticsOverviewGrid` | 0.5 秒 | adaptive grid。Call / Network Quality / Invite のみ |
 
 ## 送信パイプライン
@@ -70,7 +70,7 @@ effect chain は AudioMixer package の `MixerBusSnapshot.effectChain` を正と
 | peer busステップ | `liveReceivePipelineView` | `receive-pipeline-peer-bus-step` | Peer Buses | `AudioMixerSnapshot` の RX peer bus、authenticated peer count、peer 別 RX / JIT / PLAY / level / volume / `receivePeerEffectChainSnapshot(peerID:)` | bus 数と RX count。下段に peer bus を複数行一覧で表示し、各 peer row 内には Mixer bus と effect chain だけを表示 | peer なしは neutral / waiting |
 | receive mix downステップ | `liveReceivePipelineView` | `receive-pipeline-mix-step` | Mix Down | `AudioMixerSnapshot.routes`、peer bus count、受信 packet count | `n routes -> rx-master` として複数 peer が master に集約されることを表示 | bus なしは waiting |
 | receive master busステップ | `liveReceivePipelineView` | `receive-pipeline-master-bus-step` | RX Master | `AudioMixerSnapshot` の `rx-master`、played frame count、master volume、source bus count | source bus count と OUT volume。mix 後の 1 本の master bus として表示 | 再生 0 は waiting |
-| master effect chainステップ | `liveReceivePipelineView` | `receive-pipeline-master-effects-step` | Master FX | `AudioMixerSnapshot` の `rx-master.effectChain` から導出した `receiveMasterEffectChainSnapshot.stages` | RX Master 配下に適用される ordered stage chip として inline 表示。最後は PeakLimiter | stage 単位で unavailable / bypassed を表示 |
+| master effect chainステップ | `liveReceivePipelineView` | `receive-pipeline-master-effects-step` | Master FX | `AudioMixerSnapshot` の `rx-master.effectChain` から導出した `receiveMasterEffectChainSnapshot.stages` | RX Master 配下に適用される ordered stage chip として inline 表示。現在は空 | stage 単位で unavailable / bypassed を表示 |
 | outputステップ | `liveReceivePipelineView` | `receive-pipeline-output-step` | Output | output renderer snapshot、mute、volume | stream format、frame count、mute | mute / volume 0 は warning |
 
 ## 受信 mix topology 表示
@@ -103,7 +103,7 @@ effect chain は AudioMixer package の `MixerBusSnapshot.effectChain` を正と
 | 拡張ルール | 仕様 |
 |---|---|
 | stage 追加 | AudioMixer package の peer bus または master bus の `effectChain` に stage が追加されれば Diagnostics の表示順へ反映する |
-| RX master limiter | RX master effect chain の最後には必ず PeakLimiter を表示する。ユーザー設定の対象にはしない |
+| RX master limiter | 実グラフにPeakLimiterが存在する場合のみ表示する。現在は未接続 |
 | 固定文字列禁止 | 受信側も固定の effect 名列挙や default 値を UI の正本にしない |
 | 一覧性 | peer chain は peer row 内、master chain は RX master row 内で別々に表示し、どちらで処理が止まっているかをログなしで読めるようにする |
 | 表示順検証 | Diagnostics の effect chip は `AudioEffectChainSnapshot.stages` の登録順をそのまま使う。任意 stage を追加した順序が UI 表示用 model へ保持されることをテストする |
@@ -163,3 +163,7 @@ AudioMixer package は UI 描画用の専用 DTO ではなく、現在の信号�
 | Call | `realDeviceCallDebugSummaryLabel` |
 | Network Quality | `receptionDebugSummaryLabel` |
 | Invite | `inviteDebugSummaryLabel` |
+
+## 診断と適用状態の区別
+
+実Mixerを毎回作り直して表示用の仮ノードを足す処理は使用しない。`AppAudioPipeline.snapshot` のbus、source、sink、routeをそのまま報告する。VADはMixer前段で実行するのでMixerのeffect chipには追加しない。上記stage IDは実ノードを配線した場合の表示契約であり、現在のSoundIsolation / DynamicsProcessor / PeakLimiter適用を示すものではない。

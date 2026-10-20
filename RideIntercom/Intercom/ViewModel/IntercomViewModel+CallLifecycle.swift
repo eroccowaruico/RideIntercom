@@ -16,6 +16,7 @@ extension IntercomViewModel {
         if activeGroupID != selectedGroup.id {
             activeGroupID = selectedGroup.id
             resetConnectionRuntimeState()
+            bindConnectionEvents()
         }
 
         isLocalStandbyOnly = false
@@ -54,15 +55,15 @@ extension IntercomViewModel {
             return true
         }
 
+        cancelAudioCheck()
+        bindAudioEvents()
         callSession.startMedia()
         guard configureAudioSession(active: true),
               applyCurrentVoiceProcessingConfiguration(),
               startInputCapture(),
               startOutputRenderer(),
               rebuildAudioPipeline() else {
-            callSession.stopMedia()
-            audioPipeline.stop()
-            isAudioReady = false
+            stopAudioPipeline()
             return false
         }
 
@@ -83,6 +84,7 @@ extension IntercomViewModel {
     }
 
     func stopAudioPipeline(deactivateSession: Bool = false) {
+        audioGeneration = UUID()
         let wasAudioReady = isAudioReady
         setOtherAudioDuckingActive(false)
         callSession.stopMedia()
@@ -123,7 +125,9 @@ extension IntercomViewModel {
 
     func disconnect() {
         let disconnectingGroupID = activeGroupID
-        audioCheckTask?.cancel()
+        connectionGeneration = UUID()
+        callSession.onEvent = nil
+        cancelAudioCheck()
         stopAudioPipeline()
         callSession.disconnect()
         connectionState = .idle
@@ -144,7 +148,44 @@ extension IntercomViewModel {
         activeGroupID = disconnectingGroupID
         markMembers(.offline)
         activeGroupID = nil
+        audioTransmissionController.applyVADSensitivity(vadSensitivity)
+        lastRouteMetrics = nil
         publishRuntimePackageReports(force: true)
+    }
+
+    func bindConnectionEvents() {
+        connectionGeneration = UUID()
+        let generation = connectionGeneration
+        callSession.onEvent = { [weak self] event in
+            DispatchQueue.main.async {
+                guard let self, self.connectionGeneration == generation else { return }
+                self.handleTransportEvent(event)
+            }
+        }
+    }
+
+    func bindAudioEvents() {
+        audioGeneration = UUID()
+        let generation = audioGeneration
+        audioInputCapture.setRuntimeEventHandler { [weak self] event in
+            DispatchQueue.main.async {
+                guard let self, self.audioGeneration == generation else { return }
+                self.handleAudioStreamRuntimeEvent(event)
+            }
+        }
+        audioPipeline.onTransmitPacket = { [weak self] packet in
+            guard let self, self.audioGeneration == generation, self.isAudioReady else { return }
+            self.handleTransmitAudioPacket(packet)
+        }
+        audioPipeline.onOutputFrame = { [weak self] frame in
+            guard let self, self.audioGeneration == generation else { return }
+            if self.audioCheckPhase == .playing {
+                self.lastOutputStreamOperationReport = self.audioOutputRenderer.schedule(frame)
+                return
+            }
+            guard self.isAudioReady else { return }
+            self.scheduleOutputFrame(frame: frame, receivedAt: Date().timeIntervalSince1970)
+        }
     }
 
     func configureAudioSession(active: Bool) -> Bool {

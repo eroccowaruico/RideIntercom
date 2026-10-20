@@ -12,7 +12,7 @@ struct LiveReceivePipelineView: View {
             CompactPipelineHeader(
                 title: "Live RX Pipeline",
                 systemImage: "point.bottomleft.forward.to.point.topright.scurvepath",
-                detail: "RTC -> Decode -> peer buses -> mix -> RX master -> limiter -> output"
+                detail: "RTC -> Decode -> peer buses -> mix -> RX master -> output"
             )
 
             VStack(alignment: .leading, spacing: AppSpacing.xs) {

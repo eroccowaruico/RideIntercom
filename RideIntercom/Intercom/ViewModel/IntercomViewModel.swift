@@ -142,7 +142,10 @@ final class IntercomViewModel {
     var playbackOutputPeakWindow = VoicePeakWindow()
     var audioCheckInputPeakWindow = VoicePeakWindow()
     var audioCheckOutputPeakWindow = VoicePeakWindow()
-    var audioCheckRecordedSamples: [Float] = []
+    var audioCheckRecordedFrames: [PCMFrame] = []
+    var audioCheckGeneration = UUID()
+    var connectionGeneration = UUID()
+    var audioGeneration = UUID()
     var audioCheckTask: Task<Void, Never>?
     var audioCheckOwnsAudioPipeline = false
     var isLocalStandbyOnly = false
@@ -177,6 +180,7 @@ final class IntercomViewModel {
         audioSessionManager: SessionManager.AudioSessionManager? = nil,
         audioInputCapture: SessionManager.AudioInputStreamCapture? = nil,
         audioOutputRenderer: SessionManager.AudioOutputStreamRenderer? = nil,
+        audioPipeline: AppAudioPipeline? = nil,
         audioTransmissionController: AudioTransmissionController? = nil,
         callTicker: CallTicking? = nil,
         remoteTalkerTimeout: TimeInterval = 0.6
@@ -193,7 +197,7 @@ final class IntercomViewModel {
         self.audioSessionManager = sessionManager
         self.audioInputCapture = audioInputCapture ?? Self.makeDefaultAudioInputCapture()
         self.audioOutputRenderer = audioOutputRenderer ?? Self.makeDefaultAudioOutputRenderer()
-        self.audioPipeline = AppAudioPipeline()
+        self.audioPipeline = audioPipeline ?? AppAudioPipeline()
         self.audioTransmissionController = audioTransmissionController ?? AudioTransmissionController()
         self.callTicker = callTicker ?? RepeatingCallTicker()
         self.credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
@@ -217,21 +221,11 @@ final class IntercomViewModel {
         self.callSession.setEnabledRoutes(enabledRTCTransportRoutes)
         self.callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
 
-        self.callSession.onEvent = { [weak self] event in
-            DispatchQueue.main.async { self?.handleTransportEvent(event) }
-        }
+        bindConnectionEvents()
         self.audioSessionManager.setRuntimeEventHandler { [weak self] event in
             DispatchQueue.main.async { self?.handleAudioSessionRuntimeEvent(event) }
         }
-        self.audioInputCapture.setRuntimeEventHandler { [weak self] event in
-            DispatchQueue.main.async { self?.handleAudioStreamRuntimeEvent(event) }
-        }
-        self.audioPipeline.onTransmitPacket = { [weak self] packet in
-            DispatchQueue.main.async { self?.handleTransmitAudioPacket(packet) }
-        }
-        self.audioPipeline.onOutputFrame = { [weak self] frame in
-            DispatchQueue.main.async { self?.scheduleOutputFrame(frame: frame, receivedAt: frame.capturedAt) }
-        }
+        bindAudioEvents()
         self.callTicker.onTick = { [weak self] now in
             self?.handleCallTick(now: now)
         }

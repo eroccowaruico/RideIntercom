@@ -297,7 +297,7 @@ struct AudioCheckPanel: View {
             }
             .appProminentButtonStyle()
             .controlSize(.large)
-            .disabled(viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing)
+            .disabled(viewModel.isAudioReady || viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing)
             .accessibilityValue(viewModel.audioCheckPhase.rawValue)
             .accessibilityIdentifier("audioCheckButton")
         } header: {

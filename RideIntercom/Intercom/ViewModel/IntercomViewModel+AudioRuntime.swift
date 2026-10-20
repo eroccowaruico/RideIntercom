@@ -90,6 +90,8 @@ extension IntercomViewModel {
         if rebuildAudioPipeline() {
             callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
             publishRuntimePackageReports(force: true)
+        } else {
+            stopAudioPipeline()
         }
     }
 
@@ -121,7 +123,7 @@ extension IntercomViewModel {
     }
 
     func processMicrophoneFrame(frame: PCMFrame, level: Float) {
-        processAudioCheckInput(level: level, samples: frame.samples)
+        processAudioCheckInput(level: level, frame: frame)
 
         guard isAudioReady else { return }
 

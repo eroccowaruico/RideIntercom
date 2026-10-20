@@ -112,6 +112,10 @@ final class RideIntercomCallSessionAdapter: CallSession {
     private var rtcSession: RTC.CallSession
     private let ownsRTCSession: Bool
     private var eventTask: Task<Void, Never>?
+    private var operationTask: Task<Void, Never>?
+    private var eventGeneration = UUID()
+    private var connectionRequest: RTC.CallStartRequest?
+    private var mediaRequested = false
     private var audioPolicy: RTC.RTCAudioPolicy = .intercomDefault
     private var enabledRoutes: Set<RTC.RouteKind> = AppRTCTransportRoutePolicy.supportedRoutes
 
@@ -138,32 +142,32 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     func startStandby(group: IntercomGroup) {
-        Task { [rtcSession, request = makeRTCRequest(from: group)] in
-            await rtcSession.prepare(request)
-        }
+        prepareConnection(group: group, start: false)
     }
 
     func connect(group: IntercomGroup) {
-        Task { [rtcSession, request = makeRTCRequest(from: group)] in
-            await rtcSession.prepare(request)
-            await rtcSession.startConnection()
-        }
+        prepareConnection(group: group, start: true)
     }
 
     func startMedia() {
-        Task { [rtcSession] in
+        mediaRequested = true
+        enqueue { [rtcSession] in
             await rtcSession.startMedia()
         }
     }
 
     func stopMedia() {
-        Task { [rtcSession] in
+        mediaRequested = false
+        enqueue { [rtcSession] in
             await rtcSession.stopMedia()
         }
     }
 
     func disconnect() {
-        Task { [rtcSession] in
+        connectionRequest = nil
+        mediaRequested = false
+        invalidateEvents()
+        enqueue { [rtcSession] in
             await rtcSession.stopConnection()
         }
     }
@@ -185,25 +189,25 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     func setLocalMute(_ muted: Bool) {
-        Task { [rtcSession] in
+        enqueue { [rtcSession] in
             await rtcSession.setLocalMute(muted)
         }
     }
 
     func setOutputMute(_ muted: Bool) {
-        Task { [rtcSession] in
+        enqueue { [rtcSession] in
             await rtcSession.setOutputMute(muted)
         }
     }
 
     func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport]) {
-        Task { [rtcSession] in
+        enqueue { [rtcSession] in
             await rtcSession.updateRuntimePackageReports(reports)
         }
     }
 
     func sendAudioPacket(_ packet: RTC.RTCAudioPacket) {
-        Task { [rtcSession] in
+        enqueue { [rtcSession] in
             await rtcSession.sendAudioPacket(packet)
         }
     }
@@ -223,16 +227,47 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     func sendApplicationData(_ message: ApplicationDataMessage) {
-        Task { [rtcSession] in
+        enqueue { [rtcSession] in
             await rtcSession.sendApplicationData(message)
+        }
+    }
+
+    // App commands arrive synchronously; preserve that order across RTC actor suspensions.
+    private func enqueue(_ operation: @escaping () async -> Void) {
+        let previous = operationTask
+        operationTask = Task {
+            await previous?.value
+            await operation()
+        }
+    }
+
+    private func invalidateEvents() {
+        eventGeneration = UUID()
+        eventTask?.cancel()
+        eventTask = nil
+    }
+
+    private func prepareConnection(group: IntercomGroup, start: Bool) {
+        let request = makeRTCRequest(from: group)
+        connectionRequest = request
+        invalidateEvents()
+        let generation = eventGeneration
+        enqueue { [weak self, rtcSession] in
+            guard let self, self.eventGeneration == generation else { return }
+            self.bindEvents()
+            await rtcSession.prepare(request)
+            if start { await rtcSession.startConnection() }
         }
     }
 
     private func bindEvents() {
         eventTask?.cancel()
-        eventTask = Task { [weak self, rtcSession] in
-            for await event in rtcSession.events {
-                self?.handleRTCEvent(event)
+        let generation = eventGeneration
+        let events = rtcSession.events
+        eventTask = Task { [weak self] in
+            for await event in events {
+                guard !Task.isCancelled, let self, self.eventGeneration == generation else { return }
+                self.handleRTCEvent(event)
             }
         }
     }
@@ -304,13 +339,31 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     private func rebuildOwnedRTCSession() {
+        let oldSession = rtcSession
+        invalidateEvents()
+        enqueue { await oldSession.stopConnection() }
         rtcSession = Self.makeRTCSession(
             memberID: memberID,
             audioPolicy: audioPolicy,
             enabledRoutes: enabledRoutes
         )
         activeRouteDebugTypeName = "RTC RouteManager"
-        bindEvents()
+        if var request = connectionRequest {
+            request.audioPolicy = audioPolicy
+            request.configuration = makeRouteConfiguration()
+            connectionRequest = request
+            let shouldStartMedia = mediaRequested
+            let generation = eventGeneration
+            enqueue { [weak self, rtcSession, request] in
+                guard let self, self.eventGeneration == generation else { return }
+                self.bindEvents()
+                await rtcSession.prepare(request)
+                await rtcSession.startConnection()
+                if shouldStartMedia { await rtcSession.startMedia() }
+            }
+        } else {
+            bindEvents()
+        }
     }
 
     private static func makeAppEvent(peerID: String, applicationData message: RTC.ApplicationDataMessage) -> TransportEvent {

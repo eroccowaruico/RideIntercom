@@ -86,3 +86,7 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 |---|---|---|---|---|---|---|---|
 | 設定リセットボタン | `resetSettingsPanel` | `resetAllSettingsButton` | `Reset All Settings` | Action | 常時 | destructive button | グループ、参加者、credential は変更しない |
 | 設定リセット補足文 | `resetSettingsPanel` | `resetSettingsPanel` | 補足文 | 固定文字列 | 常時 | footer | データ削除と混同させない |
+
+## Voice Isolationの現在の提供状態
+
+Appの実MixerにはSoundIsolationノードが未接続のため、送信・peer・masterのVoice Isolation操作は表示しない。既存設定値は保全するが、通話へ適用済みとは扱わない。packageの対応OS判定だけでApp機能を有効にしない。

@@ -109,10 +109,8 @@ extension IntercomViewModel {
     }
 
     func deleteGroup(_ groupID: UUID) {
-        if selectedGroup?.id == groupID {
-            disconnect()
-            selectedGroup = nil
-        }
+        if activeGroupID == groupID { disconnect() }
+        if selectedGroup?.id == groupID { selectedGroup = nil }
         groups.removeAll { $0.id == groupID }
         persistGroups()
     }

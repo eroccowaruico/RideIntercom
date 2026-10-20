@@ -1,3 +1,4 @@
+import AVFAudio
 import Foundation
 import AudioCore
 import AudioMixer
@@ -56,7 +57,6 @@ struct RideIntercomTests {
         let effectChainSource = try Self.source("RideIntercom/Intercom/ViewModel/IntercomViewModel+EffectChains.swift")
         let callSessionAdapter = try Self.source("RideIntercom/Intercom/Transport/CallSessionAdapter.swift")
         let diagnosticsSpec = try Self.source("docs/spec/App/UI/Diagnostics.md")
-        let audioSpec = try Self.source("docs/spec/App/音声処理仕様.md")
 
         #expect(contentView.contains("struct ContentView"))
         #expect(contentView.components(separatedBy: .newlines).count < 80)
@@ -116,7 +116,6 @@ struct RideIntercomTests {
         #expect(callSessionAdapter.contains("PeerMetadataApplicationPayload(activeCodec: activeAudioCodec())"))
         #expect(callSessionAdapter.contains("return .remotePeerMetadata(peerID: peerID, activeCodec: payload.activeCodec)"))
         #expect(diagnosticsSpec.contains("receive-master-effect-stage-peak-limiter"))
-        #expect(audioSpec.contains("master effect chain の最後は PeakLimiter 固定"))
     }
 
     @Test func appRootKeepsPlatformSpecificWindowPolicyAtMacBoundary() throws {
@@ -323,14 +322,14 @@ struct RideIntercomTests {
             sequenceNumber: 7,
             format: .intercomPacketAudio,
             capturedAt: 100,
-            samples: [0.2, -0.2]
+            samples: Array(repeating: Float(0.2), count: 480) + Array(repeating: Float(-0.2), count: 480)
         )
 
         harness.viewModel.selectGroup(group)
         harness.callSession.authenticate(["member-108"])
         await Self.waitUntil { harness.viewModel.isAudioReady }
         harness.callSession.receive(try Self.receivedAudioPacket(peerID: "member-108", frame: frame, codec: .pcm16))
-        await Self.waitUntil { harness.outputBackend.scheduledFrames.count == 1 }
+        await Self.waitUntil(timeout: .seconds(5)) { !harness.outputBackend.scheduledFrames.isEmpty }
 
         let remoteMember = try #require(harness.viewModel.selectedGroup?.members.first { $0.id == "member-108" })
         let scheduledFrame = try #require(harness.outputBackend.scheduledFrames.first)
@@ -378,17 +377,19 @@ struct RideIntercomTests {
     @Test func viewModelAudioCheckRecordsAndSchedulesPlaybackThroughPackageOutput() async {
         let harness = Self.makeHarness(groups: [])
 
-        harness.viewModel.startAudioCheck(recordDuration: .milliseconds(20), playbackDuration: .seconds(5))
-        harness.inputBackend.emit(PCMFrame(sequenceNumber: 1, format: .intercomHardwarePreferred, capturedAt: 100, samples: [0.5, -0.5]))
+        harness.viewModel.startAudioCheck(recordDuration: .seconds(5), playbackDuration: .seconds(5))
+        harness.inputBackend.emit(PCMFrame(sequenceNumber: 1, format: AudioFormat(sampleRate: 44_100, channelCount: 2), capturedAt: 100, samples: Array(repeating: 0.5, count: 1764)))
         await Self.waitUntil { harness.viewModel.audioCheckInputLevel > 0 }
         harness.viewModel.finishAudioCheckRecording(playbackDuration: .seconds(5))
 
         #expect(harness.viewModel.audioCheckPhase == .playing)
         #expect(harness.viewModel.audioCheckInputLevel > 0)
         #expect(harness.viewModel.audioCheckOutputLevel > 0)
-        #expect(harness.outputBackend.scheduledFrames.count == 1)
+        await Self.waitUntil { !harness.outputBackend.scheduledFrames.isEmpty }
+        #expect(!harness.outputBackend.scheduledFrames.isEmpty)
         if let scheduledFrame = harness.outputBackend.scheduledFrames.first {
-            #expect(scheduledFrame.samples == [0.5, -0.5])
+            #expect(scheduledFrame.samples.contains { abs($0 - 0.5) < 0.01 })
+            #expect(scheduledFrame.format == .intercomHardwarePreferred)
         } else {
             Issue.record("Expected one audio check playback frame")
         }
@@ -468,9 +469,10 @@ struct RideIntercomTests {
 
         #expect(!harness.viewModel.isRemoteSoundIsolationEnabled(peerID: peerID))
         #expect(!harness.viewModel.receiveMasterSoundIsolationEnabled)
+        #expect(!harness.viewModel.supportsSoundIsolation)
         #expect(harness.viewModel.receivePeerEffectChainSnapshot(peerID: peerID).stages.isEmpty)
-        #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.map(\.id) == ["sound-isolation", "peak-limiter"])
-        #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.last?.id == "peak-limiter")
+        #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.isEmpty)
+        #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.isEmpty)
 
         harness.viewModel.isAudioReady = true
         harness.viewModel.setRemoteSoundIsolationEnabled(peerID: peerID, enabled: true)
@@ -478,13 +480,8 @@ struct RideIntercomTests {
 
         #expect(harness.viewModel.isRemoteSoundIsolationEnabled(peerID: peerID))
         #expect(harness.viewModel.receiveMasterSoundIsolationEnabled)
-        if harness.viewModel.supportsSoundIsolation {
-            #expect(harness.viewModel.receivePeerEffectChainSnapshot(peerID: peerID).stages.first?.state == .active)
-            #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.first?.state == .active)
-        } else {
-            #expect(harness.viewModel.receivePeerEffectChainSnapshot(peerID: peerID).stages.first?.state == .unavailable)
-            #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.first?.state == .unavailable)
-        }
+        #expect(harness.viewModel.receivePeerEffectChainSnapshot(peerID: peerID).stages.isEmpty)
+        #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.isEmpty)
         #expect(harness.viewModel.remoteOutputVolume(for: peerID) == IntercomViewModel.defaultRemoteOutputVolume)
         #expect(harness.viewModel.masterOutputVolume == IntercomViewModel.defaultMasterOutputVolume)
     }
@@ -507,19 +504,10 @@ struct RideIntercomTests {
     @Test func viewModelExposesTransmitEffectChainFromRuntimeSettings() {
         let harness = Self.makeHarness()
 
-        #expect(harness.viewModel.transmitEffectChainSnapshot.stages.map(\.id) == [
-            "sound-isolation",
-            "vad-gate",
-            "dynamics-processor",
-            "peak-limiter"
-        ])
-
-        harness.viewModel.isAudioReady = true
+        #expect(harness.viewModel.transmitEffectChainSnapshot.stages.isEmpty)
         harness.viewModel.setSoundIsolationEnabled(false)
-
-        #expect(harness.viewModel.transmitEffectChainSnapshot.stages.first?.state == .bypassed)
-        #expect(harness.viewModel.transmitEffectChainSnapshot.stages.last?.id == "peak-limiter")
-        #expect(harness.viewModel.transmitEffectChainSnapshot.stages.last?.state == .active)
+        #expect(!harness.viewModel.isSoundIsolationEnabled)
+        #expect(harness.viewModel.transmitEffectChainSnapshot.stages.isEmpty)
     }
 
     @Test func viewModelPublishesPackageRuntimeReportsForDiagnosticsAndRTC() throws {
@@ -538,22 +526,9 @@ struct RideIntercomTests {
 
         let mixerReport = try #require(reports.first { $0.package == "AudioMixer" && $0.kind == "snapshot" })
         let mixerSnapshot = try mixerReport.decodeJSON(AudioMixerSnapshot.self)
-        #expect(mixerSnapshot.buses.first { $0.id == "tx-bus" }?.effectChain.map(\.id) == [
-            "sound-isolation",
-            "vad-gate",
-            "dynamics-processor",
-            "peak-limiter"
-        ])
-        #expect(mixerSnapshot.buses.first { $0.id == "rx-master" }?.effectChain.map(\.id) == [
-            "sound-isolation",
-            "peak-limiter"
-        ])
-        #expect(mixerSnapshot.routes.contains {
-            $0.sourceBusID == "rx-peer-\(peerID)" && $0.destinationBusID == "rx-master"
-        })
-        #expect(mixerSnapshot.graph.edges.contains {
-            $0.kind == .busSignal && $0.sourceBusID == "tx-bus" && $0.destinationBusID == "tx-bus"
-        })
+        #expect(mixerSnapshot == harness.viewModel.audioPipeline.snapshot)
+        #expect(mixerSnapshot.buses.isEmpty) // No authenticated media, so no active graph.
+        #expect(!reports.contains { ["SoundIsolation", "DynamicsProcessor", "PeakLimiter"].contains($0.package) && $0.kind.contains("Runtime") })
 
         let codecReport = try #require(reports.first { $0.package == "Codec" && $0.kind == "runtimeReport" })
         let codecRuntime = try codecReport.decodeJSON(CodecRuntimeReport.self)
@@ -826,6 +801,138 @@ struct RideIntercomTests {
         #expect(overviewRows.contains { $0.accessibilityIdentifier == "authenticationDebugSummaryLabel" } == false)
     }
 
+    @Test(arguments: [true, false]) func partialAudioStartCleansUpAndRetries(inputFails: Bool) async {
+        let harness = Self.makeHarness()
+        if inputFails { harness.inputBackend.startError = AudioStreamError.engineOperationFailed("input") }
+        else { harness.outputBackend.startError = AudioStreamError.engineOperationFailed("output") }
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.audioErrorMessage != nil }
+        #expect(!harness.viewModel.isAudioReady)
+        #expect(harness.inputBackend.stopCount == 1)
+        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        #expect(!(harness.viewModel.callTicker as! NoOpCallTicker).isRunning)
+        harness.inputBackend.startError = nil
+        harness.outputBackend.startError = nil
+        harness.viewModel.startActiveCallAfterAuthenticatedPeer()
+        #expect(harness.viewModel.isAudioReady)
+        harness.viewModel.disconnect()
+    }
+
+    @Test func audioCheckIsCancelledBeforeCallStartsAndCannotStopCallLater() async {
+        let harness = Self.makeHarness()
+        harness.viewModel.startAudioCheck(recordDuration: .milliseconds(80), playbackDuration: .milliseconds(50))
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        #expect(harness.viewModel.audioCheckPhase == .idle)
+        #expect(!harness.viewModel.audioCheckOwnsAudioPipeline)
+        let inputStops = harness.inputBackend.stopCount
+        try? await Task.sleep(for: .milliseconds(180))
+        #expect(harness.viewModel.isAudioReady)
+        #expect(harness.inputBackend.stopCount == inputStops)
+        harness.viewModel.startAudioCheck()
+        #expect(harness.viewModel.audioCheckPhase == .idle)
+        harness.viewModel.disconnect()
+    }
+
+    @Test func browsingPreservesCallButConnectingRejectsQueuedOldEvents() async {
+        let harness = Self.makeHarness()
+        let a = IntercomSeedData.recentGroups[0]
+        let b = IntercomSeedData.recentGroups[1]
+        harness.viewModel.selectGroup(a)
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        let oldHandler = harness.callSession.onEvent
+        harness.viewModel.selectGroup(b)
+        #expect(harness.viewModel.activeGroupID == a.id)
+        #expect(harness.viewModel.isAudioReady)
+        #expect(harness.callSession.disconnectCallCount == 0)
+        harness.viewModel.connectLocal()
+        oldHandler?(.authenticated(peerIDs: ["old-peer"]))
+        oldHandler?(.routeMetrics(RTC.RouteMetrics(route: .multipeer, receivedAudioFrameCount: 999)))
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(harness.viewModel.activeGroupID == b.id)
+        #expect(harness.callSession.connectedGroup?.id == b.id)
+        #expect(harness.viewModel.authenticatedPeerIDs.isEmpty)
+        #expect(harness.viewModel.receivedVoicePacketCount == 0)
+        #expect(!harness.viewModel.isAudioReady)
+        harness.viewModel.disconnect()
+    }
+
+    @Test func diagnosticsReportOnlyTheGraphActuallyProcessingAudio() async {
+        let harness = Self.makeHarness()
+        #expect(harness.viewModel.audioMixerSnapshot == harness.viewModel.audioPipeline.snapshot)
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        harness.viewModel.publishRuntimePackageReports(force: true)
+        #expect(harness.viewModel.audioMixerSnapshot == harness.viewModel.audioPipeline.snapshot)
+        harness.viewModel.disconnect()
+    }
+
+    @Test func failedMixerRebuildReleasesGraphAndAllowsRetry() throws {
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
+        try pipeline.rebuild(configuration: AppAudioPipelineConfiguration(), peerIDs: [])
+        var invalid = AppAudioPipelineConfiguration()
+        invalid.mixerFormat.sampleRate = 0
+        #expect(throws: (any Error).self) { try pipeline.rebuild(configuration: invalid, peerIDs: []) }
+        #expect(pipeline.snapshot.busIDs.isEmpty)
+        try pipeline.rebuild(configuration: AppAudioPipelineConfiguration(), peerIDs: [])
+        #expect(!pipeline.snapshot.busIDs.isEmpty)
+        pipeline.stop()
+    }
+
+    @Test func deletingBrowsedGroupPreservesActiveCallAndRejectsUntrustedMute() async {
+        let harness = Self.makeHarness()
+        let a = IntercomSeedData.recentGroups[0]
+        let b = IntercomSeedData.recentGroups[1]
+        harness.viewModel.selectGroup(a)
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        harness.viewModel.selectGroup(b)
+        harness.viewModel.deleteGroup(b.id)
+        #expect(harness.viewModel.activeGroupID == a.id)
+        #expect(harness.viewModel.isAudioReady)
+        harness.viewModel.handleTransportEvent(.remotePeerMuteState(peerID: "member-215", isMuted: true))
+        #expect(harness.viewModel.groups.first { $0.id == a.id }?.members.first { $0.id == "member-215" }?.isMuted == false)
+        harness.viewModel.deleteGroup(a.id)
+        #expect(harness.viewModel.activeGroupID == nil)
+        #expect(!harness.viewModel.isAudioReady)
+    }
+
+    @Test func adapterSerializesSuspendingRTCOperations() async {
+        let rtc = FakeRTCCallSession()
+        rtc.prepareDelay = .milliseconds(80)
+        let adapter = RideIntercomCallSessionAdapter(rtcSession: rtc)
+        adapter.connect(group: IntercomSeedData.recentGroups[0])
+        try? await Task.sleep(for: .milliseconds(10))
+        adapter.startMedia()
+        adapter.stopMedia()
+        adapter.disconnect()
+        await Self.waitUntil { rtc.operations.last == "stopConnection" }
+        #expect(rtc.operations == ["prepare", "startConnection", "startMedia", "stopMedia", "stopConnection"])
+    }
+
+    @Test func lastPeerDisconnectStopsMediaAndAllowsAuthenticatedReconnect() async {
+        let harness = Self.makeHarness()
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108", "member-215"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        harness.viewModel.handleTransportEvent(.connected(peerIDs: ["member-215"]))
+        #expect(harness.viewModel.isAudioReady)
+        #expect(harness.viewModel.authenticatedPeerIDs == ["member-215"])
+        harness.viewModel.handleTransportEvent(.connected(peerIDs: []))
+        #expect(!harness.viewModel.isAudioReady)
+        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        #expect(harness.viewModel.activeGroupID != nil)
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        #expect(harness.viewModel.isAudioReady)
+        harness.viewModel.disconnect()
+    }
+
     private struct Harness {
         let viewModel: IntercomViewModel
         let callSession: RecordingCallSession
@@ -833,6 +940,7 @@ struct RideIntercomTests {
         let audioSessionBackend: FakeAudioSessionBackend
         let inputBackend: FakeInputStreamBackend
         let outputBackend: FakeOutputStreamBackend
+        let audioDriver: OfflineAudioDriver
     }
 
     private static func makeHarness(
@@ -847,6 +955,7 @@ struct RideIntercomTests {
         let audioSessionBackend = FakeAudioSessionBackend()
         let inputBackend = FakeInputStreamBackend()
         let outputBackend = FakeOutputStreamBackend()
+        let audioDriver = OfflineAudioDriver()
         let identityStore = InMemoryLocalMemberIdentityStore(
             identity: LocalMemberIdentity(memberID: groups.first?.members.first?.id ?? "member-local", displayName: "You")
         )
@@ -863,6 +972,7 @@ struct RideIntercomTests {
                 backend: inputBackend
             ),
             audioOutputRenderer: AudioOutputStreamRenderer(configuration: .intercom, backend: outputBackend),
+            audioPipeline: AppAudioPipeline(makeEngine: audioDriver.makeEngine),
             callTicker: NoOpCallTicker()
         )
         return Harness(
@@ -871,7 +981,8 @@ struct RideIntercomTests {
             groupStore: groupStore,
             audioSessionBackend: audioSessionBackend,
             inputBackend: inputBackend,
-            outputBackend: outputBackend
+            outputBackend: outputBackend,
+            audioDriver: audioDriver
         )
     }
 
@@ -1043,11 +1154,16 @@ private final class FakeRTCCallSession: RTC.CallSession {
         continuation.yield(event)
     }
 
-    func prepare(_ request: RTC.CallStartRequest) async {}
-    func startConnection() async {}
-    func stopConnection() async {}
-    func startMedia() async {}
-    func stopMedia() async {}
+    var prepareDelay: Duration = .zero
+    private(set) var operations: [String] = []
+    func prepare(_ request: RTC.CallStartRequest) async {
+        try? await Task.sleep(for: prepareDelay)
+        operations.append("prepare")
+    }
+    func startConnection() async { operations.append("startConnection") }
+    func stopConnection() async { operations.append("stopConnection") }
+    func startMedia() async { operations.append("startMedia") }
+    func stopMedia() async { operations.append("stopMedia") }
     func sendAudioPacket(_ packet: RTC.RTCAudioPacket) async {}
     func sendApplicationData(_ message: RTC.ApplicationDataMessage) async {}
     func updateRuntimePackageReports(_ reports: [RTC.RTCRuntimePackageReport]) async {}
@@ -1136,12 +1252,14 @@ private final class FakeInputStreamBackend: SessionManager.AudioInputStreamBacke
     private(set) var stopCount = 0
     private(set) var voiceProcessingConfigurations: [SessionManager.AudioInputVoiceProcessingConfiguration] = []
     private var onFrame: ((PCMFrame) -> Void)?
+    var startError: Error?
 
     func startCapture(
         configuration: SessionManager.AudioInputStreamConfiguration,
         onFrame: @escaping (PCMFrame) -> Void
     ) throws -> AudioFormat {
         startCount += 1
+        if let startError { throw startError }
         self.onFrame = onFrame
         return configuration.preferredFormat
     }
@@ -1164,9 +1282,11 @@ private final class FakeOutputStreamBackend: SessionManager.AudioOutputStreamBac
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var scheduledFrames: [PCMFrame] = []
+    var startError: Error?
 
     func startRendering(configuration: SessionManager.AudioOutputStreamConfiguration) throws -> AudioFormat {
         startCount += 1
+        if let startError { throw startError }
         return configuration.preferredFormat
     }
 
@@ -1190,4 +1310,37 @@ private final class NoOpCallTicker: CallTicking {
     func stop() {
         isRunning = false
     }
+}
+
+@MainActor
+private final class OfflineAudioDriver {
+    private var engines: [AVAudioEngine] = []
+    private var task: Task<Void, Never>?
+
+    func makeEngine() -> AVAudioEngine {
+        let engine = AVAudioEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        try! engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+        engines.removeAll { !$0.isRunning }
+        engines.append(engine)
+        if task == nil {
+            task = Task { [weak self] in
+                while !Task.isCancelled {
+                    self?.render()
+                    try? await Task.sleep(for: .milliseconds(5))
+                }
+            }
+        }
+        return engine
+    }
+
+    private func render() {
+        for engine in engines where engine.isRunning {
+            let buffer = AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat, frameCapacity: 1024)!
+            do { _ = try engine.renderOffline(1024, to: buffer) }
+            catch { Issue.record("Offline rendering failed: \(error)") }
+        }
+    }
+
+    deinit { task?.cancel() }
 }
