@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REPOSITORY_PARENT="$(cd "${REPOSITORY_ROOT}/.." && pwd)"
 
 default_developer_dir() {
@@ -30,7 +30,6 @@ DEVELOPER_DIR="${DEVELOPER_DIR:-$(default_developer_dir)}"
 WEBRTC_BRANCH="${WEBRTC_BRANCH:-}"
 IOS="${IOS:-true}"
 MACOS="${MACOS:-true}"
-ALLOW_ASSEMBLE_RECOVERY="${ALLOW_ASSEMBLE_RECOVERY:-true}"
 RUN_SWIFTPM_VALIDATION="${RUN_SWIFTPM_VALIDATION:-true}"
 RUN_TESTS="${RUN_TESTS:-true}"
 
@@ -42,15 +41,14 @@ Usage:
   $0
 
 This is the normal one-command workflow. It resolves the WebRTC branch,
-builds WebRTC.xcframework, verifies headers, imports the zip into the RTC
-package binary target, clears stale SwiftPM binary caches, and validates the
-RTC package.
+builds WebRTC.xcframework, verifies platform slices and headers, validates
+the candidate in an isolated RTC package, and only then imports the zip.
 
 Common overrides:
   WEBRTC_BRANCH=branch-heads/7727   Build a fixed WebRTC branch.
   IOS=true|false                    Include iOS device/simulator slices. Default: ${IOS}
   MACOS=true|false                  Include macOS universal slice. Default: ${MACOS}
-  RUN_TESTS=false                   Skip RTC package tests after import.
+  RUN_TESTS=false                   Skip isolated RTC package tests.
   RUN_SWIFTPM_VALIDATION=false      Skip RTCNativeWebRTC build validation.
 USAGE
 }
@@ -65,7 +63,7 @@ die_with_doctor_hint() {
   echo "WebRTC binary update failed." >&2
   echo "Run this diagnostic command for the next concrete action:" >&2
   echo "  cd ${REPOSITORY_ROOT}" >&2
-  echo "  scripts/doctor-webrtc-binary.sh" >&2
+  echo "  scripts/BuildWebRTC/doctor-webrtc-binary.sh" >&2
   exit 1
 }
 
@@ -77,14 +75,6 @@ require_file() {
     echo "${message}" >&2
     exit 1
   fi
-}
-
-has_base_framework_outputs() {
-  [[ -d "${WEBRTC_BUILD_ROOT}/src/out/ios-arm64-device/WebRTC.framework" \
-    && -d "${WEBRTC_BUILD_ROOT}/src/out/ios-x64-simulator/WebRTC.framework" \
-    && -d "${WEBRTC_BUILD_ROOT}/src/out/ios-arm64-simulator/WebRTC.framework" \
-    && -d "${WEBRTC_BUILD_ROOT}/src/out/macos-x64/WebRTC.framework" \
-    && -d "${WEBRTC_BUILD_ROOT}/src/out/macos-arm64/WebRTC.framework" ]]
 }
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
@@ -107,41 +97,33 @@ export WEBRTC_BRANCH
 echo "WEBRTC_BRANCH=${WEBRTC_BRANCH}"
 
 log_step "Building WebRTC.xcframework"
-set +e
 "${SCRIPT_DIR}/build-webrtc-xcframework.sh"
-build_status=$?
-set -e
 
-if [[ "${build_status}" -ne 0 ]]; then
-  echo "Initial WebRTC build failed with exit code ${build_status}." >&2
-  if [[ "${ALLOW_ASSEMBLE_RECOVERY}" == "true" && has_base_framework_outputs ]]; then
-    log_step "Recovering by assembling existing iOS + macOS outputs"
-    IOS=true MACOS=true ASSEMBLE_ONLY=true "${SCRIPT_DIR}/build-webrtc-xcframework.sh"
-  else
-    echo "Automatic recovery is not available." >&2
-    echo "Expected iOS/macOS framework outputs were not complete." >&2
-    false
-  fi
-fi
-
-log_step "Verifying generated WebRTC.xcframework"
-"${SCRIPT_DIR}/verify-webrtc-xcframework.sh" "${WEBRTC_BUILD_ROOT}/src/out/WebRTC.xcframework"
-
-log_step "Importing WebRTC binary target into RTC package"
-"${SCRIPT_DIR}/import-webrtc-xcframework.sh"
-
-log_step "Clearing stale SwiftPM WebRTC binary caches"
-CLEAN_MODE=swiftpm DRY_RUN=false "${SCRIPT_DIR}/clean-webrtc-build-resources.sh"
+log_step "Validating the candidate in an isolated RTC package"
+STAGING_ROOT="$(mktemp -d)"
+trap 'rm -rf "${STAGING_ROOT}"' EXIT
+STAGED_PACKAGE="${STAGING_ROOT}/RTC"
+mkdir -p "${STAGED_PACKAGE}"
+rsync -a --exclude=.build --exclude=.swiftpm --exclude=.git "${RTC_PACKAGE_DIR}/" "${STAGED_PACKAGE}/"
+CANDIDATE_ZIP="${WEBRTC_BUILD_ROOT}/src/out/WebRTC-${WEBRTC_BRANCH//\//-}.xcframework.zip"
+RTC_PACKAGE_DIR="${STAGED_PACKAGE}" \
+WEBRTC_ARTIFACT_DIR="${STAGED_PACKAGE}/BinaryArtifacts/WebRTC" \
+WEBRTC_XCFRAMEWORK_ZIP="${CANDIDATE_ZIP}" \
+  "${SCRIPT_DIR}/import-webrtc-xcframework.sh"
 
 if [[ "${RUN_SWIFTPM_VALIDATION}" == "true" ]]; then
-  log_step "Building RTCNativeWebRTC with imported binary target"
-  (cd "${RTC_PACKAGE_DIR}" && "${DEVELOPER_DIR}/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" build --target RTCNativeWebRTC)
+  log_step "Building RTCNativeWebRTC against the candidate"
+  "${DEVELOPER_DIR}/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" build --package-path "${STAGED_PACKAGE}" --target RTCNativeWebRTC
 fi
 
 if [[ "${RUN_TESTS}" == "true" ]]; then
-  log_step "Running RTC package tests"
-  (cd "${RTC_PACKAGE_DIR}" && "${DEVELOPER_DIR}/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" test)
+  log_step "Running RTC tests against the candidate"
+  "${DEVELOPER_DIR}/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" test --package-path "${STAGED_PACKAGE}"
 fi
+
+log_step "Installing the validated candidate"
+RTC_PACKAGE_DIR="${RTC_PACKAGE_DIR}" WEBRTC_XCFRAMEWORK_ZIP="${CANDIDATE_ZIP}" \
+  "${SCRIPT_DIR}/import-webrtc-xcframework.sh"
 
 log_step "WebRTC binary update completed"
 cat <<SUMMARY
@@ -152,7 +134,7 @@ Metadata:
   ${RTC_PACKAGE_DIR}/BinaryArtifacts/WebRTC/WebRTC.xcframework.metadata
 
 Optional cleanup after you confirm the app builds:
-  CLEAN_MODE=build-output DRY_RUN=false scripts/clean-webrtc-build-resources.sh
+  CLEAN_MODE=build-output DRY_RUN=false scripts/BuildWebRTC/clean-webrtc-build-resources.sh
 
 Keep the source checkout when you expect to rebuild soon:
   ${WEBRTC_BUILD_ROOT}

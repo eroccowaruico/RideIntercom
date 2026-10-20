@@ -87,7 +87,7 @@ Content-Type: application/json
 
 | ステータス | 原因 |
 |---|---|
-| `400` | `roomId` または `participantId` が欠落 |
+| `400` | JSON不正、object以外、`roomId` / `participantId` が空またはstring以外 |
 | `502` | Cloudflare Calls API 呼び出し失敗 |
 
 TURN クレデンシャル取得失敗は非致命的。`iceServers: []` で返し、STUN のみで接続を試みる。
@@ -183,7 +183,7 @@ Worker レスポンスを iOS 側で `CloudflareRealtimeConfiguration` に組み
 
 ```sh
 cd server
-npm install
+npm ci
 wrangler secret put CLOUDFLARE_SFU_APP_ID
 wrangler secret put CLOUDFLARE_SFU_APP_SECRET
 wrangler secret put CLOUDFLARE_TURN_KEY_ID
@@ -201,3 +201,31 @@ wrangler deploy
 | TURN TTL | 24時間固定。通話時間が長い場合は再取得が必要 |
 | Durable Object 永続性 | ルームの WebSocket 状態はメモリのみ。Worker 再起動で参加者リストはリセットされる |
 | Cloudflare Calls 無料枠 | 1000 participant-minutes/month。超過課金あり |
+
+## ローカル自動検証
+
+| 項目 | 契約 |
+|---|---|
+| Node | 22以上。今回の実行環境は26.12.0 |
+| TypeScript | 7.0.2 |
+| Wrangler | 4.151.3 |
+| workers-types | 5.20261019.1 |
+| テストランタイム | Cloudflare Miniflareの安定版4.20260730.0をdevDependencyとして明示 |
+| 互換日付 | 2024-11-01を維持。依存の更新日とは連動させない |
+| 外部API | テストのoutboundServiceでCalls/TURNを代替。実サービスのsecret不要 |
+| HTTP | 404、不正JSON/型の400、session成功、Callsの502、TURN失敗時の継続 |
+| WebSocket | 実workerd/DO上のjoin、offer/answer/candidate、appData、送信者ID、ルーム分離、leave |
+| 本番変更 | 入力検証を仕様へ合わせる。公開URL・通信メッセージ形式は維持 |
+
+```bash
+cd server
+npm ci
+npm run type-check
+WRANGLER_SEND_METRICS=false npm test
+# 手元で起動する場合（デプロイしない）
+npm run dev -- --local
+```
+
+`npm test` は `wrangler deploy --dry-run --outdir dist` でbundleを作り、Node test runnerとMiniflareで実行する。コマンド名にdeployを含むが `--dry-run` のためアップロードしない。テストは各回新しい一時状態を使用し、ローカル開発のDurable Object状態を消さない。
+
+採用版は2026-10-21に[npm Wrangler](https://www.npmjs.com/package/wrangler)、[TypeScript](https://www.npmjs.com/package/typescript)、[workers-types](https://www.npmjs.com/package/@cloudflare/workers-types)、[Miniflare](https://www.npmjs.com/package/miniflare)のlatest dist-tagで確認した。実サービスへの認証・レート制限・Internet通話の完成は本検証で保証しない。

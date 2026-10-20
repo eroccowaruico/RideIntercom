@@ -21,3 +21,4 @@ server/.env.*
 
 # Reproducible validation output
 .validation/
+__pycache__/

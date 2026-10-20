@@ -717,10 +717,10 @@ RTC statusは通信状態だけを確定情報として持つ。Mixer volume、C
 | source | `https://webrtc.googlesource.com/src` |
 | repo管理 | Chromium / WebRTC source treeはrepositoryに含めない |
 | artifact | 検証済み`WebRTC.xcframework`をbinary targetに渡す |
-| build wrapper | `scripts/build-webrtc-xcframework.sh` |
-| stable build | `scripts/build-current-webrtc-xcframework.sh` |
-| header検証 | `scripts/verify-webrtc-xcframework.sh` |
-| cleanup | `scripts/clean-webrtc-build-resources.sh`。削除時はdry-run解除を明示する |
+| build wrapper | `scripts/BuildWebRTC/build-webrtc-xcframework.sh` |
+| stable build | `scripts/BuildWebRTC/build-current-webrtc-xcframework.sh` |
+| header検証 | `scripts/BuildWebRTC/verify-webrtc-xcframework.sh` |
+| cleanup | `scripts/BuildWebRTC/clean-webrtc-build-resources.sh`。削除時はdry-run解除を明示する |
 
 | platform | build target | framework構造 | 差分の扱い |
 |---|---|---|---|

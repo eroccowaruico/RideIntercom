@@ -1,5 +1,5 @@
 import { SignalingRoom } from './SignalingRoom'
-import type { Env, SessionRequest, SessionResponse, IceServer } from './types'
+import type { Env, SessionResponse, IceServer } from './types'
 
 export { SignalingRoom }
 
@@ -21,17 +21,20 @@ export default {
 }
 
 async function handleCreateSession(request: Request, env: Env): Promise<Response> {
-    let body: SessionRequest
+    let body: unknown
     try {
         body = await request.json()
     } catch {
         return json({ error: 'Invalid JSON' }, 400)
     }
 
-    const { roomId, participantId } = body
-    if (!roomId || !participantId) {
+    if (typeof body !== 'object' || body === null || !('roomId' in body) || !('participantId' in body)
+        || typeof body.roomId !== 'string' || !body.roomId.trim()
+        || typeof body.participantId !== 'string' || !body.participantId.trim()) {
         return json({ error: 'roomId and participantId are required' }, 400)
     }
+
+    const { roomId } = body
 
     // Cloudflare Calls: create session
     const callsRes = await fetch(

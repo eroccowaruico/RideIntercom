@@ -4,12 +4,11 @@ set -euo pipefail
 python3 - <<'PY'
 import json
 import sys
-import urllib.request
+import subprocess
 
 
 def fetch_json(url):
-    with urllib.request.urlopen(url, timeout=20) as response:
-        return json.loads(response.read().decode("utf-8"))
+    return json.loads(subprocess.check_output(["curl", "--fail", "--silent", "--show-error", "--location", "--max-time", "30", url], text=True))
 
 
 try:

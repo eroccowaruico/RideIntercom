@@ -5,11 +5,16 @@
     "scripts": {
         "dev": "wrangler dev",
         "deploy": "wrangler deploy",
-        "type-check": "tsc --noEmit"
+        "type-check": "tsc --noEmit",
+        "test": "wrangler deploy --dry-run --outdir dist && node --test test/*.test.mjs"
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "^4.20241112.0",
-        "typescript": "^5.5.4",
-        "wrangler": "^3.91.0"
+        "@cloudflare/workers-types": "5.20261019.1",
+        "miniflare": "4.20260730.0",
+        "typescript": "7.0.2",
+        "wrangler": "4.151.3"
+    },
+    "engines": {
+        "node": ">=22.0.0"
     }
 }

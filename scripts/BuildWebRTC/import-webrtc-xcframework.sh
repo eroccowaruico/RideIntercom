@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REPOSITORY_PARENT="$(cd "${REPOSITORY_ROOT}/.." && pwd)"
 WEBRTC_BUILD_ROOT="${WEBRTC_BUILD_ROOT:-${REPOSITORY_PARENT}/webrtc-build}"
 DEFAULT_OUTPUT_DIR="${WEBRTC_BUILD_ROOT}/src/out"

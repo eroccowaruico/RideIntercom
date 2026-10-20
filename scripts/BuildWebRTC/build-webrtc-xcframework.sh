@@ -5,7 +5,7 @@ set -euo pipefail
 # checking Chromium/WebRTC sources into this repository.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REPOSITORY_PARENT="$(cd "${REPOSITORY_ROOT}/.." && pwd)"
 DEPOT_TOOLS_DIR="${DEPOT_TOOLS_DIR:-${REPOSITORY_PARENT}/depot_tools}"
 WEBRTC_BUILD_ROOT="${WEBRTC_BUILD_ROOT:-${REPOSITORY_PARENT}/webrtc-build}"
@@ -53,6 +53,10 @@ fi
 cd src
 
 if [[ "${ASSEMBLE_ONLY}" != "true" ]]; then
+  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+    echo "WebRTC source has local changes; use a clean checkout." >&2
+    exit 1
+  fi
   git fetch --all --tags
   git checkout "${WEBRTC_BRANCH}"
   cd ..
@@ -133,9 +137,6 @@ copy_missing_public_headers() {
   done
 }
 
-if [[ "${ASSEMBLE_ONLY}" != "true" ]]; then
-  rm -rf "${OUTPUT_DIR}"
-fi
 
 if [[ "${IOS}" == "true" && "${ASSEMBLE_ONLY}" != "true" ]]; then
   build_ios x64 simulator
@@ -191,7 +192,7 @@ if [[ "${MACOS}" == "true" ]]; then
   lipo -create -output "${XCFRAMEWORK_DIR}/${macos_identifier}/WebRTC.framework/Versions/A/WebRTC" "${OUTPUT_DIR}/macos-x64/WebRTC.framework/WebRTC" "${OUTPUT_DIR}/macos-arm64/WebRTC.framework/WebRTC"
 fi
 
-"${REPOSITORY_ROOT}/scripts/verify-webrtc-xcframework.sh" "${XCFRAMEWORK_DIR}"
+"${REPOSITORY_ROOT}/scripts/BuildWebRTC/verify-webrtc-xcframework.sh" "${XCFRAMEWORK_DIR}"
 
 cd "${OUTPUT_DIR}"
 artifact_zip="WebRTC-${WEBRTC_BRANCH//\//-}.xcframework.zip"

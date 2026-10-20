@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REPOSITORY_PARENT="$(cd "${REPOSITORY_ROOT}/.." && pwd)"
 
 default_developer_dir() {
@@ -58,15 +58,15 @@ echo "Build root: ${WEBRTC_BUILD_ROOT}"
 echo
 
 check_path "${DEVELOPER_DIR}/usr/bin/xcodebuild" "Xcode Developer directory" "Set DEVELOPER_DIR to an installed Xcode Developer directory, or switch xcode-select to Xcode."
-check_path "${DEPOT_TOOLS_DIR}/gclient" "depot_tools gclient" "DEPOT_TOOLS_DIR=/path/to/depot_tools scripts/update-webrtc-binary.sh"
-check_path "${DEPOT_TOOLS_DIR}/fetch" "depot_tools fetch" "DEPOT_TOOLS_DIR=/path/to/depot_tools scripts/update-webrtc-binary.sh"
+check_path "${DEPOT_TOOLS_DIR}/gclient" "depot_tools gclient" "DEPOT_TOOLS_DIR=/path/to/depot_tools scripts/BuildWebRTC/update-webrtc-binary.sh"
+check_path "${DEPOT_TOOLS_DIR}/fetch" "depot_tools fetch" "DEPOT_TOOLS_DIR=/path/to/depot_tools scripts/BuildWebRTC/update-webrtc-binary.sh"
 
 echo
 if branch="$(${SCRIPT_DIR}/resolve-webrtc-branch.sh 2>/dev/null)"; then
   ok "Current stable WebRTC branch resolves to ${branch}"
 else
   warn "Could not resolve current WebRTC branch from Chromium Dashboard"
-  next_action "Run with WEBRTC_BRANCH=branch-heads/<number> scripts/update-webrtc-binary.sh"
+  next_action "Run with WEBRTC_BRANCH=branch-heads/<number> scripts/BuildWebRTC/update-webrtc-binary.sh"
 fi
 
 echo
@@ -74,7 +74,7 @@ if [[ -d "${WEBRTC_BUILD_ROOT}/src" ]]; then
   ok "WebRTC source checkout exists"
 else
   warn "WebRTC source checkout does not exist"
-  next_action "scripts/update-webrtc-binary.sh will fetch it automatically"
+  next_action "scripts/BuildWebRTC/update-webrtc-binary.sh will fetch it automatically"
 fi
 
 base_outputs=(
@@ -95,7 +95,7 @@ for output in "${base_outputs[@]}"; do
   fi
 done
 if [[ "${missing_base}" -ne 0 ]]; then
-  next_action "Run scripts/update-webrtc-binary.sh to build missing outputs"
+  next_action "Run scripts/BuildWebRTC/update-webrtc-binary.sh to build missing outputs"
 fi
 
 echo
@@ -104,11 +104,11 @@ if [[ -d "${WEBRTC_BUILD_ROOT}/src/out/WebRTC.xcframework" ]]; then
     ok "Generated WebRTC.xcframework header verification passed"
   else
     fail "Generated WebRTC.xcframework header verification failed"
-    next_action "ASSEMBLE_ONLY=true IOS=true MACOS=true scripts/build-webrtc-xcframework.sh"
+    next_action "ASSEMBLE_ONLY=true IOS=true MACOS=true scripts/BuildWebRTC/build-webrtc-xcframework.sh"
   fi
 else
   warn "Generated WebRTC.xcframework does not exist"
-  next_action "scripts/update-webrtc-binary.sh"
+  next_action "scripts/BuildWebRTC/update-webrtc-binary.sh"
 fi
 
 zip_path="$(find "${WEBRTC_BUILD_ROOT}/src/out" -maxdepth 1 -type f -name 'WebRTC-*.xcframework.zip' -print 2>/dev/null | sort | tail -1 || true)"
@@ -117,7 +117,7 @@ if [[ -n "${zip_path}" ]]; then
   shasum -a 256 "${zip_path}"
 else
   warn "Generated WebRTC zip does not exist"
-  next_action "scripts/update-webrtc-binary.sh"
+  next_action "scripts/BuildWebRTC/update-webrtc-binary.sh"
 fi
 
 echo
@@ -128,7 +128,7 @@ if [[ -f "${imported_zip}" ]]; then
   shasum -a 256 "${imported_zip}"
 else
   fail "Imported binary target zip does not exist"
-  next_action "scripts/import-webrtc-xcframework.sh"
+  next_action "scripts/BuildWebRTC/import-webrtc-xcframework.sh"
 fi
 
 if [[ -f "${metadata}" ]]; then
@@ -136,7 +136,7 @@ if [[ -f "${metadata}" ]]; then
   cat "${metadata}"
 else
   warn "Imported metadata does not exist"
-  next_action "scripts/import-webrtc-xcframework.sh"
+  next_action "scripts/BuildWebRTC/import-webrtc-xcframework.sh"
 fi
 
 echo
@@ -145,7 +145,7 @@ if [[ "${RUN_SWIFTPM_CHECK}" == "true" ]]; then
     ok "RTCNativeWebRTC builds with imported WebRTC binary target"
   else
     fail "RTCNativeWebRTC build failed"
-    next_action "CLEAN_MODE=swiftpm DRY_RUN=false scripts/clean-webrtc-build-resources.sh && scripts/update-webrtc-binary.sh"
+    next_action "CLEAN_MODE=swiftpm DRY_RUN=false scripts/BuildWebRTC/clean-webrtc-build-resources.sh && scripts/BuildWebRTC/update-webrtc-binary.sh"
   fi
 else
   warn "SwiftPM build check skipped because RUN_SWIFTPM_CHECK=false"

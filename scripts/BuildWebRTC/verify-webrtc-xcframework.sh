@@ -13,6 +13,33 @@ if [[ ! -d "${XCFRAMEWORK_PATH}" ]]; then
   exit 1
 fi
 
+# Validate the manifest and the actual binaries, not just any folders found.
+python3 - "${XCFRAMEWORK_PATH}" <<'PYTHON'
+import pathlib, plistlib, subprocess, sys
+root = pathlib.Path(sys.argv[1])
+try:
+    with (root / 'Info.plist').open('rb') as source:
+        libraries = plistlib.load(source)['AvailableLibraries']
+    expected = {('ios', ''): {'arm64'}, ('ios', 'simulator'): {'arm64', 'x86_64'},
+                ('macos', ''): {'arm64', 'x86_64'}}
+    found = {}
+    for library in libraries:
+        platform = (library['SupportedPlatform'], library.get('SupportedPlatformVariant', ''))
+        framework = root / library['LibraryIdentifier'] / library['LibraryPath']
+        binary = framework / 'WebRTC'
+        actual = set(subprocess.check_output(['lipo', '-archs', str(binary)], text=True).split())
+        declared = set(library['SupportedArchitectures'])
+        if actual != declared:
+            raise ValueError(f'{binary}: declared {declared}, actual {actual}')
+        found.setdefault(platform, set()).update(actual)
+    for platform, architectures in expected.items():
+        if not architectures <= found.get(platform, set()):
+            raise ValueError(f'Missing slice or architectures: {platform} {architectures}')
+except Exception as error:
+    print(f'Invalid WebRTC.xcframework: {error}', file=sys.stderr)
+    sys.exit(1)
+PYTHON
+
 required_headers=(
   WebRTC.h
   RTCAudioSource.h
