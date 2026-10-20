@@ -11,9 +11,9 @@
 | package 設定 | App から渡す値 | 種別 |
 |---|---|---|
 | `VoiceIsolationConfiguration` | package default | 固定 |
-| TX effect chain 挿入 | `isSoundIsolationEnabled && VoiceIsolationSupport.isAvailable` | Settings の送信設定と runtime support から導出 |
-| RX peer bus effect chain 挿入 | `remoteSoundIsolationEnabled[peerID, default: false] && VoiceIsolationSupport.isAvailable` | Call の参加者設定と runtime support から導出 |
-| RX master bus effect chain 挿入 | `receiveMasterSoundIsolationEnabled && VoiceIsolationSupport.isAvailable` | Call の master 出力設定と runtime support から導出 |
+| TX effect chain 挿入 | 対応時はnodeを保持、`isSoundIsolationEnabled` でbypassを切替 | Settings の送信設定と runtime support から導出 |
+| RX peer bus effect chain 挿入 | 対応時はnodeを保持、`remoteSoundIsolationEnabled[peerID, default: false]` でbypassを切替 | Call の参加者設定と runtime support から導出 |
+| RX master bus effect chain 挿入 | 対応時はnodeを保持、`receiveMasterSoundIsolationEnabled` でbypassを切替 | Call の master 出力設定と runtime support から導出 |
 | runtime snapshot | `VoiceIsolationRuntimeSnapshot` を chain ごとに `RTCRuntimePackageReport` と AudioMixer effect metadata に載せる | runtime report |
 
 Settings の `Voice Isolation Effect` は送信用 `SoundIsolation` package の effect-level 設定として扱う。Call の参加者行と master 出力行は受信側 peer bus / RX master bus の effect-level 設定として扱う。SessionManager の `AudioInputVoiceProcessingConfiguration.soundIsolationEnabled` へは渡さない。mix などの Audio Unit parameter は画面設定にしない。
@@ -21,8 +21,8 @@ Settings の `Voice Isolation Effect` は送信用 `SoundIsolation` package の 
 | 状態 | App の扱い |
 |---|---|
 | chain ごとの有効設定が `true` かつ `VoiceIsolationSupport.isAvailable == true` | 該当 bus の effect chain に `VoiceIsolationEffect` を挿入する |
-| chain ごとの有効設定が `true` かつ `VoiceIsolationSupport.isAvailable == false` | Toggle を非表示にし、Diagnostics では effect unavailable として扱う |
-| chain ごとの有効設定が `false` | runtime chain snapshot では bypassed stage として返し、Diagnostics はその snapshot を表示する。実音声処理では no-op / bypass として扱い、App 側で別の表示用 stage を作らない |
+| chain ごとの有効設定が `true` かつ `VoiceIsolationSupport.isAvailable == false` | Toggle を非表示にし、support reportで非対応とする。存在しないnodeをchainへ捏造しない |
+| chain ごとの有効設定が `false` | 実Audio Unitのbypassを有効にし、runtime chain snapshot では bypassed stage として返し、Diagnostics はその snapshot を表示する。実音声処理では no-op / bypass として扱い、App 側で別の表示用 stage を作らない |
 
 ## App 画面に出さない値
 

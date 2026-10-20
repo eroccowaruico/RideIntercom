@@ -65,7 +65,8 @@ extension IntercomViewModel {
         audioCheckStatusMessage = "Playing recorded audio for 5 seconds"
         do {
             try audioPipeline.rebuild(configuration: AppAudioPipelineConfiguration(
-                outputHardwareFormat: lastOutputStreamOperationReport?.snapshot.actualHardwareFormat ?? .intercomHardwarePreferred
+                outputHardwareFormat: lastOutputStreamOperationReport?.snapshot.actualHardwareFormat ?? .intercomHardwarePreferred,
+                transmitSoundIsolationEnabled: false
             ), peerIDs: ["audio-check"])
             for frame in recordedFrames { try audioPipeline.processPlaybackFrame(frame) }
         } catch {

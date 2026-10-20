@@ -18,7 +18,7 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 | `VADGateRuntimeSnapshot` | `vadGateRuntimeSnapshot` | VAD stage、発話状態、noise floor、threshold、gain |
 | `VoiceIsolationRuntimeSnapshot` | SoundIsolation report / AudioMixer effect metadata | SoundIsolation stage |
 | `DynamicsProcessorRuntimeSnapshot` | DynamicsProcessor report / AudioMixer effect metadata | DynamicsProcessor stage |
-| `PeakLimiterConfiguration` | 要求設定。実行状態とは区別 | 実ノード未接続のためstageは表示しない |
+| `PeakLimiterRuntimeSnapshot` | 接続したTX / RX出力Limiterの実設定 | 起動前・停止後はruntime stageを表示しない |
 | `SessionManager` report / snapshot | session、input、output、voice processing の直近 report | Session、Input、Output |
 | `RTC.RouteMetrics` | `lastRouteMetrics` | Network Quality |
 | `RTCRuntimeStatus` | `remoteRuntimeStatuses` | remote package runtime 状態の入力 |
@@ -70,7 +70,7 @@ effect chain は AudioMixer package の `MixerBusSnapshot.effectChain` を正と
 | peer busステップ | `liveReceivePipelineView` | `receive-pipeline-peer-bus-step` | Peer Buses | `AudioMixerSnapshot` の RX peer bus、authenticated peer count、peer 別 RX / JIT / PLAY / level / volume / `receivePeerEffectChainSnapshot(peerID:)` | bus 数と RX count。下段に peer bus を複数行一覧で表示し、各 peer row 内には Mixer bus と effect chain だけを表示 | peer なしは neutral / waiting |
 | receive mix downステップ | `liveReceivePipelineView` | `receive-pipeline-mix-step` | Mix Down | `AudioMixerSnapshot.routes`、peer bus count、受信 packet count | `n routes -> rx-master` として複数 peer が master に集約されることを表示 | bus なしは waiting |
 | receive master busステップ | `liveReceivePipelineView` | `receive-pipeline-master-bus-step` | RX Master | `AudioMixerSnapshot` の `rx-master`、played frame count、master volume、source bus count | source bus count と OUT volume。mix 後の 1 本の master bus として表示 | 再生 0 は waiting |
-| master effect chainステップ | `liveReceivePipelineView` | `receive-pipeline-master-effects-step` | Master FX | `AudioMixerSnapshot` の `rx-master.effectChain` から導出した `receiveMasterEffectChainSnapshot.stages` | RX Master 配下に適用される ordered stage chip として inline 表示。現在は空 | stage 単位で unavailable / bypassed を表示 |
+| master effect chainステップ | `liveReceivePipelineView` | `receive-pipeline-master-effects-step` | Master FX | `AudioMixerSnapshot` の `rx-master.effectChain` + `rx-output.effectChain` から導出した `receiveMasterEffectChainSnapshot.stages` | RX Master 配下に適用される ordered stage chip として inline 表示（Isolation → master fader → 出力Limiter） | stage 単位で unavailable / bypassed を表示 |
 | outputステップ | `liveReceivePipelineView` | `receive-pipeline-output-step` | Output | output renderer snapshot、mute、volume | stream format、frame count、mute | mute / volume 0 は warning |
 
 ## 受信 mix topology 表示
@@ -103,7 +103,7 @@ effect chain は AudioMixer package の `MixerBusSnapshot.effectChain` を正と
 | 拡張ルール | 仕様 |
 |---|---|
 | stage 追加 | AudioMixer package の peer bus または master bus の `effectChain` に stage が追加されれば Diagnostics の表示順へ反映する |
-| RX master limiter | 実グラフにPeakLimiterが存在する場合のみ表示する。現在は未接続 |
+| RX master limiter | 実グラフのrx-outputに存在するPeakLimiterを、master volume後の最終stageとして表示する |
 | 固定文字列禁止 | 受信側も固定の effect 名列挙や default 値を UI の正本にしない |
 | 一覧性 | peer chain は peer row 内、master chain は RX master row 内で別々に表示し、どちらで処理が止まっているかをログなしで読めるようにする |
 | 表示順検証 | Diagnostics の effect chip は `AudioEffectChainSnapshot.stages` の登録順をそのまま使う。任意 stage を追加した順序が UI 表示用 model へ保持されることをテストする |

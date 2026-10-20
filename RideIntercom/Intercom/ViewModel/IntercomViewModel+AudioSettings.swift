@@ -292,7 +292,7 @@ extension IntercomViewModel {
                 "enabled": "\(enabled)"
             ])
         )
-        publishRuntimePackageReports(force: true)
+        updateAudioPipelineEffectSettings()
     }
 
     func isRemoteSoundIsolationEnabled(peerID: String) -> Bool {
@@ -312,8 +312,7 @@ extension IntercomViewModel {
                 "enabled": "\(enabled)"
             ])
         )
-        rebuildAudioPipelineIfRunning()
-        publishRuntimePackageReports(force: true)
+        updateAudioPipelineEffectSettings()
     }
 
     func setReceiveMasterSoundIsolationEnabled(_ enabled: Bool) {
@@ -324,8 +323,7 @@ extension IntercomViewModel {
                 "enabled": "\(enabled)"
             ])
         )
-        rebuildAudioPipelineIfRunning()
-        publishRuntimePackageReports(force: true)
+        updateAudioPipelineEffectSettings()
     }
 
     func setInputPort(_ port: AudioPortInfo) {
@@ -399,6 +397,7 @@ extension IntercomViewModel {
         remoteSoundIsolationEnabled.removeAll()
         isOutputMuted = false
         callSession.setOutputMute(false)
+        updateAudioPipelineEffectSettings()
         updateAudioPipelineOutputSettings()
         publishRuntimePackageReports(force: true)
         let operationID = UUID().uuidString

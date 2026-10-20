@@ -94,8 +94,7 @@ extension IntercomViewModel {
     }
 
     var supportsSoundIsolation: Bool {
-        // Enable controls only after the App graph connects a real effect node.
-        false
+        VoiceIsolationSupport.isAvailable
     }
 
     var selectedTransmitCodec: AudioCodecIdentifier {

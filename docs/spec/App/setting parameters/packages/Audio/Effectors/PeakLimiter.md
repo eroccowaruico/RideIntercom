@@ -12,7 +12,7 @@
 |---|---|---|
 | `PeakLimiterConfiguration` | package default | 固定 |
 | TX effect chain 挿入 | App adapter の固定構成で決める | adapter 導出 |
-| RX master effect chain 挿入 | RX master の最後に必ず挿入する | adapter 固定 |
+| RX master effect chain 挿入 | RX masterのfader後にrouteするrx-output busへ必ず挿入する | adapter 固定 |
 | runtime snapshot | `PeakLimiterRuntimeSnapshot` を `RTCRuntimePackageReport(kind: transmitRuntimeSnapshot / receiveMasterRuntimeSnapshot)` に載せる | runtime report |
 
 PeakLimiter の attack、decay、pre-gain などは画面設定として提供しない。

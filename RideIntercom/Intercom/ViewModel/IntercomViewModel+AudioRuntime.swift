@@ -57,7 +57,10 @@ extension IntercomViewModel {
             opusBitRate: opusBitRate,
             masterOutputVolume: masterOutputVolume,
             isOutputMuted: isOutputMuted,
-            peerOutputVolumes: remoteOutputVolumes
+            peerOutputVolumes: remoteOutputVolumes,
+            transmitSoundIsolationEnabled: isSoundIsolationEnabled,
+            receiveMasterSoundIsolationEnabled: receiveMasterSoundIsolationEnabled,
+            peerSoundIsolationEnabled: remoteSoundIsolationEnabled
         )
     }
 
@@ -101,6 +104,17 @@ extension IntercomViewModel {
             isMuted: isOutputMuted,
             peerOutputVolumes: remoteOutputVolumes
         )
+    }
+
+    func updateAudioPipelineEffectSettings() {
+        do {
+            try audioPipeline.updateSoundIsolation(transmit: isSoundIsolationEnabled,
+                receiveMaster: receiveMasterSoundIsolationEnabled, peers: remoteSoundIsolationEnabled)
+        } catch {
+            audioErrorMessage = "Audio effect configuration failed"
+            stopAudioPipeline()
+        }
+        publishRuntimePackageReports(force: true)
     }
 
     func handleTransmitAudioPacket(_ packet: RTC.RTCAudioPacket) {

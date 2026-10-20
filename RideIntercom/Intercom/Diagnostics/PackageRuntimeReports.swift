@@ -71,6 +71,21 @@ extension IntercomViewModel {
         appendReport(&reports, package: "DynamicsProcessor", kind: "transmitConfiguration", generatedAt: generatedAt, payload: DynamicsProcessorConfiguration())
         appendReport(&reports, package: "PeakLimiter", kind: "transmitConfiguration", generatedAt: generatedAt, payload: PeakLimiterConfiguration())
         appendReport(&reports, package: "PeakLimiter", kind: "receiveMasterConfiguration", generatedAt: generatedAt, payload: PeakLimiterConfiguration())
+        appendReport(&reports, package: "SoundIsolation", kind: "support", generatedAt: generatedAt, payload: VoiceIsolationSupport.snapshot)
+        for (busID, snapshot) in audioPipeline.isolationRuntimeSnapshots.sorted(by: { $0.key < $1.key }) {
+            let kind = busID == "tx-bus" ? "transmitRuntimeSnapshot"
+                : busID == "rx-master" ? "receiveMasterRuntimeSnapshot" : "receivePeerRuntimeSnapshot:\(busID.dropFirst("rx-peer-".count))"
+            appendReport(&reports, package: "SoundIsolation", kind: kind, generatedAt: generatedAt, payload: snapshot)
+        }
+        if let snapshot = audioPipeline.dynamicsRuntimeSnapshot {
+            appendReport(&reports, package: "DynamicsProcessor", kind: "transmitRuntimeSnapshot", generatedAt: generatedAt, payload: snapshot)
+        }
+        if let snapshot = audioPipeline.transmitLimiterRuntimeSnapshot {
+            appendReport(&reports, package: "PeakLimiter", kind: "transmitRuntimeSnapshot", generatedAt: generatedAt, payload: snapshot)
+        }
+        if let snapshot = audioPipeline.outputLimiterRuntimeSnapshot {
+            appendReport(&reports, package: "PeakLimiter", kind: "receiveMasterRuntimeSnapshot", generatedAt: generatedAt, payload: snapshot)
+        }
         appendReport(&reports, package: "SessionManager", kind: "audioSessionConfigurationRequest", generatedAt: generatedAt, payload: makeAudioSessionConfiguration())
         if let lastAudioSessionConfigurationReport {
             appendReport(&reports, package: "SessionManager", kind: "audioSessionConfigurationReport", generatedAt: generatedAt, payload: lastAudioSessionConfigurationReport)

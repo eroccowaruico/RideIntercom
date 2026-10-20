@@ -2,6 +2,9 @@ import AVFAudio
 import AudioCore
 import AudioMixer
 import Codec
+import DynamicsProcessor
+import PeakLimiter
+import SoundIsolation
 import Foundation
 import RTC
 
@@ -15,6 +18,9 @@ struct AppAudioPipelineConfiguration: Equatable {
     var masterOutputVolume: Float
     var isOutputMuted: Bool
     var peerOutputVolumes: [String: Float]
+    var transmitSoundIsolationEnabled: Bool
+    var receiveMasterSoundIsolationEnabled: Bool
+    var peerSoundIsolationEnabled: [String: Bool]
 
     init(
         mixerFormat: AudioFormat = .intercomMixer,
@@ -25,7 +31,10 @@ struct AppAudioPipelineConfiguration: Equatable {
         opusBitRate: Int = 32_000,
         masterOutputVolume: Float = 1,
         isOutputMuted: Bool = false,
-        peerOutputVolumes: [String: Float] = [:]
+        peerOutputVolumes: [String: Float] = [:],
+        transmitSoundIsolationEnabled: Bool = true,
+        receiveMasterSoundIsolationEnabled: Bool = false,
+        peerSoundIsolationEnabled: [String: Bool] = [:]
     ) {
         self.mixerFormat = mixerFormat
         self.rtcSendFormat = rtcSendFormat
@@ -36,6 +45,9 @@ struct AppAudioPipelineConfiguration: Equatable {
         self.masterOutputVolume = min(2, max(0, masterOutputVolume))
         self.isOutputMuted = isOutputMuted
         self.peerOutputVolumes = peerOutputVolumes.mapValues { min(1, max(0, $0)) }
+        self.transmitSoundIsolationEnabled = transmitSoundIsolationEnabled
+        self.receiveMasterSoundIsolationEnabled = receiveMasterSoundIsolationEnabled
+        self.peerSoundIsolationEnabled = peerSoundIsolationEnabled
     }
 
     var codecOptions: AppAudioCodecOptions {
@@ -85,6 +97,18 @@ final class AppAudioPipeline {
     private var rxMasterBus: MixerBus?
     private var rxSourcesByPeerID: [String: MixerPCMSource] = [:]
 
+    private var isolationEffects: [String: VoiceIsolationEffect] = [:]
+    private var transmitDynamics: DynamicsProcessorEffect?
+    private var transmitLimiter: PeakLimiterEffect?
+    private var outputLimiter: PeakLimiterEffect?
+
+    var isolationRuntimeSnapshots: [String: VoiceIsolationRuntimeSnapshot] {
+        isolationEffects.mapValues(\.runtimeSnapshot)
+    }
+    var dynamicsRuntimeSnapshot: DynamicsProcessorRuntimeSnapshot? { transmitDynamics?.runtimeSnapshot }
+    var transmitLimiterRuntimeSnapshot: PeakLimiterRuntimeSnapshot? { transmitLimiter?.runtimeSnapshot }
+    var outputLimiterRuntimeSnapshot: PeakLimiterRuntimeSnapshot? { outputLimiter?.runtimeSnapshot }
+
     var snapshot: AudioMixerSnapshot {
         mixer?.snapshot() ?? AudioMixerSnapshot(busIDs: [], buses: [], routes: [], outputBusID: nil)
     }
@@ -109,7 +133,14 @@ final class AppAudioPipeline {
         rxSourcesByPeerID.removeAll()
 
         let mixer = try AudioMixer(engine: makeEngine(), audioFormat: configuration.mixerFormat)
+        self.mixer = mixer
         let txBus = try mixer.createBus("tx-bus")
+        try installIsolation(on: txBus, enabled: configuration.transmitSoundIsolationEnabled)
+        let dynamics = try DynamicsProcessorEffect.make()
+        try txBus.addEffect(dynamics.node, id: "dynamics-processor", state: .active,
+            parameters: Self.effectParameters(package: "DynamicsProcessor", label: "Dynamics", detail: "Threshold \(dynamics.configuration.threshold) dB"))
+        transmitDynamics = dynamics
+        transmitLimiter = try installLimiter(on: txBus)
         let txSource = try txBus.addPCMSource(id: "microphone-input")
         _ = try txBus.installPCMSink(
             id: "rtc-send",
@@ -123,7 +154,12 @@ final class AppAudioPipeline {
 
         let rxMasterBus = try mixer.createBus("rx-master")
         rxMasterBus.volume = configuration.isOutputMuted ? 0 : configuration.masterOutputVolume
-        _ = try rxMasterBus.installPCMSink(
+        try installIsolation(on: rxMasterBus, enabled: configuration.receiveMasterSoundIsolationEnabled)
+        // The final limiter must follow master gain; Mixer effects precede each bus fader.
+        let rxOutputBus = try mixer.createBus("rx-output")
+        outputLimiter = try installLimiter(on: rxOutputBus)
+        try mixer.route(rxMasterBus, to: rxOutputBus)
+        _ = try rxOutputBus.installPCMSink(
             id: "speaker-output",
             targetFormat: configuration.outputHardwareFormat
         ) { [weak self] frame, _ in
@@ -135,10 +171,9 @@ final class AppAudioPipeline {
         let engineOutputBus = try mixer.createBus("engine-output")
         engineOutputBus.volume = 0
         try mixer.route(txBus, to: engineOutputBus)
-        try mixer.route(rxMasterBus, to: engineOutputBus)
+        try mixer.route(rxOutputBus, to: engineOutputBus)
         try mixer.routeToOutput(engineOutputBus)
 
-        self.mixer = mixer
         self.txSource = txSource
         self.rxMasterBus = rxMasterBus
 
@@ -159,6 +194,10 @@ final class AppAudioPipeline {
         txSource = nil
         rxMasterBus = nil
         rxSourcesByPeerID.removeAll()
+        isolationEffects.removeAll()
+        transmitDynamics = nil
+        transmitLimiter = nil
+        outputLimiter = nil
     }
 
     func updateOutput(masterVolume: Float, isMuted: Bool, peerOutputVolumes: [String: Float]) {
@@ -193,6 +232,7 @@ final class AppAudioPipeline {
 
     func stopReceivePeer(_ peerID: String) {
         rxSourcesByPeerID[peerID]?.stop()
+        isolationEffects["rx-peer-\(peerID)"]?.avAudioUnitEffect.reset()
     }
 
     private func ensureReceivePeer(_ peerID: String) throws -> MixerPCMSource {
@@ -201,12 +241,52 @@ final class AppAudioPipeline {
         }
         guard let mixer, let rxMasterBus else { throw AppAudioPipelineError.notConfigured }
         let peerBus = try mixer.createBus("rx-peer-\(peerID)")
+        try installIsolation(on: peerBus, enabled: configuration.peerSoundIsolationEnabled[peerID] ?? false)
         let source = try peerBus.addPCMSource(id: "rtc-audio-\(peerID)")
         source.volume = configuration.peerOutputVolumes[peerID] ?? 1
         try mixer.route(peerBus, to: rxMasterBus)
         rxSourcesByPeerID[peerID] = source
         if mixer.engine.isRunning { source.start() }
         return source
+    }
+
+    func updateSoundIsolation(transmit: Bool, receiveMaster: Bool, peers: [String: Bool]) throws {
+        configuration.transmitSoundIsolationEnabled = transmit
+        configuration.receiveMasterSoundIsolationEnabled = receiveMaster
+        configuration.peerSoundIsolationEnabled = peers
+        for (busID, effect) in isolationEffects {
+            let enabled: Bool
+            switch busID {
+            case "tx-bus": enabled = transmit
+            case "rx-master": enabled = receiveMaster
+            default: enabled = peers[String(busID.dropFirst("rx-peer-".count))] ?? false
+            }
+            effect.avAudioUnitEffect.bypass = !enabled
+            guard let bus = mixer?.bus(busID) else { throw AppAudioPipelineError.notConfigured }
+            try bus.updateEffectSnapshot(id: "sound-isolation",
+                state: effect.runtimeSnapshot.state == .bypassed ? .bypassed : .active)
+        }
+    }
+
+    private func installIsolation(on bus: MixerBus, enabled: Bool) throws {
+        guard VoiceIsolationSupport.isAvailable else { return }
+        let effect = try VoiceIsolationEffect.make()
+        effect.avAudioUnitEffect.bypass = !enabled
+        try bus.addEffect(effect.node, id: "sound-isolation", state: enabled ? .active : .bypassed,
+            parameters: Self.effectParameters(package: "SoundIsolation", label: "Isolation", detail: effect.configuration.soundType.rawValue))
+        isolationEffects[bus.id] = effect
+    }
+
+    private func installLimiter(on bus: MixerBus) throws -> PeakLimiterEffect {
+        let effect = try PeakLimiterEffect.make()
+        try bus.addEffect(effect.node, id: "peak-limiter", state: .active,
+            parameters: Self.effectParameters(package: "PeakLimiter", label: "Limiter", detail: "Pre-gain \(effect.configuration.preGain) dB"))
+        return effect
+    }
+
+    private static func effectParameters(package: String, label: String, detail: String) -> [MixerEffectParameterSnapshot] {
+        [.init(id: "package", value: package), .init(id: "name", value: label),
+         .init(id: "shortLabel", value: label), .init(id: "detail", value: detail)]
     }
 
     private func encodeAndPublish(_ frame: PCMFrame) {

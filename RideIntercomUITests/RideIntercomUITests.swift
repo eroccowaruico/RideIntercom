@@ -35,6 +35,13 @@ final class RideIntercomUITests: XCTestCase {
         try checkParticipantDeletionIsNotShownForLocalMemberOnly()
         try checkCallKeepsDiagnosticsOutOfPrimaryExperience()
         try checkMuteControlLivesWithHeaderMicrophoneMeter()
+        let isolation = app.switches["Master Output Voice Isolation Effect"].firstMatch
+        XCTAssertTrue(isolation.waitForExistence(timeout: 3))
+        let originalIsolation = isolation.value as? String
+        isolation.switches.firstMatch.tap()
+        XCTAssertNotEqual(isolation.value as? String, originalIsolation)
+        isolation.switches.firstMatch.tap()
+        XCTAssertEqual(isolation.value as? String, originalIsolation)
         try checkVoiceActivityAndHandoverCanBeExercisedFromUI()
         try checkDisconnectAndReconnectButtonsTransitionInCall()
         attachScreen("Call")
@@ -66,12 +73,33 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertNotEqual(local.value as? String, original)
         local.switches.firstMatch.tap()
         XCTAssertEqual(local.value as? String, original)
+        let isolation = revealTransmitIsolationToggle()
+        XCTAssertTrue(isolation.waitForExistence(timeout: 3))
+        let originalIsolation = isolation.value as? String
+        isolation.switches.firstMatch.tap()
+        XCTAssertNotEqual(isolation.value as? String, originalIsolation)
+        openGroupsTab()
+        openSettingsTab()
+        let retainedIsolation = revealTransmitIsolationToggle()
+        XCTAssertNotEqual(retainedIsolation.value as? String, originalIsolation)
+        retainedIsolation.switches.firstMatch.tap()
+        XCTAssertEqual(retainedIsolation.value as? String, originalIsolation)
         revealSettingsPanelIfNeeded(identifier: "transmitCodecPanel")
         let codec = app.segmentedControls.containing(.button, identifier: "PCM 16-bit").firstMatch
         codec.buttons["Opus"].tap()
         XCTAssertTrue(codec.buttons["Opus"].isSelected)
         codec.buttons["PCM 16-bit"].tap()
         XCTAssertTrue(codec.buttons["PCM 16-bit"].isSelected)
+    }
+
+    private func revealTransmitIsolationToggle() -> XCUIElement {
+        let toggle = app.switches["Transmit Voice Isolation Effect"].firstMatch
+        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        for _ in 0..<6 {
+            if toggle.exists && toggle.isHittable { break }
+            scroll.swipeUp()
+        }
+        return toggle
     }
 
     private func attachScreen(_ name: String) {

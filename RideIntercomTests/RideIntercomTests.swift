@@ -7,6 +7,8 @@ import RTC
 import SessionManager
 import Testing
 import VADGate
+import SoundIsolation
+import PeakLimiter
 @testable import RideIntercom
 
 @Suite(.serialized)
@@ -469,12 +471,11 @@ struct RideIntercomTests {
 
         #expect(!harness.viewModel.isRemoteSoundIsolationEnabled(peerID: peerID))
         #expect(!harness.viewModel.receiveMasterSoundIsolationEnabled)
-        #expect(!harness.viewModel.supportsSoundIsolation)
+        #expect(harness.viewModel.supportsSoundIsolation == VoiceIsolationSupport.isAvailable)
         #expect(harness.viewModel.receivePeerEffectChainSnapshot(peerID: peerID).stages.isEmpty)
         #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.isEmpty)
         #expect(harness.viewModel.receiveMasterEffectChainSnapshot.stages.isEmpty)
 
-        harness.viewModel.isAudioReady = true
         harness.viewModel.setRemoteSoundIsolationEnabled(peerID: peerID, enabled: true)
         harness.viewModel.setReceiveMasterSoundIsolationEnabled(true)
 
@@ -858,6 +859,115 @@ struct RideIntercomTests {
         #expect(harness.viewModel.receivedVoicePacketCount == 0)
         #expect(!harness.viewModel.isAudioReady)
         harness.viewModel.disconnect()
+    }
+
+    @Test func actualEffectsFollowSettingsWithoutRestartingMedia() async throws {
+        let harness = Self.makeHarness()
+        let model = harness.viewModel
+        #expect(model.supportsSoundIsolation == VoiceIsolationSupport.isAvailable)
+        model.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { model.isAudioReady }
+        #expect(model.isAudioReady)
+        let enginesBefore = harness.audioDriver.createdEngineCount
+        let tx = try #require(model.audioPipeline.snapshot.buses.first { $0.id == "tx-bus" })
+        #expect(tx.effectChain.map(\.id) == ["sound-isolation", "dynamics-processor", "peak-limiter"])
+        #expect(tx.effectChain.allSatisfy { $0.typeName == "AVAudioUnitEffect" })
+        model.setSoundIsolationEnabled(false)
+        model.setRemoteSoundIsolationEnabled(peerID: "member-108", enabled: true)
+        model.setReceiveMasterSoundIsolationEnabled(true)
+        #expect(harness.audioDriver.createdEngineCount == enginesBefore)
+        func state(_ bus: String) -> MixerEffectState? {
+            model.audioPipeline.snapshot.buses.first { $0.id == bus }?.effectChain.first { $0.id == "sound-isolation" }?.state
+        }
+        #expect(state("tx-bus") == .bypassed)
+        #expect(state("rx-peer-member-108") == .active)
+        #expect(state("rx-master") == .active)
+        let report = try #require(model.lastRuntimePackageReports.first { $0.package == "SoundIsolation" && $0.kind == "transmitRuntimeSnapshot" })
+        #expect(try report.decodeJSON(VoiceIsolationRuntimeSnapshot.self).state == .bypassed)
+        model.setRemoteSoundIsolationEnabled(peerID: "member-108", enabled: false)
+        #expect(state("rx-peer-member-108") == .bypassed)
+        model.disconnect()
+        #expect(model.audioPipeline.snapshot.busIDs.isEmpty)
+        #expect(!model.lastRuntimePackageReports.contains { $0.package == "PeakLimiter" && $0.kind.contains("RuntimeSnapshot") })
+    }
+
+    @Test func actualOutputLimiterProtectsCombinedPeersAfterMasterGain() async throws {
+        let engine = AVAudioEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+        let pipeline = AppAudioPipeline(makeEngine: { engine })
+        var rendered: [Float] = []
+        pipeline.onOutputFrame = { rendered += $0.samples }
+        try pipeline.rebuild(configuration: AppAudioPipelineConfiguration(masterOutputVolume: 2), peerIDs: ["a", "b"])
+        defer { pipeline.stop() }
+        let wave = (0..<48_000).map { Float(sin(Double($0) * 2 * .pi * 440 / 48_000)) * 0.9 }
+        let packet = RTCAudioPacket(sequenceNumber: 0, codec: .pcm16, format: RTCAudioFormat(sampleRate: 48_000, channelCount: 1), capturedAt: 0, sampleCount: wave.count, payload: PCM16Codec.encode(wave))
+        for peer in ["a", "b"] {
+            _ = try pipeline.processReceivedAudioPacket(ReceivedAudioPacket(peerID: PeerID(rawValue: peer), packet: packet))
+        }
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
+        for _ in 0..<60 {
+            _ = try engine.renderOffline(1024, to: buffer)
+            await Task.yield()
+        }
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(!rendered.isEmpty)
+        #expect(rendered.allSatisfy { $0.isFinite && abs($0) <= 1.01 })
+        #expect(rendered.contains { abs($0) > 0.2 })
+        let output = try #require(pipeline.snapshot.buses.first { $0.id == "rx-output" })
+        #expect(output.effectChain.last?.id == "peak-limiter")
+        #expect(output.sinks.first?.id == "speaker-output")
+        #expect(pipeline.snapshot.routes.contains { $0.sourceBusID == "rx-master" && $0.destinationBusID == "rx-output" })
+    }
+
+    @Test func actualTransmitDynamicsChangesPCMBeforeEncoding() async throws {
+        let engine = AVAudioEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+        let pipeline = AppAudioPipeline(makeEngine: { engine })
+        var rendered: [Float] = []
+        pipeline.onTransmitPacket = { packet in
+            do { rendered += try AppAudioCodecBridge.decode(packet).samples }
+            catch { Issue.record("Effect output could not be decoded: \(error)") }
+        }
+        try pipeline.rebuild(configuration: AppAudioPipelineConfiguration(rtcSendFormat: .intercomMixer, transmitSoundIsolationEnabled: false), peerIDs: [])
+        defer { pipeline.stop() }
+        let wave = (0..<48_000).map { Float(sin(Double($0) * 2 * .pi * 440 / 48_000)) * 0.8 }
+        try pipeline.processCapturedFrame(PCMFrame(sequenceNumber: 0, format: .intercomMixer, capturedAt: 0, samples: wave))
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
+        for _ in 0..<60 {
+            _ = try engine.renderOffline(1024, to: buffer)
+            await Task.yield()
+        }
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(rendered.count > 24_000)
+        let steady = Array(rendered.dropFirst(12_000).prefix(24_000))
+        let rms = AudioLevelMeter.rmsLevel(samples: steady)
+        #expect(rms > 0.02)
+        #expect(rms < 0.5) // Input RMS is about 0.566; the real Dynamics unit compresses it.
+    }
+
+    @Test func effectGraphStartFailureReleasesNodesAndCanRetry() throws {
+        let failing = FailingEffectGraphEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        try failing.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+        let working = AVAudioEngine()
+        try working.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+        var first = true
+        let pipeline = AppAudioPipeline(makeEngine: {
+            defer { first = false }
+            return first ? failing : working
+        })
+        #expect(throws: (any Error).self) { try pipeline.rebuild(configuration: AppAudioPipelineConfiguration(), peerIDs: ["a"]) }
+        #expect(pipeline.snapshot.busIDs.isEmpty)
+        #expect(pipeline.isolationRuntimeSnapshots.isEmpty)
+        #expect(pipeline.outputLimiterRuntimeSnapshot == nil)
+        try pipeline.rebuild(configuration: AppAudioPipelineConfiguration(), peerIDs: ["a"])
+        #expect(pipeline.outputLimiterRuntimeSnapshot?.state == .active)
+        pipeline.stop()
+        #expect(pipeline.isolationRuntimeSnapshots.isEmpty)
+        #expect(pipeline.outputLimiterRuntimeSnapshot == nil)
     }
 
     @Test func diagnosticsReportOnlyTheGraphActuallyProcessingAudio() async {
@@ -1314,10 +1424,12 @@ private final class NoOpCallTicker: CallTicking {
 
 @MainActor
 private final class OfflineAudioDriver {
+    private(set) var createdEngineCount = 0
     private var engines: [AVAudioEngine] = []
     private var task: Task<Void, Never>?
 
     func makeEngine() -> AVAudioEngine {
+        createdEngineCount += 1
         let engine = AVAudioEngine()
         let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
         try! engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
@@ -1343,4 +1455,10 @@ private final class OfflineAudioDriver {
     }
 
     deinit { task?.cancel() }
+}
+
+private final class FailingEffectGraphEngine: AVAudioEngine, @unchecked Sendable {
+    override func start() throws {
+        throw NSError(domain: "EffectGraphTest", code: 1)
+    }
 }

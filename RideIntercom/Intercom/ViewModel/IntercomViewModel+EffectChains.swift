@@ -19,7 +19,8 @@ extension IntercomViewModel {
     var receiveMasterEffectChainSnapshot: AudioEffectChainSnapshot {
         AudioEffectChainSnapshot(
             id: "rx-master",
-            effects: mixerBusSnapshot(id: "rx-master")?.effectChain ?? []
+            effects: (mixerBusSnapshot(id: "rx-master")?.effectChain ?? [])
+                + (mixerBusSnapshot(id: "rx-output")?.effectChain ?? [])
         )
     }
 }
