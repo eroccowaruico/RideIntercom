@@ -28,7 +28,7 @@ struct PacketAudioSequencer: Sendable {
 struct PacketAudioReceiveFilter: Sendable {
     private let sessionID: String
     private let acceptedCodecs: Set<RTCAudioCodecIdentifier>
-    private var seenPackets: Set<PacketID> = []
+    private var windows: [PeerID: SequenceWindow] = [:]
 
     init(sessionID: String, acceptedCodecs: [RTCAudioCodecIdentifier]) {
         self.sessionID = sessionID
@@ -40,9 +40,7 @@ struct PacketAudioReceiveFilter: Sendable {
         guard acceptedCodecs.contains(envelope.packet.codec) else {
             throw RTCAudioPolicyError.unsupportedCodec(envelope.packet.codec)
         }
-        let packetID = PacketID(peerID: peerID, sequenceNumber: envelope.packet.sequenceNumber)
-        guard !seenPackets.contains(packetID) else { return nil }
-        seenPackets.insert(packetID)
+        guard windows[peerID, default: SequenceWindow()].accept(envelope.packet.sequenceNumber) else { return nil }
         return FilteredPacketAudioPacket(
             received: ReceivedAudioPacket(
                 peerID: peerID,
@@ -51,9 +49,29 @@ struct PacketAudioReceiveFilter: Sendable {
         )
     }
 
-    private struct PacketID: Hashable {
-        var peerID: PeerID
-        var sequenceNumber: UInt64
+    mutating func reset() {
+        windows.removeAll()
+    }
+
+    mutating func removePeer(_ peerID: PeerID) {
+        windows.removeValue(forKey: peerID)
+    }
+
+    // A fixed sequence window allows reordering without retaining every packet
+    // for the whole call. Older packets cannot become playable again on eviction.
+    private struct SequenceWindow: Sendable {
+        private static let capacity: UInt64 = 1_024
+        private var highest: UInt64 = 0
+        private var slots = [UInt64?](repeating: nil, count: Int(capacity))
+
+        mutating func accept(_ sequence: UInt64) -> Bool {
+            if sequence < highest, highest - sequence >= Self.capacity { return false }
+            let index = Int(sequence % Self.capacity)
+            guard slots[index] != sequence else { return false }
+            slots[index] = sequence
+            highest = max(highest, sequence)
+            return true
+        }
     }
 }
 
@@ -144,6 +162,18 @@ struct PacketAudioReceiveBuffer: Sendable {
             droppedPacketCount: droppedPacketCount,
             queuedPacketCount: queuedPackets.count
         )
+    }
+
+    mutating func recordRejectedPacket() {
+        droppedPacketCount += 1
+    }
+
+    mutating func reset() {
+        self = Self(configuration: configuration)
+    }
+
+    mutating func removePeer(_ peerID: PeerID) {
+        queuedPackets.removeAll { $0.filtered.received.peerID == peerID }
     }
 
     mutating func drainReadyPackets(now: TimeInterval) -> [ReceivedAudioPacket] {
@@ -261,6 +291,7 @@ enum MultipeerPayloadBuilder {
 
     static func decode(_ data: Data, credential: RTCCredential?) throws -> MultipeerWireMessage {
         if let decoded = try? JSONDecoder().decode(MultipeerWireMessage.self, from: data) {
+            if credential != nil, case .packetAudio = decoded { throw DecodeError.unknownPayload }
             return decoded
         }
         guard let credential else {

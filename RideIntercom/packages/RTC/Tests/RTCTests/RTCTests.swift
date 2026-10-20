@@ -468,6 +468,139 @@ private func makePacket(
     )
 }
 
+@Test func stoppedPacketMediaClearsQueuedAudioAndDuplicateHistory() throws {
+    let request = makeRequest(credential: nil)
+    let session = try MultipeerPacketMediaSession(request: request)
+    session.isActive = true
+    let peer = PeerID(rawValue: "remote")
+    let envelope = PacketAudioSequencer(sessionID: request.sessionID, senderID: peer)
+        .makeEnvelope(from: makePacket(sequenceNumber: 1))
+    #expect(try session.accept(envelope, from: peer, receivedAt: 1)?.queuedPacketCount == 1)
+    session.isActive = false
+    session.isActive = true
+    #expect(session.drain(now: 1.1)?.readyPackets.isEmpty == true)
+    #expect(try session.accept(envelope, from: peer, receivedAt: 2)?.queuedPacketCount == 1)
+    #expect(session.drain(now: 2.1)?.readyPackets.count == 1)
+}
+
+@Test func removingPeerClearsOnlyItsQueueAndPermitsNewSequence() throws {
+    let request = makeRequest(credential: nil)
+    let session = try MultipeerPacketMediaSession(request: request)
+    session.isActive = true
+    let a = PeerID(rawValue: "a")
+    let b = PeerID(rawValue: "b")
+    let envelope = PacketAudioSequencer(sessionID: request.sessionID, senderID: a)
+        .makeEnvelope(from: makePacket(sequenceNumber: 1))
+    _ = try session.accept(envelope, from: a, receivedAt: 1)
+    _ = try session.accept(envelope, from: b, receivedAt: 1)
+    session.removePeer(a)
+    #expect(session.drain(now: 1.1)?.readyPackets.map(\.peerID) == [b])
+    #expect(try session.accept(envelope, from: a, receivedAt: 2) != nil)
+    #expect(try session.accept(envelope, from: b, receivedAt: 2)?.droppedPacketCount == 1)
+}
+
+@Test func packetReplayOutsideRecentWindowIsRejectedPerPeer() throws {
+    let peer = PeerID(rawValue: "remote")
+    var filter = PacketAudioReceiveFilter(sessionID: "s", acceptedCodecs: [.pcm16])
+    let sequencer = PacketAudioSequencer(sessionID: "s", senderID: peer)
+    _ = try filter.accept(sequencer.makeEnvelope(from: makePacket(sequenceNumber: 4096)), from: peer)
+    #expect(try filter.accept(sequencer.makeEnvelope(from: makePacket(sequenceNumber: 1)), from: peer) == nil)
+    #expect(try filter.accept(sequencer.makeEnvelope(from: makePacket(sequenceNumber: 4095)), from: peer) != nil)
+    #expect(try filter.accept(sequencer.makeEnvelope(from: makePacket(sequenceNumber: 1)), from: PeerID(rawValue: "other")) != nil)
+}
+
+@Test func tenMinutesOfVirtualDuplexAudioRejectsDuplicatesAndOldReplay() throws {
+    let request = makeRequest(credential: nil)
+    let a = try MultipeerPacketMediaSession(request: request)
+    let b = try MultipeerPacketMediaSession(request: request)
+    a.isActive = true
+    b.isActive = true
+    let peerA = PeerID(rawValue: "a")
+    let peerB = PeerID(rawValue: "b")
+    let sequencerA = PacketAudioSequencer(sessionID: request.sessionID, senderID: peerA)
+    let sequencerB = PacketAudioSequencer(sessionID: request.sessionID, senderID: peerB)
+    var receivedA = 0
+    var receivedB = 0
+    // 20 ms frames: synthetic clock, no wall-clock or acoustic-quality claim.
+    for number in 0..<30_000 {
+        let time = Double(number) * 0.02
+        let packetA = makePacket(sequenceNumber: UInt64(number), payload: Data([1, 2]))
+        let packetB = makePacket(sequenceNumber: UInt64(number), payload: Data([3, 4]))
+        let envelopeA = sequencerA.makeEnvelope(from: packetA)
+        let envelopeB = sequencerB.makeEnvelope(from: packetB)
+        let reportA = try #require(try a.accept(envelopeB, from: peerB, receivedAt: time))
+        let reportB = try #require(try b.accept(envelopeA, from: peerA, receivedAt: time))
+        receivedA += reportA.readyPackets.count
+        receivedB += reportB.readyPackets.count
+        #expect(reportA.queuedPacketCount <= 2)
+        #expect(reportB.queuedPacketCount <= 2)
+        #expect(try a.accept(envelopeB, from: peerB, receivedAt: time)?.readyPackets.isEmpty == true)
+        #expect(try b.accept(envelopeA, from: peerA, receivedAt: time)?.readyPackets.isEmpty == true)
+    }
+    receivedA += a.drain(now: 600)?.readyPackets.count ?? 0
+    receivedB += b.drain(now: 600)?.readyPackets.count ?? 0
+    #expect(receivedA == 30_000)
+    #expect(receivedB == 30_000)
+    #expect(a.drain(now: 600)?.droppedPacketCount == 30_000)
+    #expect(b.drain(now: 600)?.droppedPacketCount == 30_000)
+    #expect(a.drain(now: 600)?.queuedPacketCount == 0)
+    #expect(b.drain(now: 600)?.queuedPacketCount == 0)
+    a.isActive = false
+    b.isActive = false
+    #expect(a.timeUntilNextReadyPacket(now: 600) == nil)
+    #expect(b.timeUntilNextReadyPacket(now: 600) == nil)
+}
+
+@Test func credentialProtectedAudioRejectsPlaintextWrongGroupAndTampering() throws {
+    let credential = RTCCredential.derived(groupID: "group-a", secret: "secret")
+    let wrong = RTCCredential.derived(groupID: "group-b", secret: "other")
+    let envelope = PacketAudioSequencer(sessionID: "s", senderID: PeerID(rawValue: "a"))
+        .makeEnvelope(from: makePacket(sequenceNumber: 1))
+    let encrypted = try MultipeerPayloadBuilder.makePacketAudioPayload(envelope, credential: credential)
+    #expect(try MultipeerPayloadBuilder.decode(encrypted.data, credential: credential) == .packetAudio(envelope))
+    #expect(throws: (any Error).self) { try MultipeerPayloadBuilder.decode(encrypted.data, credential: wrong) }
+    var tampered = encrypted.data
+    tampered[tampered.count - 1] ^= 1
+    #expect(throws: (any Error).self) { try MultipeerPayloadBuilder.decode(tampered, credential: credential) }
+    let plaintext = try MultipeerPayloadBuilder.makePacketAudioPayload(envelope, credential: nil)
+    #expect(throws: (any Error).self) { try MultipeerPayloadBuilder.decode(plaintext.data, credential: credential) }
+}
+
+private actor ReceivedPackets {
+    var sequences: [UInt64] = []
+    func record(_ event: CallSessionEvent) {
+        if case .receivedAudioPacket(let packet) = event { sequences.append(packet.packet.sequenceNumber) }
+    }
+}
+
+@Test func routeManagerReceivesAfterReconnectAndRejectsStoppedEvents() async throws {
+    let route = FakeRoute(kind: .multipeer, supportsPacketAudio: true)
+    let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer, selectionMode: .singleRoute)
+    let manager = RouteManager(routes: [route], configuration: configuration)
+    let recorded = ReceivedPackets()
+    let events = manager.events
+    let listener = Task { for await event in events { await recorded.record(event) } }
+    defer { listener.cancel() }
+    for sequence in 1...2 {
+        var request = makeRequest(configuration: configuration)
+        request.sessionID = "session-\(sequence)"
+        await manager.prepare(request)
+        await manager.startConnection()
+        await manager.startMedia()
+        route.yield(.receivedAudioPacket(.multipeer, ReceivedAudioPacket(peerID: PeerID(rawValue: "remote"), packet: makePacket(sequenceNumber: UInt64(sequence)))))
+        for _ in 0..<100 {
+            if await recorded.sequences.count == sequence { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await recorded.sequences.count == sequence)
+        await manager.stopConnection()
+        route.yield(.receivedAudioPacket(.multipeer, ReceivedAudioPacket(peerID: PeerID(rawValue: "remote"), packet: makePacket(sequenceNumber: 999))))
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(await recorded.sequences.count == sequence)
+    }
+    #expect(await recorded.sequences == [1, 2])
+}
+
 private func makeRequest(
     configuration: CallRouteConfiguration = CallRouteConfiguration(),
     credential: RTCCredential? = RTCCredential.derived(groupID: "test-group", secret: "secret"),
@@ -529,6 +662,8 @@ private final class FakeRoute: RTCCallRoute, @unchecked Sendable {
         )
         self.mediaOwnership = supportsPacketAudio ? .appManagedPacketAudio : .routeManagedMediaStream
     }
+
+    func yield(_ event: RouteEvent) { eventSource.yield(event) }
 
     func prepare(_ request: CallStartRequest) async {
         prepareCount += 1

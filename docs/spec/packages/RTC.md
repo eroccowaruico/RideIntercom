@@ -741,3 +741,31 @@ RTC statusは通信状態だけを確定情報として持つ。Mixer volume、C
 | route-managed media | WebRTCがapp-managed packet audioを使わない |
 | runtime status | route状態、audio policy、package reportを送信できる |
 | App migration | 旧RTC audio APIなしで、AudioCore/Codec/AudioMixer/RTCをcompositionできる |
+
+## 接続世代・認証と受信状態の終了
+
+| 境界 | 仕様 |
+|---|---|
+| Multipeer delegate | 専用serial queueで状態更新と通知を順序付ける。現在のsession/browser/advertiserと一致しないcallbackは破棄 |
+| Local route / RouteManager | actorで状態を保護。prepare/stopで接続世代を更新し、旧購読・旧drain・旧handover処理は現在の接続へ反映しない |
+| events購読 | 操作開始前に`events`を取得する。各購読は独立し、cancelで他の購読や次の接続の通知元を終了させない。過去イベントは新しい購読へ再送しない |
+| stopConnection | 購読とtimerを停止してroute/mediaを終了。次回prepareで新たに購読する |
+| 認証前 | 接続済みpeerのhandshakeだけを処理し、application dataと音声は拒否。送信も認証済みpeerへ限定 |
+| peer切断 | 該当peerの認証・受信待ち・重複履歴を解除。他peerの認証と受信待ちは維持。再接続時は新しいhandshakeが必要 |
+| credential付き音声 | AES-GCMを必須とする。改ざん、別credential、平文packetAudioを拒否。handshake/application dataの既存形式は維持 |
+| 重複履歴 | peerごとに直近1024 sequenceの固定窓を保持。窓より古いsequenceも破棄し、長時間通話で履歴を無制限に蓄積しない |
+| stopMedia | 受信待ちと重複履歴を初期化。再開後に旧音声を再生しない |
+| 受信診断 | receivedはqueueへ受理したpacket数、droppedは重複・旧session/window・期限切れの破棄数。重複時もreportを更新 |
+| 複数route | application data/member更新はactive route、音声はmedia routeからのみ採用 |
+
+### 自動検証の範囲
+
+| 検証 | 根拠と限界 |
+|---|---|
+| delegate経路 | テスト側から実Transportのdelegateへ接続・受信・切断通知を渡し、未認証拒否、再認証、残存peer、旧session拒否を確認。OSの発見/無線接続そのものではない |
+| 再接続 | RouteManagerをstop/prepare/startし直しても通知が届き、停止中の通知を採用しない |
+| 暗号化 | 正しいcredentialで往復、別credential・改ざん・平文を拒否 |
+| 合成時間の長時間通信 | 20 ms間隔を模した両方向各30,000 packet。各方向30,000件受理・30,000件重複破棄、queueが滞留せず停止後解放 |
+| 実機 | discovery、招待からの接続、音響品質、画面ロック、音声デバイス切替は未確認 |
+
+上記の長時間packet検証はopaque payloadの運搬・時間管理の検証であり、実時間10分の音声品質確認ではない。

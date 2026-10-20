@@ -1,12 +1,13 @@
 import Foundation
 
-public final class RouteManager: CallSession, @unchecked Sendable {
-    public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
+public actor RouteManager: CallSession {
+    nonisolated public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
 
     private let eventSource = EventSource<CallSessionEvent>()
     private var routes: [RouteKind: RTCCallRoute]
     private var routeTasks: [Task<Void, Never>] = []
     private var configuration: CallRouteConfiguration
+    private var generation = UUID()
     private var request: CallStartRequest?
     private var activeRoute: RouteKind?
     private var mediaRoute: RouteKind?
@@ -20,7 +21,6 @@ public final class RouteManager: CallSession, @unchecked Sendable {
     private var runtimePackageReports: [RTCRuntimePackageReport] = []
     private var fallbackTask: Task<Void, Never>?
     private var restoreTask: Task<Void, Never>?
-    private var handoverTask: Task<Void, Never>?
     private var runtimeStatusTask: Task<Void, Never>?
     private let runtimeStatusPolicy: RTCRuntimeStatusPolicy
 
@@ -38,10 +38,9 @@ public final class RouteManager: CallSession, @unchecked Sendable {
                 .map { ($0.kind, $0) }
         )
         self.routeStates = Dictionary(uniqueKeysWithValues: self.routes.keys.map { ($0, .idle) })
-        bindRouteEvents()
     }
 
-    public convenience init(
+    public init(
         routeFactories: [AnyRouteFactory],
         configuration: CallRouteConfiguration = CallRouteConfiguration(),
         runtimeStatusPolicy: RTCRuntimeStatusPolicy = RTCRuntimeStatusPolicy()
@@ -60,11 +59,13 @@ public final class RouteManager: CallSession, @unchecked Sendable {
         routeTasks.forEach { $0.cancel() }
         fallbackTask?.cancel()
         restoreTask?.cancel()
-        handoverTask?.cancel()
         runtimeStatusTask?.cancel()
     }
 
     public func prepare(_ request: CallStartRequest) async {
+        if self.request != nil { await stopConnection() }
+        generation = UUID()
+        let generation = generation
         let normalizedRequest = CallStartRequest(
             sessionID: request.sessionID,
             localPeer: request.localPeer,
@@ -91,12 +92,14 @@ public final class RouteManager: CallSession, @unchecked Sendable {
 
         for route in routes.values {
             await route.prepare(normalizedRequest)
+            guard self.generation == generation else { return }
         }
 
         emitRouteSnapshot()
     }
 
     public func startConnection() async {
+        let generation = generation
         guard let request else {
             emit(.error(.connectionFailed(configuration.preferredRoute, "prepare must be called before startConnection")))
             return
@@ -107,6 +110,7 @@ public final class RouteManager: CallSession, @unchecked Sendable {
         if configuration.keepsPreferredRouteInStandby {
             for standbyKind in configuration.enabledRoutes where standbyKind != configuration.preferredRoute {
                 await routes[standbyKind]?.startConnection()
+                guard self.generation == generation else { return }
             }
         }
 
@@ -120,22 +124,31 @@ public final class RouteManager: CallSession, @unchecked Sendable {
         mediaRoute = preferredRoute.kind
         emitRouteSnapshot()
         await preferredRoute.startConnection()
+        guard self.generation == generation else { return }
         scheduleFallbackIfNeeded(for: request)
         await sendRuntimeStatus(reason: .connectionStarted)
         startPeriodicRuntimeStatusBroadcast()
     }
 
     public func stopConnection() async {
-        await sendRuntimeStatus(reason: .connectionStopping)
+        generation = UUID()
+        let generation = generation
+        routeTasks.forEach { $0.cancel() }
+        routeTasks.removeAll()
         cancelTimers()
-        for route in routes.values {
-            await route.stopMedia()
-            await route.stopConnection()
-        }
+        await sendRuntimeStatus(reason: .connectionStopping)
+        guard self.generation == generation else { return }
+        request = nil
         activeRoute = nil
         mediaRoute = nil
         availableRoutes.removeAll()
         isMediaStarted = false
+        for route in routes.values {
+            await route.stopMedia()
+            guard self.generation == generation else { return }
+            await route.stopConnection()
+            guard self.generation == generation else { return }
+        }
         emitRouteSnapshot()
         emitState(.disconnected)
     }
@@ -204,17 +217,20 @@ public final class RouteManager: CallSession, @unchecked Sendable {
 
     private func bindRouteEvents() {
         routeTasks.forEach { $0.cancel() }
+        let generation = generation
         routeTasks = routes.values.map { route in
-            Task { [weak self, weak route] in
-                guard let route else { return }
-                for await event in route.events {
-                    await self?.handle(event)
+            let events = route.events
+            return Task { [weak self] in
+                for await event in events {
+                    guard !Task.isCancelled else { return }
+                    await self?.handle(event, generation: generation)
                 }
             }
         }
     }
 
-    private func handle(_ event: RouteEvent) async {
+    private func handle(_ event: RouteEvent, generation: UUID) async {
+        guard self.generation == generation, request != nil else { return }
         switch event {
         case .stateChanged(let kind, let state):
             await handleRouteState(kind: kind, state: state)
@@ -228,12 +244,15 @@ public final class RouteManager: CallSession, @unchecked Sendable {
             emit(.routeAvailabilityChanged([availability]))
             emitRouteSnapshot()
             await sendRuntimeStatus(reason: .routeChanged)
-        case .membersChanged(_, let members):
+        case .membersChanged(let kind, let members):
+            guard activeRoute == kind else { return }
             emit(.membersChanged(members))
             await sendRuntimeStatus(reason: .routeChanged)
-        case .receivedApplicationData(_, let data):
+        case .receivedApplicationData(let kind, let data):
+            guard activeRoute == kind else { return }
             emit(.receivedApplicationData(data))
-        case .receivedAudioPacket(_, let packet):
+        case .receivedAudioPacket(let kind, let packet):
+            guard mediaRoute == kind, isMediaStarted else { return }
             emit(.receivedAudioPacket(packet))
         case .metricsChanged(let metrics):
             emit(.metricsChanged(metrics))
@@ -280,26 +299,29 @@ public final class RouteManager: CallSession, @unchecked Sendable {
               configuration.enabledRoutes.count > 1,
               activeRoute == configuration.preferredRoute else { return }
 
+        let generation = generation
         fallbackTask = Task { [weak self] in
             let delay = UInt64(max(0, request.configuration.fallbackDelay) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled else { return }
-            await self?.activateFallbackRoute()
+            await self?.activateFallbackRoute(generation: generation)
         }
     }
 
     private func scheduleRestoreToPreferredRoute() {
         restoreTask?.cancel()
+        let delay = UInt64(max(0, configuration.restoreProbeDuration) * 1_000_000_000)
+        let preferredRoute = configuration.preferredRoute
+        let generation = generation
         restoreTask = Task { [weak self] in
-            guard let self else { return }
-            let delay = UInt64(max(0, configuration.restoreProbeDuration) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled else { return }
-            await self.handover(to: self.configuration.preferredRoute)
+            await self?.handover(to: preferredRoute, expectedGeneration: generation)
         }
     }
 
-    private func activateFallbackRoute() async {
+    private func activateFallbackRoute(generation: UUID) async {
+        guard self.generation == generation else { return }
         guard activeRoute == configuration.preferredRoute else { return }
         await activateFirstAvailableRoute(excluding: activeRoute)
     }
@@ -321,7 +343,10 @@ public final class RouteManager: CallSession, @unchecked Sendable {
         await activateFirstAvailableRoute(excluding: routeKind)
     }
 
-    private func handover(to nextKind: RouteKind) async {
+    private func handover(to nextKind: RouteKind, expectedGeneration: UUID? = nil) async {
+        if let expectedGeneration, expectedGeneration != generation { return }
+        let generation = generation
+        guard request != nil else { return }
         guard let nextRoute = routes[nextKind], activeRoute != nextKind else { return }
         let previousKind = activeRoute
         let previousRoute = previousKind.flatMap { routes[$0] }
@@ -330,12 +355,15 @@ public final class RouteManager: CallSession, @unchecked Sendable {
         emitRouteSnapshot(isHandoverInProgress: true)
         await sendRuntimeStatus(reason: .routeChanged)
         await nextRoute.startConnection()
+        guard self.generation == generation else { return }
 
         if isMediaStarted {
             await nextRoute.startMedia()
+            guard self.generation == generation else { return }
             mediaRoute = nextKind
             let delay = UInt64(max(0, configuration.handoverFadeDuration) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: delay)
+            guard self.generation == generation else { return }
             await previousRoute?.stopMedia()
         }
 
@@ -343,6 +371,7 @@ public final class RouteManager: CallSession, @unchecked Sendable {
             await previousRoute?.stopConnection()
         }
 
+        guard self.generation == generation else { return }
         emitRouteSnapshot(isHandoverInProgress: false)
         await sendRuntimeStatus(reason: .routeChanged)
     }
@@ -350,11 +379,9 @@ public final class RouteManager: CallSession, @unchecked Sendable {
     private func cancelTimers() {
         fallbackTask?.cancel()
         restoreTask?.cancel()
-        handoverTask?.cancel()
         runtimeStatusTask?.cancel()
         fallbackTask = nil
         restoreTask = nil
-        handoverTask = nil
         runtimeStatusTask = nil
     }
 

@@ -355,3 +355,13 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 | effect | effect chain が bus processing format 上に接続される |
 | route constraints | 管理外bus、複数親、循環routeを拒否する |
 | snapshot diagnostics | source/sink/effect/graphの外部観測値が欠落しない |
+
+## 連続PCMと複数話者の回帰検証
+
+| ケース | 検証 |
+|---|---|
+| 同一sourceの連続frame | 48 kHz mono、480 samplesずつの2 frameをscheduleし、960 samplesの時間順序を保持 |
+| 異なるsourceの同時音声 | 960 samplesの別話者を同じbusへ接続し、前半/後半それぞれの和を全sampleで検証 |
+| 実行環境 | AVAudioEngineのoffline manual rendering。実マイク・実スピーカーの音響結果には依存しない |
+
+既存のplayer nodeの連続scheduleで成立するため、App内の配列ミキサーや独自のPCM加算経路は追加しない。`PCMContinuityTests`で保護する。

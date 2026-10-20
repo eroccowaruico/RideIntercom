@@ -129,10 +129,11 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     }
 
     private func bindSignalingEvents() {
+        let events = signalingClient.events
         signalingTask = Task { [weak self] in
-            guard let self else { return }
-            for await event in signalingClient.events {
-                await self.handleSignalingEvent(event)
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                await self?.handleSignalingEvent(event)
             }
         }
     }
@@ -177,10 +178,11 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     }
 
     private func bindEngineEvents() {
+        let events = engine.events
         engineTask = Task { [weak self] in
-            guard let self else { return }
-            for await event in engine.events {
-                await self.handleEngineEvent(event)
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                await self?.handleEngineEvent(event)
             }
         }
     }

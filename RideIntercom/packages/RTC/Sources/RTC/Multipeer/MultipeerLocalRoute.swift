@@ -1,11 +1,11 @@
 #if canImport(MultipeerConnectivity)
 import Foundation
-import MultipeerConnectivity
+@preconcurrency import MultipeerConnectivity
 import OSLog
 
-public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
+public actor MultipeerLocalRoute: RTCCallRoute {
     public let kind: RouteKind = .multipeer
-    public var capabilities: RouteCapabilities {
+    nonisolated public var capabilities: RouteCapabilities {
         RouteCapabilities(
             supportsLocalDiscovery: true,
             supportsOfflineOperation: true,
@@ -19,16 +19,18 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
         )
     }
     public let mediaOwnership: AudioMediaOwnership = .appManagedPacketAudio
-    public var events: AsyncStream<RouteEvent> { eventSource.stream }
+    nonisolated public var events: AsyncStream<RouteEvent> { eventSource.stream }
 
     private let eventSource = EventSource<RouteEvent>()
     private let localDisplayName: String
     private let audioPolicy: RTCAudioPolicy
     private let packetAudioReceiveConfiguration: PacketAudioReceiveConfiguration
+    private var generation = UUID()
+    private var transportEventsTask: Task<Void, Never>?
     private var transport: MultipeerConnectionTransport?
     private var mediaSession: MultipeerPacketMediaSession?
     private var packetAudioDrainTask: Task<Void, Never>?
-    private var activePeerCount = 0
+    private var activePeers: Set<PeerID> = []
 
     public init(
         displayName: String,
@@ -40,7 +42,20 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
         self.packetAudioReceiveConfiguration = packetAudioReceiveConfiguration
     }
 
+    deinit {
+        transportEventsTask?.cancel()
+        packetAudioDrainTask?.cancel()
+        transport?.stop()
+    }
+
     public func prepare(_ request: CallStartRequest) async {
+        generation = UUID()
+        transportEventsTask?.cancel()
+        packetAudioDrainTask?.cancel()
+        transport?.stop()
+        transport = nil
+        mediaSession = nil
+        activePeers.removeAll()
         let mediaSession: MultipeerPacketMediaSession
         do {
             mediaSession = try MultipeerPacketMediaSession(
@@ -60,8 +75,15 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
         }
 
         let transport = MultipeerConnectionTransport(request: request, displayName: localDisplayName)
-        transport.onEvent = { [weak self] event in
-            self?.handleTransportEvent(event)
+        let source = EventSource<MultipeerConnectionEvent>()
+        transport.onEvent = { source.yield($0) }
+        let generation = generation
+        let events = source.stream
+        transportEventsTask = Task { [weak self] in
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                await self?.handleTransportEvent(event, generation: generation)
+            }
         }
         self.transport = transport
         self.mediaSession = mediaSession
@@ -75,12 +97,15 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
     }
 
     public func stopConnection() async {
+        generation = UUID()
+        transportEventsTask?.cancel()
+        transportEventsTask = nil
         packetAudioDrainTask?.cancel()
         packetAudioDrainTask = nil
         transport?.stop()
         transport = nil
         mediaSession = nil
-        activePeerCount = 0
+        activePeers.removeAll()
         eventSource.yield(.stateChanged(kind, .disconnected))
     }
 
@@ -108,12 +133,17 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
     public func setLocalMute(_ muted: Bool) async {}
     public func setOutputMute(_ muted: Bool) async {}
 
-    private func handleTransportEvent(_ event: MultipeerConnectionEvent) {
+    private func handleTransportEvent(_ event: MultipeerConnectionEvent, generation: UUID) {
+        guard self.generation == generation else { return }
         switch event {
         case .state(let state):
             eventSource.yield(.stateChanged(kind, state))
         case .members(let peers):
-            activePeerCount = peers.count
+            let currentPeers = Set(peers)
+            for peer in activePeers.subtracting(currentPeers) {
+                mediaSession?.removePeer(peer)
+            }
+            activePeers = currentPeers
             let members = peers.map {
                 CallMemberState(peer: PeerDescriptor(id: $0, displayName: $0.rawValue), route: kind, isConnected: true)
             }
@@ -150,7 +180,7 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
         }
         eventSource.yield(.metricsChanged(RouteMetrics(
             route: kind,
-            activePeerCount: activePeerCount,
+            activePeerCount: activePeers.count,
             audioPlayoutDelay: packetAudioReceiveConfiguration.playoutDelay,
             receivedAudioFrameCount: report.receivedPacketCount,
             droppedAudioFrameCount: report.droppedPacketCount,
@@ -162,14 +192,16 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
         let now = Date().timeIntervalSince1970
         guard let delay = mediaSession?.timeUntilNextReadyPacket(now: now) else { return }
         packetAudioDrainTask?.cancel()
+        let generation = generation
         packetAudioDrainTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            self?.drainPacketAudio()
+            await self?.drainPacketAudio(generation: generation)
         }
     }
 
-    private func drainPacketAudio() {
+    private func drainPacketAudio(generation: UUID) {
+        guard self.generation == generation else { return }
         guard let report = mediaSession?.drain(now: Date().timeIntervalSince1970) else { return }
         publishPacketAudio(report)
         schedulePacketAudioDrainIfNeeded()
@@ -189,20 +221,23 @@ public final class MultipeerLocalRoute: RTCCallRoute, @unchecked Sendable {
     }
 }
 
-enum MultipeerConnectionEvent {
+enum MultipeerConnectionEvent: Sendable {
     case state(RouteConnectionState)
     case members([PeerID])
     case message(MultipeerWireMessage, PeerID)
     case failed(String)
 }
 
-final class MultipeerConnectionTransport: NSObject {
+final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     var onEvent: ((MultipeerConnectionEvent) -> Void)?
 
     private let request: CallStartRequest
     private let credential: RTCCredential?
     private let localPeerID: MCPeerID
-    private let session: MCSession
+    private var session: MCSession
+    private let queue = DispatchQueue(label: "RideIntercom.MultipeerConnection")
+    private var isStopped = false
+    private var connectedPeerIDs: Set<PeerID> = []
     private let logger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "rtc-multipeer")
     private var advertiser: MCNearbyServiceAdvertiser?
     private var browser: MCNearbyServiceBrowser?
@@ -219,51 +254,73 @@ final class MultipeerConnectionTransport: NSObject {
     }
 
     func start() {
-        stopDiscovery()
-        authenticatedPeers.removeAll()
-        onEvent?(.state(.connecting))
+        queue.sync { [self] in
+            stopDiscovery()
+            session.disconnect()
+            session = MCSession(peer: localPeerID, securityIdentity: nil, encryptionPreference: .required)
+            session.delegate = self
+            isStopped = false
+            connectedPeerIDs.removeAll()
+            authenticatedPeers.removeAll()
+            onEvent?(.state(.connecting))
 
-        let advertiser = MCNearbyServiceAdvertiser(
-            peer: localPeerID,
-            discoveryInfo: credential.map { [LocalDiscoveryInfo.groupHashKey: $0.groupHash] },
-            serviceType: LocalDiscoveryInfo.serviceType
-        )
-        advertiser.delegate = self
-        advertiser.startAdvertisingPeer()
-        self.advertiser = advertiser
+            let advertiser = MCNearbyServiceAdvertiser(
+                peer: localPeerID,
+                discoveryInfo: credential.map { [LocalDiscoveryInfo.groupHashKey: $0.groupHash] },
+                serviceType: LocalDiscoveryInfo.serviceType
+            )
+            advertiser.delegate = self
+            self.advertiser = advertiser
+            advertiser.startAdvertisingPeer()
 
-        let browser = MCNearbyServiceBrowser(peer: localPeerID, serviceType: LocalDiscoveryInfo.serviceType)
-        browser.delegate = self
-        browser.startBrowsingForPeers()
-        self.browser = browser
+            let browser = MCNearbyServiceBrowser(peer: localPeerID, serviceType: LocalDiscoveryInfo.serviceType)
+            browser.delegate = self
+            self.browser = browser
+            browser.startBrowsingForPeers()
+
+        }
     }
 
     func stop() {
-        stopDiscovery()
-        session.disconnect()
-        authenticatedPeers.removeAll()
-        onEvent?(.state(.disconnected))
+        queue.sync { [self] in
+            isStopped = true
+            connectedPeerIDs.removeAll()
+            stopDiscovery()
+            session.disconnect()
+            authenticatedPeers.removeAll()
+            onEvent?(.state(.disconnected))
+
+        }
     }
 
     func send(_ payload: TransportPayload) {
-        guard !session.connectedPeers.isEmpty else { return }
-        do {
-            try session.send(payload.data, toPeers: session.connectedPeers, with: payload.mcSendMode)
-        } catch {
-            logger.error("Failed to send Multipeer payload: \(error.localizedDescription, privacy: .public)")
+        queue.sync { [self] in
+            guard !isStopped else { return }
+            let peers = session.connectedPeers.filter { authenticatedPeers.contains(PeerID(rawValue: $0.displayName)) }
+            guard !peers.isEmpty else { return }
+            do {
+                try session.send(payload.data, toPeers: peers, with: payload.mcSendMode)
+            } catch {
+                logger.error("Failed to send Multipeer payload: \(error.localizedDescription, privacy: .public)")
+            }
+
         }
     }
 
     func accept(_ handshake: RouteHandshakeMessage, from peerID: PeerID) -> Bool {
-        guard let credential else {
+        return queue.sync { [self] in
+            guard !isStopped, connectedPeerIDs.contains(peerID) else { return false }
+            guard let credential else {
+                authenticatedPeers.insert(peerID)
+                onEvent?(.members(Array(authenticatedPeers)))
+                return true
+            }
+            guard handshake.verify(credential: credential) else { return false }
             authenticatedPeers.insert(peerID)
             onEvent?(.members(Array(authenticatedPeers)))
             return true
+
         }
-        guard handshake.verify(credential: credential) else { return false }
-        authenticatedPeers.insert(peerID)
-        onEvent?(.members(Array(authenticatedPeers)))
-        return true
     }
 
     private func stopDiscovery() {
@@ -293,24 +350,36 @@ final class MultipeerConnectionTransport: NSObject {
 
 extension MultipeerConnectionTransport: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
-        guard peerID != localPeerID else { return }
-        if let credential, info?[LocalDiscoveryInfo.groupHashKey] != credential.groupHash { return }
-        guard !pendingInvites.contains(peerID.displayName), !session.connectedPeers.contains(peerID) else { return }
-        pendingInvites.insert(peerID.displayName)
-        browser.invitePeer(
-            peerID,
-            to: session,
-            withContext: credential.flatMap { LocalInvitationContext(groupHash: $0.groupHash).encoded },
-            timeout: 10
-        )
+        queue.async { [self] in
+            guard !isStopped, self.browser === browser else { return }
+            guard peerID != localPeerID else { return }
+            if let credential, info?[LocalDiscoveryInfo.groupHashKey] != credential.groupHash { return }
+            guard !pendingInvites.contains(peerID.displayName), !session.connectedPeers.contains(peerID) else { return }
+            pendingInvites.insert(peerID.displayName)
+            browser.invitePeer(
+                peerID,
+                to: session,
+                withContext: credential.flatMap { LocalInvitationContext(groupHash: $0.groupHash).encoded },
+                timeout: 10
+            )
+
+        }
     }
 
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
-        pendingInvites.remove(peerID.displayName)
+        queue.async { [self] in
+            guard !isStopped, self.browser === browser else { return }
+            pendingInvites.remove(peerID.displayName)
+
+        }
     }
 
     func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
-        onEvent?(.failed(error.localizedDescription))
+        queue.async { [self] in
+            guard !isStopped, self.browser === browser else { return }
+            onEvent?(.failed(error.localizedDescription))
+
+        }
     }
 }
 
@@ -321,43 +390,63 @@ extension MultipeerConnectionTransport: MCNearbyServiceAdvertiserDelegate {
         withContext context: Data?,
         invitationHandler: @escaping (Bool, MCSession?) -> Void
     ) {
-        if let credential, LocalInvitationContext.decode(context)?.groupHash != credential.groupHash {
-            invitationHandler(false, nil)
-            return
+        let acceptedSession: MCSession? = queue.sync {
+            guard !isStopped, self.advertiser === advertiser else { return nil }
+            if let credential, LocalInvitationContext.decode(context)?.groupHash != credential.groupHash { return nil }
+            return session
         }
-        invitationHandler(true, session)
+        invitationHandler(acceptedSession != nil, acceptedSession)
     }
 
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
-        onEvent?(.failed(error.localizedDescription))
+        queue.async { [self] in
+            guard !isStopped, self.advertiser === advertiser else { return }
+            onEvent?(.failed(error.localizedDescription))
+
+        }
     }
 }
 
 extension MultipeerConnectionTransport: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        switch state {
-        case .connected:
-            pendingInvites.remove(peerID.displayName)
-            onEvent?(.state(.connected))
-            sendHandshake(to: peerID)
-        case .connecting:
-            onEvent?(.state(.connecting))
-        case .notConnected:
-            pendingInvites.remove(peerID.displayName)
-            authenticatedPeers.remove(PeerID(rawValue: peerID.displayName))
-            onEvent?(.members(Array(authenticatedPeers)))
-            onEvent?(.state(session.connectedPeers.isEmpty ? .disconnected : .connected))
-        @unknown default:
-            break
+        queue.async { [self] in
+            guard !isStopped, self.session === session else { return }
+            switch state {
+            case .connected:
+                connectedPeerIDs.insert(PeerID(rawValue: peerID.displayName))
+                pendingInvites.remove(peerID.displayName)
+                onEvent?(.state(.connected))
+                sendHandshake(to: peerID)
+            case .connecting:
+                onEvent?(.state(.connecting))
+            case .notConnected:
+                connectedPeerIDs.remove(PeerID(rawValue: peerID.displayName))
+                pendingInvites.remove(peerID.displayName)
+                authenticatedPeers.remove(PeerID(rawValue: peerID.displayName))
+                onEvent?(.members(Array(authenticatedPeers)))
+                onEvent?(.state(connectedPeerIDs.isEmpty ? .disconnected : (authenticatedPeers.isEmpty ? .connected : .authenticated)))
+            @unknown default:
+                break
+            }
+
         }
     }
 
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
-        do {
-            let message = try MultipeerPayloadBuilder.decode(data, credential: credential)
-            onEvent?(.message(message, PeerID(rawValue: peerID.displayName)))
-        } catch {
-            logger.debug("Ignoring unknown Multipeer payload from \(peerID.displayName, privacy: .public)")
+        queue.async { [self] in
+            guard !isStopped, self.session === session else { return }
+            do {
+                let message = try MultipeerPayloadBuilder.decode(data, credential: credential)
+                if case .control(.handshake) = message {
+                    guard connectedPeerIDs.contains(PeerID(rawValue: peerID.displayName)) else { return }
+                } else {
+                    guard authenticatedPeers.contains(PeerID(rawValue: peerID.displayName)) else { return }
+                }
+                onEvent?(.message(message, PeerID(rawValue: peerID.displayName)))
+            } catch {
+                logger.debug("Ignoring unknown Multipeer payload from \(peerID.displayName, privacy: .public)")
+            }
+
         }
     }
 
@@ -367,7 +456,14 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
 }
 
 final class MultipeerPacketMediaSession {
-    var isActive = false
+    var isActive = false {
+        didSet {
+            if !isActive {
+                filter.reset()
+                receiveBuffer.reset()
+            }
+        }
+    }
 
     private let credential: RTCCredential?
     private let sequencer: PacketAudioSequencer
@@ -391,6 +487,11 @@ final class MultipeerPacketMediaSession {
         self.receiveBuffer = PacketAudioReceiveBuffer(configuration: receiveConfiguration)
     }
 
+    func removePeer(_ peerID: PeerID) {
+        filter.removePeer(peerID)
+        receiveBuffer.removePeer(peerID)
+    }
+
     func makePayload(from packet: RTCAudioPacket) throws -> TransportPayload? {
         guard isActive else { return nil }
         return try MultipeerPayloadBuilder.makePacketAudioPayload(sequencer.makeEnvelope(from: packet), credential: credential)
@@ -402,7 +503,10 @@ final class MultipeerPacketMediaSession {
         receivedAt: TimeInterval
     ) throws -> PacketAudioReceiveBufferReport? {
         guard isActive else { return nil }
-        guard let filtered = try filter.accept(envelope, from: peerID) else { return nil }
+        guard let filtered = try filter.accept(envelope, from: peerID) else {
+            receiveBuffer.recordRejectedPacket()
+            return receiveBuffer.drain(now: receivedAt)
+        }
         receiveBuffer.enqueue(filtered, receivedAt: receivedAt)
         return receiveBuffer.drain(now: receivedAt)
     }
