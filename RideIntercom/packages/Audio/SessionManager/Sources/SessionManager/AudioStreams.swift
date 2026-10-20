@@ -221,6 +221,11 @@ public final class AudioInputStreamCapture {
         _ voiceProcessing: AudioInputVoiceProcessingConfiguration
     ) -> AudioStreamOperationReport {
         stateLock.withLock { configuration.voiceProcessing = voiceProcessing }
+        guard stateLock.withLock({ isRunning }) else {
+            // Keep desired settings, but do not open I/O while capture is stopped.
+            // start() applies the latest configuration before starting the backend.
+            return emitReport(.updateInputVoiceProcessing(voiceProcessing), .ignored(.alreadyStopped))
+        }
         return applyVoiceProcessing(voiceProcessing)
     }
 

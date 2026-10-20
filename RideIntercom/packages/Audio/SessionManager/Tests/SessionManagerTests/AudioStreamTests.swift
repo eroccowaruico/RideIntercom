@@ -45,7 +45,7 @@ import AVFAudio
     ))))
 }
 
-@Test func inputCaptureUpdatesVoiceProcessingThroughStreamFacade() {
+@Test func stoppedInputStoresVoiceProcessingWithoutOpeningBackend() {
     let backend = FakeInputStreamBackend()
     let capture = AudioInputStreamCapture(backend: backend)
     let updated = AudioInputVoiceProcessingConfiguration(
@@ -61,11 +61,25 @@ import AVFAudio
 
     #expect(capture.configuration.voiceProcessing == updated)
     #expect(report.operation == .updateInputVoiceProcessing(updated))
-    #expect(report.result == .applied)
+    #expect(report.result == .ignored(.alreadyStopped))
     #expect(report.snapshot.isRunning == false)
     #expect(report.snapshot.inputVoiceProcessing == updated)
-    #expect(backend.events == [.updateVoiceProcessing(updated)])
+    #expect(backend.events.isEmpty)
     #expect(events == [.operation(report)])
+}
+
+@Test func stoppedInputAppliesLatestConfigurationOnlyOnRestart() {
+    let backend = FakeInputStreamBackend()
+    let capture = AudioInputStreamCapture(backend: backend)
+    _ = capture.start()
+    _ = capture.stop()
+    let previousEvents = backend.events
+    let updated = AudioInputVoiceProcessingConfiguration(inputMuted: true)
+    let report = capture.updateVoiceProcessing(updated)
+    #expect(report.result == .ignored(.alreadyStopped))
+    #expect(backend.events == previousEvents)
+    #expect(capture.start().result == .applied)
+    #expect(Array(backend.events.suffix(2)) == [.updateVoiceProcessing(updated), .startCapture])
 }
 
 @Test func inputCaptureAppliesInitialVoiceProcessingBeforeStarting() {

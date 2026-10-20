@@ -565,3 +565,13 @@ flowchart LR
 | startCapture / iOS voice processing適用 | 初めてinputNodeへアクセスする。App表示だけで音声I/Oを初期化しない |
 
 SimulatorのApp初期表示でAURemoteIOのRPC timeoutによるabortが観測されたため、通話以前のinitから入力デバイス取得を除去した。engine spyの取得回数がinit・反復stopの前後でゼロであることを単体テストで確認する。実I/O開始時のOS音声サービス障害をこのテストだけで解決済みとは扱わない。
+
+### 停止中の入力設定
+
+| 操作 | 契約 |
+|---|---|
+| 停止中の `updateVoiceProcessing` | 希望設定を保存し、reportは `.ignored(.alreadyStopped)`。backendを開かない |
+| 次の `start` | 保存した最新設定をbackendへ適用してからcapture開始 |
+| 実行中の設定変更 | backendへ即時反映し、再起動しない |
+
+Simulator UIの待受中ミュート操作でAURemoteIO初期化がRPC timeoutによりabortする事象を確認した。停止中の設定変更による不要なI/O初期化を排除し、実際の録音開始と分離する。
