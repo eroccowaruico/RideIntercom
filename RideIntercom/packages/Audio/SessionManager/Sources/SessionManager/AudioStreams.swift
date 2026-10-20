@@ -421,7 +421,8 @@ private extension AudioInputStreamCapture {
 public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     private let engine: AVAudioEngine
     private let bus: AVAudioNodeBus
-    private let voiceProcessingManager: AudioInputVoiceProcessingManager
+    private var voiceProcessingManager: AudioInputVoiceProcessingManager?
+    private var openedInputNode: AVAudioInputNode?
     private var nextSequenceNumber: UInt64 = 0
 
     public init(
@@ -431,9 +432,8 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     ) {
         self.engine = engine
         self.bus = bus
-        self.voiceProcessingManager = voiceProcessingManager ?? AudioInputVoiceProcessingManager(
-            backend: SystemAudioInputVoiceProcessingBackend(inputNode: engine.inputNode)
-        )
+        // Constructing a stream must not initialize hardware or ask the audio service to open I/O.
+        self.voiceProcessingManager = voiceProcessingManager
     }
 
     public func startCapture(
@@ -441,6 +441,7 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
         onFrame: @escaping (PCMFrame) -> Void
     ) throws -> AudioFormat {
         let inputNode = engine.inputNode
+        openedInputNode = inputNode
         let inputFormat = inputNode.outputFormat(forBus: bus)
         let hardwareFormat = AudioFormat(avAudioFormat: inputFormat, fallback: configuration.preferredFormat)
         inputNode.removeTap(onBus: bus)
@@ -471,7 +472,14 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
 
     public func updateVoiceProcessing(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
         #if os(iOS)
-        try voiceProcessingManager.configure(configuration)
+        if voiceProcessingManager == nil {
+            let inputNode = engine.inputNode
+            openedInputNode = inputNode
+            voiceProcessingManager = AudioInputVoiceProcessingManager(
+                backend: SystemAudioInputVoiceProcessingBackend(inputNode: inputNode)
+            )
+        }
+        try voiceProcessingManager?.configure(configuration)
         #else
         _ = configuration
         throw AudioStreamError.unsupportedOnCurrentPlatform
@@ -479,7 +487,7 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     }
 
     public func stopCapture() throws {
-        engine.inputNode.removeTap(onBus: bus)
+        openedInputNode?.removeTap(onBus: bus)
         engine.stop()
     }
 }

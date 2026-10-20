@@ -361,3 +361,23 @@ private final class FakeOutputStreamBackend: AudioOutputStreamBackend {
         scheduledFrames.append(frame)
     }
 }
+
+#if canImport(AVFAudio)
+@Test func constructingAndStoppingUnusedInputBackendDoesNotOpenHardware() throws {
+    let engine = ObservedInputEngine()
+    let backend = SystemAudioInputStreamBackend(engine: engine)
+    #expect(engine.inputNodeRequests == 0)
+    try backend.stopCapture()
+    try backend.stopCapture()
+    #expect(engine.inputNodeRequests == 0)
+    #expect(!engine.isRunning)
+}
+
+private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
+    var inputNodeRequests = 0
+    override var inputNode: AVAudioInputNode {
+        inputNodeRequests += 1
+        return super.inputNode
+    }
+}
+#endif

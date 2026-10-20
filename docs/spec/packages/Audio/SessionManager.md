@@ -555,3 +555,13 @@ flowchart LR
 | stop自体が失敗 | failed reportを返し、再度stopできる状態を維持。inputの旧callbackは拒否済み |
 
 `AudioStreamTests`の起動失敗・再試行テストは実マイク/スピーカーを使わない。実デバイス消失時のOS挙動は別の実機確認として扱う。
+
+## 入力backendの生成と未開始停止
+
+| 操作 | ハードウェアへのアクセス |
+|---|---|
+| SystemAudioInputStreamBackendのinit | inputNodeを取得しない。VoiceProcessingManagerも必要時まで生成しない |
+| 未開始のstopCapture | 新しくinputNodeを取得せず、既に開いたnodeのtapだけを解除する |
+| startCapture / iOS voice processing適用 | 初めてinputNodeへアクセスする。App表示だけで音声I/Oを初期化しない |
+
+SimulatorのApp初期表示でAURemoteIOのRPC timeoutによるabortが観測されたため、通話以前のinitから入力デバイス取得を除去した。engine spyの取得回数がinit・反復stopの前後でゼロであることを単体テストで確認する。実I/O開始時のOS音声サービス障害をこのテストだけで解決済みとは扱わない。
