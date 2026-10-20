@@ -3,7 +3,6 @@ import AudioToolbox
 
 public enum DynamicsProcessorError: Error, Equatable, Sendable {
 	case audioUnitUnavailable
-	case instantiationFailed(String)
 	case missingParameter(DynamicsProcessorParameter)
 }
 
@@ -114,12 +113,12 @@ public final class DynamicsProcessorEffect {
 		DynamicsProcessorRuntimeSnapshot(configuration: configuration)
 	}
 
-	public static func make(configuration: DynamicsProcessorConfiguration = DynamicsProcessorConfiguration()) async throws -> DynamicsProcessorEffect {
+	public static func make(configuration: DynamicsProcessorConfiguration = DynamicsProcessorConfiguration()) throws -> DynamicsProcessorEffect {
 		guard DynamicsProcessorSupport.isAvailable else {
 			throw DynamicsProcessorError.audioUnitUnavailable
 		}
 
-		let effect = try await instantiateAudioUnitEffect()
+		let effect = AVAudioUnitEffect(audioComponentDescription: DynamicsProcessorSupport.componentDescription)
 		return try DynamicsProcessorEffect(effect: effect, configuration: configuration)
 	}
 
@@ -147,15 +146,4 @@ public final class DynamicsProcessorEffect {
 		parameter.value = value
 	}
 
-	private static func instantiateAudioUnitEffect() async throws -> AVAudioUnitEffect {
-		try await withCheckedThrowingContinuation { continuation in
-			AVAudioUnitEffect.instantiate(with: DynamicsProcessorSupport.componentDescription, options: []) { audioUnit, error in
-				if let effect = audioUnit as? AVAudioUnitEffect {
-					continuation.resume(returning: effect)
-				} else {
-					continuation.resume(throwing: DynamicsProcessorError.instantiationFailed(error?.localizedDescription ?? "Unknown AVAudioUnitEffect error"))
-				}
-			}
-		}
-	}
 }

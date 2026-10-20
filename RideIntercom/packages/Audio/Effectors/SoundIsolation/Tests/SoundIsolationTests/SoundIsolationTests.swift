@@ -50,3 +50,22 @@ import Foundation
 
     #expect(decoded == snapshot)
 }
+
+@Test func realAudioUnitAcceptsConfigurationAndReportsIt() throws {
+    #expect(VoiceIsolationSupport.isAvailable)
+    let effect = try VoiceIsolationEffect.make()
+    let configuration = VoiceIsolationConfiguration(mix: 0.25)
+    try effect.apply(configuration)
+    #expect(effect.configuration == configuration)
+    #expect(effect.runtimeSnapshot.configuration == configuration)
+    #expect(effect.node.numberOfInputs > 0)
+    #expect(effect.node.numberOfOutputs > 0)
+}
+
+@Test func runtimeStateFollowsActualAudioUnitBypass() throws {
+    let effect = try VoiceIsolationEffect.make()
+    effect.avAudioUnitEffect.bypass = true
+    #expect(effect.runtimeSnapshot.state.rawValue == "bypassed")
+    effect.avAudioUnitEffect.bypass = false
+    #expect(effect.runtimeSnapshot.state == .active)
+}

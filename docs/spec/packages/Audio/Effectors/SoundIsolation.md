@@ -79,7 +79,7 @@ SoundIsolation は Apple 標準の `AUSoundIsolation` Audio Unit を、RideInter
 
 | 処理 | 仕様 |
 |---|---|
-| 生成 | `VoiceIsolationEffect.make(configuration:)` が `AUSoundIsolation` の存在確認後に `AVAudioUnitEffect.instantiate` で生成する |
+| 生成 | `VoiceIsolationEffect.make(configuration:)` が `AUSoundIsolation` の存在確認後に `AVAudioUnitEffect(audioComponentDescription:)` で生成する |
 | ノード取得 | `VoiceIsolationEffect.node` で `AVAudioNode` として取得する |
 | 詳細アクセス | `VoiceIsolationEffect.avAudioUnitEffect` で `AVAudioUnitEffect` として取得する |
 | 設定適用 | `VoiceIsolationEffect.apply(_:)` が Audio Unit parameter tree に Wet/Dry Mix と Sound Type を設定する |
@@ -102,7 +102,7 @@ import SoundIsolation
 
 let engine = AVAudioEngine()
 let player = AVAudioPlayerNode()
-let isolation = try await VoiceIsolationEffect.make(
+let isolation = try VoiceIsolationEffect.make(
     configuration: VoiceIsolationConfiguration(soundType: .voice, mix: 1.0)
 )
 
@@ -117,7 +117,6 @@ engine.connect(isolation.node, to: engine.mainMixerNode, format: format)
 | Error | 発生条件 | 呼び出し側の扱い |
 |---|---|---|
 | `audioUnitUnavailable` | `AudioComponentFindNext` で `AUSoundIsolation` が見つからない | エフェクトなしの経路へフォールバックする |
-| `instantiationFailed` | `AVAudioUnitEffect.instantiate` が Audio Unit を返さない | ログへ失敗理由を残し、エフェクトなしの経路へフォールバックする |
 | `unsupportedSoundType` | 現在OSで使えない `VoiceIsolationSoundType` が指定された | `.voice` へ戻す、または設定UIで選択不可にする |
 | `missingParameter` | Audio Unit parameter tree に必要な parameter が存在しない | Audio Unit の互換性問題として扱い、エフェクトなしの経路へフォールバックする |
 
@@ -142,3 +141,15 @@ engine.connect(isolation.node, to: engine.mainMixerNode, format: format)
 | runtime snapshot | 設定、support、state を Codable として roundtrip できる |
 
 実 Audio Unit の存在や音質は実行環境に依存するため、単体テストでは設定値と descriptor の正しさを検証する。実機やOS差を含む音声品質評価は、このライブラリを呼び出す統合経路側で扱う。
+
+## 固定Apple Audio Unitの生成
+
+| 項目 | 契約 |
+|---|---|
+| `make(configuration:) throws` | 組込みApple Audio Unitを存在確認後に同期生成し、設定を適用して返す。audio render callbackからは呼ばない |
+| グラフ構成 | node生成・設定・busへの挿入を同じ構成工程で完了できる。生成待ちの古いcallbackが新しいgraphへ混入しない |
+| 検証 | 実Audio Unitの生成、parameterの再適用、runtime snapshot一致を実行する |
+
+任意の外部AU extensionの非同期ロードは対象外。旧async factoryは残さず、Apple SDKのEffect initializerを使用する。
+
+`VoiceIsolationEffect.runtimeSnapshot.state` は実Audio Unitの `bypass` に従い `active` / `bypassed` を返す。生成できない環境の説明用snapshotは `unavailable` として区別する。

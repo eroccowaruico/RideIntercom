@@ -3,7 +3,6 @@ import AudioToolbox
 
 public enum PeakLimiterError: Error, Equatable, Sendable {
 	case audioUnitUnavailable
-	case instantiationFailed(String)
 	case missingParameter(PeakLimiterParameter)
 }
 
@@ -94,12 +93,12 @@ public final class PeakLimiterEffect {
 		PeakLimiterRuntimeSnapshot(configuration: configuration)
 	}
 
-	public static func make(configuration: PeakLimiterConfiguration = PeakLimiterConfiguration()) async throws -> PeakLimiterEffect {
+	public static func make(configuration: PeakLimiterConfiguration = PeakLimiterConfiguration()) throws -> PeakLimiterEffect {
 		guard PeakLimiterSupport.isAvailable else {
 			throw PeakLimiterError.audioUnitUnavailable
 		}
 
-		let effect = try await instantiateAudioUnitEffect()
+		let effect = AVAudioUnitEffect(audioComponentDescription: PeakLimiterSupport.componentDescription)
 		return try PeakLimiterEffect(effect: effect, configuration: configuration)
 	}
 
@@ -123,15 +122,4 @@ public final class PeakLimiterEffect {
 		parameter.value = value
 	}
 
-	private static func instantiateAudioUnitEffect() async throws -> AVAudioUnitEffect {
-		try await withCheckedThrowingContinuation { continuation in
-			AVAudioUnitEffect.instantiate(with: PeakLimiterSupport.componentDescription, options: []) { audioUnit, error in
-				if let effect = audioUnit as? AVAudioUnitEffect {
-					continuation.resume(returning: effect)
-				} else {
-					continuation.resume(throwing: PeakLimiterError.instantiationFailed(error?.localizedDescription ?? "Unknown AVAudioUnitEffect error"))
-				}
-			}
-		}
-	}
 }

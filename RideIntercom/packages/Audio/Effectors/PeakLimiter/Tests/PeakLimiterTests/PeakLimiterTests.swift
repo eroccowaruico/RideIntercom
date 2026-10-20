@@ -45,3 +45,14 @@ import Foundation
 
     #expect(decoded == snapshot)
 }
+
+@Test func realAudioUnitAcceptsConfigurationAndReportsIt() throws {
+    #expect(PeakLimiterSupport.isAvailable)
+    let effect = try PeakLimiterEffect.make()
+    let configuration = PeakLimiterConfiguration(preGain: -6)
+    try effect.apply(configuration)
+    #expect(effect.configuration == configuration)
+    #expect(effect.runtimeSnapshot.configuration == configuration)
+    #expect(effect.node.numberOfInputs > 0)
+    #expect(effect.node.numberOfOutputs > 0)
+}

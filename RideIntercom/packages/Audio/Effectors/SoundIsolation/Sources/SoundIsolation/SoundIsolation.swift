@@ -3,7 +3,6 @@ import AudioToolbox
 
 public enum VoiceIsolationError: Error, Equatable, Sendable {
 	case audioUnitUnavailable
-	case instantiationFailed(String)
 	case unsupportedSoundType(VoiceIsolationSoundType)
 	case missingParameter(VoiceIsolationParameter)
 }
@@ -96,6 +95,7 @@ public struct VoiceIsolationSupportSnapshot: Codable, Equatable, Sendable {
 
 public enum VoiceIsolationRuntimeState: String, Codable, Equatable, Sendable {
 	case active
+	case bypassed
 	case unavailable
 }
 
@@ -129,15 +129,15 @@ public final class VoiceIsolationEffect {
 	}
 
 	public var runtimeSnapshot: VoiceIsolationRuntimeSnapshot {
-		VoiceIsolationRuntimeSnapshot(configuration: configuration)
+		VoiceIsolationRuntimeSnapshot(configuration: configuration, state: effect.bypass ? .bypassed : .active)
 	}
 
-	public static func make(configuration: VoiceIsolationConfiguration = VoiceIsolationConfiguration()) async throws -> VoiceIsolationEffect {
+	public static func make(configuration: VoiceIsolationConfiguration = VoiceIsolationConfiguration()) throws -> VoiceIsolationEffect {
 		guard VoiceIsolationSupport.isAvailable else {
 			throw VoiceIsolationError.audioUnitUnavailable
 		}
 
-		let effect = try await instantiateAudioUnitEffect()
+		let effect = AVAudioUnitEffect(audioComponentDescription: VoiceIsolationSupport.componentDescription)
 		return try VoiceIsolationEffect(effect: effect, configuration: configuration)
 	}
 
@@ -172,15 +172,4 @@ public final class VoiceIsolationEffect {
 		parameter.value = value
 	}
 
-	private static func instantiateAudioUnitEffect() async throws -> AVAudioUnitEffect {
-		try await withCheckedThrowingContinuation { continuation in
-			AVAudioUnitEffect.instantiate(with: VoiceIsolationSupport.componentDescription, options: []) { audioUnit, error in
-				if let effect = audioUnit as? AVAudioUnitEffect {
-					continuation.resume(returning: effect)
-				} else {
-					continuation.resume(throwing: VoiceIsolationError.instantiationFailed(error?.localizedDescription ?? "Unknown AVAudioUnitEffect error"))
-				}
-			}
-		}
-	}
 }
