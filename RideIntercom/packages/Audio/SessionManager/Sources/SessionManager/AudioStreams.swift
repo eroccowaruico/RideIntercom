@@ -141,6 +141,8 @@ public protocol AudioOutputStreamBackend: AnyObject {
 public final class AudioInputStreamCapture {
     private let backend: AudioInputStreamBackend
     private var runtimeEventHandler: ((AudioStreamRuntimeEvent) -> Void)?
+    private let stateLock = NSRecursiveLock()
+    private var generation = UUID()
     private var isRunning = false
     private var capturedFrameCount: UInt64 = 0
     private var actualHardwareFormat: AudioFormat
@@ -168,34 +170,46 @@ public final class AudioInputStreamCapture {
     #endif
 
     public func setRuntimeEventHandler(_ handler: ((AudioStreamRuntimeEvent) -> Void)?) {
-        runtimeEventHandler = handler
+        stateLock.withLock { runtimeEventHandler = handler }
     }
 
     @discardableResult
     public func start() -> AudioStreamOperationReport {
-        guard !isRunning else {
+        guard stateLock.withLock({ !isRunning }) else {
             return emitReport(.startInputCapture, .ignored(.alreadyRunning))
+        }
+        let generation = stateLock.withLock {
+            self.generation = UUID()
+            return self.generation
         }
         applyVoiceProcessing(configuration.voiceProcessing)
         do {
-            actualHardwareFormat = try backend.startCapture(configuration: configuration) { [weak self] frame in
-                self?.handleCapturedFrame(frame)
+            let hardwareFormat = try backend.startCapture(configuration: configuration) { [weak self] frame in
+                self?.handleCapturedFrame(frame, generation: generation)
             }
-            isRunning = true
+            stateLock.withLock {
+                actualHardwareFormat = hardwareFormat
+                isRunning = true
+            }
             return emitReport(.startInputCapture, .applied)
         } catch {
+            stateLock.withLock { self.generation = UUID(); isRunning = false }
+            do { try backend.stopCapture() } catch {
+                _ = emitReport(.stopInputCapture, Self.operationResult(for: error))
+            }
             return emitReport(.startInputCapture, Self.operationResult(for: error))
         }
     }
 
     @discardableResult
     public func stop() -> AudioStreamOperationReport {
-        guard isRunning else {
+        guard stateLock.withLock({ isRunning }) else {
             return emitReport(.stopInputCapture, .ignored(.alreadyStopped))
         }
+        stateLock.withLock { generation = UUID() }
         do {
             try backend.stopCapture()
-            isRunning = false
+            stateLock.withLock { isRunning = false }
             return emitReport(.stopInputCapture, .applied)
         } catch {
             return emitReport(.stopInputCapture, Self.operationResult(for: error))
@@ -206,7 +220,7 @@ public final class AudioInputStreamCapture {
     public func updateVoiceProcessing(
         _ voiceProcessing: AudioInputVoiceProcessingConfiguration
     ) -> AudioStreamOperationReport {
-        configuration.voiceProcessing = voiceProcessing
+        stateLock.withLock { configuration.voiceProcessing = voiceProcessing }
         return applyVoiceProcessing(voiceProcessing)
     }
 
@@ -222,14 +236,19 @@ public final class AudioInputStreamCapture {
         }
     }
 
-    private func handleCapturedFrame(_ frame: PCMFrame) {
-        actualHardwareFormat = frame.format
-        capturedFrameCount += 1
-        runtimeEventHandler?(.inputFrame(frame))
+    private func handleCapturedFrame(_ frame: PCMFrame, generation: UUID) {
+        stateLock.withLock {
+            guard isRunning, self.generation == generation else { return }
+            actualHardwareFormat = frame.format
+            capturedFrameCount += 1
+            runtimeEventHandler?(.inputFrame(frame))
+        }
     }
 
     private func snapshot() -> AudioStreamSnapshot {
-        AudioStreamSnapshot(
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return AudioStreamSnapshot(
             direction: .input,
             isRunning: isRunning,
             preferredFormat: configuration.preferredFormat,
@@ -248,7 +267,7 @@ public final class AudioInputStreamCapture {
             result: result,
             snapshot: snapshot()
         )
-        runtimeEventHandler?(.operation(report))
+        stateLock.withLock { runtimeEventHandler?(.operation(report)) }
         return report
     }
 }
@@ -297,6 +316,9 @@ public final class AudioOutputStreamRenderer {
             isRunning = true
             return emitReport(.startOutputRenderer, .applied)
         } catch {
+            do { try backend.stopRendering() } catch {
+                _ = emitReport(.stopOutputRenderer, AudioInputStreamCapture.operationResult(for: error))
+            }
             return emitReport(.startOutputRenderer, AudioInputStreamCapture.operationResult(for: error))
         }
     }
@@ -317,6 +339,9 @@ public final class AudioOutputStreamRenderer {
 
     @discardableResult
     public func schedule(_ frame: PCMFrame) -> AudioStreamOperationReport {
+        guard isRunning else {
+            return emitReport(.scheduleOutputFrame, .ignored(.alreadyStopped))
+        }
         guard frame.format == actualHardwareFormat else {
             return emitReport(
                 .scheduleOutputFrame,

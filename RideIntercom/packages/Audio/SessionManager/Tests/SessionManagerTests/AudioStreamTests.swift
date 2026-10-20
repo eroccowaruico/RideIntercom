@@ -226,6 +226,48 @@ import AVFAudio
 }
 #endif
 
+@Test func failedInputStartCleansUpAndRetryRejectsOldCallbacks() throws {
+    let backend = FakeInputStreamBackend()
+    backend.startError = AudioStreamError.engineOperationFailed("partial input start")
+    let capture = AudioInputStreamCapture(backend: backend)
+    var frames: [PCMFrame] = []
+    capture.setRuntimeEventHandler { if case .inputFrame(let frame) = $0 { frames.append(frame) } }
+    let failed = capture.start()
+    #expect(failed.result == .failed(.engineOperationFailed("partial input start")))
+    #expect(!failed.snapshot.isRunning)
+    #expect(backend.stopCount == 1)
+    let stale = try #require(backend.callbacks.first)
+    backend.startError = nil
+    #expect(capture.start().result == .applied)
+    let frame = PCMFrame(sequenceNumber: 1, format: AudioFormat(), capturedAt: 1, samples: [0.2])
+    stale(frame)
+    #expect(frames.isEmpty)
+    backend.emit(frame)
+    #expect(frames == [frame])
+    let current = try #require(backend.onFrame)
+    #expect(capture.stop().result == .applied)
+    current(frame)
+    #expect(frames == [frame])
+    #expect(capture.stop().result == .ignored(.alreadyStopped))
+    #expect(backend.stopCount == 2)
+}
+
+@Test func failedOutputStartCleansUpAndRetryDoesNotQueueAfterStop() {
+    let backend = FakeOutputStreamBackend()
+    backend.startError = AudioStreamError.engineOperationFailed("partial output start")
+    let renderer = AudioOutputStreamRenderer(backend: backend)
+    #expect(renderer.start().result == .failed(.engineOperationFailed("partial output start")))
+    #expect(backend.stopCount == 1)
+    backend.startError = nil
+    #expect(renderer.start().result == .applied)
+    let frame = PCMFrame(sequenceNumber: 1, format: AudioFormat(), capturedAt: 1, samples: [0.2])
+    #expect(renderer.schedule(frame).result == .applied)
+    #expect(renderer.stop().result == .applied)
+    #expect(renderer.schedule(frame).result == .ignored(.alreadyStopped))
+    #expect(backend.scheduledFrames == [frame])
+    #expect(renderer.stop().result == .ignored(.alreadyStopped))
+}
+
 private final class FakeInputStreamBackend: AudioInputStreamBackend {
     enum Event: Equatable {
         case updateVoiceProcessing(AudioInputVoiceProcessingConfiguration)
@@ -241,6 +283,7 @@ private final class FakeInputStreamBackend: AudioInputStreamBackend {
     var updateVoiceProcessingError: Error?
     var stopError: Error?
     var onFrame: ((PCMFrame) -> Void)?
+    var callbacks: [(PCMFrame) -> Void] = []
 
     init(actualHardwareFormat: AudioFormat = AudioFormat()) {
         self.actualHardwareFormat = actualHardwareFormat
@@ -252,6 +295,7 @@ private final class FakeInputStreamBackend: AudioInputStreamBackend {
     ) throws -> AudioFormat {
         _ = configuration
         events.append(.startCapture)
+        callbacks.append(onFrame)
         startCount += 1
         if let startError {
             throw startError

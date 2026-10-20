@@ -542,3 +542,16 @@ flowchart LR
 | [defaultToSpeaker](https://developer.apple.com/documentation/avfaudio/avaudiosession/categoryoptions-swift.struct/defaulttospeaker) | `playAndRecord` でspeaker routeへ寄せる強い希望として扱う |
 | [voiceChat](https://developer.apple.com/documentation/avfaudio/avaudiosession/mode-swift.struct/voicechat) | VoIP向けmodeとして、音声EQやroute候補が変わる設定として扱う |
 | [setActive(_:options:)](https://developer.apple.com/documentation/avfaudio/avaudiosession/setactive%28_%3Aoptions%3A%29) | active化 / deactivate、running audio object、優先度失敗、deactivation option の判断に使う |
+
+## Streamの起動失敗と終了境界
+
+| 場面 | 動作・report |
+|---|---|
+| input/output backendの途中起動失敗 | backendのstopを呼んで部分資源を解放し、元のstart失敗を返す。cleanup失敗も別operation reportで通知 |
+| inputのstop/再起動 | capture世代を更新し、旧callbackを拒否。現在のhardware frameだけを通知 |
+| capture callbackと状態参照 | lockで世代、running、format、カウンタと通知を保護。lifecycle操作は呼出元で直列化する |
+| 停止済みstreamへのstop | `ignored(alreadyStopped)`。backendへstopを重複発行しない |
+| 停止中rendererへのschedule | `ignored(alreadyStopped)`。hardwareへ蓄積しない |
+| stop自体が失敗 | failed reportを返し、再度stopできる状態を維持。inputの旧callbackは拒否済み |
+
+`AudioStreamTests`の起動失敗・再試行テストは実マイク/スピーカーを使わない。実デバイス消失時のOS挙動は別の実機確認として扱う。
