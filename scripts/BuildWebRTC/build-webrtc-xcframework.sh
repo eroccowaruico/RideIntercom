@@ -68,7 +68,9 @@ fi
 
 OUTPUT_DIR="${PWD}/out"
 XCFRAMEWORK_DIR="${OUTPUT_DIR}/WebRTC.xcframework"
-COMMON_GN_ARGS="is_debug=${DEBUG} rtc_libvpx_build_vp9=true is_component_build=false rtc_include_tests=false rtc_enable_objc_symbol_export=true enable_stripping=true enable_dsyms=false use_lld=true rtc_ios_use_opengl_rendering=true rtc_system_openh264=true rtc_use_h265=true"
+# Upstream deprecation warnings from newer Apple SDKs remain visible in logs.
+# Do not make vendor warnings fatal; compiler/linker errors still fail the build.
+COMMON_GN_ARGS="treat_warnings_as_errors=false is_debug=${DEBUG} rtc_libvpx_build_vp9=true is_component_build=false rtc_include_tests=false rtc_enable_objc_symbol_export=true enable_stripping=true enable_dsyms=false use_lld=true rtc_ios_use_opengl_rendering=true rtc_system_openh264=true rtc_use_h265=true"
 PLISTBUDDY_EXEC="/usr/libexec/PlistBuddy"
 
 build_ios() {

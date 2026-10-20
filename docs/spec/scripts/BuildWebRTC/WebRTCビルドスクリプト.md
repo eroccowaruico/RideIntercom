@@ -296,3 +296,19 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer python3 -m unittest dis
 
 resolverはOSの証明書ストアを利用するcurlで公式Chromium Dashboardへアクセスする。証明書検証を無効化しない。
 worktreeが通常checkoutと異なる場所にある場合は `DEPOT_TOOLS_DIR` と `WEBRTC_BUILD_ROOT` を明示する。
+
+## 現行SDKとの組合せ
+
+| 項目 | 採用内容 |
+|---|---|
+| 確認日 | 2026-10-21 |
+| stable branch | `branch-heads/8078` (Chromium Dashboardから解決) |
+| source revision | `2a990ce0cc` |
+| Xcode | 27.1 (27A9275) |
+| vendor build警告 | `RTCFileVideoCapturer.m` の `tracksWithMediaType:` にApple SDKの非推奨警告が発生 |
+| GN設定 | WebRTC本体だけ `treat_warnings_as_errors=false`。警告はログに保存し、compiler/linker errorは失敗のまま扱う。App/自作packageのwarning設定は変更しない |
+| 成果物 | iOS arm64、iOS Simulator arm64/x86_64、macOS arm64/x86_64 |
+| 採用ゲート | slice/header検証、隔離packageのRTCNativeWebRTC buildとRTC全28テスト成功 |
+| checksum | binary隣接の `WebRTC.xcframework.metadata` を正本とする |
+
+ビルドで生じたvendor警告をゼロとは記録しない。生成済みの同じbranchの全sliceを `ASSEMBLE_ONLY=true` で取り込む場合も、更新スクリプトによる隔離検証を省略しない。
