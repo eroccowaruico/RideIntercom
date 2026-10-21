@@ -58,7 +58,7 @@ final class RideIntercomUITests: XCTestCase {
         isolation.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertEqual(isolation.value as? String, originalIsolation)
         try checkVoiceActivityAndHandoverCanBeExercisedFromUI()
-        try checkDisconnectAndReconnectButtonsTransitionInCall()
+        for _ in 0..<3 { try checkDisconnectAndReconnectButtonsTransitionInCall() }
         attachScreen("Call")
         try checkShowGroupsButtonReturnsFromCallToGroupSelection()
         app.buttons.matching(identifier: "groupRow-Talk Group").firstMatch.tap()

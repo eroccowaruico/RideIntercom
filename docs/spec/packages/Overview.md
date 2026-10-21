@@ -192,3 +192,14 @@ flowchart TB
 | 選択設定・graphの組み合わせ・callback寿命 | App composition | package生成・接続・停止。DSP計算や経路選択は持たない | 音声所有者を切り替えない |
 
 EffectorはMixerそのものでも通信routeでもない。Mixerは注入されたAVAudioNodeを順序どおり実行し、各Effectorの種類を知る必要がない。同じnode instanceを複数peerのbusへ共有しない。Appは標準effectの組み合わせを一箇所で決め、DiagnosticsにはMixerの実snapshotを渡す。外部plugin探索・追加のregistry・中間packageは設けない。
+
+## 差し替え実装の受け入れ契約
+
+| 差し替え先 | 必須の振る舞い | 接続前に確認する試験 |
+|---|---|---|
+| RTC route factory | group envelopeをapplication dataとして配送。reliable制御とunreliable音声を分け、認証済みhop ID・members・接続状態を通知。Mixer/captureを所有しない | 既存のLocal/Internet/relay混在グラフ、切断・再認証・遅延通知・重複拒否 |
+| Effector node | 対象bus formatで処理し、busごとに独立node。parameter/bypass変更を同じinstanceへ適用。設定とruntime状態を報告 | 実AVAudioUnitのPCM変化、連続frame、複数話者、bypassと停止 |
+| SessionManager backend | 希望formatを入力しactual hardware formatを返す。途中起動失敗・stop反復・古いcallbackを扱う。音量/mixを実装しない | 無実機backendのlifecycleと実offline出力、OS実機試験を分離 |
+| Codec実装 | Codec packageでencode/decode、availability/fallback、formatとsample数を検証する。App/RTCへcodecの中身を持ち込まない | 同一PCMの往復、利用不可時fallback、各RTC format境界 |
+
+既存の差し替え入口を使い、通信方式ごとに音声pipelineを複製しない。Codecは組み込み選択APIであり、任意の外部codecが登録だけで使える実装ではない。新codecにはpackage内の実装・試験が必要である。
