@@ -26,12 +26,6 @@ public struct RTCAudioCodecIdentifier: RawRepresentable, Codable, Hashable, Send
     public static let pcm16 = RTCAudioCodecIdentifier(rawValue: "pcm16")
     public static let opus = RTCAudioCodecIdentifier(rawValue: "opus")
     public static let mpeg4AACELDv2 = RTCAudioCodecIdentifier(rawValue: "mpeg4AACELDv2")
-    public static let routeManaged = RTCAudioCodecIdentifier(rawValue: "route-managed")
-}
-
-public enum AudioMediaOwnership: String, Codable, Equatable, Sendable {
-    case appManagedPacketAudio
-    case routeManagedMediaStream
 }
 
 public struct RTCAudioFormat: Codable, Equatable, Sendable {
@@ -58,11 +52,6 @@ public struct RTCAudioPolicy: Codable, Equatable, Sendable {
         self.preferredCodecs = preferredCodecs.isEmpty ? [.pcm16] : preferredCodecs
         self.maximumBitRate = maximumBitRate.map { max(0, $0) }
     }
-}
-
-public enum RTCAudioPolicyError: Error, Equatable, Sendable {
-    case unsupportedCodec(RTCAudioCodecIdentifier)
-    case noMutuallySupportedCodec(preferred: [RTCAudioCodecIdentifier], supported: [RTCAudioCodecIdentifier])
 }
 
 public struct RTCAudioPacket: Codable, Equatable, Sendable {

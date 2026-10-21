@@ -119,9 +119,8 @@ import Testing
 }
 
 @Test func decoderSelectsCodecFromFrameMetadata() throws {
-    let codec = AudioCodec()
-    let encoded = try codec.encode(PCMFrame(sequenceNumber: 9, capturedAt: 456, samples: [0.1, -0.1]))
-    let decoded = try codec.decode(encoded)
+    let encoded = try CodecEncoder().encode(PCMFrame(sequenceNumber: 9, capturedAt: 456, samples: [0.1, -0.1]))
+    let decoded = try CodecDecoder().decode(encoded)
 
     #expect(decoded.sequenceNumber == 9)
     #expect(decoded.format == encoded.format)

@@ -5,15 +5,12 @@ public actor WebRTCInternetRoute: RTCCallRoute {
     public let capabilities = RouteCapabilities(
         supportsLocalDiscovery: false,
         supportsOfflineOperation: false,
-        supportsRouteManagedMedia: false,
-        supportsAppManagedPacketAudio: true,
         supportsReliableApplicationData: true,
         supportsUnreliableApplicationData: true,
         requiresSignaling: true,
         supportedAudioCodecs: [.pcm16, .opus, .mpeg4AACELDv2],
         backendName: "Cloudflare Realtime SFU"
     )
-    public let mediaOwnership: AudioMediaOwnership = .appManagedPacketAudio
     public nonisolated var events: AsyncStream<RouteEvent> { eventSource.stream }
 
     private nonisolated let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient })
@@ -25,10 +22,8 @@ public actor WebRTCInternetRoute: RTCCallRoute {
     private var request: CallStartRequest?
     private var remotePeers: [PeerID: PeerDescriptor] = [:]
     private var connecting = false
-    private var mediaStarted = false
     private var iceConnected = false
     private var generation = UUID()
-    private var localMuted = false
     private let sfuPeer = PeerDescriptor(id: .init(rawValue: "cloudflare-sfu"), displayName: "Cloudflare SFU")
 
     public init(
@@ -103,7 +98,7 @@ public actor WebRTCInternetRoute: RTCCallRoute {
         let generation = generation
         connecting = true
         iceConnected = false
-        await engine.prepareLocalAudio(peer: request.localPeer, policy: request.audioPolicy)
+        await engine.prepareTransport()
         guard self.generation == generation else { return }
         bindSignalingEvents()
         bindEngineEvents()
@@ -118,7 +113,6 @@ public actor WebRTCInternetRoute: RTCCallRoute {
         let generation = generation
         connecting = false
         iceConnected = false
-        mediaStarted = false
         signalingTask?.cancel(); signalingTask = nil
         engineTask?.cancel(); engineTask = nil
         remotePeers.removeAll()
@@ -130,32 +124,9 @@ public actor WebRTCInternetRoute: RTCCallRoute {
         eventSource.yield(.stateChanged(kind, finalState))
     }
 
-    public func startMedia() async {
-        guard connecting else { return }
-        mediaStarted = true
-        await engine.setLocalAudioEnabled(!localMuted)
-        if iceConnected { eventSource.yield(.stateChanged(kind, .mediaReady)) }
-    }
-
-    public func stopMedia() async {
-        mediaStarted = false
-        await engine.setLocalAudioEnabled(false)
-    }
-
-    public func sendAudioPacket(_ packet: RTCAudioPacket) async {}
-
     public func sendApplicationData(_ message: ApplicationDataMessage) async {
         guard connecting else { return }
         await engine.sendApplicationData(message, to: sfuPeer.id)
-    }
-
-    public func setLocalMute(_ muted: Bool) async {
-        localMuted = muted
-        await engine.setLocalAudioEnabled(mediaStarted && !muted)
-    }
-
-    public func setOutputMute(_ muted: Bool) async {
-        await engine.setOutputMuted(muted)
     }
 
     private func bindSignalingEvents() {
@@ -245,7 +216,7 @@ public actor WebRTCInternetRoute: RTCCallRoute {
             iceConnected = state == .connected || state == .mediaReady
             if iceConnected { await signalingClient.startPublishing() }
             if state == .failed { await fail("WebRTC media connection failed", generation: generation) }
-            else { eventSource.yield(.stateChanged(kind, iceConnected && mediaStarted ? .mediaReady : state)) }
+            else { eventSource.yield(.stateChanged(kind, state)) }
         }
     }
 
@@ -278,7 +249,7 @@ open class NativeWebRTCEngine: NSObject, @unchecked Sendable {
 
     public override init() {}
 
-    open func prepareLocalAudio(peer: PeerDescriptor, policy: RTCAudioPolicy) async { eventSource.resetDiagnostics() }
+    open func prepareTransport() async { eventSource.resetDiagnostics() }
     open func configureIceServers(_ servers: [WebRTCIceServer]) async -> Bool { false }
     open func networkStatistics(for peerID: PeerID) async -> RTCNetworkStatistics { .init() }
 
@@ -291,8 +262,6 @@ open class NativeWebRTCEngine: NSObject, @unchecked Sendable {
 
     open func acceptAnswer(_ answer: WebRTCSessionDescription, from peerID: PeerID) async -> Bool { false }
     open func addCandidate(_ candidate: WebRTCIceCandidate, from peerID: PeerID) async {}
-    open func setLocalAudioEnabled(_ enabled: Bool) async {}
-    open func setOutputMuted(_ muted: Bool) async {}
 
     open func configureDataChannels(_ channels: [WebRTCDataChannel], for peerID: PeerID) async {}
     open func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID) async {}

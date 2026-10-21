@@ -15,7 +15,7 @@ private final class TransportEvents: @unchecked Sendable {
 @Test func multipeerRejectsUnauthenticatedDataAndRetiredSessionCallbacks() async throws {
     let credential = RTCCredential.derived(groupID: "g", secret: "secret")
     let request = CallStartRequest(sessionID: "s", localPeer: PeerDescriptor(id: PeerID(rawValue: "local"), displayName: "Local"), credential: credential)
-    let transport = MultipeerConnectionTransport(request: request, displayName: "Local")
+    let transport = MultipeerConnectionTransport(request: request)
     let events = TransportEvents()
     transport.onEvent = { events.append($0) }
     // Inspect the real delegate-owned session only in test support. Do not add
@@ -50,7 +50,7 @@ private final class TransportEvents: @unchecked Sendable {
 @Test func disconnectRequiresNewHandshakeWithoutRevokingOtherPeer() async throws {
     let credential = RTCCredential.derived(groupID: "g", secret: "secret")
     let request = CallStartRequest(sessionID: "s", localPeer: PeerDescriptor(id: PeerID(rawValue: "local"), displayName: "Local"), credential: credential)
-    let transport = MultipeerConnectionTransport(request: request, displayName: "Local")
+    let transport = MultipeerConnectionTransport(request: request)
     defer { transport.stop() }
     let events = TransportEvents()
     transport.onEvent = { events.append($0) }

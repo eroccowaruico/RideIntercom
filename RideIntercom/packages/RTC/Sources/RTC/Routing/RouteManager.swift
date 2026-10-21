@@ -40,10 +40,6 @@ public actor RouteManager: CallSession {
         self.configuration = configuration.normalized()
         self.runtimeStatusPolicy = runtimeStatusPolicy
     }
-    public init(routeFactories: [AnyRouteFactory], configuration: CallRouteConfiguration = .init(),
-                runtimeStatusPolicy: RTCRuntimeStatusPolicy = .init()) {
-        self.init(routes: routeFactories.map { $0.make() }, configuration: configuration, runtimeStatusPolicy: runtimeStatusPolicy)
-    }
     deinit { routeTasks.forEach { $0.cancel() }; timer?.cancel(); fallbackTask?.cancel() }
 
     public func prepare(_ request: CallStartRequest) async {
@@ -122,7 +118,7 @@ public actor RouteManager: CallSession {
         activeRoute = nil; isMediaStarted = false; receiveBuffer.reset()
         memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
         for route in routes.values {
-            await route.stopMedia(); await route.stopConnection()
+            await route.stopConnection()
             guard generation == token else { return }
         }
         emit(.membersChanged([])); emitRouteSnapshot(); emitState(.disconnected)
@@ -230,7 +226,6 @@ public actor RouteManager: CallSession {
                 }
                 await forward(bytes, delivery: result.body.delivery, excluding: excluded)
             }
-        case .receivedAudioPacket: break // Audio uses the authenticated group envelope on every path.
         case .metricsChanged(let metrics): emit(.metricsChanged(metrics))
         case .error(_, let error): emit(.error(error))
         }
@@ -334,7 +329,6 @@ public actor RouteManager: CallSession {
                         isAvailable: availableRoutes.contains(route.kind),
                         availabilityReason: routeAvailabilities[route.kind]?.reason,
                         capabilities: route.capabilities,
-                        mediaOwnership: route.mediaOwnership,
                         isActiveRoute: activeRoute == route.kind,
                         isMediaRoute: mediaRoute == route.kind,
                         selectedAudioCodec: selectedAudioCodec(for: route, request: request)
@@ -351,9 +345,6 @@ public actor RouteManager: CallSession {
         request: CallStartRequest
     ) -> RTCAudioCodecIdentifier? {
         let supported = route.capabilities.supportedAudioCodecs
-        if route.mediaOwnership == .routeManagedMediaStream {
-            return supported.first ?? .routeManaged
-        }
         return request.audioPolicy.preferredCodecs.first { supported.contains($0) } ?? supported.first
     }
 

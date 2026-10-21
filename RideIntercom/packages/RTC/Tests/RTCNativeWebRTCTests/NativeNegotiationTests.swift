@@ -9,7 +9,7 @@ import RTCNativeWebRTC
     let peer = PeerDescriptor(id: .init(rawValue: "native-check"), displayName: "Native")
     #expect(engine.isAvailable)
     for _ in 0..<2 {
-        await engine.prepareLocalAudio(peer: peer, policy: RTCAudioPolicy())
+        await engine.prepareTransport()
         await engine.createPeerConnection(for: peer)
         let offer = try #require(await engine.makeOffer(for: peer.id))
         #expect(!offer.sdp.contains("m=audio"))

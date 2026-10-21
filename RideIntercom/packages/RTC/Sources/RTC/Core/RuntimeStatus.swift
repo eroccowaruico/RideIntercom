@@ -17,7 +17,6 @@ public struct RTCRouteRuntimeStatus: Codable, Equatable, Sendable {
     public var isAvailable: Bool
     public var availabilityReason: String?
     public var capabilities: RouteCapabilities
-    public var mediaOwnership: AudioMediaOwnership
     public var isActiveRoute: Bool
     public var isMediaRoute: Bool
     public var selectedAudioCodec: RTCAudioCodecIdentifier?
@@ -28,7 +27,6 @@ public struct RTCRouteRuntimeStatus: Codable, Equatable, Sendable {
         isAvailable: Bool,
         availabilityReason: String?,
         capabilities: RouteCapabilities,
-        mediaOwnership: AudioMediaOwnership,
         isActiveRoute: Bool,
         isMediaRoute: Bool,
         selectedAudioCodec: RTCAudioCodecIdentifier?
@@ -38,7 +36,6 @@ public struct RTCRouteRuntimeStatus: Codable, Equatable, Sendable {
         self.isAvailable = isAvailable
         self.availabilityReason = availabilityReason
         self.capabilities = capabilities
-        self.mediaOwnership = mediaOwnership
         self.isActiveRoute = isActiveRoute
         self.isMediaRoute = isMediaRoute
         self.selectedAudioCodec = selectedAudioCodec

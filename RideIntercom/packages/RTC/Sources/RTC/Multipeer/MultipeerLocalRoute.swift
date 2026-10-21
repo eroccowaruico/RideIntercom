@@ -9,8 +9,6 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         RouteCapabilities(
             supportsLocalDiscovery: true,
             supportsOfflineOperation: true,
-            supportsRouteManagedMedia: false,
-            supportsAppManagedPacketAudio: true,
             supportsReliableApplicationData: true,
             supportsUnreliableApplicationData: true,
             requiresSignaling: false,
@@ -18,34 +16,23 @@ public actor MultipeerLocalRoute: RTCCallRoute {
             backendName: "MultipeerConnectivity"
         )
     }
-    public let mediaOwnership: AudioMediaOwnership = .appManagedPacketAudio
     nonisolated public var events: AsyncStream<RouteEvent> { eventSource.stream }
 
     private let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient })
-    private let localDisplayName: String
     private let audioPolicy: RTCAudioPolicy
-    private let packetAudioReceiveConfiguration: PacketAudioReceiveConfiguration
     private var generation = UUID()
     private var transportEventsTask: Task<Void, Never>?
     private var transportSource: EventSource<MultipeerConnectionEvent>?
     private var transport: MultipeerConnectionTransport?
-    private var mediaSession: MultipeerPacketMediaSession?
-    private var packetAudioDrainTask: Task<Void, Never>?
-    private var activePeers: Set<PeerID> = []
 
     public init(
-        displayName: String,
-        audioPolicy: RTCAudioPolicy = RTCAudioPolicy(),
-        packetAudioReceiveConfiguration: PacketAudioReceiveConfiguration = PacketAudioReceiveConfiguration()
+        audioPolicy: RTCAudioPolicy = RTCAudioPolicy()
     ) {
-        self.localDisplayName = displayName
         self.audioPolicy = audioPolicy
-        self.packetAudioReceiveConfiguration = packetAudioReceiveConfiguration
     }
 
     deinit {
         transportEventsTask?.cancel()
-        packetAudioDrainTask?.cancel()
         transport?.stop()
     }
 
@@ -57,30 +44,9 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         eventSource.resetDiagnostics()
         generation = UUID()
         transportEventsTask?.cancel()
-        packetAudioDrainTask?.cancel()
         transport?.stop()
         transport = nil
-        mediaSession = nil
-        activePeers.removeAll()
-        let mediaSession: MultipeerPacketMediaSession
-        do {
-            mediaSession = try MultipeerPacketMediaSession(
-                request: request,
-                receiveConfiguration: packetAudioReceiveConfiguration
-            )
-        } catch RTCAudioPolicyError.noMutuallySupportedCodec(let preferred, let supported) {
-            eventSource.yield(.availabilityChanged(RouteAvailability(route: kind, isAvailable: false, reason: "No supported packet audio codec")))
-            eventSource.yield(.error(kind, .unsupportedAudioCodec(kind, requested: preferred, supported: supported)))
-            eventSource.yield(.stateChanged(kind, .failed))
-            return
-        } catch {
-            eventSource.yield(.availabilityChanged(RouteAvailability(route: kind, isAvailable: false, reason: "Packet audio codec setup failed")))
-            eventSource.yield(.error(kind, .connectionFailed(kind, "Packet audio codec setup failed: \(error.localizedDescription)")))
-            eventSource.yield(.stateChanged(kind, .failed))
-            return
-        }
-
-        let transport = MultipeerConnectionTransport(request: request, displayName: localDisplayName)
+        let transport = MultipeerConnectionTransport(request: request)
         let source = EventSource<MultipeerConnectionEvent>(isTransient: { $0.isTransient })
         transportSource = source
         transport.onEvent = { source.yield($0) }
@@ -93,7 +59,6 @@ public actor MultipeerLocalRoute: RTCCallRoute {
             }
         }
         self.transport = transport
-        self.mediaSession = mediaSession
         eventSource.yield(.availabilityChanged(RouteAvailability(route: kind, isAvailable: true)))
         eventSource.yield(.stateChanged(kind, .standby))
     }
@@ -107,29 +72,9 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         generation = UUID()
         transportEventsTask?.cancel()
         transportEventsTask = nil
-        packetAudioDrainTask?.cancel()
-        packetAudioDrainTask = nil
         transport?.stop()
         transport = nil
-        mediaSession = nil
-        activePeers.removeAll()
         eventSource.yield(.stateChanged(kind, .disconnected))
-    }
-
-    public func startMedia() async {
-        mediaSession?.isActive = true
-        eventSource.yield(.stateChanged(kind, .mediaReady))
-    }
-
-    public func stopMedia() async {
-        packetAudioDrainTask?.cancel()
-        packetAudioDrainTask = nil
-        mediaSession?.isActive = false
-    }
-
-    public func sendAudioPacket(_ packet: RTCAudioPacket) async {
-        guard let payload = try? mediaSession?.makePayload(from: packet) else { return }
-        transport?.send(payload)
     }
 
     public func sendApplicationData(_ message: ApplicationDataMessage) async {
@@ -137,8 +82,6 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         transport?.send(payload)
     }
 
-    public func setLocalMute(_ muted: Bool) async {}
-    public func setOutputMute(_ muted: Bool) async {}
 
     private func handleTransportEvent(_ event: MultipeerConnectionEvent, generation: UUID) {
         guard self.generation == generation else { return }
@@ -146,11 +89,6 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         case .state(let state):
             eventSource.yield(.stateChanged(kind, state))
         case .members(let peers):
-            let currentPeers = Set(peers)
-            for peer in activePeers.subtracting(currentPeers) {
-                mediaSession?.removePeer(peer)
-            }
-            activePeers = currentPeers
             let members = peers.map {
                 CallMemberState(peer: PeerDescriptor(id: $0, displayName: $0.rawValue), route: kind, isConnected: true)
             }
@@ -170,54 +108,11 @@ public actor MultipeerLocalRoute: RTCCallRoute {
             handleControlPayload(payload, from: peerID)
         case .applicationData(let message):
             eventSource.yield(.receivedApplicationData(kind, ReceivedApplicationData(peerID: peerID, message: message)))
-        case .packetAudio(let envelope):
-            guard let report = try? mediaSession?.accept(
-                envelope,
-                from: peerID,
-                receivedAt: Date().timeIntervalSince1970
-            ) else { return }
-            publishPacketAudio(report)
-            schedulePacketAudioDrainIfNeeded()
         }
-    }
-
-    private func publishPacketAudio(_ report: PacketAudioReceiveBufferReport) {
-        for frame in report.readyPackets {
-            eventSource.yield(.receivedAudioPacket(kind, frame))
-        }
-        eventSource.yield(.metricsChanged(RouteMetrics(
-            route: kind,
-            activePeerCount: activePeers.count,
-            audioPlayoutDelay: packetAudioReceiveConfiguration.playoutDelay,
-            receivedAudioFrameCount: report.receivedPacketCount,
-            droppedAudioFrameCount: report.droppedPacketCount,
-            queuedAudioFrameCount: report.queuedPacketCount
-        )))
-    }
-
-    private func schedulePacketAudioDrainIfNeeded() {
-        let now = Date().timeIntervalSince1970
-        guard let delay = mediaSession?.timeUntilNextReadyPacket(now: now) else { return }
-        packetAudioDrainTask?.cancel()
-        let generation = generation
-        packetAudioDrainTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            guard !Task.isCancelled else { return }
-            await self?.drainPacketAudio(generation: generation)
-        }
-    }
-
-    private func drainPacketAudio(generation: UUID) {
-        guard self.generation == generation else { return }
-        guard let report = mediaSession?.drain(now: Date().timeIntervalSince1970) else { return }
-        publishPacketAudio(report)
-        schedulePacketAudioDrainIfNeeded()
     }
 
     private func handleControlPayload(_ payload: RouteControlPayload, from peerID: PeerID) {
         switch payload {
-        case .keepalive:
-            break
         case .handshake(let handshake):
             guard transport?.accept(handshake, from: peerID) == true else {
                 eventSource.yield(.error(kind, .connectionFailed(kind, "Multipeer handshake rejected: \(peerID.rawValue)")))
@@ -231,7 +126,6 @@ public actor MultipeerLocalRoute: RTCCallRoute {
 enum MultipeerConnectionEvent: Sendable {
     var isTransient: Bool {
         switch self {
-        case .message(.packetAudio, _): return true
         case .message(.applicationData(let message), _): return message.delivery == .unreliable
         default: return false
         }
@@ -261,7 +155,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     private var authenticatedPeers: Set<PeerID> = []
     private var pendingInvites: Set<String> = []
 
-    init(request: CallStartRequest, displayName: String) {
+    init(request: CallStartRequest) {
         self.request = request
         self.credential = request.credential
         self.localPeerID = MCPeerID(displayName: request.localPeer.id.rawValue)
@@ -462,7 +356,7 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
         queue.async { [self] in
             guard !isStopped, self.session === session else { return }
             do {
-                let message = try MultipeerPayloadBuilder.decode(data, credential: credential)
+                let message = try MultipeerPayloadBuilder.decode(data)
                 if case .control(.handshake) = message {
                     guard connectedPeerIDs.contains(PeerID(rawValue: peerID.displayName)) else { return }
                 } else {
@@ -479,72 +373,6 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
     func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {}
     func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, with progress: Progress) {}
     func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {}
-}
-
-final class MultipeerPacketMediaSession {
-    var isActive = false {
-        didSet {
-            if !isActive {
-                filter.reset()
-                receiveBuffer.reset()
-            }
-        }
-    }
-
-    private let credential: RTCCredential?
-    private let sequencer: PacketAudioSequencer
-    private var filter: PacketAudioReceiveFilter
-    private var receiveBuffer: PacketAudioReceiveBuffer
-
-    init(
-        request: CallStartRequest,
-        receiveConfiguration: PacketAudioReceiveConfiguration = PacketAudioReceiveConfiguration()
-    ) throws {
-        let supportedCodecs = request.audioPolicy.preferredCodecs
-        guard !supportedCodecs.isEmpty else {
-            throw RTCAudioPolicyError.noMutuallySupportedCodec(preferred: [], supported: [])
-        }
-        self.credential = request.credential
-        self.sequencer = PacketAudioSequencer(
-            sessionID: request.sessionID,
-            senderID: request.localPeer.id
-        )
-        self.filter = PacketAudioReceiveFilter(sessionID: request.sessionID, acceptedCodecs: supportedCodecs)
-        self.receiveBuffer = PacketAudioReceiveBuffer(configuration: receiveConfiguration)
-    }
-
-    func removePeer(_ peerID: PeerID) {
-        filter.removePeer(peerID)
-        receiveBuffer.removePeer(peerID)
-    }
-
-    func makePayload(from packet: RTCAudioPacket) throws -> TransportPayload? {
-        guard isActive else { return nil }
-        return try MultipeerPayloadBuilder.makePacketAudioPayload(sequencer.makeEnvelope(from: packet), credential: credential)
-    }
-
-    func accept(
-        _ envelope: PacketAudioEnvelope,
-        from peerID: PeerID,
-        receivedAt: TimeInterval
-    ) throws -> PacketAudioReceiveBufferReport? {
-        guard isActive else { return nil }
-        guard let filtered = try filter.accept(envelope, from: peerID) else {
-            receiveBuffer.recordRejectedPacket()
-            return receiveBuffer.drain(now: receivedAt)
-        }
-        receiveBuffer.enqueue(filtered, receivedAt: receivedAt)
-        return receiveBuffer.drain(now: receivedAt)
-    }
-
-    func drain(now: TimeInterval) -> PacketAudioReceiveBufferReport? {
-        guard isActive else { return nil }
-        return receiveBuffer.drain(now: now)
-    }
-
-    func timeUntilNextReadyPacket(now: TimeInterval) -> TimeInterval? {
-        receiveBuffer.timeUntilNextReadyPacket(now: now)
-    }
 }
 
 enum LocalDiscoveryInfo {

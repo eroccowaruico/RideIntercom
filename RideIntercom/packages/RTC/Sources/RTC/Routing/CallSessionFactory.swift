@@ -18,18 +18,15 @@ public struct WebRTCRouteFactoryConfiguration {
 
 
 public struct CallSessionFactoryConfiguration {
-    public var localDisplayName: String
     public var routeConfiguration: CallRouteConfiguration
     public var audioPolicy: RTCAudioPolicy
     public var webRTC: WebRTCRouteFactoryConfiguration
 
     public init(
-        localDisplayName: String,
         routeConfiguration: CallRouteConfiguration = CallRouteConfiguration(enabledRoutes: Set(RouteKind.allCases)),
         audioPolicy: RTCAudioPolicy = RTCAudioPolicy(),
         webRTC: WebRTCRouteFactoryConfiguration = WebRTCRouteFactoryConfiguration()
     ) {
-        self.localDisplayName = localDisplayName
         self.routeConfiguration = routeConfiguration.normalized()
         self.audioPolicy = audioPolicy
         self.webRTC = webRTC
@@ -62,7 +59,6 @@ public enum CallSessionFactory {
     private static func makeMultipeerRoute(_ configuration: CallSessionFactoryConfiguration) -> RTCCallRoute? {
         #if canImport(MultipeerConnectivity)
         MultipeerLocalRoute(
-            displayName: configuration.localDisplayName,
             audioPolicy: configuration.audioPolicy
         )
         #else

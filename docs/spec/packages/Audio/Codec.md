@@ -44,7 +44,6 @@ flowchart LR
 
 | 型 | 種別 | 外部仕様 |
 |---|---|---|
-| `AudioCodec` | facade | `CodecEncoder` と `CodecDecoder` をまとめ、configuration適用時に `CodecRuntimeReport` を更新する |
 | `CodecEncoder` | class | `CodecEncodingConfiguration.format` と一致する `PCMFrame` だけ encode する |
 | `CodecDecoder` | class | `EncodedCodecFrame.codec` から decode 経路を選び、`EncodedCodecFrame.format` の `PCMFrame` を返す |
 | `CodecEncodingConfiguration` | struct | encode codec、入力 `AudioFormat`、codec option を持つ |
@@ -62,7 +61,6 @@ PCM の共通型は `AudioCore.AudioFormat` と `AudioCore.PCMFrame` だけを�
 | 外部入力 | 正常出力 | エラー出力 | 保証 |
 |---|---|---|---|
 | `CodecEncodingConfiguration` | `CodecRuntimeReport` | なし | requested と active codec を分けて返す |
-| `AudioCodec.apply(configuration)` | `runtimeReport` 更新 | なし | availability解決後の active configuration を encoder に適用する |
 | `CodecEncoder.encode(PCMFrame)` | `EncodedCodecFrame` | `CodecError` | metadata と payload を生成する |
 | `CodecDecoder.decode(EncodedCodecFrame)` | `PCMFrame` | `CodecError` | encoded metadata の format で PCM を復元する |
 | `CodecSupport.isEncodingAvailable` | `Bool` | なし | 現在環境で encoder生成可能かを返す |

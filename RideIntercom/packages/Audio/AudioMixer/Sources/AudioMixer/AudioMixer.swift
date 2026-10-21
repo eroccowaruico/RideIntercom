@@ -982,7 +982,7 @@ public final class MixerBus {
 		engine.connect(previous, to: faderMixer, format: format)
 	}
 
-	func emitToSinksForTesting(_ frame: PCMFrame) throws {
+	func deliverToSinks(_ frame: PCMFrame) throws {
 		for sink in sinkOrder.compactMap({ sinksByID[$0] }) {
 			_ = try sink.receive(frame)
 		}
@@ -1002,7 +1002,7 @@ public final class MixerBus {
 				  )
 			else { return }
 			self.nextSinkSequenceNumber += 1
-			try? self.emitToSinksForTesting(frame)
+			try? self.deliverToSinks(frame)
 		}
 		isTapInstalled = true
 	}

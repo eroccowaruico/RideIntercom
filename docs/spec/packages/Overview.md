@@ -169,7 +169,7 @@ flowchart TB
 
 | 変更したいもの | 既存の入口 | 追加すべきでない構造 |
 |---|---|---|
-| 通信方式 | RTCのRTCCallRoute / AnyRouteFactory / capabilities / mediaOwnership | App内の別ルーター、方式別ViewModel |
+| 通信方式 | RTCのRTCCallRoute / CallSessionFactory / capabilities | App内の別ルーター、方式別ViewModel |
 | native WebRTC | NativeWebRTCEngine、WebRTCSignalingClient | SFU DataChannelとWorker WSの二重制御経路 |
 | 音声codec | Codecのencoder/decoder選択とavailability report | App内のcodec実装、暗黙のsample rate変換 |
 | 効果 | AudioMixerのbus/source/sinkとEffector node | 通信packageへDSPを埋め込むこと |

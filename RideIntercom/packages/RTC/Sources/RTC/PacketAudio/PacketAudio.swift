@@ -1,80 +1,6 @@
 import CryptoKit
 import Foundation
 
-struct PacketAudioEnvelope: Codable, Equatable, Sendable {
-    var sessionID: String
-    var senderID: PeerID
-    var packet: RTCAudioPacket
-}
-
-struct PacketAudioSequencer: Sendable {
-    private let sessionID: String
-    private let senderID: PeerID
-
-    init(sessionID: String, senderID: PeerID) {
-        self.sessionID = sessionID
-        self.senderID = senderID
-    }
-
-    func makeEnvelope(from packet: RTCAudioPacket) -> PacketAudioEnvelope {
-        PacketAudioEnvelope(
-            sessionID: sessionID,
-            senderID: senderID,
-            packet: packet
-        )
-    }
-}
-
-struct PacketAudioReceiveFilter: Sendable {
-    private let sessionID: String
-    private let acceptedCodecs: Set<RTCAudioCodecIdentifier>
-    private var windows: [PeerID: SequenceWindow] = [:]
-
-    init(sessionID: String, acceptedCodecs: [RTCAudioCodecIdentifier]) {
-        self.sessionID = sessionID
-        self.acceptedCodecs = Set(acceptedCodecs)
-    }
-
-    mutating func accept(_ envelope: PacketAudioEnvelope, from peerID: PeerID) throws -> FilteredPacketAudioPacket? {
-        guard envelope.sessionID == sessionID else { return nil }
-        guard acceptedCodecs.contains(envelope.packet.codec) else {
-            throw RTCAudioPolicyError.unsupportedCodec(envelope.packet.codec)
-        }
-        guard windows[peerID, default: SequenceWindow()].accept(envelope.packet.sequenceNumber) else { return nil }
-        return FilteredPacketAudioPacket(
-            received: ReceivedAudioPacket(
-                peerID: peerID,
-                packet: envelope.packet
-            )
-        )
-    }
-
-    mutating func reset() {
-        windows.removeAll()
-    }
-
-    mutating func removePeer(_ peerID: PeerID) {
-        windows.removeValue(forKey: peerID)
-    }
-
-    // A fixed sequence window allows reordering without retaining every packet
-    // for the whole call. Older packets cannot become playable again on eviction.
-    private struct SequenceWindow: Sendable {
-        private static let capacity: UInt64 = 1_024
-        private var highest: UInt64 = 0
-        private var slots = [UInt64?](repeating: nil, count: Int(capacity))
-
-        mutating func accept(_ sequence: UInt64) -> Bool {
-            if sequence < highest, highest - sequence >= Self.capacity { return false }
-            let index = Int(sequence % Self.capacity)
-            guard slots[index] != sequence else { return false }
-            slots[index] = sequence
-            highest = max(highest, sequence)
-            return true
-        }
-    }
-}
-
 struct FilteredPacketAudioPacket: Equatable, Sendable {
     var received: ReceivedAudioPacket
 }
@@ -180,10 +106,6 @@ struct PacketAudioReceiveBuffer: Sendable {
         )
     }
 
-    mutating func recordRejectedPacket() {
-        droppedPacketCount += 1
-    }
-
     mutating func reset() {
         self = Self(configuration: configuration)
     }
@@ -191,16 +113,6 @@ struct PacketAudioReceiveBuffer: Sendable {
     mutating func removePeer(_ peerID: PeerID) {
         queuedPackets.removeAll { $0.filtered.received.peerID == peerID }
         lastDeliveredSequence.removeValue(forKey: peerID)
-    }
-
-    mutating func drainReadyPackets(now: TimeInterval) -> [ReceivedAudioPacket] {
-        drain(now: now).readyPackets
-    }
-
-    func timeUntilNextReadyPacket(now: TimeInterval) -> TimeInterval? {
-        queuedPackets
-            .map { max(0, configuration.playoutDelay - (now - $0.receivedAt)) }
-            .min()
     }
 
     private struct QueuedPacket: Sendable {
@@ -258,14 +170,12 @@ struct RouteHandshakeMessage: Codable, Equatable, Sendable {
 }
 
 enum RouteControlPayload: Codable, Equatable, Sendable {
-    case keepalive
     case handshake(RouteHandshakeMessage)
 }
 
 enum MultipeerWireMessage: Codable, Equatable, Sendable {
     case control(RouteControlPayload)
     case applicationData(ApplicationDataMessage)
-    case packetAudio(PacketAudioEnvelope)
 }
 
 enum TransportSendMode: Equatable, Sendable {
@@ -280,14 +190,7 @@ struct TransportPayload: Equatable, Sendable {
 
 enum MultipeerPayloadBuilder {
     static func makeControlPayload(_ payload: RouteControlPayload) throws -> TransportPayload {
-        let mode: TransportSendMode
-        switch payload {
-        case .keepalive:
-            mode = .unreliable
-        case .handshake:
-            mode = .reliable
-        }
-        return TransportPayload(data: try encode(.control(payload)), mode: mode)
+        TransportPayload(data: try encode(.control(payload)), mode: .reliable)
     }
 
     static func makeApplicationDataPayload(_ message: ApplicationDataMessage) throws -> TransportPayload {
@@ -295,26 +198,8 @@ enum MultipeerPayloadBuilder {
         return TransportPayload(data: try encode(.applicationData(message)), mode: mode)
     }
 
-    static func makePacketAudioPayload(_ envelope: PacketAudioEnvelope, credential: RTCCredential?) throws -> TransportPayload {
-        let messageData = try encode(.packetAudio(envelope))
-        let data: Data
-        if let credential {
-            data = try PacketCrypto.seal(messageData, credential: credential)
-        } else {
-            data = messageData
-        }
-        return TransportPayload(data: data, mode: .unreliable)
-    }
-
-    static func decode(_ data: Data, credential: RTCCredential?) throws -> MultipeerWireMessage {
-        if let decoded = try? JSONDecoder().decode(MultipeerWireMessage.self, from: data) {
-            if credential != nil, case .packetAudio = decoded { throw DecodeError.unknownPayload }
-            return decoded
-        }
-        guard let credential else {
-            throw DecodeError.unknownPayload
-        }
-        return try JSONDecoder().decode(MultipeerWireMessage.self, from: PacketCrypto.open(data, credential: credential))
+    static func decode(_ data: Data) throws -> MultipeerWireMessage {
+        try JSONDecoder().decode(MultipeerWireMessage.self, from: data)
     }
 
     private static func encode(_ message: MultipeerWireMessage) throws -> Data {
@@ -323,23 +208,4 @@ enum MultipeerPayloadBuilder {
         return try encoder.encode(message)
     }
 
-    enum DecodeError: Error, Equatable {
-        case unknownPayload
-    }
-}
-
-enum PacketCrypto {
-    static func seal(_ data: Data, credential: RTCCredential) throws -> Data {
-        let box = try AES.GCM.seal(data, using: SymmetricKey(data: credential.sharedSecret))
-        guard let combined = box.combined else { throw CryptoError.missingCombinedRepresentation }
-        return combined
-    }
-
-    static func open(_ data: Data, credential: RTCCredential) throws -> Data {
-        try AES.GCM.open(AES.GCM.SealedBox(combined: data), using: SymmetricKey(data: credential.sharedSecret))
-    }
-
-    enum CryptoError: Error, Equatable {
-        case missingCombinedRepresentation
-    }
 }

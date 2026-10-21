@@ -342,7 +342,7 @@ import AVFAudio
         reports.append(report)
     }
 
-    try bus.emitToSinksForTesting(PCMFrame(
+    try bus.deliverToSinks(PCMFrame(
         sequenceNumber: 7,
         format: AudioFormat(sampleRate: 48_000, channelCount: 2),
         capturedAt: 20,

@@ -238,36 +238,6 @@ public struct CodecRuntimeReport: Codable, Equatable, Sendable {
     }
 }
 
-public final class AudioCodec {
-    private let decoder = CodecDecoder()
-    private let encoder: CodecEncoder
-    public private(set) var runtimeReport: CodecRuntimeReport
-
-    public var configuration: CodecEncodingConfiguration {
-        encoder.configuration
-    }
-
-    public init(configuration: CodecEncodingConfiguration = CodecEncodingConfiguration()) {
-        let report = CodecRuntimeReport.resolving(configuration)
-        self.encoder = CodecEncoder(configuration: report.activeConfiguration)
-        self.runtimeReport = report
-    }
-
-    public func apply(_ configuration: CodecEncodingConfiguration) {
-        let report = CodecRuntimeReport.resolving(configuration)
-        encoder.apply(report.activeConfiguration)
-        runtimeReport = report
-    }
-
-    public func encode(_ frame: PCMFrame) throws -> EncodedCodecFrame {
-        try encoder.encode(frame)
-    }
-
-    public func decode(_ frame: EncodedCodecFrame) throws -> PCMFrame {
-        try decoder.decode(frame)
-    }
-}
-
 public final class CodecEncoder {
     public private(set) var configuration: CodecEncodingConfiguration
 

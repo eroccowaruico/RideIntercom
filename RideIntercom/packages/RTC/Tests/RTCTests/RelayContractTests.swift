@@ -71,3 +71,60 @@ import Testing
         #expect(queueA.queuedPacketCount == 0 && queueB.queuedPacketCount == 0)
     }
 }
+
+
+extension RelayContractTests {
+    @Test func localWirePreservesDeliveryAndHandshakeReliability() throws {
+        let handshake = RouteHandshakeMessage.make(credential: credential, senderID: .init(rawValue: "a"))
+        let control = try MultipeerPayloadBuilder.makeControlPayload(.handshake(handshake))
+        #expect(control.mode == .reliable)
+        #expect(try MultipeerPayloadBuilder.decode(control.data) == .control(.handshake(handshake)))
+        for delivery in [ApplicationDataDelivery.reliable, .unreliable] {
+            let message = ApplicationDataMessage(namespace: GroupRelay.namespace, payload: Data([1, 2]), delivery: delivery)
+            let payload = try MultipeerPayloadBuilder.makeApplicationDataPayload(message)
+            #expect(payload.mode == (delivery == .reliable ? .reliable : .unreliable))
+            #expect(try MultipeerPayloadBuilder.decode(payload.data) == .applicationData(message))
+        }
+    }
+
+    @Test func eightParticipantChainReachesEveryMemberAndStopsAtHopLimit() throws {
+        var nodes = (0..<8).map { relay(String($0)) }
+        let origin = PeerID(rawValue: "0")
+        for body in [RelayBody.presence, .audio(.init(sequenceNumber: 0, codec: .pcm16, payload: Data([42])))] {
+            var data = try nodes[0].make(body, now: 0)
+            for receiver in 1..<8 {
+                let reception = nodes[receiver].receive(data, from: .init(rawValue: String(receiver - 1)), now: 0)
+                let result = try #require(reception)
+                #expect(result.peer.id == origin)
+                #expect(result.path.count == receiver + 1)
+                if receiver == 7 { #expect(result.forward == nil) }
+                else { data = try #require(result.forward) }
+            }
+        }
+        var receiver = relay("receiver")
+        for i in 0..<7 {
+            #expect(receiver.receive(try nodes[i].make(.presence, now: 0), from: .init(rawValue: String(i)), now: 0) != nil)
+        }
+        #expect(receiver.receive(try nodes[7].make(.presence, now: 0), from: .init(rawValue: "7"), now: 0) == nil)
+        _ = receiver.receive(try nodes[0].make(.leave, now: 1), from: origin, now: 1)
+        #expect(receiver.receive(try nodes[7].make(.presence, now: 1), from: .init(rawValue: "7"), now: 1) != nil)
+        #expect(receiver.members(now: 1).count == 7)
+    }
+
+    @Test func replayWindowAndPeerQueueResetKeepOtherSpeakerIntact() throws {
+        var a = relay("a"), b = relay("b")
+        let peerA = PeerID(rawValue: "a"), peerB = PeerID(rawValue: "b")
+        _ = b.receive(try a.make(.presence, now: 0), from: peerA, now: 0)
+        let old = try a.make(.audio(.init(sequenceNumber: 0, codec: .pcm16, payload: Data([1]))), now: 0)
+        for _ in 0..<1025 { _ = b.receive(try a.make(.presence, now: 0), from: peerA, now: 0) }
+        #expect(b.receive(old, from: peerA, now: 0) == nil)
+        var buffer = PacketAudioReceiveBuffer()
+        for peer in [peerA, peerB] {
+            buffer.enqueue(.init(received: .init(peerID: peer, packet: .init(sequenceNumber: 10, codec: .pcm16, payload: Data([1])))), receivedAt: 0)
+        }
+        buffer.removePeer(peerA)
+        #expect(buffer.drain(now: 0.02).readyPackets.map(\.peerID) == [peerB])
+        buffer.enqueue(.init(received: .init(peerID: peerA, packet: .init(sequenceNumber: 0, codec: .pcm16, payload: Data([1])))), receivedAt: 0.03)
+        #expect(buffer.drain(now: 0.05).readyPackets.map(\.peerID) == [peerA])
+    }
+}

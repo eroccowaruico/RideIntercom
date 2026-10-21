@@ -42,8 +42,6 @@ public struct CallRouteConfiguration: Codable, Equatable, Sendable {
 public struct RouteCapabilities: Codable, Equatable, Sendable {
     public var supportsLocalDiscovery: Bool
     public var supportsOfflineOperation: Bool
-    public var supportsRouteManagedMedia: Bool
-    public var supportsAppManagedPacketAudio: Bool
     public var supportsReliableApplicationData: Bool
     public var supportsUnreliableApplicationData: Bool
     public var requiresSignaling: Bool
@@ -53,8 +51,6 @@ public struct RouteCapabilities: Codable, Equatable, Sendable {
     public init(
         supportsLocalDiscovery: Bool,
         supportsOfflineOperation: Bool,
-        supportsRouteManagedMedia: Bool,
-        supportsAppManagedPacketAudio: Bool,
         supportsReliableApplicationData: Bool,
         supportsUnreliableApplicationData: Bool,
         requiresSignaling: Bool,
@@ -63,8 +59,6 @@ public struct RouteCapabilities: Codable, Equatable, Sendable {
     ) {
         self.supportsLocalDiscovery = supportsLocalDiscovery
         self.supportsOfflineOperation = supportsOfflineOperation
-        self.supportsRouteManagedMedia = supportsRouteManagedMedia
-        self.supportsAppManagedPacketAudio = supportsAppManagedPacketAudio
         self.supportsReliableApplicationData = supportsReliableApplicationData
         self.supportsUnreliableApplicationData = supportsUnreliableApplicationData
         self.requiresSignaling = requiresSignaling

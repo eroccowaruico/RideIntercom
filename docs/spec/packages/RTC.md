@@ -10,7 +10,7 @@
 | パッケージ境界 | RTCはAudioパッケージに依存しない。hardware 48kHz、RTC 16/24/48kHzなどの変換はAudioMixer/Codec側 |
 | products | `RTC`、`RTCNativeWebRTC`。後者のみ同梱WebRTC binaryへ依存 |
 | OS / Swift | iOS・macOS 26.4以上、Swift 6 |
-| plugin | `RTCCallRoute`、`AnyRouteFactory`、`CallSessionFactory`。中継の共通契約は認証済みpeerとapplication dataの配送 |
+| plugin | `RTCCallRoute`、`CallSessionFactory`。中継の共通契約は認証済みpeerとapplication dataの配送 |
 
 ```mermaid
 flowchart LR
@@ -62,7 +62,7 @@ flowchart LR
 | 再参加 | 新epochで当該peerの受信待ちを破棄し、memberの再認証をAppへ通知。他のpeerは維持 |
 | presence | 2秒周期、8秒失効。leave以前の遅延presenceで離脱を取り消さない |
 | 上限 | リモート7人、path最大8、envelope 32KiB、音声payload 8KiB、受信待ち256件。過剰分は古い受信待ちから破棄 |
-| 再生時刻 | 端末間時計の同期を前提にしない。最終受信端末で15ms待ち、100msを過ぎた受信待ちは破棄。peerごとに既に再生へ渡したsequence以下の遅延到着を破棄 |
+| 再生時刻 | 端末間時計の同期を前提にしない。最終受信端末で15ms待ち、100msを過ぎた受信待ちは破棄。enqueue時とdrain時にpeerごとの再生済みsequenceを検査し、待機中に古くなったフレームも破棄 |
 | codec / format | policyで許可されたcodec、8〜48kHz、1〜2ch。対応範囲内のformat差は保持し、PCM変換しない |
 | パケットsequence | 中継epoch内のsequenceで再生順を管理。収録再起動によるApp側counterのリセットと分離 |
 
@@ -133,6 +133,13 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 
 [Cloudflare公式の資格生成・失効・更新](https://developers.cloudflare.com/realtime/turn/generate-credentials/)に基づく。資格の期間・利用枠・失効再試行は[Worker](../server/Worker.md)が所有する。
 
-## 互換性と保持するAPI
+## 経路と音声の境界
 
-旧per-route音声API・暗号化処理・回帰テストを保持する。CallSessionの共通中継経路はこれらを使用しない。招待URLは同じだが、中継wire contractは旧版と異なるため同じ版を使用する。整理作業は[課題](../../backlog/未実装課題.md)、試験範囲は[自動検証範囲](../../validation/自動検証範囲.md)を参照する。
+| 層 | 契約 |
+|---|---|
+| RTCCallRoute | 接続、認証済みmembership、application data、ネットワーク診断を配送。音声開始・ミュート・再生のAPIは持たない |
+| CallSession / RouteManager | 共通の音声開始・停止・ミュート・暗号化中継・受信待ちを所有 |
+| NativeWebRTCEngine.prepareTransport | 接続試行の診断を初期化。マイク・スピーカーを取得しない |
+| Local wire | handshakeはreliable、application dataはmessage.deliveryに従う。音声も認証済みgroup envelopeをapplication dataとして送る |
+
+旧per-route音声API・暗号化・二重受信待ちは削除した。招待URLと現行group-relay wireは変更しない。旧per-route音声wireとの互換は提供せず、参加端末は同じ版を使用する。

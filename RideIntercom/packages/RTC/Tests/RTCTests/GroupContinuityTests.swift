@@ -84,18 +84,12 @@ private actor VirtualRoute: RTCCallRoute {
     let network: VirtualNetwork
     nonisolated let source = EventSource<RouteEvent>()
     nonisolated var events: AsyncStream<RouteEvent> { source.stream }
-    let mediaOwnership = AudioMediaOwnership.appManagedPacketAudio
-    let capabilities = RouteCapabilities(supportsLocalDiscovery: true, supportsOfflineOperation: true, supportsRouteManagedMedia: false, supportsAppManagedPacketAudio: true, supportsReliableApplicationData: true, supportsUnreliableApplicationData: true, requiresSignaling: false, supportedAudioCodecs: [.pcm16])
+    let capabilities = RouteCapabilities(supportsLocalDiscovery: true, supportsOfflineOperation: true, supportsReliableApplicationData: true, supportsUnreliableApplicationData: true, requiresSignaling: false, supportedAudioCodecs: [.pcm16])
     init(peer: PeerID, kind: RouteKind, network: VirtualNetwork) { self.peer = peer; self.kind = kind; self.network = network }
     func prepare(_ request: CallStartRequest) async {}
     func startConnection() async { await network.join(peer, kind: kind, source: source) }
     func stopConnection() async { await network.leave(peer, kind: kind) }
-    func startMedia() async {}
-    func stopMedia() async {}
-    func sendAudioPacket(_ packet: RTCAudioPacket) async {}
     func sendApplicationData(_ message: ApplicationDataMessage) async { await network.send(peer, kind: kind, message: message) }
-    func setLocalMute(_ muted: Bool) async {}
-    func setOutputMute(_ muted: Bool) async {}
 }
 private func eventually(_ predicate: () async -> Bool) async throws {
     for _ in 0..<300 { if await predicate() { return }; try await Task.sleep(for: .milliseconds(20)) }
