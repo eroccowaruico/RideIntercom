@@ -10,14 +10,29 @@ UI_ID = re.compile(r'accessibilityIdentifier\s*[:(]\s*"([^"\\]+)"')
 
 
 def without_fences(text):
-    return re.sub(r'^```[^\n]*\n.*?^```\s*$', '', text, flags=re.M | re.S)
+    visible, fence = [], None
+    for line in text.splitlines(keepends=True):
+        marker = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
+        if fence:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
+                fence = None
+        elif marker:
+            fence = marker[1]
+        else:
+            visible.append(line)
+    return ''.join(visible)
 
 
 def check(root):
     root = root.resolve()
     documents = set((root / 'docs').rglob('*.md'))
     documents.add(root / 'README.md')
+    for entry in ['AGENTS.md', 'CLAUDE.md', '.github/copilot-instructions.md']:
+        if (root / entry).exists(): documents.add(root / entry)
     errors, edges = [], {}
+    for directory in sorted((root / 'docs').rglob('*')):
+        if directory.is_dir() and not any(directory.iterdir()):
+            errors.append(f'{directory.relative_to(root)}: empty directory')
     for document in sorted(documents):
         text = without_fences(document.read_text())
         targets = set()
@@ -64,4 +79,4 @@ if __name__ == '__main__':
     errors = check(root)
     for error in errors: print(error, file=sys.stderr)
     if errors: sys.exit(1)
-    print('Documentation links, navigation, and Settings coverage: OK')
+    print('Documentation links, navigation, empty directories, and Settings coverage: OK')

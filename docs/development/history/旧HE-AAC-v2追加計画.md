@@ -1,3 +1,14 @@
+# 旧HE-AAC-v2追加計画
+
+この文書は過去の計画を原文保全した資料であり、現行の実行指示ではない。旧所在: .github/prompts/plan-heAacV2VbrCodec.prompt.md。
+
+HE-AAC v2の追加を検討した当時の案。現行選択肢PCM / AAC-ELD v2 / Opusの実装済み仕様とは区別する。
+
+[現行仕様](../../spec/packages/Audio/Codec.md)と[製品要求](../../requirements/製品要求.md)を優先する。以下の原文内の旧パス・採番・未確定事項は当時の記録であり、現在の参照先や完了状況を示さない。
+
+## 当時の原文
+
+~~~~markdown
 # Plan: HE-AAC v2 VBR コーデック追加・Diag設定・接続アイコン改善
 
 ## 概要
@@ -210,3 +221,5 @@ RUN_UI_TESTS=1 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebui
 2. **128ms レイテンシ**: HE-AAC v2 のフレームサイズ (2048 samples) により最低 128ms のフレームレイテンシが発生。インカム用途として許容するか、AAC-LC (64ms) も選択肢として追加するかを確認
 3. **`GroupMember.activeCodec` の Codable 互換性**: 古いグループデータに `activeCodec` が無い場合は `nil` になり自然なデフォルト（未受信）として機能するため問題なし
 4. **`HEAACv2AudioEncoding` のインスタンス共有**: `EncodedVoicePacket.make` で毎回新しい encoder を生成するとバッファが失われる。`AudioPacketSequencer` に encoder インスタンスを保持させて共有する設計が必要
+
+~~~~

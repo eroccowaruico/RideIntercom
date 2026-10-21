@@ -5,7 +5,8 @@
 | 目的 | 最初に読む | 次に読む |
 |---|---|---|
 | 通話を使いたい | [使い方](manual/使い方.md) | [設定と音声効果](manual/設定と音声効果.md)、[困ったとき](manual/困ったとき.md) |
-| 何を要求しているか把握したい | [要求管理](requirements/requirements.md) | [背景と候補](requirements/background/初期構想と対応経緯.md) |
+| アプリの根本要求を把握したい | [製品要求](requirements/製品要求.md) | [要求の分類](requirements/README.md)、[未解決の改善要求](requirements/パッケージ改善要求.md)、[背景と候補](requirements/background/初期構想と対応経緯.md) |
+| 開発・文書作成のルールを知りたい | [開発方針](policies/開発方針.md) | [文書作成規約](policies/文書作成規約.md)、[ログ記録規約](policies/ログ記録規約.md) |
 | 構造を理解・変更したい | [アーキテクチャ](spec/アーキテクチャ.md) | 対応するApp / package / server仕様 |
 | 設定を実装したい | [App設定値](spec/App/Configuration/設定値一覧.md) | 同階層Bindings、package契約、Settings画面仕様 |
 | 開発・試用を始めたい | [Xcode / VS Code](development/開発環境.md) | [自動検証](development/自動検証.md)、[Worker準備](spec/server/Worker.md) |
@@ -15,13 +16,14 @@
 
 | 配置 | 正本にする情報 | 他の文書との関係 |
 |---|---|---|
-| requirements | 目的、要求、受け入れ条件、未達・将来候補 | 実装済みという説明だけで要求を置き換えない |
+| requirements | 製品の根本要求、未解決のpackage改善要求、背景・候補 | 作り方のルールを混ぜず、実装済みという説明だけで要求を置き換えない |
+| policies | 開発方針、文書作成規約、共通ログ記録規約 | 製品が提供する機能とは別の制約。ツール入口はこの正本を参照 |
 | manual | 現在の画面操作、効果、反映、保存、切り分け | 内部API値はspecを参照。未実装操作を案内しない |
 | spec/App | UI、状態、group/transport、音声composition、ログ | Appの責務単位で実装と対応 |
 | spec/App/Configuration | 利用者設定とAppがpackageへ渡す固定・導出値 | BindingsはApp採用値。package自体の既定・許容範囲とは区別 |
 | spec/packages | package単独の型・API・責務・platform差・report | App設定をpackageの普遍的契約へ持ち込まない |
 | spec/server | WorkerのAPI・資格・利用枠・費用条件 | マニュアルと開発手順から参照 |
-| development | エディタ、build、検証、WebRTC更新、文書保守 | 実行手順と記録を分離 |
+| development | エディタ、build、検証、WebRTC更新。historyは過去計画 | 現行の手順と、再実行しない旧計画を分離 |
 | validation | 今回までの受け入れ状況、historyに過去の結果 | 当時のテスト数を現行HEADの実績と扱わない |
 | design | UIの共通デザイン・アイコン規則 | App/UIが適用先を定義 |
 
@@ -29,7 +31,7 @@
 
 実装変更時は、要求への影響 → 所有者の仕様 → 設定・操作マニュアル → 自動検証・受け入れ状況を確認する。文書移動では本文を保持してリンクとこの索引を更新する。過去の失敗・残件・判断理由は履歴へ残す。
 
-`python3 scripts/check_documentation.py`はローカル参照、索引からの到達性、Settings項目の仕様記載を検査する。`scripts/validate.sh`とCIでも実行する。文章の意味や実機品質の自動証明ではない。
+`python3 scripts/check_documentation.py`はローカル参照、索引からの到達性、Settings項目の仕様記載、空文書ディレクトリ、開発ツール入口の参照を検査する。`scripts/validate.sh`とCIでも実行する。文章の意味や実機品質の自動証明ではない。
 
 ## 文書一覧
 
@@ -37,9 +39,18 @@
 
 | 文書 | 役割 / 表題 |
 |---|---|
-| [requirements/background/初期構想と対応経緯.md](<requirements/background/初期構想と対応経緯.md>) | iOS インカムアプリ 企画書 |
-| [requirements/log.md](<requirements/log.md>) | RideIntercom ログ仕様 |
-| [requirements/requirements.md](<requirements/requirements.md>) | RideIntercom 要求管理 |
+| [requirements/README.md](<requirements/README.md>) | 要求の入口 |
+| [requirements/background/初期構想と対応経緯.md](<requirements/background/初期構想と対応経緯.md>) | 初期構想と対応経緯 |
+| [requirements/パッケージ改善要求.md](<requirements/パッケージ改善要求.md>) | パッケージ改善要求 |
+| [requirements/製品要求.md](<requirements/製品要求.md>) | 製品要求 |
+
+### 開発・文書の規約
+
+| 文書 | 役割 / 表題 |
+|---|---|
+| [policies/ログ記録規約.md](<policies/ログ記録規約.md>) | ログ記録規約 |
+| [policies/文書作成規約.md](<policies/文書作成規約.md>) | 文書作成規約 |
+| [policies/開発方針.md](<policies/開発方針.md>) | 開発方針 |
 
 ### 利用マニュアル
 
@@ -47,7 +58,7 @@
 |---|---|
 | [manual/使い方.md](<manual/使い方.md>) | 通話を始める・続ける・終える |
 | [manual/困ったとき.md](<manual/困ったとき.md>) | 困ったときの確認 |
-| [manual/状態の見方.md](<manual/状態の見方.md>) | RideIntercom App 状況確認仕様 |
+| [manual/状態の見方.md](<manual/状態の見方.md>) | 通話・音声・接続状態の見方 |
 | [manual/設定と音声効果.md](<manual/設定と音声効果.md>) | 設定と音声効果 |
 
 ### 全体アーキテクチャ
@@ -60,7 +71,6 @@
 
 | 文書 | 役割 / 表題 |
 |---|---|
-| [spec/App/Appからpackageへの要望.md](<spec/App/Appからpackageへの要望.md>) | App から package への要望と現状の回避 |
 | [spec/App/Configuration/Bindings/Audio/AudioMixer.md](<spec/App/Configuration/Bindings/Audio/AudioMixer.md>) | AudioMixer package 設定値 |
 | [spec/App/Configuration/Bindings/Audio/Codec.md](<spec/App/Configuration/Bindings/Audio/Codec.md>) | Codec package 設定値 |
 | [spec/App/Configuration/Bindings/Audio/Effectors/DynamicsProcessor.md](<spec/App/Configuration/Bindings/Audio/Effectors/DynamicsProcessor.md>) | DynamicsProcessor package 設定値 |
@@ -83,7 +93,7 @@
 | [spec/App/通信仕様.md](<spec/App/通信仕様.md>) | RideIntercom App 通信仕様 |
 | [spec/App/音声処理仕様.md](<spec/App/音声処理仕様.md>) | RideIntercom App 音声処理仕様 |
 
-### Package契約
+### パッケージ仕様
 
 | 文書 | 役割 / 表題 |
 |---|---|
@@ -98,18 +108,21 @@
 | [spec/packages/Overview.md](<spec/packages/Overview.md>) | Package 統合仕様 |
 | [spec/packages/RTC.md](<spec/packages/RTC.md>) | RTC パッケージ仕様 |
 
-### Server契約と費用
+### サーバー仕様
 
 | 文書 | 役割 / 表題 |
 |---|---|
 | [spec/server/Cost.md](<spec/server/Cost.md>) | Cloudflare 音声通話の費用試算 |
 | [spec/server/Worker.md](<spec/server/Worker.md>) | Cloudflare Worker / SFU 仕様と試用手順 |
 
-### 開発手順
+### 開発手順と過去計画
 
 | 文書 | 役割 / 表題 |
 |---|---|
 | [development/BuildWebRTC/WebRTCビルドスクリプト.md](<development/BuildWebRTC/WebRTCビルドスクリプト.md>) | WebRTCビルドスクリプト |
+| [development/history/旧HE-AAC-v2追加計画.md](<development/history/旧HE-AAC-v2追加計画.md>) | 旧HE-AAC-v2追加計画 |
+| [development/history/旧アーキテクチャ再編計画.md](<development/history/旧アーキテクチャ再編計画.md>) | 旧アーキテクチャ再編計画 |
+| [development/history/旧音声入出力と画面改修計画.md](<development/history/旧音声入出力と画面改修計画.md>) | 旧音声入出力と画面改修計画 |
 | [development/自動検証.md](<development/自動検証.md>) | ビルド・起動と自動検証 |
 | [development/開発環境.md](<development/開発環境.md>) | Xcode / VS Codeの開発環境 |
 
@@ -122,10 +135,11 @@
 | [validation/history/品質点検.md](<validation/history/品質点検.md>) | Cloudflare試用前の品質点検 |
 | [validation/history/復旧検証記録.md](<validation/history/復旧検証記録.md>) | dev 復旧検証記録 |
 | [validation/history/混在通話検証.md](<validation/history/混在通話検証.md>) | 混在グループ通話・音声機器切断の検証 |
+| [validation/history/要求構造整理記録.md](<validation/history/要求構造整理記録.md>) | 要求と開発規約の構造整理記録 |
 | [validation/history/音声エフェクト接続検証.md](<validation/history/音声エフェクト接続検証.md>) | 音声エフェクトのApp接続と自動検証 |
 | [validation/文書整理記録.md](<validation/文書整理記録.md>) | 文書構造と実装整合の点検記録 |
 
-### デザイン規則
+### デザイン
 
 | 文書 | 役割 / 表題 |
 |---|---|

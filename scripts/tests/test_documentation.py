@@ -41,6 +41,28 @@ class DocumentationTests(unittest.TestCase):
             spec.write_text('# Settings\n`newSetting`')
             self.assertEqual(DOCS.check(root), [])
 
+    def test_empty_document_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); self.fixture(root)
+            (root / 'docs/obsolete/nested').mkdir(parents=True)
+            self.assertTrue(any('empty directory' in error for error in DOCS.check(root)))
+
+    def test_agent_entrypoint_links_are_checked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); self.fixture(root)
+            (root / 'AGENTS.md').write_text('[rules](docs/missing-rules.md)')
+            with (root / 'README.md').open('a') as entry:
+                entry.write('[agents](AGENTS.md)')
+            self.assertTrue(any('missing link' in error for error in DOCS.check(root)))
+
+    def test_archived_source_fence_preserves_obsolete_links(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); self.fixture(root)
+            (root / 'docs/guide.md').write_text(
+                '# Historical plan\n~~~~markdown\n[old](deleted.md)\n'
+                '```swift\nlet example = 1\n```\n`docs/deleted.md`\n~~~~\n')
+            self.assertEqual(DOCS.check(root), [])
+
     def test_space_paths_and_examples_are_supported(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); self.fixture(root)
