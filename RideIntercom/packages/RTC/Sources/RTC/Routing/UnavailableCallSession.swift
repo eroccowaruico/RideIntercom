@@ -2,7 +2,7 @@ import Foundation
 
 public final class UnavailableCallSession: CallSession, @unchecked Sendable {
     public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
-    private let eventSource = EventSource<CallSessionEvent>()
+    private let eventSource = EventSource<CallSessionEvent>(isTransient: { $0.isTransient })
 
     public init() {}
 

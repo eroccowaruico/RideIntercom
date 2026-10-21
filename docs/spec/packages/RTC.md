@@ -62,7 +62,7 @@ flowchart LR
 | 再参加 | 新epochで当該peerの受信待ちを破棄し、memberの再認証をAppへ通知。他のpeerは維持 |
 | presence | 2秒周期、8秒失効。leave以前の遅延presenceで離脱を取り消さない |
 | 上限 | リモート7人、path最大8、envelope 32KiB、音声payload 8KiB、受信待ち256件。過剰分は古い受信待ちから破棄 |
-| 再生時刻 | 端末間時計の同期を前提にしない。最終受信端末で15ms待ち、2秒を過ぎた受信待ちは破棄 |
+| 再生時刻 | 端末間時計の同期を前提にしない。最終受信端末で15ms待ち、100msを過ぎた受信待ちは破棄。peerごとに既に再生へ渡したsequence以下の遅延到着を破棄 |
 | codec / format | policyで許可されたcodec、8〜48kHz、1〜2ch。対応範囲内のformat差は保持し、PCM変換しない |
 | パケットsequence | 中継epoch内のsequenceで再生順を管理。収録再起動によるApp側counterのリセットと分離 |
 
@@ -104,3 +104,19 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npm --prefix server run
 | per-route旧音声API | `CallSession`の共通中継経路は使用しない。既存API・暗号化処理・回帰テストの一括削除は自動承認レビューで拒否され、保持。整理完了とは扱わない |
 | 旧アプリとの通信 | 招待URLは同じ。中継wire contractは変更されるため、新旧binary混在通話を保証しない。同じ版へ更新して試用する |
 | 自動検証と実通話 | 仮想時間30,000フレームやloopback SDK配送を、実時間10分の音声品質合格とは扱わない |
+
+## 音声の配送と待ち行列
+
+| 境界 | 方針 | 所有者 |
+|---|---|---|
+| Local / Internet送信 | 音声とpresenceはunreliable、ミュート・leaveなどの制御はreliable | GroupRelayが分類、各routeが配送 |
+| Internet DataChannel | 音声は`ordered=false`、`maxRetransmits=0`。送信バッファが空のときだけ送信し、詰まっていたらその音声を破棄 | RTCNativeWebRTCとWorkerのpublish/pullで同じ指定 |
+| 接続通知と音声のイベント待ち | 各購読者につき一時データ最大64件・100ms。古い音声・telemetryを捨て、接続・認証・離脱・reliable制御の順序を保持 | EventSource（Local受信、native engine、route、CallSessionの各境界） |
+| 再生待ち | 受信から15ms、期限100ms、最大256件。期限・件数超過・再生済みsequence以下は破棄 | PacketAudioReceiveBuffer |
+| 再接続 | peer離脱でそのpeerの再生sequenceを破棄、session停止で全待ち状態を破棄 | RTC |
+
+DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配送契約である。既定のreliable/orderedを音声に流用しない。`maxRetransmits=0`は初回送信後の再送を止める設定で、OS・SFUを含む絶対遅延の保証ではない。`maxPacketLifeTime`との同時指定は行わない。上記100msは各境界での待ち時間上限であり、端末間の総遅延ではない。期限に使う端末内時計は同期不要である。
+
+イベント待ちでの破棄数は現状のroute受信drop counterに含まれない。受信bufferでの破棄は既存counterへ反映する。制御イベントは音声と一緒に追い出さないが、永続保存・相手の処理完了保証は持たない。
+
+根拠: [W3C DataChannelInit](https://www.w3.org/TR/webrtc/#dom-rtcdatachannelinit)、[Cloudflare message delivery](https://developers.cloudflare.com/realtime/sfu/features/datachannels/#configure-message-delivery)。

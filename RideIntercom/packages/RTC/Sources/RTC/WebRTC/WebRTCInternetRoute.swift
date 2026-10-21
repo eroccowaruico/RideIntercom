@@ -16,7 +16,7 @@ public actor WebRTCInternetRoute: RTCCallRoute {
     public let mediaOwnership: AudioMediaOwnership = .appManagedPacketAudio
     public nonisolated var events: AsyncStream<RouteEvent> { eventSource.stream }
 
-    private nonisolated let eventSource = EventSource<RouteEvent>()
+    private nonisolated let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient })
     private let cloudflareConfigurationProvider: @Sendable (CallStartRequest) -> CloudflareRealtimeConfiguration?
     private let signalingClient: WebRTCSignalingClient
     private let engine: NativeWebRTCEngine
@@ -250,13 +250,18 @@ public actor WebRTCInternetRoute: RTCCallRoute {
 }
 
 public enum WebRTCEngineEvent: Equatable, Sendable {
+    var isTransient: Bool {
+        if case .receivedApplicationData(let received) = self { return received.message.delivery == .unreliable }
+        return false
+    }
+
     case localIceCandidate(WebRTCIceCandidate, peerID: PeerID)
     case receivedApplicationData(ReceivedApplicationData)
     case connectionStateChanged(RouteConnectionState)
 }
 
 open class NativeWebRTCEngine: NSObject, @unchecked Sendable {
-    private let eventSource = EventSource<WebRTCEngineEvent>()
+    private let eventSource = EventSource<WebRTCEngineEvent>(isTransient: { $0.isTransient })
     public func emit(_ event: WebRTCEngineEvent) { eventSource.yield(event) }
     open var isAvailable: Bool { false }
     open var events: AsyncStream<WebRTCEngineEvent> { eventSource.stream }

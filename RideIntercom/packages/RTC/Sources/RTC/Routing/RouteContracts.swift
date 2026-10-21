@@ -1,6 +1,14 @@
 import Foundation
 
 public enum RouteEvent: Equatable, Sendable {
+    var isTransient: Bool {
+        switch self {
+        case .receivedAudioPacket, .metricsChanged: return true
+        case .receivedApplicationData(_, let received): return received.message.delivery == .unreliable
+        default: return false
+        }
+    }
+
     case stateChanged(RouteKind, RouteConnectionState)
     case availabilityChanged(RouteAvailability)
     case membersChanged(RouteKind, [CallMemberState])

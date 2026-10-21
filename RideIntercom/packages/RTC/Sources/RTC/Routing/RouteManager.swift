@@ -4,7 +4,7 @@ import Foundation
 /// disconnects one group of members merely because another path became ready.
 public actor RouteManager: CallSession {
     nonisolated public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
-    private let eventSource = EventSource<CallSessionEvent>()
+    private let eventSource = EventSource<CallSessionEvent>(isTransient: { $0.isTransient })
     private let routes: [RouteKind: RTCCallRoute]
     private var configuration: CallRouteConfiguration
     private let runtimeStatusPolicy: RTCRuntimeStatusPolicy

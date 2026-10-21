@@ -489,7 +489,7 @@ private func makePacket(
     session.isActive = true
     #expect(session.drain(now: 1.1)?.readyPackets.isEmpty == true)
     #expect(try session.accept(envelope, from: peer, receivedAt: 2)?.queuedPacketCount == 1)
-    #expect(session.drain(now: 2.1)?.readyPackets.count == 1)
+    #expect(session.drain(now: 2.02)?.readyPackets.count == 1)
 }
 
 @Test func removingPeerClearsOnlyItsQueueAndPermitsNewSequence() throws {
@@ -503,7 +503,7 @@ private func makePacket(
     _ = try session.accept(envelope, from: a, receivedAt: 1)
     _ = try session.accept(envelope, from: b, receivedAt: 1)
     session.removePeer(a)
-    #expect(session.drain(now: 1.1)?.readyPackets.map(\.peerID) == [b])
+    #expect(session.drain(now: 1.02)?.readyPackets.map(\.peerID) == [b])
     #expect(try session.accept(envelope, from: a, receivedAt: 2) != nil)
     #expect(try session.accept(envelope, from: b, receivedAt: 2)?.droppedPacketCount == 1)
 }

@@ -83,7 +83,7 @@ public struct PacketAudioReceiveConfiguration: Equatable, Sendable {
     public var playoutDelay: TimeInterval
     public var packetLifetime: TimeInterval
 
-    public init(playoutDelay: TimeInterval = 0.015, packetLifetime: TimeInterval = 2.0) {
+    public init(playoutDelay: TimeInterval = 0.015, packetLifetime: TimeInterval = 0.1) {
         self.playoutDelay = max(0, playoutDelay)
         self.packetLifetime = max(0, packetLifetime)
     }
@@ -114,6 +114,7 @@ struct PacketAudioReceiveBufferReport: Equatable, Sendable {
 struct PacketAudioReceiveBuffer: Sendable {
     let configuration: PacketAudioReceiveConfiguration
     private var queuedPackets: [QueuedPacket] = []
+    private var lastDeliveredSequence: [PeerID: UInt64] = [:]
     private(set) var receivedPacketCount = 0
     private(set) var droppedPacketCount = 0
 
@@ -127,6 +128,10 @@ struct PacketAudioReceiveBuffer: Sendable {
 
     mutating func enqueue(_ filtered: FilteredPacketAudioPacket, receivedAt: TimeInterval) {
         receivedPacketCount += 1
+        if let last = lastDeliveredSequence[filtered.received.peerID], filtered.received.packet.sequenceNumber <= last {
+            droppedPacketCount += 1
+            return
+        }
         if queuedPackets.count >= 256 { queuedPackets.removeFirst(); droppedPacketCount += 1 }
         queuedPackets.append(QueuedPacket(filtered: filtered, receivedAt: receivedAt))
     }
@@ -156,6 +161,8 @@ struct PacketAudioReceiveBuffer: Sendable {
             }
             .map(\.filtered.received)
 
+        for received in ready { lastDeliveredSequence[received.peerID] = received.packet.sequenceNumber }
+
         return PacketAudioReceiveBufferReport(
             readyPackets: ready,
             expiredPacketCount: expiredPacketCount,
@@ -175,6 +182,7 @@ struct PacketAudioReceiveBuffer: Sendable {
 
     mutating func removePeer(_ peerID: PeerID) {
         queuedPackets.removeAll { $0.filtered.received.peerID == peerID }
+        lastDeliveredSequence.removeValue(forKey: peerID)
     }
 
     mutating func drainReadyPackets(now: TimeInterval) -> [ReceivedAudioPacket] {

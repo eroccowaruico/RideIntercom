@@ -21,7 +21,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
     public let mediaOwnership: AudioMediaOwnership = .appManagedPacketAudio
     nonisolated public var events: AsyncStream<RouteEvent> { eventSource.stream }
 
-    private let eventSource = EventSource<RouteEvent>()
+    private let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient })
     private let localDisplayName: String
     private let audioPolicy: RTCAudioPolicy
     private let packetAudioReceiveConfiguration: PacketAudioReceiveConfiguration
@@ -75,7 +75,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         }
 
         let transport = MultipeerConnectionTransport(request: request, displayName: localDisplayName)
-        let source = EventSource<MultipeerConnectionEvent>()
+        let source = EventSource<MultipeerConnectionEvent>(isTransient: { $0.isTransient })
         transport.onEvent = { source.yield($0) }
         let generation = generation
         let events = source.stream
@@ -222,6 +222,14 @@ public actor MultipeerLocalRoute: RTCCallRoute {
 }
 
 enum MultipeerConnectionEvent: Sendable {
+    var isTransient: Bool {
+        switch self {
+        case .message(.packetAudio, _): return true
+        case .message(.applicationData(let message), _): return message.delivery == .unreliable
+        default: return false
+        }
+    }
+
     case state(RouteConnectionState)
     case members([PeerID])
     case message(MultipeerWireMessage, PeerID)

@@ -107,3 +107,30 @@ import Testing
     buffer.reset()
     #expect(buffer.queuedPacketCount == 0)
 }
+
+@Test func stalledPlayoutDiscardsOldSpeechInsteadOfCatchingUp() {
+    var buffer = PacketAudioReceiveBuffer()
+    for sequence in 0..<50 {
+        let packet = RTCAudioPacket(sequenceNumber: UInt64(sequence), codec: .pcm16, payload: Data([0, 0]))
+        buffer.enqueue(.init(received: .init(peerID: .init(rawValue: "a"), packet: packet)), receivedAt: Double(sequence) * 0.02)
+    }
+    let report = buffer.drain(now: 1)
+    #expect(report.readyPackets.count <= 5)
+    #expect(report.droppedPacketCount >= 45)
+    #expect(report.readyPackets.last?.packet.sequenceNumber == 49)
+}
+
+@Test func lateReorderedSpeechCannotPlayBehindAnAlreadyDeliveredFrame() {
+    var buffer = PacketAudioReceiveBuffer()
+    func packet(_ sequence: UInt64) -> FilteredPacketAudioPacket {
+        .init(received: .init(peerID: .init(rawValue: "a"), packet: .init(sequenceNumber: sequence, codec: .pcm16, payload: Data([0, 0]))))
+    }
+    buffer.enqueue(packet(10), receivedAt: 0)
+    #expect(buffer.drain(now: 0.02).readyPackets.count == 1)
+    buffer.enqueue(packet(9), receivedAt: 0.03)
+    buffer.enqueue(packet(11), receivedAt: 0.04)
+    #expect(buffer.drain(now: 0.06).readyPackets.map(\.packet.sequenceNumber) == [11])
+    buffer.removePeer(.init(rawValue: "a"))
+    buffer.enqueue(packet(0), receivedAt: 0.07)
+    #expect(buffer.drain(now: 0.09).readyPackets.count == 1)
+}
