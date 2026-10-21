@@ -147,7 +147,7 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 |---|---|
 | SFU HTTP契約・所有者・quota・WS sender・expiry alarm | workerd内でproviderを代替した自動テスト。実Cloudflareで未確認 |
 | TURN credential | 今回のnative構成はSTUN + SFU直接接続。TURN発行・更新・失効は未接続。UDP制限環境の成功を保証しない |
-| 大量のpeer入退室 | SDP最大8 media sectionsの制限あり。連続入替で非active m-lineが増える場合の再利用は未対応 |
+| 大量のpeer入退室 | SDP最大8 media sections。離脱publicationの受信midをtracks/updateで再利用。10回の入替とSwift実クライアントの再参加を自動検証。実SFU側の動作は未確認 |
 | 音声効果・peer個別音量 | native SFU音声へApp Mixerを適用する機能は未対応 |
 | 公開identity | 個別端末registryは招待制試用向け（約4.5KiBまで）。公開登録/自動発行/失効を行うidentity backendは未実装。SFU transportとgroup招待形式を作り直さず入口認証を拡張する |
 | abuse / 金額上限 | SDP制限・参加者秒予約は悪意あるRTP送信を金額で遮断する保証ではない。edge制限、監視、停止運用、実測が公開前条件 |
@@ -162,7 +162,7 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | コマンド / 証跡 | 結果 |
 |---|---|
 | `npm --prefix server run type-check` | 成功 |
-| `npm --prefix server test` | dry-run bundle成功、workerd上8 tests成功。外部SFUはテスト側代替 |
+| `npm --prefix server test` | dry-run bundle成功、workerd上9 tests成功。外部SFUはテスト側代替 |
 | `node --test scripts/Cloudflare/*.test.mjs` | 費用・資格発行3 tests成功 |
 | `/private/tmp/rideintercom-cloudflare-validation/server-final-types.log` | 型検査log |
 | `/private/tmp/rideintercom-cloudflare-validation/server-final-tests.log` | Worker test log |
@@ -171,3 +171,15 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | `server-red.log` / `server-red2.log` (同じ証跡directory) | 旧APIの不一致、期限切れproviderの回収失敗を先に再現 |
 
 `wrangler deploy --dry-run` は外部デプロイではない。health/statusのテスト成功を、SFU App Secretの正当性・双方向音声・実料金の確認済みと扱わない。
+
+## ペア検証と購読入替
+
+| 項目 | 契約 |
+|---|---|
+| 実行 | `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npm --prefix server run test:pair` |
+| 実処理 | Swift URLSession HTTP/WS、Worker認証、SignalingRoom、UsageGuard、SQLite、期限更新 |
+| 代替部分 | テスト側SFU REST providerと合成SDP。音声媒体・Cloudflare秘密設定は不要 |
+| peer snapshot | id/displayName/sessionId。認証済みroom参加者だけに通知 |
+| 再参加 | publication sessionIdが変わる。listenerは離脱peerのmidをtracks/updateで再利用し、同じPeerConnectionを維持 |
+| 終了 | 子プロセスの終了コードを確認。120秒でタイムアウトし、workerdをfinallyで終了 |
+| 位置付け | 制御経路の統合検証。実音声・実Cloudflareアカウント・請求確認と分ける |

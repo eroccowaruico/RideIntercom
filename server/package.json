@@ -6,7 +6,8 @@
         "dev": "wrangler dev",
         "deploy": "wrangler deploy",
         "type-check": "tsc --noEmit",
-        "test": "wrangler deploy --dry-run --outdir dist && node --test test/*.test.mjs"
+        "test": "wrangler deploy --dry-run --outdir dist && node --test test/*.test.mjs",
+        "test:pair": "wrangler deploy --dry-run --outdir dist && node test/pair-runner.mjs"
     },
     "devDependencies": {
         "@cloudflare/workers-types": "5.20261019.1",

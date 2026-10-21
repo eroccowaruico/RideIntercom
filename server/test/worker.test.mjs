@@ -1,53 +1,21 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { Miniflare, Response } from 'miniflare';
-
-const token = 'test-device-token-with-at-least-32-characters';
-const hash = createHash('sha256').update(token).digest('hex');
-const room = 'a'.repeat(64);
-const offer = { type: 'offer', sdp: 'v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=mid:0\r\na=rtpmap:111 opus/48000/2\r\n' };
-let runtime, requests = [], serial = 0, upstreamFails = false, upstreamGone = false;
-async function makeRuntime(overrides = {}) {
-    const instance = new Miniflare({ modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2024-11-01',
-        durableObjects: { SIGNALING_ROOM: { className: 'SignalingRoom', useSQLite: true }, USAGE_GUARD: { className: 'UsageGuard', useSQLite: true } },
-        bindings: { SERVICE_ENABLED: 'true', CLIENT_TOKENS_JSON: JSON.stringify({ [hash]: 'tester' }),
-            CLOUDFLARE_SFU_APP_ID: 'test-app', CLOUDFLARE_SFU_APP_SECRET: 'test-secret',
-            MAX_ROOM_PARTICIPANTS: '4', MAX_ACTIVE_SESSIONS: '16', MONTHLY_PARTICIPANT_SECONDS: '36000', LEASE_SECONDS: '600', ...overrides },
-        outboundService: async request => {
-            const text = await request.text();
-            requests.push({ url: request.url, method: request.method, body: text ? JSON.parse(text) : undefined });
-            assert.equal(request.headers.get('Authorization'), 'Bearer test-secret');
-            const url = new URL(request.url);
-            assert.equal(url.hostname, 'rtc.live.cloudflare.com');
-            if (upstreamGone) return Response.json({}, { status: 410 });
-            if (upstreamFails) return Response.json({ errorCode: 'failure' }, { status: 503 });
-            if (url.pathname.endsWith('/sessions/new')) return Response.json({ sessionId: `sfu-${++serial}` }, { status: 201 });
-            if (url.pathname.endsWith('/tracks/new')) {
-                const body = requests.at(-1).body;
-                return Response.json({ sessionDescription: { type: body.sessionDescription ? 'answer' : 'offer', sdp: 'mock-sfu-sdp' },
-                    requiresImmediateRenegotiation: !body.sessionDescription,
-                    tracks: body.tracks.map((t, i) => ({ ...t, mid: String(i + (t.location === 'remote' ? 1 : 0)) })) });
-            }
-            if (url.pathname.endsWith('/renegotiate') || url.pathname.endsWith('/tracks/close')) return Response.json({});
-            return Response.json({ tracks: [{ mid: '0' }, { mid: '1' }] });
-        }
-    });
-    await instance.ready; return instance;
-}
+import { token, hash, room, offer, provider, makeRuntime } from './support/runtime.mjs';
+let runtime;
 before(async () => { runtime = await makeRuntime(); });
 after(async () => { await runtime?.dispose(); });
 const call = (path, body, method = 'POST', instance = runtime, credential = token) => instance.dispatchFetch(`https://worker.test${path}`, {
     method, headers: { Authorization: `Bearer ${credential}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 const join = (id, target = room, instance = runtime) => call(`/api/rooms/${target}/join`, { participantId: id, displayName: id, offer }, 'POST', instance);
 
-test('unauthenticated and malformed requests never contact the provider', async () => {
-    requests = [];
+test('unauthenticated and malformed provider.requests never contact the provider', async () => {
+    provider.requests = [];
     assert.equal((await runtime.dispatchFetch('https://worker.test/health')).status, 200);
     assert.equal((await call(`/api/rooms/${room}/join`, {}, 'POST', runtime, 'invalid')).status, 401);
     assert.equal((await call(`/api/rooms/${room}/join`, { participantId: 'x', offer: { ...offer, sdp: offer.sdp + 'm=video 9 RTP/AVP 96\r\n' } })).status, 400);
     assert.equal((await call('/api/rooms/guessable/join', {})).status, 400);
-    assert.equal(requests.length, 0);
+    assert.equal(provider.requests.length, 0);
 });
 
 test('SFU publishing, authorized subscription, renewal and cleanup use the real contract', async () => {
@@ -59,17 +27,17 @@ test('SFU publishing, authorized subscription, renewal and cleanup use the real 
     const pull = await (await call(base + '/pull', { peerIds: ['b'] })).json();
     assert.equal(pull.sessionDescription.type, 'offer');
     assert.equal((await call(base + '/answer', { sessionDescription: { type: 'answer', sdp: offer.sdp } }, 'PUT')).status, 200);
-    const before = requests.length;
+    const before = provider.requests.length;
     const renewed = await (await call(base + '/renew', {})).json();
-    assert.equal(renewed.sessionId, a.sessionId); assert.equal(requests.length, before);
+    assert.equal(renewed.sessionId, a.sessionId); assert.equal(provider.requests.length, before);
     assert.equal((await call(base + '/pull', { peerIds: ['not-in-room'] })).status, 403);
     assert.equal((await call(`/api/rooms/${'b'.repeat(64)}/sessions/${a.sessionId}/renew`, {})).status, 404);
     assert.equal((await call(base, undefined, 'DELETE')).status, 200);
     assert.equal((await call(`/api/rooms/${room}/sessions/${b.sessionId}`, undefined, 'DELETE')).status, 200);
-    assert.ok(requests.some(r => r.url.endsWith('/tracks/close') && r.body.force === true));
+    assert.ok(provider.requests.some(r => r.url.endsWith('/tracks/close') && r.body.force === true));
 });
 
-test('quota reservations survive concurrent requests and prevent provider calls', async () => {
+test('quota reservations survive concurrent provider.requests and prevent provider calls', async () => {
     const limited = await makeRuntime({ MONTHLY_PARTICIPANT_SECONDS: '600' });
     try {
         const results = await Promise.all([join('one', 'c'.repeat(64), limited), join('two', 'd'.repeat(64), limited)]);
@@ -82,8 +50,8 @@ test('quota reservations survive concurrent requests and prevent provider calls'
 test('kill switch fails closed and upstream failure does not publish a participant', async () => {
     const disabled = await makeRuntime({ SERVICE_ENABLED: 'false' });
     try { assert.equal((await join('off', room, disabled)).status, 503); } finally { await disabled.dispose(); }
-    upstreamFails = true;
-    try { assert.equal((await join('failed', 'e'.repeat(64))).status, 502); } finally { upstreamFails = false; }
+    provider.upstreamFails = true;
+    try { assert.equal((await join('failed', 'e'.repeat(64))).status, 502); } finally { provider.upstreamFails = false; }
 });
 
 test('room capacity and duplicate membership are enforced', async () => {
@@ -137,17 +105,38 @@ test('expired lease alarm closes media and releases the active-session slot', as
         }
         assert.equal(active, 0);
         // Wait for the asynchronous alarm, not merely the usage index pruning.
-        while (Date.now() < deadline && !requests.some(r => r.url.includes(a.sessionId + '/tracks/close'))) {
+        while (Date.now() < deadline && !provider.requests.some(r => r.url.includes(a.sessionId + '/tracks/close'))) {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
-        assert.ok(requests.some(r => r.url.includes(a.sessionId + '/tracks/close')));
+        assert.ok(provider.requests.some(r => r.url.includes(a.sessionId + '/tracks/close')));
     } finally { await instance.dispose(); }
 });
 
 test('already expired provider session can be removed without an endless cleanup retry', async () => {
     const a = await (await join('gone', 'f'.repeat(64))).json();
-    upstreamGone = true;
+    provider.upstreamGone = true;
     try {
         assert.equal((await call(`/api/rooms/${'f'.repeat(64)}/sessions/${a.sessionId}`, undefined, 'DELETE')).status, 200);
-    } finally { upstreamGone = false; }
+    } finally { provider.upstreamGone = false; }
+});
+
+test('repeated peer replacement reuses subscriber transceivers instead of growing SDP', async () => {
+    const instance = await makeRuntime();
+    try {
+        const listener = await (await join('listener', room, instance)).json();
+        for (let n = 0; n < 10; n++) {
+            const talker = await (await join('talker', room, instance)).json();
+            const base = `/api/rooms/${room}/sessions/${listener.sessionId}`;
+            const response = await call(base + '/pull', { peerIds: ['talker'] }, 'POST', instance);
+            assert.equal(response.status, 200);
+            const result = await response.json();
+            if (result.requiresImmediateRenegotiation) {
+                assert.equal((await call(base + '/answer', { sessionDescription: { type: 'answer', sdp: offer.sdp } }, 'PUT', instance)).status, 200);
+            }
+            assert.equal((await call(`/api/rooms/${room}/sessions/${talker.sessionId}`, undefined, 'DELETE', instance)).status, 200);
+        }
+        const pulls = provider.requests.filter(r => r.url.includes(`/sessions/${listener.sessionId}/tracks/new`) && !r.body.sessionDescription);
+        assert.equal(pulls.length, 1, 'Only the first subscription should allocate a receiving transceiver');
+        assert.equal(provider.requests.filter(r => r.url.includes(`/sessions/${listener.sessionId}/tracks/update`)).length, 9);
+    } finally { await instance.dispose(); }
 });

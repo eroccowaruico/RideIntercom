@@ -13,7 +13,7 @@ export interface Env {
 export interface Description { type: 'offer' | 'answer'; sdp: string }
 export interface Member {
     id: string; displayName: string; owner: string; sessionId: string; expiresAt: number
-    mids: string[]; subscriptions: string[]; pendingAnswer: boolean
+    mids: string[]; subscriptions: { sessionId: string; mid: string }[]; pendingAnswer: boolean
 }
 export function json(body: unknown, status = 200): Response {
     return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
@@ -34,7 +34,8 @@ export async function readJSON(request: Request): Promise<any> {
     }
     const bytes = new Uint8Array(size); let offset = 0
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
-    const result = JSON.parse(new TextDecoder().decode(bytes))
+    let result: any
+    try { result = JSON.parse(new TextDecoder().decode(bytes)) } catch { throw new Error('body') }
     if (!result || Array.isArray(result) || typeof result !== 'object') throw new Error('body')
     return result
 }

@@ -74,12 +74,33 @@ export class SignalingRoom {
             if (!Array.isArray(b.peerIds) || b.peerIds.length > 7 || b.peerIds.some((id: unknown) => typeof id !== 'string')) return json({ error: 'Invalid peers' }, 400)
             const peers = members.filter(m => m.id !== member.id && b.peerIds.includes(m.id) && m.mids.length && m.expiresAt > Date.now())
             if (new Set(b.peerIds).size !== peers.length) return json({ error: 'Peer not in room' }, 403)
-            const fresh = peers.filter(p => !member.subscriptions.includes(p.sessionId))
+            const fresh = peers.filter(p => !member.subscriptions.some(s => s.sessionId === p.sessionId))
             if (!fresh.length) return json({ tracks: [] })
+            // An old publisher may have left while this listener stayed connected.
+            // Reuse those receive transceivers; never grow SDP for every rejoin.
+            const live = new Set(members.filter(m => m.expiresAt > Date.now()).map(m => m.sessionId))
+            const reusable = member.subscriptions.filter(s => !live.has(s.sessionId))
+            const replacements = fresh.splice(0, reusable.length).map((p, i) => ({
+                location: 'remote', sessionId: p.sessionId, trackName: 'voice', mid: reusable[i].mid
+            }))
+            if (replacements.length) {
+                const updated = await sfu(this.env, `/sessions/${member.sessionId}/tracks/update`, { tracks: replacements }, 'PUT')
+                if (updated.requiresImmediateRenegotiation) throw new Error('upstream')
+                for (const replacement of replacements) {
+                    const slot = member.subscriptions.find(s => s.mid === replacement.mid)!
+                    slot.sessionId = replacement.sessionId
+                }
+                await this.state.storage.put(`member:${member.sessionId}`, member)
+            }
+            if (!fresh.length) return json({ tracks: replacements, requiresImmediateRenegotiation: false })
             const r = await sfu(this.env, `/sessions/${member.sessionId}/tracks/new`, { tracks: fresh.map(p => ({ location: 'remote', sessionId: p.sessionId, trackName: 'voice' })) })
             member.pendingAnswer = !!r.requiresImmediateRenegotiation
-            member.subscriptions.push(...fresh.map(p => p.sessionId))
-            member.mids.push(...(r.tracks ?? []).map((t: any) => t.mid).filter((v: any) => typeof v === 'string'))
+            for (const peer of fresh) {
+                const track = r.tracks?.find((t: any) => t.sessionId === peer.sessionId && typeof t.mid === 'string')
+                if (!track) throw new Error('upstream')
+                member.subscriptions.push({ sessionId: peer.sessionId, mid: track.mid })
+                if (!member.mids.includes(track.mid)) member.mids.push(track.mid)
+            }
             await this.state.storage.put(`member:${member.sessionId}`, member); return json(r)
         }
         if (action === 'answer' && request.method === 'PUT') {
@@ -106,7 +127,7 @@ export class SignalingRoom {
     webSocketClose(ws: WebSocket): void { try { ws.close(1000, 'Closed') } catch { /* closed */ } }
     webSocketError(ws: WebSocket): void { this.webSocketClose(ws) }
     private async broadcastPeers() {
-        const peers = (await this.members()).filter(m => m.mids.length && m.expiresAt > Date.now()).map(m => ({ id: m.id, displayName: m.displayName }))
+        const peers = (await this.members()).filter(m => m.mids.length && m.expiresAt > Date.now()).map(m => ({ id: m.id, displayName: m.displayName, sessionId: m.sessionId }))
         for (const ws of this.state.getWebSockets()) { try { ws.send(JSON.stringify({ type: 'peers', peers })) } catch { /* closed */ } }
     }
     private async close(member: Member) {
