@@ -735,3 +735,19 @@ RTC statusは通信状態だけを確定情報として持つ。Mixer volume、C
 | SFU購読失敗 | pending answerのまま無期限待ちにせず、失敗通知と媒体終了。曖昧なtracks/new結果を盲目的に再実行しない |
 
 実TURN資格の配布・更新はまだ接続していない。backend labelもSFUとし、TURN検証済みと表示しない。
+
+## 品質点検で固定した接続契約
+
+| 境界 | 契約 / 自動検証 |
+|---|---|
+| WebRTCInternetRoute | actorで状態を所有。接続ごとにイベント購読を更新し、停止した世代の非同期結果を破棄 |
+| native engine | callbackから共有する接続表・mute状態をlockで保護。close前に表から外し、旧接続callbackを無視 |
+| mediaReady | startMedia要求とICE接続完了の両方が成立した後だけ通知。開始要求だけで接続成功にしない |
+| SDP失敗 | offer/answer適用失敗をroute failedへ伝え、媒体・Worker leaseを終了。再接続時にlocal trackを再準備 |
+| application data | Worker WebSocketのみ。未使用のnative DataChannel送受信経路を削除 |
+| peerの再参加 | Workerのpeer snapshotにsessionIdを含め、同じpeerIDでも新しいpublicationを購読 |
+| サービス確認 | `CloudflareRealtimeSignalingClient.checkService` はHTTPS origin・端末認証・利用枠を確認。SFU媒体は作らず、App Secretの有効性・音声成功を保証しない |
+| native自動検証 | 実SDKでaudio-only SDP生成、無効answerの拒否、二重close、再初期化。マイク送信は有効化しない |
+| ペア統合 | `npm --prefix server run test:pair`。実Swift client 2台→HTTP/WS→workerd/SQLite。外部SFUだけ代替し、両方向メッセージ・lease跨ぎ・再参加を検証 |
+
+[Cloudflare negotiation](https://developers.cloudflare.com/realtime/sfu/concepts/negotiation/)の単一sessionの直列交渉に合わせる。native媒体の実通信・TURN・音響品質は別途実サービス/実機で確認する。

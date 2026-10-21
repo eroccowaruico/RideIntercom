@@ -63,6 +63,22 @@ struct CloudflareClientTests {
         #expect(SFUHTTPStub.requests.contains { $0.httpMethod == "DELETE" && $0.url!.path.hasSuffix("/sessions/session-2") })
     }
 
+    @Test func serviceCheckValidatesConfigurationAndDoesNotCreateMedia() async throws {
+        SFUHTTPStub.reset()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SFUHTTPStub.self]
+        let session = URLSession(configuration: config)
+        let status = try await CloudflareRealtimeSignalingClient.checkService(request().cloudflare, session: session)
+        #expect(status.monthlyParticipantSeconds == 1000000)
+        #expect(status.activeSessions == 0)
+        #expect(SFUHTTPStub.requests.map { $0.url!.path } == ["/api/status"])
+        do {
+            _ = try await CloudflareRealtimeSignalingClient.checkService(request(url: "http://public.example").cloudflare, session: session)
+            Issue.record("Insecure public endpoint accepted")
+        } catch { }
+        #expect(SFUHTTPStub.requests.count == 1)
+    }
+
     @Test func rejectsInsecurePublicEndpointBeforeMakingRequests() async {
         SFUHTTPStub.reset()
         let client = makeClient(); var events = client.events.makeAsyncIterator()
@@ -92,11 +108,15 @@ private final class SFUHTTPStub: URLProtocol, @unchecked Sendable {
         let status = renewing ? (transient ? (renewals == 1 ? 503 : 200) : (renewals >= 2 ? 429 : 200)) : 200
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type":"application/json"])!
         let sid = Self.lock.withLock { Self.delayFirstDelete ? "session-\(Self.recorded.filter { $0.url!.path.hasSuffix("/join") }.count)" : "same-session" }
-        let data = Data("{\"sessionId\":\"\(sid)\",\"expiresAt\":9999999999999,\"renewAfterSeconds\":1,\"sessionDescription\":{\"type\":\"answer\",\"sdp\":\"answer\"}}".utf8)
+        var data = Data("{\"sessionId\":\"\(sid)\",\"expiresAt\":9999999999999,\"renewAfterSeconds\":1,\"sessionDescription\":{\"type\":\"answer\",\"sdp\":\"answer\"}}".utf8)
+        if request.url!.path == "/api/status" {
+            data = Data("{\"month\":\"2026-10\",\"reservedParticipantSeconds\":0,\"monthlyParticipantSeconds\":1000000,\"activeSessions\":0}".utf8)
+        }
+        let responseData = data
         let delayed = Self.lock.withLock { Self.delayFirstDelete && request.httpMethod == "DELETE" && Self.recorded.filter { $0.httpMethod == "DELETE" }.count == 1 }
         let finish: @Sendable () -> Void = { [self] in
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data); client?.urlProtocolDidFinishLoading(self)
+            client?.urlProtocol(self, didLoad: responseData); client?.urlProtocolDidFinishLoading(self)
         }
         if delayed { DispatchQueue.global().asyncAfter(deadline: .now() + 0.5, execute: finish) }
         else { finish() }

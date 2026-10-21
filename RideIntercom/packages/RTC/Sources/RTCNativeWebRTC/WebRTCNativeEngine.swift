@@ -4,20 +4,16 @@ import RTC
 #if canImport(WebRTC)
 @preconcurrency import WebRTC
 
-public final class WebRTCNativeEngine: NativeWebRTCEngine {
+public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
     public override var isAvailable: Bool { true }
-    public override var events: AsyncStream<WebRTCEngineEvent> { eventStream }
 
     private let factory: RTCPeerConnectionFactory
     private let rtcConfiguration: RTCConfiguration
-    private let eventStream: AsyncStream<WebRTCEngineEvent>
-    private let eventContinuation: AsyncStream<WebRTCEngineEvent>.Continuation
+    private let lock = NSRecursiveLock()
     private var localAudioTrack: RTCAudioTrack?
     private var outputMuted = false
     private var peerConnections: [PeerID: RTCPeerConnection] = [:]
-    private var dataChannels: [PeerID: RTCDataChannel] = [:]
     private var peerIDsByConnection = [ObjectIdentifier: PeerID]()
-    private var peerIDsByDataChannel = [ObjectIdentifier: PeerID]()
 
     public override init() {
         RTCInitializeSSL()
@@ -25,9 +21,6 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         self.rtcConfiguration = RTCConfiguration()
         self.rtcConfiguration.sdpSemantics = .unifiedPlan
         self.rtcConfiguration.iceServers = [RTCIceServer(urlStrings: ["stun:stun.cloudflare.com:3478"])]
-        var continuation: AsyncStream<WebRTCEngineEvent>.Continuation?
-        self.eventStream = AsyncStream { continuation = $0 }
-        self.eventContinuation = continuation!
         super.init()
     }
 
@@ -40,9 +33,6 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
             RTCIceServer(urlStrings: $0.urls, username: $0.username, credential: $0.credential)
         }
         self.rtcConfiguration = configuration
-        var continuation: AsyncStream<WebRTCEngineEvent>.Continuation?
-        self.eventStream = AsyncStream { continuation = $0 }
-        self.eventContinuation = continuation!
         super.init()
     }
 
@@ -52,10 +42,11 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         let audioSource = factory.audioSource(with: constraints)
         let track = factory.audioTrack(with: audioSource, trackId: "rideintercom-audio-\(peer.id.rawValue)")
         track.isEnabled = false
-        localAudioTrack = track
+        lock.withLock { localAudioTrack = track }
     }
 
     public override func createPeerConnection(for peer: PeerDescriptor) async {
+        lock.withLock {
         guard peerConnections[peer.id] == nil else { return }
 
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
@@ -76,25 +67,27 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         // Application messages use the authenticated Worker socket; only audio reaches SFU.
         peerConnections[peer.id] = connection
         peerIDsByConnection[ObjectIdentifier(connection)] = peer.id
+        }
     }
 
     public override func makeOffer(for peerID: PeerID) async -> WebRTCSessionDescription? {
-        guard let connection = peerConnections[peerID] else { return nil }
+        guard let connection = lock.withLock({ peerConnections[peerID] }) else { return nil }
         guard let sdp = await connection.makeAndSetLocalOfferSDP() else { return nil }
         return WebRTCSessionDescription(kind: .offer, sdp: await connection.gatheredSDP(fallback: sdp))
     }
 
     public override func acceptOffer(_ offer: WebRTCSessionDescription, from peerID: PeerID) async -> WebRTCSessionDescription? {
-        guard let connection = peerConnections[peerID] else { return nil }
+        guard let connection = lock.withLock({ peerConnections[peerID] }) else { return nil }
         let remoteDescription = RTCSessionDescription(type: .offer, sdp: offer.sdp)
         guard await connection.rtcSetRemoteDescription(remoteDescription) else { return nil }
         guard let sdp = await connection.makeAndSetLocalAnswerSDP() else { return nil }
         return WebRTCSessionDescription(kind: .answer, sdp: await connection.gatheredSDP(fallback: sdp))
     }
 
-    public override func acceptAnswer(_ answer: WebRTCSessionDescription, from peerID: PeerID) async {
+    public override func acceptAnswer(_ answer: WebRTCSessionDescription, from peerID: PeerID) async -> Bool {
+        guard let connection = lock.withLock({ peerConnections[peerID] }) else { return false }
         let description = RTCSessionDescription(type: .answer, sdp: answer.sdp)
-        _ = await peerConnections[peerID]?.rtcSetRemoteDescription(description)
+        return await connection.rtcSetRemoteDescription(description)
     }
 
     public override func addCandidate(_ candidate: WebRTCIceCandidate, from peerID: PeerID) async {
@@ -103,94 +96,77 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
             sdpMLineIndex: candidate.sdpMLineIndex,
             sdpMid: candidate.sdpMid
         )
-        await peerConnections[peerID]?.addIceCandidate(rtcCandidate)
+        let connection = lock.withLock { peerConnections[peerID] }
+        await connection?.addIceCandidate(rtcCandidate)
     }
 
     public override func setLocalAudioEnabled(_ enabled: Bool) async {
-        localAudioTrack?.isEnabled = enabled
+        lock.withLock { localAudioTrack?.isEnabled = enabled }
     }
 
     public override func setOutputMuted(_ muted: Bool) async {
+        lock.withLock {
         outputMuted = muted
         for connection in peerConnections.values {
             for receiver in connection.receivers { receiver.track?.isEnabled = !muted }
         }
-    }
-
-    public override func sendApplicationData(_ message: ApplicationDataMessage) async -> Bool {
-        guard let data = try? JSONEncoder().encode(message) else { return false }
-        let buffer = RTCDataBuffer(data: data, isBinary: true)
-        var didSend = false
-        for channel in dataChannels.values where channel.readyState == .open {
-            didSend = channel.sendData(buffer) || didSend
         }
-        return didSend
     }
 
     public override func closePeerConnection(peerID: PeerID) async {
-        if let channel = dataChannels.removeValue(forKey: peerID) {
-            peerIDsByDataChannel.removeValue(forKey: ObjectIdentifier(channel))
-            channel.close()
+        let connection = lock.withLock {
+            let connection = peerConnections.removeValue(forKey: peerID)
+            if let connection { peerIDsByConnection.removeValue(forKey: ObjectIdentifier(connection)) }
+            return connection
         }
-        if let connection = peerConnections.removeValue(forKey: peerID) {
-            peerIDsByConnection.removeValue(forKey: ObjectIdentifier(connection))
-            connection.close()
-        }
+        connection?.close()
     }
 
     public override func close() async {
-        dataChannels.values.forEach { $0.close() }
-        peerConnections.values.forEach { $0.close() }
-        dataChannels.removeAll()
-        peerConnections.removeAll()
-        peerIDsByConnection.removeAll()
-        peerIDsByDataChannel.removeAll()
-        localAudioTrack = nil
+        let connections = lock.withLock {
+            let connections = Array(peerConnections.values)
+            peerConnections.removeAll()
+            peerIDsByConnection.removeAll()
+            localAudioTrack = nil
+            return connections
+        }
+        // WebRTC may synchronously call its delegate while closing.
+        connections.forEach { $0.close() }
     }
 }
 
 extension WebRTCNativeEngine: RTCPeerConnectionDelegate {
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
-        stream.audioTracks.forEach { $0.isEnabled = !outputMuted }
+        lock.withLock {
+            guard peerIDsByConnection[ObjectIdentifier(peerConnection)] != nil else { return }
+            stream.audioTracks.forEach { $0.isEnabled = !outputMuted }
+        }
     }
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
     public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream]) {
-        rtpReceiver.track?.isEnabled = !outputMuted
+        lock.withLock {
+            guard peerIDsByConnection[ObjectIdentifier(peerConnection)] != nil else { return }
+            rtpReceiver.track?.isEnabled = !outputMuted
+        }
     }
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
-        guard peerIDsByConnection[ObjectIdentifier(peerConnection)] != nil else { return }
-        eventContinuation.yield(.connectionStateChanged(newState.routeState))
+        lock.withLock {
+            guard peerIDsByConnection[ObjectIdentifier(peerConnection)] != nil else { return }
+            emit(.connectionStateChanged(newState.routeState))
+        }
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
-        guard let peerID = peerIDsByConnection[ObjectIdentifier(peerConnection)] else { return }
-        eventContinuation.yield(.localIceCandidate(WebRTCIceCandidate(candidate), peerID: peerID))
+        // Offers/answers include gathered ICE. No unused trickle or DataChannel path.
     }
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
-
-    public func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
-        dataChannel.delegate = self
-        if let peerID = peerIDsByConnection[ObjectIdentifier(peerConnection)] {
-            dataChannels[peerID] = dataChannel
-            peerIDsByDataChannel[ObjectIdentifier(dataChannel)] = peerID
-        }
-    }
-}
-
-extension WebRTCNativeEngine: RTCDataChannelDelegate {
-    public func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {}
-
-    public func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
-        guard let peerID = peerIDsByDataChannel[ObjectIdentifier(dataChannel)],
-              let message = try? JSONDecoder().decode(ApplicationDataMessage.self, from: buffer.data) else { return }
-        eventContinuation.yield(.receivedApplicationData(ReceivedApplicationData(peerID: peerID, message: message)))
-    }
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) { dataChannel.close() }
 }
 
 private extension RTCPeerConnection {
@@ -249,16 +225,6 @@ private extension RTCPeerConnection {
     }
 }
 
-private extension WebRTCIceCandidate {
-    init(_ candidate: RTCIceCandidate) {
-        self.init(
-            sdp: candidate.sdp,
-            sdpMid: candidate.sdpMid,
-            sdpMLineIndex: Int32(candidate.sdpMLineIndex)
-        )
-    }
-}
-
 private extension RTCIceConnectionState {
     var routeState: RouteConnectionState {
         switch self {
@@ -276,7 +242,7 @@ private extension RTCIceConnectionState {
     }
 }
 #else
-public final class WebRTCNativeEngine: NativeWebRTCEngine {
+public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
     public override var isAvailable: Bool { false }
 
     public override init() {

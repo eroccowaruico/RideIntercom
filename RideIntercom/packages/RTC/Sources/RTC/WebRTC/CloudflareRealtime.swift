@@ -71,7 +71,7 @@ public enum WebRTCSignalingEvent: Equatable, Sendable {
     case failed(String)
 }
 
-public protocol WebRTCSignalingClient: AnyObject {
+public protocol WebRTCSignalingClient: AnyObject, Sendable {
     var events: AsyncStream<WebRTCSignalingEvent> { get }
 
     func connect(_ request: WebRTCSignalingConnectRequest) async

@@ -35,6 +35,7 @@ let package = Package(
             name: "WebRTC",
             path: "BinaryArtifacts/WebRTC/WebRTC.xcframework.zip"
         ),
+        .testTarget(name: "RTCNativeWebRTCTests", dependencies: ["RTC", "RTCNativeWebRTC"]),
         .testTarget(
             name: "RTCTests",
             dependencies: ["RTC"]
