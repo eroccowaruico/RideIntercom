@@ -155,13 +155,21 @@ struct PacketAudioReceiveBuffer: Sendable {
         }
         queuedPackets = pendingPackets
 
-        let ready = readyPackets
+        let candidates = readyPackets
             .sorted { left, right in
                 left.sortKey < right.sortKey
             }
             .map(\.filtered.received)
 
-        for received in ready { lastDeliveredSequence[received.peerID] = received.packet.sequenceNumber }
+        var ready: [ReceivedAudioPacket] = []
+        for received in candidates {
+            if let last = lastDeliveredSequence[received.peerID], received.packet.sequenceNumber <= last {
+                droppedPacketCount += 1
+            } else {
+                ready.append(received)
+                lastDeliveredSequence[received.peerID] = received.packet.sequenceNumber
+            }
+        }
 
         return PacketAudioReceiveBufferReport(
             readyPackets: ready,

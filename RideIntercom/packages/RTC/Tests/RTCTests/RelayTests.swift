@@ -134,3 +134,15 @@ import Testing
     buffer.enqueue(packet(0), receivedAt: 0.07)
     #expect(buffer.drain(now: 0.09).readyPackets.count == 1)
 }
+
+@Test func pendingReorderedSpeechCannotPlayAfterNewerReadyAudio() {
+    var buffer = PacketAudioReceiveBuffer(configuration: .init(playoutDelay: 0.02, packetLifetime: 1))
+    let peer = PeerID(rawValue: "peer")
+    for (sequence, arrival) in [(10, 0.0), (9, 0.01), (11, 0.02)] {
+        buffer.enqueue(.init(received: .init(peerID: peer, packet: .init(sequenceNumber: UInt64(sequence), codec: .pcm16, payload: Data([1])))), receivedAt: arrival)
+    }
+    #expect(buffer.drain(now: 0.025).readyPackets.map(\.packet.sequenceNumber) == [10])
+    let next = buffer.drain(now: 0.05)
+    #expect(next.readyPackets.map(\.packet.sequenceNumber) == [11])
+    #expect(next.droppedPacketCount == 1)
+}
