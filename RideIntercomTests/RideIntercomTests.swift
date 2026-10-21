@@ -14,6 +14,16 @@ import PeakLimiter
 @Suite(.serialized)
 @MainActor
 struct RideIntercomTests {
+    @Test func corruptLocalIdentityReportsCreationFailureWithoutWritingGroups() {
+        var stored = IntercomSeedData.recentGroups[0]
+        stored.members[0] = GroupMember(id: "", displayName: "You")
+        let harness = Self.makeHarness(groups: [stored])
+        harness.viewModel.createTalkGroup()
+        #expect(harness.viewModel.groupErrorMessage != nil)
+        #expect(harness.viewModel.groups.count == 1)
+        #expect(harness.groupStore.saveCount == 0)
+    }
+
     @Test func appDecodeRejectsUnknownCodecAndInvalidFormatBeforeConversion() throws {
         let valid = RTCAudioPacket(sequenceNumber: 0, codec: .pcm16, capturedAt: 0,
                                    sampleCount: 1, payload: Data([0, 0]))

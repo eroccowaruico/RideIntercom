@@ -151,7 +151,10 @@ extension IntercomViewModel {
             ]
         )
 
-        guard let newGroup else { return }
+        guard let newGroup else {
+            groupErrorMessage = "Could not create the group because the saved rider identity is invalid. Saved groups have not been changed."
+            return
+        }
         let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
         do { try groupRepository.save([newGroup] + groups, credential: .init(groupID: groupID, secret: secret)) }
         catch {
