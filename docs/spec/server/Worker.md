@@ -183,3 +183,15 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | 再参加 | publication sessionIdが変わる。listenerは離脱peerのmidをtracks/updateで再利用し、同じPeerConnectionを維持 |
 | 終了 | 子プロセスの終了コードを確認。120秒でタイムアウトし、workerdをfinallyで終了 |
 | 位置付け | 制御経路の統合検証。実音声・実Cloudflareアカウント・請求確認と分ける |
+
+## 検証環境の間接依存
+
+| 依存 | 採用 / 理由 |
+|---|---|
+| Miniflare | 安定版4.20260730.0を維持。npm latestはこの版、5系列はbeta |
+| undici | Miniflare 4配下を7.30.1へoverride。7系列の修正版。HTTP/WSのaudit指摘を解消 |
+| sharp | Miniflare 4配下を0.35.5へoverride。libheif/librsvgのaudit指摘を解消 |
+| 根拠 / 検証 | 2026-10-21 npm registryの版・依存、npm audit。lockfile同期、ci、型検査、Worker9件、Swiftペア成功 |
+| override除去条件 | 安定版Miniflareが修正版を宣言したら通常依存へ戻し、同じWorker/ペア試験を通す |
+
+例: [undici advisory](https://github.com/advisories/GHSA-w293-vg96-wgc3)、[sharp advisory](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)。これらはローカル開発・検証ツールの依存であり、Worker bundleへそのまま配布するものではない。
