@@ -8,6 +8,35 @@ WEBRTC_BUILD_ROOT="${WEBRTC_BUILD_ROOT:-${REPOSITORY_PARENT}/webrtc-build}"
 RTC_PACKAGE_DIR="${RTC_PACKAGE_DIR:-${REPOSITORY_ROOT}/RideIntercom/packages/RTC}"
 CLEAN_MODE="${CLEAN_MODE:-build-output}"
 DRY_RUN="${DRY_RUN:-true}"
+case "${DRY_RUN}" in
+  true|false) ;;
+  *) echo "DRY_RUN must be exactly true or false" >&2; exit 2 ;;
+esac
+
+# Validate even dry runs so the preview cannot approve a different, unsafe target.
+# A typo in an override must never turn a generated-file cleanup into arbitrary
+# directory deletion. Only an identifiable checkout/package is eligible.
+validate_root() {
+  python3 - "$1" "$2" "${REPOSITORY_ROOT}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+root, kind, repository = Path(sys.argv[1]).resolve(), sys.argv[2], Path(sys.argv[3]).resolve()
+unsafe = root == Path('/') or root == Path.home() or root == repository or root in repository.parents
+if kind == 'checkout':
+    unsafe |= root.is_relative_to(repository)
+    valid = ((root / '.gclient').is_file() and (root / 'src/.git').exists()
+             and (root / 'src/BUILD.gn').is_file())
+    generated = (root / 'src/out').resolve()
+else:
+    manifest = root / 'Package.swift'
+    valid = manifest.is_file() and re.search(r'name:\s*"RTC"', manifest.read_text()) is not None
+    generated = (root / '.build').resolve()
+if unsafe or not valid or generated == root or not generated.is_relative_to(root):
+    raise SystemExit(f'Refusing cleanup: unverified or unsafe {kind}: {root}')
+PY
+}
 
 usage() {
   cat <<USAGE
@@ -57,10 +86,12 @@ remove_glob() {
 }
 
 clean_build_output() {
+  validate_root "${WEBRTC_BUILD_ROOT}" checkout
   remove_path "${WEBRTC_BUILD_ROOT}/src/out"
 }
 
 clean_swiftpm() {
+  validate_root "${RTC_PACKAGE_DIR}" package
   remove_path "${RTC_PACKAGE_DIR}/.build/workspace-state.json"
   remove_path "${RTC_PACKAGE_DIR}/.build/debug.yaml"
   remove_path "${RTC_PACKAGE_DIR}/.build/plugin-tools.yaml"
@@ -79,6 +110,7 @@ clean_swiftpm() {
 }
 
 clean_source() {
+  validate_root "${WEBRTC_BUILD_ROOT}" checkout
   remove_path "${WEBRTC_BUILD_ROOT}"
 }
 

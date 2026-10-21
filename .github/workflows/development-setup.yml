@@ -1,5 +1,6 @@
 name: Development and documentation
-on: [push, pull_request]
+# Validation is local-only. Manual dispatch is retained but never invoked automatically.
+on: workflow_dispatch
 permissions:
   contents: read
 jobs:

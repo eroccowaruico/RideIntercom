@@ -1,0 +1,1820 @@
+{
+  "baseline": "8b7a591",
+  "files": [
+    {
+      "path": ".codex/environments/environment.toml",
+      "baselineSHA256": "c43bb7111245ad4dc5b5a4075e666706c49bdcbaf40d8bb59384fdcfe9a2719c",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "baselineSHA256": "2a021e3837e557638699825dd1df30e1841d876dfe21efedc6749534e00ce04c",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": ".github/workflows/development-setup.yml",
+      "baselineSHA256": "a88e91a045af52ef74b3a10097098718baf49424fd96c5e80e027bba9476e2f2",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": true
+    },
+    {
+      "path": ".gitignore",
+      "baselineSHA256": "b4b56b5f11d1c88f5c2dddf300f5726f39684bbe5fa3ef77c3646c3c584dd563",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": ".vscode/extensions.json",
+      "baselineSHA256": "958b4302735f28d406aaa8e5dc89f2a3352b34d41ca8813e24cf6da696907475",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": ".vscode/settings.json",
+      "baselineSHA256": "994a24682516840a9aaee9d3c5dc230c179a72d8ab54c2c2eb99be6798560121",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": ".vscode/tasks.json",
+      "baselineSHA256": "09ebc8c6d6a21de66839a73e454e83216409960dc906861ae35ac173a13ef23a",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "AGENTS.md",
+      "baselineSHA256": "9601ff1e0b1255ab70899929f5ba218d6820ab3a21c049fd75b5555395ed7fee",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "CLAUDE.md",
+      "baselineSHA256": "9601ff1e0b1255ab70899929f5ba218d6820ab3a21c049fd75b5555395ed7fee",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "README.md",
+      "baselineSHA256": "61e81e5fa961973433b9c6b22ffd0a26c9911304abac4b06de99e2bdd35fbf56",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom.code-workspace",
+      "baselineSHA256": "0325dd5ceb0cfc9a1a931bd46df526c7c393d160a67285aea965d58d3a159279",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom.xcodeproj/project.pbxproj",
+      "baselineSHA256": "3c2eb0696f47e14a3334ecfa38f8734f1af2a3feea8b8ab7c5bae97b7a86d97e",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+      "baselineSHA256": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings",
+      "baselineSHA256": "97704a8960b4facceef54397a08fb5d0a456247c3627359215aa2a27df22656c",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "baselineSHA256": "823ac1b1d25f18118723c69481283a5375a79a9474836e1fae601b437574b5b1",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom.xcodeproj/xcshareddata/xcschemes/RideIntercom.xcscheme",
+      "baselineSHA256": "1cc104f02583e77e79d363aa5adac71bfc4302fd0c39a2bd5b4e8a33f9c493f3",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/App/RideIntercomApp.swift",
+      "baselineSHA256": "c16e3eaaebb6e0c65369819d6829d2359bc512426a14220d7878a5b880d3c69b",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/App/RideIntercomLogging.swift",
+      "baselineSHA256": "a6e20577d84c2c9259d6108d46e14b21ba72f7d56dab896704a96655a43ac9ca",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/App/SingleWindowPolicy.swift",
+      "baselineSHA256": "1e89f0223cce38178c7c20d3f3acc7aea06e4c30d5fb21562f0330edd748a621",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Assets.xcassets/AccentColor.colorset/Contents.json",
+      "baselineSHA256": "9af65086fa30b49252fae1a1225731691de794f7775af74d71befeb507d12b7c",
+      "status": "asset構造確認",
+      "evidence": "catalog参照・build包含を検査。SimulatorのCall/Diagnostics/Settings画像を確認。各assetの全機器表示は未確認",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "baselineSHA256": "040294b5970a6d1d5b5a811e22086092954f6a1f503b38d0fae128bb02b4356a",
+      "status": "asset構造確認",
+      "evidence": "catalog参照・build包含を検査。SimulatorのCall/Diagnostics/Settings画像を確認。各assetの全機器表示は未確認",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Assets.xcassets/Contents.json",
+      "baselineSHA256": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b",
+      "status": "asset構造確認",
+      "evidence": "catalog参照・build包含を検査。SimulatorのCall/Diagnostics/Settings画像を確認。各assetの全機器表示は未確認",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Info.plist",
+      "baselineSHA256": "4ae0fda05f2fb0f8bbc2f345ee2c1d1fe8b0f92832b9ac099bf484a23df14b98",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/AppAudioPipeline.swift",
+      "baselineSHA256": "2f0b82ca42882a46ea6a41e21b9bd5bf2de412b4f1f2c6d97807145d8343a5b7",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/AudioCodecPrimitives.swift",
+      "baselineSHA256": "2f60bfb2fec8a164971a5b15302a693c11635c8756180391acdb5c246ce892b8",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/AudioEffectChainContracts.swift",
+      "baselineSHA256": "cecfe292838e9d7b996b8b0e240e18213ab69ec2c888aaf5328f5831e820c9e4",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/AudioFrameDelivery.swift",
+      "baselineSHA256": "447ce390f3c310bfc2cd1c8e8df9a31feb0b15fe111e1c08ccca409a8661b512",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/AudioPackets.swift",
+      "baselineSHA256": "2d5df233e4399cab38153dde9aa16c0a8b80a8e4044250dbeba476b22a5c26b0",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/AudioSessionContracts.swift",
+      "baselineSHA256": "9c2f1014be10fceae349f28ff8393ea09c4a82c64d7ed9645b782fd3e84a8213",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/AudioTransmissionController.swift",
+      "baselineSHA256": "143e8e1535d08508cb35b2570e0de65dcbffe0773b8b09bfa4d8e4843f9247a7",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Audio/VoiceActivity.swift",
+      "baselineSHA256": "a2599fa743e756085835154b7da8f5afa6f0c87588559ec45afd7861afc474ad",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Diagnostics/PackageRuntimeReports.swift",
+      "baselineSHA256": "ad4dacf8b58763ed82ed1963395e88c0011fd1b320ecff1a7cd1cb47749c0270",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Groups/GroupInvite.swift",
+      "baselineSHA256": "bf30ad3ad6618111c7b2a79d4725cb498e38312b56cd824d973d89d9a9aa36ca",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Groups/GroupModels.swift",
+      "baselineSHA256": "45acbd6a4dc1a5954de3b821943a1592c86092bcc7f4d32adbcf2c447d524d28",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Groups/GroupRepository.swift",
+      "baselineSHA256": null,
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Groups/GroupStores.swift",
+      "baselineSHA256": "29108f7a0931206cd8c7f7c482b6870ef4215119fc1a10c858a66594a71b1d76",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Groups/IntercomGroup+AuthenticationState.swift",
+      "baselineSHA256": "1cf8bbd646db8b5e06dea7ad560bc09a4d4202ba40c43e21bd67b52aef61def3",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Settings/AppSettingsStore.swift",
+      "baselineSHA256": "e7bd89776a684f1422336511cb591b5f487e4cebac5ed3099e6e4263296777d2",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/Settings/InternetConnectionSettingsStore.swift",
+      "baselineSHA256": "384c4205af7b8e1ebb80489fa04c3d6b176df7c94cb2636d0880da728a3ff42b",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Transport/CallSessionAdapter.swift",
+      "baselineSHA256": "b24c1bd417805083459141b85ca90f67be926cefad1e37abf6ad05653e66badc",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/Transport/TransportContracts.swift",
+      "baselineSHA256": "cca32da019722ac72dc9d3827e6bbd8cc83f8aa301c6e7d1e7851225897349a2",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+AudioCheck.swift",
+      "baselineSHA256": "9bc69fc3c7ac3653b77dc7d183df55b5e7c870b6337100b7723b8b9d9ccca075",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+AudioOutput.swift",
+      "baselineSHA256": "21091dcc979d11166312c987ede234ab9b370f0cc49c560a1e8f04b3b7e5cdaf",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+AudioPorts.swift",
+      "baselineSHA256": "d71025b7f05c6717d3076aa48e5cf693b03276e652e4cf0ce4b49528b37a58da",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+AudioRuntime.swift",
+      "baselineSHA256": "84974d8e64e2fa79dcf7cfbf7d5b1491f2f1d98f5337d3e2cb0907d50749e2be",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+AudioSettings.swift",
+      "baselineSHA256": "84c73a9c36c9db862ea98aa59367f3e7370ddcaebb50dd0330d4cd90e7f5b24d",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+CallLifecycle.swift",
+      "baselineSHA256": "29d19f81f39ca13da0a116b6ea3a469a817e90423b69b2053159b6315679239e",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+Diagnostics.swift",
+      "baselineSHA256": "fdba564ec74706fe0c8c0ca1f19996f3f6c431e63a31d7db11dbc549963349d7",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+EffectChains.swift",
+      "baselineSHA256": "12694aa824d344a42e0dc6bafc36aef0dbc7242a59ada70a20b1931c6075813a",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+Factory.swift",
+      "baselineSHA256": "81407259f26c8d7a6f7e3e6e262b6139e4c98d233d82b1dc0ffb4471734330d1",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+Groups.swift",
+      "baselineSHA256": "6659e7de2f7fd46216ab0c8f109ee1d9d22e587578c4c861e533f511fbbc6eee",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+InternetSettings.swift",
+      "baselineSHA256": "3b835be8603c931bebe4b4ff5e90202eb190e5e768bec6bec2ccc3e0cf591add",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+MemberState.swift",
+      "baselineSHA256": "9eafa457afaaf4748435a586fc0b8f012237a82b8dd908069faf78752c03cc26",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+PacketReception.swift",
+      "baselineSHA256": "b2d4d11063b03f373db355253117ddbcd39851fbd3dfb0731978c2490b9a5e5d",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel+TransportEvents.swift",
+      "baselineSHA256": "5f1c7dd296b73da0e98f3599838765cc097e86b51d8bf91e349a3d9469ed7ec2",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/Intercom/ViewModel/IntercomViewModel.swift",
+      "baselineSHA256": "52e357e3677dae2015bb2c928da8c23fcad67a24e3c7e21f240fc3258a1c776c",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/Platform/Security/SystemKeychainSecretStore.swift",
+      "baselineSHA256": "718e5826a0b513d04fe718dc45a831374a6a5e36d2114f3dafc69a107d2ed821",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/RideIntercom.entitlements",
+      "baselineSHA256": "cbb61cf87e9c1faf62ca4c56f8a2a67cd39ea982fcf8fc28417ecd21a21c571c",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/AppTab.swift",
+      "baselineSHA256": "d51b92df9afa439d5983ed007631c2fad66ebdeb0bbaedea22cf30c78bd09a1d",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/AppTheme.swift",
+      "baselineSHA256": "dea8cb39cae661f20edc6350a412f5ac21dba0876aee0091480467e9960c205d",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Call/CallEntryView.swift",
+      "baselineSHA256": "958bf807e6c808f865abb9efd341b5ee8e0e937694089a10a0a41af47321135a",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Call/CallView.swift",
+      "baselineSHA256": "e43c8fe319402a6f254aa1ac67bd1365f27a78ced384e1b5db2494f97253de7b",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Call/GroupSelectionView.swift",
+      "baselineSHA256": "8d5ff045152ab157aa319ac69f5da4cbd413393fe343f43eef120605663ea24b",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Call/ParticipantViews.swift",
+      "baselineSHA256": "1e7271e00de35a0ab4039e618cd6ea02a57cd7417f03c621c4966e2779ae149e",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Components/AudioControls.swift",
+      "baselineSHA256": "710296fde438d54b27aefeced9e66aba5aa24a5efb738cb7beb72f6fea210aec",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Components/VoiceMeterView.swift",
+      "baselineSHA256": "3857852277c561b8d1ae9d40f6febd57a3a9b88a71ffece3385a5e1c63c48d65",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/ContentView.swift",
+      "baselineSHA256": "ab337b5594e13c58e2aee44895d90022771eb2c719011349706dba73d562feeb",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/UI/Diagnostics/DiagnosticsOverviewGrid.swift",
+      "baselineSHA256": "8e4e08fd39246acc1709023fbc984cb839a2c485fd2c8ddb38268ddc3ef2661b",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Diagnostics/DiagnosticsView.swift",
+      "baselineSHA256": "ebf40f6a8eef10180860a95f54a2e9d14e1b63cc38836c4a00ef244397377197",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Diagnostics/LiveReceivePipelineView.swift",
+      "baselineSHA256": "daa06088acf63a8ec16c4fca76f871a25e2053b98545370387e9592c6d1da3c5",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Diagnostics/LiveTransmitPipelineView.swift",
+      "baselineSHA256": "d3f16fb7374936736cbdb53e29da56d77112092b8fab5e7398f48bf3bbffe19d",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Settings/SettingsView.swift",
+      "baselineSHA256": "1c1a683aa409c3f93de1e8c5679e220b4444a0d1baf4265d59161469d6e2dbce",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/UI/Support/ViewActions.swift",
+      "baselineSHA256": "2be84b0a1f1ad85983e4d901e1cfbf1a73830c43db1fabbaf4ffa1b51d04e863",
+      "status": "App責務と境界のレビュー",
+      "evidence": "UI/設定/永続化/package lifecycleとデータ流を点検。macOS App、iOS App/UI、生成PCM双方向試験で検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioCore/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioCore/Package.swift",
+      "baselineSHA256": "79ba826382490a34575e8c8692d727c173bb2c1b4b5ffde20222f529d474e839",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioCore/Sources/AudioCore/AudioCore.swift",
+      "baselineSHA256": "e5859a000cdc31317d551202488e10dc3ebde04abbdd2e4d7001ac42cb8d8b7e",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioCore/Tests/AudioCoreTests/AudioCoreTests.swift",
+      "baselineSHA256": "d3a5905ad0d5ffede8930e7fa76309b1df983651704e61ecaf6a3d1189ee22fb",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioMixer/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioMixer/Package.swift",
+      "baselineSHA256": "2bed328bdb4c2b8e9368c7f34b13af84bc5a72a8d0ebeaac26bee5bae6d52569",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioMixer/Sources/AudioMixer/AudioMixer.swift",
+      "baselineSHA256": "215aa334c378048c21c0ada0ab11e1977b95ccb9e5bf861fb18da32bac949f2b",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "baselineSHA256": "9328021b851116d635eee8f568b19a89ad51fef33829233bbd7cc12fe88b523d",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMContinuityTests.swift",
+      "baselineSHA256": "f3ea6d0bab49d3e278b5c50611b22710f903e5670194c063579ad41ba5b24018",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Codec/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Codec/Package.swift",
+      "baselineSHA256": "40848e7abc90d554b582df5c778b2d15e2676fc6ff39f0fe0e3b75812bceb03c",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Codec/Sources/Codec/Codec.swift",
+      "baselineSHA256": "57ad5b1e290692daf9a1bc654ddf4af532414984b862c17ef157b4d661eb6d46",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Codec/Tests/CodecTests/CodecTests.swift",
+      "baselineSHA256": "06ee98ae0c52863dec01a74c1b6a173f9a9089933da67c55c1dc50b2e3a434b3",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/DynamicsProcessor/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/DynamicsProcessor/Package.swift",
+      "baselineSHA256": "8f106f5b6e74337b79a36fe1a7bde55b49b8c5eea66dda5715af86071eba8c17",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/DynamicsProcessor/Sources/DynamicsProcessor/DynamicsProcessor.swift",
+      "baselineSHA256": "efaadcc4c8abffa4d89756d23070f7f2bd21ff451097c75fddd4ef05707fc4c0",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/DynamicsProcessor/Tests/DynamicsProcessorTests/DynamicsProcessorTests.swift",
+      "baselineSHA256": "373db6fea76707f20711442b243f730afed1e2ec52c30bd1aab97f2d0160122f",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/PeakLimiter/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/PeakLimiter/Package.swift",
+      "baselineSHA256": "e200fdfebd64c54b325901bf1f864b1ec4c274217d8d73267debe0418750d848",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/PeakLimiter/Sources/PeakLimiter/PeakLimiter.swift",
+      "baselineSHA256": "2de2afa8b881c5f76c1de24076acb64df16bdb60cc983f69947f8be2565bccdb",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/PeakLimiter/Tests/PeakLimiterTests/PeakLimiterTests.swift",
+      "baselineSHA256": "5c9f5096ea7c49c4121a74593dc6e4de06ed715fc0fb95a91d198daeba9c6104",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/SoundIsolation/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/SoundIsolation/Package.swift",
+      "baselineSHA256": "72d4af29eb6f4e2389a40df51468a25acf84d336b203d95927a6c953204f12d2",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/SoundIsolation/Sources/SoundIsolation/SoundIsolation.swift",
+      "baselineSHA256": "cb241a91abfb9c8ca917596ec1ba67be925d73f5d72e3c0a6dc42e185b44196d",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/SoundIsolation/Tests/SoundIsolationTests/SoundIsolationTests.swift",
+      "baselineSHA256": "db1e155f5fabe388a2df1470daaf7c7308c0a202db13060f9053b9ccaf842232",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/VADGate/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/VADGate/Package.swift",
+      "baselineSHA256": "07fc9d933b94592fbe517878574c5b9db04c7f3206437224388bae9bd75147e5",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/VADGate/Sources/VADGate/VADGate.swift",
+      "baselineSHA256": "d4bd826799f8c9928ed768d9d0a16f7db08bb7ef064369c30447aed9c4545743",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/Effectors/VADGate/Tests/VADGateTests/VADGateTests.swift",
+      "baselineSHA256": "b05d63f2294ab9f7c30e75827d57f07d7bed436b37b1f7d539483c85a39b82b9",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/SessionManager/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/SessionManager/Package.swift",
+      "baselineSHA256": "7568936f2f2ea3f0da2dbe048cd485526ad98e276a370753c6e36d0ef2c80aaf",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/Audio/SessionManager/Sources/SessionManager/AudioStreams.swift",
+      "baselineSHA256": "e8e84eee4347c2d65786a9c80e1b9f2c813d1b559240857ac143fb5e849d8833",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/SessionManager/Sources/SessionManager/SessionManager.swift",
+      "baselineSHA256": "10b303694efe949d40fcb11d074dbd179b8dc3f49f2a2918bd69fa75513946fb",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "baselineSHA256": "6fd3260b10728b0adc5f5200fb10c53c03c2a7a3c5f1246664709d13d6a3a70f",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "baselineSHA256": "d45bd780aad318554a48eefa4ecb29c8deac41c281985ecfdf69940d8d0e1f14",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/.gitignore",
+      "baselineSHA256": "835a922c21f2f2c481698793aec2bbcb1f9723889b93f1928be851af9ec2e6f7",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.metadata",
+      "baselineSHA256": "347cbe4bde09e2af21b05905696e3818a81285d8bc6fb5f4fbb36f6f324b6ad3",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.zip",
+      "baselineSHA256": "9ebae36da7629d2c9aa971e1a29c76debedc0b1e0d21ab3e943ce5ca6139a752",
+      "status": "バイナリ整合確認",
+      "evidence": "zip SHA-256/metadata一致、platform/architecture/header検査、native loopback。内部実装のソース監査は対象外",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Package.swift",
+      "baselineSHA256": "1c1efb28e10d46ddebcbf3033a1dbcc0bd52680e47a54275b55b8047d8fbf270",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/ApplicationData.swift",
+      "baselineSHA256": "2623ee40789aba5f2286c6a21a7440c5323391df363d44618fcc2d89faf20f67",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/AudioContracts.swift",
+      "baselineSHA256": "e4fb79f2ecd87ae18e3c663dfadbd0c32e61ca97b2323665c035ad46f98b4b0a",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/CallSession.swift",
+      "baselineSHA256": "b5003f5143692bbd84e042df60529cf2e3772419906d1a494b20e6f2937c8702",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/Events.swift",
+      "baselineSHA256": "96daa0bebf62f16f873f0da8fae1e1fc68bd5a6245c4ada2e49e4cce90c30511",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/Identifiers.swift",
+      "baselineSHA256": "b6f23b9fda5bb124b978a0ac2920bf4a70c66105e8fd0bde027255944a4fd4b3",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/NetworkDiagnostics.swift",
+      "baselineSHA256": "5afc8e3b96e041fa978163504b3dd14b780507bd190a4aa04b87baabeef061bb",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/RouteConfiguration.swift",
+      "baselineSHA256": "f36de512b88a8566a93eaa21ff9e9f661b4333a7df35db2f09ebd523a71b0162",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Core/RuntimeStatus.swift",
+      "baselineSHA256": "5fa88f4c1b12ddc8ce77ee44366f8d35d7e5b38e2f598f13827e51aab27b72e7",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Multipeer/MultipeerLocalRoute.swift",
+      "baselineSHA256": "99b4e2f2a2af01c64cf0801181a8bab5f3005a56e400da262d092f6e34b49dca",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/PacketAudio/PacketAudio.swift",
+      "baselineSHA256": "90f75c579eeebd127f0a5b741be4c69787c251a56e754364073c3c012e0833cf",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Routing/CallSessionFactory.swift",
+      "baselineSHA256": "6327b45a0e938125b486b8f3f591a60154721bccecb03b5b8121c0821dec4f3b",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Routing/GroupRelay.swift",
+      "baselineSHA256": "b5c2b6ccbd52e8bd0825bc1b6b380cd3930ac26c166c2b9548952813684addd1",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Routing/RouteContracts.swift",
+      "baselineSHA256": "71428368f1b0dfd51b62bbed10c140692c3882458711126f8b22d6d615af02c4",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Routing/RouteManager.swift",
+      "baselineSHA256": "51db022b27d271656998e926b71d9cd03cda4a48b52a79ce3c71ba696a955f77",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/Support/EventSource.swift",
+      "baselineSHA256": "676da15cc90d2197f3afafc16a9c77a6d0fc2b5297b3bc7d03a99175e7436bdf",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/WebRTC/CloudflareRealtime.swift",
+      "baselineSHA256": "cf15ac10e1081045832cb60015c784036010dac5054e89701936fbd583f27e08",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/WebRTC/CloudflareSFUClient.swift",
+      "baselineSHA256": "e5d22880d9b13d780ab633bf0f4a81680574cff704ad0927dc419bbc3d796780",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTC/WebRTC/WebRTCInternetRoute.swift",
+      "baselineSHA256": "756925defa54f92adb5edab7f558e451a96186524ae14d6271dce3a41031cb96",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Sources/RTCNativeWebRTC/WebRTCNativeEngine.swift",
+      "baselineSHA256": "562280a58977c2bc8db1ebf2488c251eb23d8b6275017b5c665cbca394b90dd2",
+      "status": "package責務と境界のレビュー",
+      "evidence": "音声形式/不正入力/資源所有/並行callback/RTC暗号化・中継・時刻・復旧を点検。9 package通常試験とThread Sanitizerで検証",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCNativeWebRTCTests/NativeNegotiationTests.swift",
+      "baselineSHA256": "b47384e9ee0539dc533c1cd24f50a0b3b88ddd679c3a317f0296908530c90b11",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/CloudflareClientTests.swift",
+      "baselineSHA256": "65a3b954067bae5fa90536b4cb408547a42c58be529cadc6fdcc83b5cb02cb01",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/EventSourceTests.swift",
+      "baselineSHA256": "a872a927b9af523b794a8c45de8baf45e1daf4f652eddc14dec424d9d165c204",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/GroupContinuityTests.swift",
+      "baselineSHA256": "5f68c569b4182dc571f2a71eb7b1c3e2b452022887fa57c16023148d55fe5569",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/MultipeerLifecycleTests.swift",
+      "baselineSHA256": "44d1ad2aad8249a25daa90e8d6dcea46127564711f5a0dd11f71615db3e3dda7",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/NetworkDiagnosticsTests.swift",
+      "baselineSHA256": "48b29cc94bab8c5b76db8bf5546e89582d373d3f766370556e6d311b3cd591af",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/RTCTests.swift",
+      "baselineSHA256": "ac8b8766ff15e143027497b6beaafc636b0ac089c9c5cce3234b2a115bd3ac1c",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/RelayContractTests.swift",
+      "baselineSHA256": "1425738920fe57d25cfb5aee9fb6e5d95ebd926bc2f089033dfa0d05e41b5b82",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/RelayTests.swift",
+      "baselineSHA256": "c67dc28d127acb6accbdefb81ec5e689f7c0f566d264e10e8f2c4de9efdc5b18",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercom/packages/RTC/Tests/RTCTests/WorkerPairTests.swift",
+      "baselineSHA256": "21ea4acbbc63b9b5e3fcfe01908c088ee8cfba24d8263ebd70079455a06ec6d3",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercomTests/GeneratedDuplexAudioTests.swift",
+      "baselineSHA256": "50d9ccbe28eca60fdc65659d36e334872f88bf7a4d6a2876d0236ef2a11111f1",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercomTests/GroupPersistenceTests.swift",
+      "baselineSHA256": null,
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercomTests/InMemoryStores.swift",
+      "baselineSHA256": "fd2620f9f246248ee6f1c4879d6253d956d3e65a8afbdc73316bf6e7d04d669d",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercomTests/IntercomSeedData.swift",
+      "baselineSHA256": "3997e8e9bb294c97922b45250e3839f51afe6519d2e6cb8e23529fc33e82c8f9",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercomTests/LoggingPrivacyTests.swift",
+      "baselineSHA256": "2dd6c0b66f0e1830cf421af3e577a5ddd94245a98b525f3d1b7d3c6c4e6445d6",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercomTests/RideIntercomTests.swift",
+      "baselineSHA256": "93b7c55e842ecaaf079e79752088c1ddc027b67ef2bd0480084db7891db49a8d",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "RideIntercomUITests/RideIntercomUITests.swift",
+      "baselineSHA256": "7e7185a7ab0c0b2e22f702f9c3d9c1406006013a9f356f4288a60002a0f2f22f",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "RideIntercomUITests/RideIntercomUITestsLaunchTests.swift",
+      "baselineSHA256": "e613fafc9054f83ea3d2b6fdc139491b8b5c28734cd60b9ace66cc6fc061735c",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/README.md",
+      "baselineSHA256": "19e9680cb633869f858599020bcc95660980b4379ad13908d6d3c8ec06e4cf2e",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/backlog/README.md",
+      "baselineSHA256": "74083feb32662ec02aa9bc040e3686a56f48d56392a02942ef69df3af9db4889",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/backlog/改善候補.md",
+      "baselineSHA256": "dc25cebf050c209f8a3b690434745fba34017202979430425814bd4f26703378",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/backlog/未実装課題.md",
+      "baselineSHA256": "f73c5ecd51bd68631c91bd83bccf562d5fe1ed38844fefa5fefe6a3767d92694",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/design/アイコン定義.md",
+      "baselineSHA256": "0579d55d429b80720b74da207a4dd77e6aacab85a0654389176fd7e02f3b3537",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/design/デザインシステム.md",
+      "baselineSHA256": "61780eeac8470d72d27cbf957fbab6476f41f91558a563f3c8a73c7206dfe959",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/development/BuildWebRTC/WebRTCビルドスクリプト.md",
+      "baselineSHA256": "6698fcf7d64f200e0721fb19df7196fb64cb8f66f363ba9606a6136433de21bc",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/development/Cloudflare試用手順.md",
+      "baselineSHA256": "3edaadca769c2c1dcdcf897bfb5407caeee6eb11e702e17311bbfcfeca1ed488",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/development/Cloudflare費用試算.md",
+      "baselineSHA256": "7553dfabfa7323460ad19c7ead52e2f4d5429b836b60bfde227536c3851c3a8e",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/development/history/旧HE-AAC-v2追加計画.md",
+      "baselineSHA256": "74b03854da12959541c89e06e7147f3527b27ddc2ae9470062a4f30b035fd3d2",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/development/history/旧アーキテクチャ再編計画.md",
+      "baselineSHA256": "fac6a5624464a391e3113d710f415b39ccefa738bda2cebf2be612f46b2aba33",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/development/history/旧音声入出力と画面改修計画.md",
+      "baselineSHA256": "f746800ac88a8a0fc6dec7c3f9d9e792122504ba04e6d99a03065a06caea6a0f",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/development/自動検証.md",
+      "baselineSHA256": "c36f23c2581167f2ca00c70e35316394d1c2fef4b799204e78d3fa2a95b7fa08",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/development/開発環境.md",
+      "baselineSHA256": "7f85667ff0f44e2f368fdc376fe24e2aa4c666678e06479f974788f31e124d87",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/manual/使い方.md",
+      "baselineSHA256": "058b4482dbf862de4c4c951093bea8593e27110b92dfa0cbc92ca94d510e1155",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/manual/困ったとき.md",
+      "baselineSHA256": "e356f2e58990aa678f2f7462eceeae804027466b7766010dc336a7187bdf509d",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/manual/状態の見方.md",
+      "baselineSHA256": "cbe0f3ba12fd05f66348b54ea7bebdbd195ecb670c57862946af0a3d5845cfc9",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/manual/設定と音声効果.md",
+      "baselineSHA256": "6255bb46ab612787b7ef79bba789afda2474c9217285ec7622902c80ad69267a",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/policies/ログ記録規約.md",
+      "baselineSHA256": "e8f519722af3af97dd99ed021499082db8698226788d5c770b37f56fbf8bd177",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/policies/文書作成規約.md",
+      "baselineSHA256": "a6ea30acf4c0c56fa3e15e07c81b9d06d6df57c6399f246f2d477c5216530b11",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/policies/開発方針.md",
+      "baselineSHA256": "fc2ce0316e8ca5a2e9e97e260710c29c6ff7420aa6d3729e19f8932e9ff410c9",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/requirements/README.md",
+      "baselineSHA256": "d2a79cceb5c0e9ff0cc7f0993dc228d6081c31e33886c040f484ad8c3f6abb90",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/requirements/パッケージ要求.md",
+      "baselineSHA256": "f7d18cbf103b1b36c8095b0da355a3714ba5a2cbf027232e7097d1bbaa0686e8",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/requirements/製品要求.md",
+      "baselineSHA256": "9255208028d7533a675da21502cf1d1689df9cc6f99b4d4362beb182736415d8",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/Audio/AudioMixer.md",
+      "baselineSHA256": "6aae98b56db1dac2c4080d02636c1bd785973f7cf823f1fad4eba7651dbbeb81",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/Audio/Codec.md",
+      "baselineSHA256": "81027dd135c01ef8cba93c7bcffa85d74fe963dd252cc5035b85cf50d8c3c8c2",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/Audio/Effectors/DynamicsProcessor.md",
+      "baselineSHA256": "64e3eaa50e94801a954e50966c7107040545044dc99d88003d6ca82981ce384a",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/Audio/Effectors/PeakLimiter.md",
+      "baselineSHA256": "8da4f7b1b6e05fb12170a2b2a554b8757295acd403d4bea0d7bd3aeececefdd7",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/Audio/Effectors/SoundIsolation.md",
+      "baselineSHA256": "9ead37f6ee65adcaa67c8c0c6b75ab6d9a92e52ef4a5abfbb27d924bb04f583d",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/Audio/Effectors/VADGate.md",
+      "baselineSHA256": "904424d885cdbb55472b9bae27c57eef7edf824fe07b8c72a954ecd63a0e2a42",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/Audio/SessionManager.md",
+      "baselineSHA256": "b36b00e2b46cd189546da02bd707c6539459ebb881f3117505bd7ca75764876f",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/Bindings/RTC.md",
+      "baselineSHA256": "ac5235c60ac232e196bfb8c00cf8e18eaa0899bb1af2bac3b5ffa780622980fd",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/Configuration/設定値一覧.md",
+      "baselineSHA256": "6b83ca7ae18fc3b26b9ca5a9dbf1b5abeb5e18715d0eef742efd5eb7d3bb0b8b",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/Call.md",
+      "baselineSHA256": "666c27aeac516bcb8fa3f86f537dc6fa1d6d89ba9e7907b1ce0404a26be78481",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/Diagnostics.md",
+      "baselineSHA256": "c5473678a31061be3af677ec1a1b577b4a938eab0be9ac4d55d8824606628a4d",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/Settings.md",
+      "baselineSHA256": "2be6e0ec82fae56fd951483c6eb2841ce4111ff79ec3ef0450d203ce839a1b00",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/アイコン適用.md",
+      "baselineSHA256": "b4d853c76690779599b5c2a5e1a9a3de3e6876643044ca856ae41ebf4ed9e334",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/全体構成.md",
+      "baselineSHA256": "e7ce99967757d22a5057335a2c72539e74705f328ed6f8b398245c1b22e81b80",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/共通画面遷移.md",
+      "baselineSHA256": "533e6c83f59676cd1552f1c8501e0e4eb06b7ad4f6ba6f383de7caa18b4ececc",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/共通項目.md",
+      "baselineSHA256": "bc3d8ab07cbd36044a45b6275c28f029336fb16ddb842912a12902e0c14fdbbd",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/画面・状態遷移.md",
+      "baselineSHA256": "768df3c86075881ae511d9b53151267ac3df08ee4fe69062007540329f0024a3",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/UI/画面項目定義.md",
+      "baselineSHA256": "a163ed73551efed43511744b26722e2adb6aa27ae878af0234c18adc4b51f099",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/ログ仕様.md",
+      "baselineSHA256": "fab9ce6847b3626041905caae4668994b8ad77ba18fc28e04f30692234cf9f41",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/App/通信仕様.md",
+      "baselineSHA256": "1dc6849e7d9612e62510dcaee42d0cfe81b850aef2c3f0cc9807cc1afe35a81a",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/App/音声処理仕様.md",
+      "baselineSHA256": "6e1949d5b8a68f696d2de9daa03b5ace4db8ed70eb1330f73a22f59bab1e5f45",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/AudioCore.md",
+      "baselineSHA256": "08f0c053e3c721ba4a7fe1501008456ab90a89301973cdbbec26a54cf8f9c929",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/AudioMixer.md",
+      "baselineSHA256": "ee24de7082d4311fc54cc7936a3dcf369de4e093978761f2a0f27a405a44cfe0",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/Codec.md",
+      "baselineSHA256": "237ed5b22a7bd4c8f682b9be97718326f55a5f48927f2b5d78a1e05ff01af92b",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/Effectors/DynamicsProcessor.md",
+      "baselineSHA256": "f698fd8cec47b8998ad124a55688909291281fce8589b021baac8b7ca84fa0f1",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/Effectors/PeakLimiter.md",
+      "baselineSHA256": "cffbd38e8be1e184e9fc556209c3e2000a22af6a69c2ff0b7d2a76884d8c864b",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/Effectors/SoundIsolation.md",
+      "baselineSHA256": "fb20e015868ca4ab3b6a45538bdb5ed0eaabc7137d254308f81b53b58fa70354",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/Effectors/VADGate.md",
+      "baselineSHA256": "4900874b6de436ec1be5154c1850cb13612f764f32cb015228dca0f624a0613a",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Audio/SessionManager.md",
+      "baselineSHA256": "092d705c5daf05d6f0eee93ca68009b7e39fed7f039856d1082a68b68a6d3093",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/packages/Overview.md",
+      "baselineSHA256": "7ff2674afd1cb8cac93e974c5c84bf89dbeeb935566789cc8b538040f7aaf710",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/spec/packages/RTC.md",
+      "baselineSHA256": "c5587d7b5488c682a37e462bd36fc408f1f8e342a0a8efde78c69da9d6c45642",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/server/Worker.md",
+      "baselineSHA256": "2e756ae06b0c7b278fdbeaf8351fa8e2f0bf4b990c9ffc58a4af92d922cd6c16",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/spec/アーキテクチャ.md",
+      "baselineSHA256": "c72550e5f8397b76e8aeaa18b5e3ca4a10df4bc9652171a03ea3616db86ddae6",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/validation/README.md",
+      "baselineSHA256": "6c14ba302dfb7298e9d27aa7f355c22588e6c87f7868f9d184c62d2768293fd2",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/validation/history/Cloudflare検証.md",
+      "baselineSHA256": "177f59c25754ff6facfb1dc0a6d060af2a3a0be2ce7dcc62d726fddd78b339d6",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/不要コード整理と回帰検証.md",
+      "baselineSHA256": "f35dfc602be66a4ab15fb9fa7882a5541320c7e1bdc6e2f74280271ef57ac522",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/全体敵対的レビュー.md",
+      "baselineSHA256": null,
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/validation/history/全体監査ファイル台帳.json",
+      "baselineSHA256": null,
+      "status": "監査台帳",
+      "evidence": "基準版全tracked filesと追加ファイルの分類。記録自体は検証成功の代替ではない",
+      "changedFromBaseline": null
+    },
+    {
+      "path": "docs/validation/history/初期構想と対応経緯.md",
+      "baselineSHA256": "238691078fea322c4ddd5b48e7eb807089b1e3b3dcefb5f2d5b6a04afd7da4b4",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/品質点検.md",
+      "baselineSHA256": "f7016b927e70b2d212828edccd034d29e66ebb1c3f5ea34196049021c9a0d1f1",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/復旧検証記録.md",
+      "baselineSHA256": "785cb4c30b395ba8a03c971efdbef5282f776699373ccdbf3d28417a2a9fe98c",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/文書役割分離記録.md",
+      "baselineSHA256": "d43aae93ef424f1a4cbb20d726617fe3a85c49cc6cfa9c24bb94cd8a134883e6",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/混在通話検証.md",
+      "baselineSHA256": "d1cf06ab074805c118cd0197876b03a1d482afe7a1e877869b7f4c90d35638b0",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/要求構造整理記録.md",
+      "baselineSHA256": "f7df288f0f9694f7126db94c4fe27544af59d9e8e943deef2c8a6ce851785f5d",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/通信診断とTURN資格検証.md",
+      "baselineSHA256": "118820315fee744083bcfffe98594b639350047edf131751f8c7c6c63dae48b8",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/history/音声エフェクト接続検証.md",
+      "baselineSHA256": "50b1ffb04c690c0ee3db317afc760236132a6920e6428430fc0a054ddd1b2999",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/文書整理記録.md",
+      "baselineSHA256": "0214ecd311ed377ce7f0516538a238c9bb458619ffd73a3d2f87d976a364ceb6",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "docs/validation/未確認事項.md",
+      "baselineSHA256": "b0cb32e502d55f4ec5fee60329c3aac68fe416621b556f624181e08d54efc5ec",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "docs/validation/自動検証範囲.md",
+      "baselineSHA256": "20c8aa8b2bea7648c43526a12aceaa4d0328375e433e9d8f54cfb395d11f2f9c",
+      "status": "文書点検",
+      "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "scripts/BuildWebRTC/build-current-webrtc-xcframework.sh",
+      "baselineSHA256": "85fb9b7406db3c8f38822af7833444ea825985102ec10acf029d7f9e0fa53e35",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/BuildWebRTC/build-webrtc-xcframework.sh",
+      "baselineSHA256": "73f191df64686c9f881875d5f0f6fc3ea019f01961830e4404f821ac88cfef38",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/BuildWebRTC/clean-webrtc-build-resources.sh",
+      "baselineSHA256": "ae40f3d1b6dfeee1c038d608f3d657518fee2ba68ca3aa65c5d61e7f9650c9f1",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "scripts/BuildWebRTC/doctor-webrtc-binary.sh",
+      "baselineSHA256": "2f680a129c4e715fbd86034bfbf6af4f9b2ab93560760a6430e9d89c7bfeec2d",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/BuildWebRTC/import-webrtc-xcframework.sh",
+      "baselineSHA256": "da28374f60a4a529876162bc9f1e6e2ddcd8412971a1477227e9a393036e3296",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/BuildWebRTC/resolve-webrtc-branch.sh",
+      "baselineSHA256": "b26ceda8aa74ec778931304359ee841f2176453cb8b259112ce90561e370c818",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/BuildWebRTC/update-webrtc-binary.sh",
+      "baselineSHA256": "fac2a906d88a118a1fce097132dea34bd09566b95974160f3be4c21ce2a4bc29",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/BuildWebRTC/verify-webrtc-xcframework.sh",
+      "baselineSHA256": "7886bcec792ef78ebe404a0c4f6dd0fc192b04981be7a8871d636edb7417acc3",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/Cloudflare/check-service.mjs",
+      "baselineSHA256": "fc4af866165a1415c9ae770adb99e2749cf9e427e198a54218cbaf62f32fbda8",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/Cloudflare/estimate-cost.mjs",
+      "baselineSHA256": "a79cf8b0042ce02dfe47ab794dbac946482456a15b2a9e711ab747321a08a2f3",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/Cloudflare/estimate-cost.test.mjs",
+      "baselineSHA256": "9a209af40d1eec86b4357d2b2982240d3c21440367325c921b24a08771c5e39a",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/Cloudflare/issue-device.mjs",
+      "baselineSHA256": "412ec28da4e849218013932beb450a654b9735c9feb0f0c0478e683a6c387622",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/Cloudflare/issue-device.test.mjs",
+      "baselineSHA256": "9e57c60b3ee156a6b2f8d9d3b76694553f432e2601305918274983e7348f0ba2",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/build_and_run.sh",
+      "baselineSHA256": "efefffce1ff367303f4058c09907d43ff29af17ae556f8474ead22d59a1226ed",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "scripts/check_development_setup.py",
+      "baselineSHA256": "72759c14465de45cf715c594a516aff008eb0c0b898c4f9dd4ddc6cbf57cd8e7",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/check_documentation.py",
+      "baselineSHA256": "12e3e38c3e8fe79dec2408efce48bb4a0759a31539b20298b7781935d34f9252",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/tests/test_development_setup.py",
+      "baselineSHA256": "7b24467c0a4ac4cd1b667ed0ece50e3c9a1c81076d3e11d8b8ccdb8b80b148a6",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/tests/test_documentation.py",
+      "baselineSHA256": "dd92548f262f9923f0d2e88e43f6ba6bf86d65402c26ce9c54fe7e9f5ef403c6",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "scripts/tests/test_validation.py",
+      "baselineSHA256": null,
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "scripts/tests/test_webrtc_scripts.py",
+      "baselineSHA256": "404653b4896559f15192119389db5312bca2b5ceee09188eb4c1ea184310a0c9",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "scripts/validate.py",
+      "baselineSHA256": null,
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "scripts/validate.sh",
+      "baselineSHA256": "afa680e2d16d42f33b75a6140469c362e5fd70803192da36b5b756f7b98f3ee7",
+      "status": "開発scriptのレビュー",
+      "evidence": "入力・path・子process所有・失敗伝播・更新保護を点検。script回帰とlocal gateで検証。実vendor全再build/資格発行は未実施",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "server/.dev.vars.example",
+      "baselineSHA256": "cdf68c4252ca28f3acb13199c9511605acb4ceb3b86498eaf79159fc2f62cb38",
+      "status": "構成ファイル点検",
+      "evidence": "用途・参照・追跡範囲と開発設定を点検。生成物/secretを新規追跡しない",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/package-lock.json",
+      "baselineSHA256": "8756f4999a2b2c949d02904193b79c8579d7fededc73063b8e4d71ad3308c1d2",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/package.json",
+      "baselineSHA256": "0bef5c6169df08d0e8a98b0938fb16cc034d40a3d114db36bcb799b3b516a636",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/src/SignalingRoom.ts",
+      "baselineSHA256": "3477bec5cd0c0955153c7a2c1a21f4d1489a5aa0c8adfc39be08be459e72bb8d",
+      "status": "Worker境界のレビュー",
+      "evidence": "認証/所有/型・サイズ・時間/資源cleanupを点検。typecheck、workerd実行、Swift HTTP/WS pair。実Cloudflareは未確認",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "server/src/TurnCredentials.ts",
+      "baselineSHA256": "5e1696b6b909fc8ec6243b9a366763f5a1da781ab503a8a6c7b7bca2e9687823",
+      "status": "Worker境界のレビュー",
+      "evidence": "認証/所有/型・サイズ・時間/資源cleanupを点検。typecheck、workerd実行、Swift HTTP/WS pair。実Cloudflareは未確認",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/src/UsageGuard.ts",
+      "baselineSHA256": "929f89222f5f44b648da3d9fe1336a8961c4db2300df7617c67f4a2970f00097",
+      "status": "Worker境界のレビュー",
+      "evidence": "認証/所有/型・サイズ・時間/資源cleanupを点検。typecheck、workerd実行、Swift HTTP/WS pair。実Cloudflareは未確認",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/src/index.ts",
+      "baselineSHA256": "29b5404a83e77e77001c4668bf2dcae578f46f8ff200db182237ae6dd4d4784b",
+      "status": "Worker境界のレビュー",
+      "evidence": "認証/所有/型・サイズ・時間/資源cleanupを点検。typecheck、workerd実行、Swift HTTP/WS pair。実Cloudflareは未確認",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/src/types.ts",
+      "baselineSHA256": "8385ed194322b072f7ddcab203cbe7dc7bbe4e7d6f87ab7bce46ec2041cc1278",
+      "status": "Worker境界のレビュー",
+      "evidence": "認証/所有/型・サイズ・時間/資源cleanupを点検。typecheck、workerd実行、Swift HTTP/WS pair。実Cloudflareは未確認",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "server/test/pair-runner.mjs",
+      "baselineSHA256": "432c645da6d07fbbc8568e2b73e96b537320bc831ee00a284fedf63c5f14b27e",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "server/test/relay.test.mjs",
+      "baselineSHA256": "fbe043ba4b871dad1fc00243d04bffb10f6b04e6ab36a6e7c3d78c5fab4ea3e6",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/test/support/runtime.mjs",
+      "baselineSHA256": "e78a1ebca98b9d756567fd208aa73945bddcf93b0d4f743f6b4be1d3286375a3",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/test/turn.test.mjs",
+      "baselineSHA256": "f03011d97f9d3614811d866205e20dbe228096ff502a4ef45747a085888d0c1c",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/test/worker.test.mjs",
+      "baselineSHA256": "6cb68b1b1a40e5dd8bc2b4d6b92ba7b98ce418f12b74a0432aa473dec63ea54a",
+      "status": "テスト契約点検",
+      "evidence": "fixture/検証対象と実装境界を照合しlocal gateで実行。OS/ネットワークの代替範囲をレビュー記録へ明記",
+      "changedFromBaseline": true
+    },
+    {
+      "path": "server/tsconfig.json",
+      "baselineSHA256": "d712db89a6e4f35c1c461c2eabc1667a9a4779a7aef55450ba6edf84111d1899",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    },
+    {
+      "path": "server/wrangler.toml",
+      "baselineSHA256": "10320f614e9be55ded9a8de9e14af2c4cd2f289dc9999728455940e70d6a17ec",
+      "status": "構造と設定の点検",
+      "evidence": "依存固定・target/OS・権限・sourceと生成物分離・秘密情報混入を点検。開発設定検査/build/npm auditで補完",
+      "changedFromBaseline": false
+    }
+  ],
+  "reviewDate": "2026-10-21",
+  "scope": "全ファイル棚卸しと領域別レビュー。statusは調査方法であり、各行の形式的証明や未実行の実機受け入れを意味しない。実行結果は全体敵対的レビュー.mdと各runのinputs/resultsを参照。"
+}

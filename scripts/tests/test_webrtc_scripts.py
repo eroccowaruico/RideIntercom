@@ -12,6 +12,54 @@ ARTIFACT = ROOT / 'RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcfra
 
 
 class WebRTCScriptTests(unittest.TestCase):
+    def test_cleanup_rejects_non_checkout_without_removing_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sentinel = root / 'important.txt'
+            sentinel.write_text('preserve')
+            result = subprocess.run([str(SCRIPTS / 'clean-webrtc-build-resources.sh')],
+                                    env=dict(os.environ, WEBRTC_BUILD_ROOT=str(root),
+                                             CLEAN_MODE='source', DRY_RUN='false'), capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(sentinel.read_text(), 'preserve')
+
+    def test_cleanup_only_removes_verified_checkout_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'webrtc-build'
+            (root / 'src/out').mkdir(parents=True)
+            (root / 'src/.git').mkdir()
+            (root / '.gclient').write_text('fixture')
+            (root / 'src/BUILD.gn').write_text('fixture')
+            (root / 'src/out/generated').write_text('remove')
+            result = subprocess.run([str(SCRIPTS / 'clean-webrtc-build-resources.sh')],
+                                    env=dict(os.environ, WEBRTC_BUILD_ROOT=str(root),
+                                             CLEAN_MODE='build-output', DRY_RUN='false'), capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((root / 'src/out').exists())
+            self.assertTrue((root / 'src/BUILD.gn').exists())
+
+    def test_cleanup_rejects_symlink_escape_and_misspelled_dry_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'webrtc-build'
+            (root / 'src/.git').mkdir(parents=True)
+            (root / '.gclient').write_text('fixture')
+            (root / 'src/BUILD.gn').write_text('fixture')
+            other = Path(directory) / 'important'
+            other.mkdir()
+            sentinel = other / 'keep'
+            sentinel.touch()
+            (root / 'src/out').symlink_to(other, target_is_directory=True)
+            for mode, dry in [('build-output', 'false'), ('source', 'flase')]:
+                if mode == 'source':
+                    (root / 'src/out').unlink()
+                    (root / 'src/out').mkdir()
+                result = subprocess.run([str(SCRIPTS / 'clean-webrtc-build-resources.sh')],
+                                        env=dict(os.environ, WEBRTC_BUILD_ROOT=str(root),
+                                                 CLEAN_MODE=mode, DRY_RUN=dry), capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(sentinel.exists())
+                self.assertTrue((root / 'src/BUILD.gn').exists())
+
     def test_empty_xcframework_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run([str(SCRIPTS / 'verify-webrtc-xcframework.sh'), directory], capture_output=True)

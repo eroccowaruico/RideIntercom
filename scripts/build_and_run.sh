@@ -3,9 +3,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-DERIVED="${DERIVED_DATA_PATH:-$ROOT/.validation/RunDerivedData}"
+DERIVED="${DERIVED_DATA_PATH:-${TMPDIR:-/tmp}/RideIntercom-RunDerivedData}"
 mkdir -p "$DERIVED"
 DERIVED="$(cd "$DERIVED" && pwd)"
+case "$DERIVED/" in "$ROOT/"*) echo 'DERIVED_DATA_PATH must be outside the synchronized repository' >&2; exit 2;; esac
 APP="$DERIVED/Build/Products/Debug/RideIntercom.app"
 BINARY="$APP/Contents/MacOS/RideIntercom"
 MODE="${1:---verify}"

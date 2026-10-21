@@ -312,3 +312,9 @@ worktreeが通常checkoutと異なる場所にある場合は `DEPOT_TOOLS_DIR` 
 | checksum | binary隣接の `WebRTC.xcframework.metadata` を正本とする |
 
 ビルドで生じたvendor警告をゼロとは記録しない。生成済みの同じbranchの全sliceを `ASSEMBLE_ONLY=true` で取り込む場合も、更新スクリプトによる隔離検証を省略しない。
+
+## 掃除対象の検証
+
+`clean-webrtc-build-resources.sh`はDRY_RUNの値を`true`/`false`だけに限定する。checkoutの`.gclient`、`src/.git`、`src/BUILD.gn`、またはRTCのPackage.swiftを確認し、root/home/repository/その祖先や、symlinkで外へ出る生成先を拒否する。dry runも同じ確認を行う。source checkoutを既に削除済みの場合は確認に失敗するため、そのrunのcleanupを繰り返して成功扱いにしない。
+
+回帰試験は任意directoryのsentinel保持、symlinkによる逸脱拒否、DRY_RUNの綴り誤り拒否、検証済みcheckoutのoutだけ削除を確認する。利用者の既存checkoutはテストで削除しない。
