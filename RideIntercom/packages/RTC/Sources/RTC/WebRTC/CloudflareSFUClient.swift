@@ -31,8 +31,10 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
     public func disconnect() async {
         generation = UUID(); socketTask?.cancel(); renewalTask?.cancel()
         socketTask = nil; renewalTask = nil; socket?.cancel(with: .normalClosure, reason: nil); socket = nil
-        if let sessionID, let request { _ = try? await http(request, path: "sessions/\(sessionID)", method: "DELETE") }
+        let oldID = sessionID, oldRequest = request
         sessionID = nil; request = nil; peers = []; subscribed = []; awaitingAnswer = false
+        // Clear owned state before suspending. An old DELETE must never clear a new call.
+        if let oldID, let oldRequest { _ = try? await http(oldRequest, path: "sessions/\(oldID)", method: "DELETE") }
     }
     public func sendOffer(_ offer: WebRTCSessionDescription, to peerID: PeerID) async {
         guard peerID == Self.sfuID, let request, sessionID == nil else { return }
@@ -78,7 +80,13 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             let data = try JSONSerialization.data(withJSONObject: ["type": "appData", "namespace": message.namespace, "payload": message.payload.base64EncodedString()])
             guard data.count <= 32768 else { return }
             try await socket.send(.string(String(decoding: data, as: UTF8.self)))
-        } catch { await fail(error, generation: generation) }
+        } catch {
+            guard self.generation == generation, self.socket === socket else { return }
+            // Control snapshots are refreshed periodically; an unavailable socket
+            // must not tear down healthy media. The receive loop reconnects it.
+            self.socket = nil
+            socket.cancel(with: .goingAway, reason: nil)
+        }
     }
     private func startSocket(_ request: WebRTCSignalingConnectRequest, id: String, generation: UUID) {
         socketTask = Task { [weak self] in
@@ -100,7 +108,10 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         url.scheme = url.scheme == "https" ? "wss" : "ws"
         var upgrade = URLRequest(url: url.url!); upgrade.setValue("Bearer \(request.cloudflare.accessToken)", forHTTPHeaderField: "Authorization")
         let socket = session.webSocketTask(with: upgrade); self.socket = socket; socket.resume()
-        defer { socket.cancel(with: .normalClosure, reason: nil) }
+        defer {
+            socket.cancel(with: .normalClosure, reason: nil)
+            if self.socket === socket { self.socket = nil }
+        }
         while !Task.isCancelled {
             let message = try await socket.receive()
             guard self.generation == generation else { return }
@@ -111,7 +122,8 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
                 peers = remote.filter { $0.id != request.call.localPeer.id.rawValue }.map { .init(id: .init(rawValue: $0.id), displayName: $0.displayName) }
                 subscribed.formIntersection(Set(peers.map(\.id)))
                 source.yield(.members(peers))
-                try await subscribe(request, id: id, generation: generation)
+                do { try await subscribe(request, id: id, generation: generation) }
+                catch { await fail(error, generation: generation); return }
             } else if event.type == "appData", let sender = event.from, peers.contains(where: { $0.id.rawValue == sender }),
                       let namespace = event.namespace, let encoded = event.payload, let payload = Data(base64Encoded: encoded) {
                 source.yield(.receivedApplicationData(.init(peerID: .init(rawValue: sender), message: .init(namespace: namespace, payload: payload))))
@@ -127,22 +139,38 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         guard self.generation == generation else { return }
         let result = try JSONDecoder().decode(Pull.self, from: response)
         subscribed.formUnion(fresh.map(\.id))
-        if let description = result.sessionDescription, result.requiresImmediateRenegotiation == true, description.type == "offer" {
+        if result.requiresImmediateRenegotiation == true {
+            guard let description = result.sessionDescription, description.type == "offer" else { throw Failure.invalidResponse }
             source.yield(.offer(.init(kind: .offer, sdp: description.sdp), from: Self.sfuID))
         } else { awaitingAnswer = false }
     }
     private func renew(_ request: WebRTCSignalingConnectRequest, lease: Lease, generation: UUID) async -> Lease? {
-        guard self.generation == generation else { return nil }
-        do {
-            let data = try await http(request, path: "sessions/\(lease.sessionId)/renew", body: [:])
-            guard self.generation == generation else { return nil }
-            return try JSONDecoder().decode(Lease.self, from: data)
-        } catch { await fail(error, generation: generation); return nil }
+        var delay = 1.0
+        while self.generation == generation, !Task.isCancelled {
+            do {
+                let data = try await http(request, path: "sessions/\(lease.sessionId)/renew", body: [:])
+                guard self.generation == generation else { return nil }
+                let next = try JSONDecoder().decode(Lease.self, from: data)
+                guard next.sessionId == lease.sessionId else { throw Failure.invalidResponse }
+                return next
+            } catch {
+                guard self.generation == generation, !Task.isCancelled else { return nil }
+                let remaining = lease.expiresAt / 1000 - Date().timeIntervalSince1970
+                let retryable: Bool
+                if case Failure.http(let code) = error { retryable = (500..<600).contains(code) }
+                else { retryable = error is URLError }
+                guard retryable, remaining > delay else { await fail(error, generation: generation); return nil }
+                try? await Task.sleep(for: .seconds(delay))
+                delay = min(10, delay * 2)
+            }
+        }
+        return nil
     }
     private func fail(_ error: Error, generation: UUID) async {
         guard self.generation == generation else { return }
         let message = (error as? Failure)?.description ?? "Cloudflare connection failed"
-        await disconnect(); source.yield(.failed(message))
+        source.yield(.failed(message))
+        await disconnect()
     }
     private func endpoint(_ request: WebRTCSignalingConnectRequest, path: String) -> URL {
         request.cloudflare.workerURL.appendingPathComponent("api/rooms/\(request.call.credential!.groupHash)/\(path)")

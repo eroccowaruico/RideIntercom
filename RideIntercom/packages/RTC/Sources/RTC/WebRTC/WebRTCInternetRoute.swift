@@ -11,7 +11,7 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
         supportsUnreliableApplicationData: true,
         requiresSignaling: true,
         supportedAudioCodecs: [.routeManaged],
-        backendName: "Cloudflare Realtime SFU/TURN"
+        backendName: "Cloudflare Realtime SFU"
     )
     public let mediaOwnership: AudioMediaOwnership = .routeManagedMediaStream
     public var events: AsyncStream<RouteEvent> { eventSource.stream }

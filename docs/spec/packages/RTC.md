@@ -691,7 +691,7 @@ RTC statusは通信状態だけを確定情報として持つ。Mixer volume、C
 | drop policy | unsupported codec、duplicate、expired、decrypt failureをdropする |
 | DSP absence | RTC targetがAudio packageとDSP型に依存しない |
 | Multipeer route | advertise/browse、groupHash filter、HMAC handshake、AES-GCM packet audioを確認する |
-| WebRTC route | signaling injection、SDP/ICE relay、route-managed media、DataChannel fallbackを確認する |
+| WebRTC route | Worker HTTP契約、SFU SDP交換、route-managed media、lease更新・拒否・一時失敗を確認する |
 | route-managed media | WebRTCがapp-managed packet audioを使わない |
 | runtime status | route状態、audio policy、package reportを送信できる |
 | App migration | 旧RTC audio APIなしで、AudioCore/Codec/AudioMixer/RTCをcompositionできる |
@@ -723,3 +723,15 @@ RTC statusは通信状態だけを確定情報として持つ。Mixer volume、C
 | 実機 | discovery、招待からの接続、音響品質、画面ロック、音声デバイス切替は未確認 |
 
 上記の長時間packet検証はopaque payloadの運搬・時間管理の検証であり、実時間10分の音声品質確認ではない。
+
+## SFU 継続処理の追加契約
+
+| 場面 | 動作 |
+|---|---|
+| lease更新の5xx / URLSession通信失敗 | 現在の有効期限内で1→2→4→最大10秒の待ちを挟んで再試行。同じSFU sessionを維持 |
+| 401 / 403 / 429等の拒否 | 即座に失敗を通知し切断。利用枠の拒否を再試行で回避しない |
+| 遅延DELETE | 旧状態を先に解放してからHTTPを待つ。新接続の状態を後から消さない |
+| WS送信失敗 | そのsocketを終了しreceive loopが再接続。媒体はleaseまで維持。障害中のApp dataは保存配送せず、状態snapshotは次回periodic等で更新 |
+| SFU購読失敗 | pending answerのまま無期限待ちにせず、失敗通知と媒体終了。曖昧なtracks/new結果を盲目的に再実行しない |
+
+実TURN資格の配布・更新はまだ接続していない。backend labelもSFUとし、TURN検証済みと表示しない。
