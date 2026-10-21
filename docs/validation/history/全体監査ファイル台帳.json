@@ -1154,7 +1154,7 @@
       "baselineSHA256": "e356f2e58990aa678f2f7462eceeae804027466b7766010dc336a7187bdf509d",
       "status": "文書点検",
       "evidence": "要求/規約/仕様/手順/課題/履歴の役割、READMEからの到達性と参照検査。変更対象は実装契約と照合。過去原文は保持し現行成功へ読み替えない",
-      "changedFromBaseline": false
+      "changedFromBaseline": true
     },
     {
       "path": "docs/manual/状態の見方.md",
@@ -1816,5 +1816,15 @@
     }
   ],
   "reviewDate": "2026-10-21",
-  "scope": "全ファイル棚卸しと領域別レビュー。statusは調査方法であり、各行の形式的証明や未実行の実機受け入れを意味しない。実行結果は全体敵対的レビュー.mdと各runのinputs/resultsを参照。"
+  "scope": "全ファイル棚卸しと領域別レビュー。statusは調査方法であり、各行の形式的証明や未実行の実機受け入れを意味しない。実行結果は全体敵対的レビュー.mdと各runのinputs/resultsを参照。",
+  "validation": {
+    "commit": "64dce214551364227dcc7b96e6a14d476b12ba96",
+    "command": "scripts/validate.sh all --clean",
+    "run": ".validation/20261021-final-clean-v2",
+    "stages": 34,
+    "result": "passed",
+    "inputFiles": 259,
+    "inputsSHA256": "1bfbf6aa616ecd13a1f7dc3bffb95c09b53a04849efc8a10716aa1ac5fde0d2c",
+    "note": "実行後はレビュー記録と台帳だけを確定。実装・テスト・設定の変更なし。詳細log/xcresultはignore対象のローカル証跡。"
+  }
 }
