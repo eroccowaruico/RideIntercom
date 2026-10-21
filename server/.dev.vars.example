@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local tests with your own SFU app only.
+# Never commit real credentials. SERVICE_ENABLED remains false until explicitly enabled.
+CLOUDFLARE_SFU_APP_ID=""
+CLOUDFLARE_SFU_APP_SECRET=""
+CLIENT_TOKENS_JSON="{}"

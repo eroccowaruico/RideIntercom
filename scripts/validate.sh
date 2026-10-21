@@ -48,6 +48,7 @@ if [ "$MODE" = all ] || [ "$MODE" = worker ]; then
 fi
 if [ "$MODE" = all ] || [ "$MODE" = scripts ]; then
   run webrtc-scripts python3 -m unittest discover -s scripts/tests
+  run cloudflare-scripts node --test scripts/Cloudflare/estimate-cost.test.mjs scripts/Cloudflare/issue-device.test.mjs
 fi
 if [ "$MODE" = all ] || [ "$MODE" = macos ]; then
   run macos-tests xcodebuild test -project RideIntercom.xcodeproj -scheme RideIntercom -destination 'platform=macOS,arch=arm64' -only-testing:RideIntercomTests -derivedDataPath "$OUT/DerivedData-macOS" -resultBundlePath "$OUT/macos-tests.xcresult"

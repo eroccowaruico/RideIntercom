@@ -22,3 +22,6 @@ server/.env.*
 # Reproducible validation output
 .validation/
 __pycache__/
+
+# Individually issued trial credentials (never application source)
+server/.trial-credentials/

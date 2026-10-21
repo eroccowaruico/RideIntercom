@@ -2,10 +2,21 @@ name = "ride-intercom-server"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
+[vars]
+SERVICE_ENABLED = "false"
+MAX_ROOM_PARTICIPANTS = "8"
+MAX_ACTIVE_SESSIONS = "32"
+MONTHLY_PARTICIPANT_SECONDS = "1000000"
+LEASE_SECONDS = "600"
+
 [[durable_objects.bindings]]
 name = "SIGNALING_ROOM"
 class_name = "SignalingRoom"
+[[durable_objects.bindings]]
+name = "USAGE_GUARD"
+class_name = "UsageGuard"
 
+# Fresh, never-deployed development namespace: SQLite is available on Workers Free.
 [[migrations]]
 tag = "v1"
-new_classes = ["SignalingRoom"]
+new_sqlite_classes = ["SignalingRoom", "UsageGuard"]

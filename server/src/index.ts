@@ -1,96 +1,29 @@
 import { SignalingRoom } from './SignalingRoom'
-import type { Env, SessionResponse, IceServer } from './types'
-
-export { SignalingRoom }
+import { UsageGuard } from './UsageGuard'
+import { Env, json } from './types'
+export { SignalingRoom, UsageGuard }
 
 export default {
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url)
-
-        if (url.pathname === '/api/sessions' && request.method === 'POST') {
-            return handleCreateSession(request, env)
+        if (url.pathname === '/health' && request.method === 'GET') return json({ service: 'RideIntercom SFU', protocol: 1 })
+        // Every billable operation is behind a per-device credential. No shared application secret in clients.
+        const authorization = request.headers.get('Authorization') ?? ''
+        if (!authorization.startsWith('Bearer ') || authorization.length > 512) return json({ error: 'Unauthorized' }, 401)
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(authorization.slice(7)))
+        const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('')
+        let owner: string | undefined
+        try { owner = JSON.parse(env.CLIENT_TOKENS_JSON || '{}')[hash] } catch { /* fail closed */ }
+        if (typeof owner !== 'string' || !owner) return json({ error: 'Unauthorized' }, 401)
+        if (env.SERVICE_ENABLED !== 'true') return json({ error: 'Service paused' }, 503)
+        if (!env.CLOUDFLARE_SFU_APP_ID || !env.CLOUDFLARE_SFU_APP_SECRET) return json({ error: 'SFU is not configured' }, 503)
+        const headers = new Headers(request.headers)
+        headers.delete('Authorization'); headers.set('X-Owner', owner)
+        if (url.pathname === '/api/status' && request.method === 'GET') {
+            return env.USAGE_GUARD.get(env.USAGE_GUARD.idFromName('global')).fetch(new Request('https://internal/status'))
         }
-
-        const signalingMatch = url.pathname.match(/^\/api\/rooms\/([^/]+)\/signal$/)
-        if (signalingMatch && request.headers.get('Upgrade') === 'websocket') {
-            return handleSignaling(request, env, signalingMatch[1])
-        }
-
-        return new Response('Not Found', { status: 404 })
+        const match = url.pathname.match(/^\/api\/rooms\/([a-f0-9]{64})\/(join|sessions\/[^/]+(?:\/(?:pull|answer|renew|signal))?)$/)
+        if (!match) return json({ error: 'Invalid route or room capability' }, 400)
+        return env.SIGNALING_ROOM.get(env.SIGNALING_ROOM.idFromName(match[1])).fetch(new Request(request, { headers }))
     }
-}
-
-async function handleCreateSession(request: Request, env: Env): Promise<Response> {
-    let body: unknown
-    try {
-        body = await request.json()
-    } catch {
-        return json({ error: 'Invalid JSON' }, 400)
-    }
-
-    if (typeof body !== 'object' || body === null || !('roomId' in body) || !('participantId' in body)
-        || typeof body.roomId !== 'string' || !body.roomId.trim()
-        || typeof body.participantId !== 'string' || !body.participantId.trim()) {
-        return json({ error: 'roomId and participantId are required' }, 400)
-    }
-
-    const { roomId } = body
-
-    // Cloudflare Calls: create session
-    const callsRes = await fetch(
-        `https://rtc.live.cloudflare.com/v1/apps/${env.CLOUDFLARE_SFU_APP_ID}/sessions/new`,
-        {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${env.CLOUDFLARE_SFU_APP_SECRET}` }
-        }
-    )
-    if (!callsRes.ok) {
-        const text = await callsRes.text()
-        console.error('Cloudflare Calls error:', callsRes.status, text)
-        return json({ error: 'Failed to create Cloudflare Calls session' }, 502)
-    }
-    const { sessionId } = await callsRes.json() as { sessionId: string }
-
-    // Cloudflare TURN: generate credentials (24h TTL)
-    let iceServers: IceServer[] = []
-    const turnRes = await fetch(
-        `https://rtc.live.cloudflare.com/v1/turn/keys/${env.CLOUDFLARE_TURN_KEY_ID}/credentials/generate`,
-        {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${env.CLOUDFLARE_TURN_API_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ttl: 86400 })
-        }
-    )
-    if (turnRes.ok) {
-        const turnData = await turnRes.json() as { iceServers: IceServer[] }
-        iceServers = turnData.iceServers ?? []
-    } else {
-        console.warn('TURN credentials unavailable:', turnRes.status)
-    }
-
-    const { host } = new URL(request.url)
-    const response: SessionResponse = {
-        sessionId,
-        participantToken: sessionId,
-        sfuEndpoint: `https://rtc.live.cloudflare.com/v1/apps/${env.CLOUDFLARE_SFU_APP_ID}`,
-        iceServers,
-        signalingUrl: `wss://${host}/api/rooms/${roomId}/signal`
-    }
-    return json(response)
-}
-
-async function handleSignaling(request: Request, env: Env, roomId: string): Promise<Response> {
-    const id = env.SIGNALING_ROOM.idFromName(roomId)
-    const stub = env.SIGNALING_ROOM.get(id)
-    return stub.fetch(request)
-}
-
-function json(body: unknown, status = 200): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { 'Content-Type': 'application/json' }
-    })
 }
