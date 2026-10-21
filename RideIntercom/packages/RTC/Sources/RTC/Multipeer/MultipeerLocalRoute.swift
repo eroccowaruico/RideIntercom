@@ -247,7 +247,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     init(request: CallStartRequest, displayName: String) {
         self.request = request
         self.credential = request.credential
-        self.localPeerID = MCPeerID(displayName: displayName)
+        self.localPeerID = MCPeerID(displayName: request.localPeer.id.rawValue)
         self.session = MCSession(peer: localPeerID, securityIdentity: nil, encryptionPreference: .required)
         super.init()
         session.delegate = self

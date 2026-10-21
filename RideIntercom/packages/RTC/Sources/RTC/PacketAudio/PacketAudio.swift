@@ -127,6 +127,7 @@ struct PacketAudioReceiveBuffer: Sendable {
 
     mutating func enqueue(_ filtered: FilteredPacketAudioPacket, receivedAt: TimeInterval) {
         receivedPacketCount += 1
+        if queuedPackets.count >= 256 { queuedPackets.removeFirst(); droppedPacketCount += 1 }
         queuedPackets.append(QueuedPacket(filtered: filtered, receivedAt: receivedAt))
     }
 

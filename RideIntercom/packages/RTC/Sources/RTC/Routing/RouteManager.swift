@@ -1,433 +1,285 @@
 import Foundation
 
+/// Keeps usable links alive. Automatic routing adds a second path; it never
+/// disconnects one group of members merely because another path became ready.
 public actor RouteManager: CallSession {
     nonisolated public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
-
     private let eventSource = EventSource<CallSessionEvent>()
-    private var routes: [RouteKind: RTCCallRoute]
-    private var routeTasks: [Task<Void, Never>] = []
+    private let routes: [RouteKind: RTCCallRoute]
     private var configuration: CallRouteConfiguration
+    private let runtimeStatusPolicy: RTCRuntimeStatusPolicy
     private var generation = UUID()
     private var request: CallStartRequest?
-    private var activeRoute: RouteKind?
-    private var mediaRoute: RouteKind?
-    private var availableRoutes: Set<RouteKind> = []
-    private var isMediaStarted = false
-    private var connectionState: CallConnectionState = .idle
+    private var routeTasks: [Task<Void, Never>] = []
+    private var timer: Task<Void, Never>?
+    private var fallbackTask: Task<Void, Never>?
     private var routeStates: [RouteKind: RouteConnectionState] = [:]
     private var routeAvailabilities: [RouteKind: RouteAvailability] = [:]
+    private var routeMembers: [RouteKind: Set<PeerID>] = [:]
+    private var started: Set<RouteKind> = []
+    private var retries: [RouteKind: (deadline: TimeInterval, delay: TimeInterval)] = [:]
+    private var activeRoute: RouteKind?
+    private var mediaRoute: RouteKind? { activeRoute }
+    private var availableRoutes: Set<RouteKind> = []
+    private var connectionState: CallConnectionState = .idle
+    private var isMediaStarted = false
     private var localMute = false
     private var outputMute = false
+    private var relay: GroupRelay?
+    private var receiveBuffer = PacketAudioReceiveBuffer()
+    private var memberSnapshot: [CallMemberState] = []
+    private var memberRoutes: [PeerID: RouteKind] = [:]
+    private var lastPresence: TimeInterval = 0
+    private var lastRuntimeStatus: TimeInterval = 0
     private var runtimePackageReports: [RTCRuntimePackageReport] = []
-    private var fallbackTask: Task<Void, Never>?
-    private var restoreTask: Task<Void, Never>?
-    private var runtimeStatusTask: Task<Void, Never>?
-    private let runtimeStatusPolicy: RTCRuntimeStatusPolicy
 
-    public init(
-        routes: [RTCCallRoute],
-        configuration: CallRouteConfiguration = CallRouteConfiguration(),
-        runtimeStatusPolicy: RTCRuntimeStatusPolicy = RTCRuntimeStatusPolicy()
-    ) {
-        let normalizedConfiguration = configuration.normalized()
-        self.configuration = normalizedConfiguration
+    public init(routes: [RTCCallRoute], configuration: CallRouteConfiguration = .init(),
+                runtimeStatusPolicy: RTCRuntimeStatusPolicy = .init()) {
+        self.routes = Dictionary(uniqueKeysWithValues: routes.map { ($0.kind, $0) })
+        self.configuration = configuration.normalized()
         self.runtimeStatusPolicy = runtimeStatusPolicy
-        self.routes = Dictionary(
-            uniqueKeysWithValues: routes
-                .filter { normalizedConfiguration.enabledRoutes.contains($0.kind) }
-                .map { ($0.kind, $0) }
-        )
-        self.routeStates = Dictionary(uniqueKeysWithValues: self.routes.keys.map { ($0, .idle) })
     }
-
-    public init(
-        routeFactories: [AnyRouteFactory],
-        configuration: CallRouteConfiguration = CallRouteConfiguration(),
-        runtimeStatusPolicy: RTCRuntimeStatusPolicy = RTCRuntimeStatusPolicy()
-    ) {
-        let normalizedConfiguration = configuration.normalized()
-        self.init(
-            routes: routeFactories
-                .filter { normalizedConfiguration.enabledRoutes.contains($0.kind) }
-                .map { $0.make() },
-            configuration: normalizedConfiguration,
-            runtimeStatusPolicy: runtimeStatusPolicy
-        )
+    public init(routeFactories: [AnyRouteFactory], configuration: CallRouteConfiguration = .init(),
+                runtimeStatusPolicy: RTCRuntimeStatusPolicy = .init()) {
+        self.init(routes: routeFactories.map { $0.make() }, configuration: configuration, runtimeStatusPolicy: runtimeStatusPolicy)
     }
-
-    deinit {
-        routeTasks.forEach { $0.cancel() }
-        fallbackTask?.cancel()
-        restoreTask?.cancel()
-        runtimeStatusTask?.cancel()
-    }
+    deinit { routeTasks.forEach { $0.cancel() }; timer?.cancel(); fallbackTask?.cancel() }
 
     public func prepare(_ request: CallStartRequest) async {
         if self.request != nil { await stopConnection() }
         generation = UUID()
-        let generation = generation
-        let normalizedRequest = CallStartRequest(
-            sessionID: request.sessionID,
-            localPeer: request.localPeer,
-            expectedPeers: request.expectedPeers,
-            credential: request.credential,
-            configuration: request.configuration.normalized(),
-            audioPolicy: request.audioPolicy
-        )
-
-        self.request = normalizedRequest
-        self.configuration = normalizedRequest.configuration
-        self.routes = routes.filter { configuration.enabledRoutes.contains($0.key) }
-        self.routeStates = Dictionary(uniqueKeysWithValues: self.routes.keys.map { ($0, .idle) })
-        self.routeAvailabilities.removeAll()
-        self.availableRoutes.removeAll()
-        bindRouteEvents()
+        let token = generation
+        self.request = request
+        configuration = request.configuration.normalized()
+        relay = GroupRelay(request: request)
+        receiveBuffer.reset(); memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
+        routeStates = [:]; routeAvailabilities = [:]; started = []; retries = [:]
+        availableRoutes = []; activeRoute = nil; isMediaStarted = false
         emitState(.preparing)
-
-        guard !routes.isEmpty else {
-            emit(.error(.noEnabledRoute))
-            emitState(.failed)
-            return
-        }
-
-        for route in routes.values {
-            await route.prepare(normalizedRequest)
-            guard self.generation == generation else { return }
-        }
-
-        emitRouteSnapshot()
-    }
-
-    public func startConnection() async {
-        let generation = generation
-        guard let request else {
-            emit(.error(.connectionFailed(configuration.preferredRoute, "prepare must be called before startConnection")))
-            return
-        }
-
-        emitState(.connecting)
-
-        if configuration.keepsPreferredRouteInStandby {
-            for standbyKind in configuration.enabledRoutes where standbyKind != configuration.preferredRoute {
-                await routes[standbyKind]?.startConnection()
-                guard self.generation == generation else { return }
-            }
-        }
-
-        guard let preferredRoute = routes[configuration.preferredRoute] else {
-            emit(.error(.routeUnavailable(configuration.preferredRoute)))
-            await activateFirstAvailableRoute(excluding: nil)
-            return
-        }
-
-        activeRoute = preferredRoute.kind
-        mediaRoute = preferredRoute.kind
-        emitRouteSnapshot()
-        await preferredRoute.startConnection()
-        guard self.generation == generation else { return }
-        scheduleFallbackIfNeeded(for: request)
-        await sendRuntimeStatus(reason: .connectionStarted)
-        startPeriodicRuntimeStatusBroadcast()
-    }
-
-    public func stopConnection() async {
-        generation = UUID()
-        let generation = generation
-        routeTasks.forEach { $0.cancel() }
-        routeTasks.removeAll()
-        cancelTimers()
-        await sendRuntimeStatus(reason: .connectionStopping)
-        guard self.generation == generation else { return }
-        request = nil
-        activeRoute = nil
-        mediaRoute = nil
-        availableRoutes.removeAll()
-        isMediaStarted = false
-        for route in routes.values {
-            await route.stopMedia()
-            guard self.generation == generation else { return }
-            await route.stopConnection()
-            guard self.generation == generation else { return }
-        }
-        emitRouteSnapshot()
-        emitState(.disconnected)
-    }
-
-    public func startMedia() async {
-        guard !isMediaStarted else { return }
-        isMediaStarted = true
-        if let route = activeRoute.flatMap({ routes[$0] }) {
-            mediaRoute = route.kind
-            await route.startMedia()
-            emitRouteSnapshot()
-            await sendRuntimeStatus(reason: .mediaStarted)
-        }
-    }
-
-    public func stopMedia() async {
-        guard isMediaStarted else { return }
-        isMediaStarted = false
-        if let route = mediaRoute.flatMap({ routes[$0] }) {
-            await route.stopMedia()
-        }
-        mediaRoute = activeRoute
-        emitRouteSnapshot()
-        await sendRuntimeStatus(reason: .mediaStopped)
-    }
-
-    public func sendAudioPacket(_ packet: RTCAudioPacket) async {
-        guard let route = mediaRoute.flatMap({ routes[$0] }), route.capabilities.supportsAppManagedPacketAudio else { return }
-        await route.sendAudioPacket(packet)
-    }
-
-    public func sendApplicationData(_ message: ApplicationDataMessage) async {
-        guard let route = activeRoute.flatMap({ routes[$0] }) else { return }
-        guard route.supports(message.delivery) else {
-            emit(.error(.unsupportedApplicationDataDelivery(route.kind, message.delivery)))
-            return
-        }
-        await route.sendApplicationData(message)
-    }
-
-    public func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport]) async {
-        runtimePackageReports = reports.sorted {
-            if $0.package != $1.package {
-                return $0.package < $1.package
-            }
-            return $0.kind < $1.kind
-        }
-        await sendRuntimeStatus(reason: .packageReportsChanged)
-    }
-
-    public func setLocalMute(_ muted: Bool) async {
-        localMute = muted
-        for route in routes.values {
-            await route.setLocalMute(muted)
-        }
-        await sendRuntimeStatus(reason: .localControlsChanged)
-    }
-
-    public func setOutputMute(_ muted: Bool) async {
-        outputMute = muted
-        for route in routes.values {
-            await route.setOutputMute(muted)
-        }
-        await sendRuntimeStatus(reason: .localControlsChanged)
-    }
-
-    private func bindRouteEvents() {
-        routeTasks.forEach { $0.cancel() }
-        let generation = generation
-        routeTasks = routes.values.map { route in
+        let enabled = configuration.enabledRoutes.compactMap { routes[$0] }
+        guard !enabled.isEmpty else { emit(.error(.noEnabledRoute)); emitState(.failed); return }
+        routeTasks = enabled.map { route in
             let events = route.events
             return Task { [weak self] in
                 for await event in events {
                     guard !Task.isCancelled else { return }
-                    await self?.handle(event, generation: generation)
+                    await self?.handle(event, generation: token)
                 }
             }
         }
-    }
-
-    private func handle(_ event: RouteEvent, generation: UUID) async {
-        guard self.generation == generation, request != nil else { return }
-        switch event {
-        case .stateChanged(let kind, let state):
-            await handleRouteState(kind: kind, state: state)
-        case .availabilityChanged(let availability):
-            routeAvailabilities[availability.route] = availability
-            if availability.isAvailable {
-                availableRoutes.insert(availability.route)
-            } else {
-                availableRoutes.remove(availability.route)
-            }
-            emit(.routeAvailabilityChanged([availability]))
-            emitRouteSnapshot()
-            await sendRuntimeStatus(reason: .routeChanged)
-        case .membersChanged(let kind, let members):
-            guard activeRoute == kind else { return }
-            emit(.membersChanged(members))
-            await sendRuntimeStatus(reason: .routeChanged)
-        case .receivedApplicationData(let kind, let data):
-            guard activeRoute == kind else { return }
-            emit(.receivedApplicationData(data))
-        case .receivedAudioPacket(let kind, let packet):
-            guard mediaRoute == kind, isMediaStarted else { return }
-            emit(.receivedAudioPacket(packet))
-        case .metricsChanged(let metrics):
-            emit(.metricsChanged(metrics))
-        case .error(_, let error):
-            emit(.error(error))
-            await sendRuntimeStatus(reason: .routeChanged)
-        }
-    }
-
-    private func handleRouteState(kind: RouteKind, state: RouteConnectionState) async {
-        routeStates[kind] = state
-        switch state {
-        case .connected, .authenticated, .mediaReady:
-            availableRoutes.insert(kind)
-            if activeRoute == kind {
-                fallbackTask?.cancel()
-                fallbackTask = nil
-                emitState(state == .mediaReady ? .mediaReady : .connected)
-            } else if shouldRestorePreferredRoute(from: kind) {
-                scheduleRestoreToPreferredRoute()
-            }
-        case .failed, .disconnected:
-            availableRoutes.remove(kind)
-            if activeRoute == kind {
-                await failover(from: kind)
-            }
-        default:
-            break
+        for route in enabled {
+            await route.prepare(request)
+            guard generation == token else { return }
         }
         emitRouteSnapshot()
-        await sendRuntimeStatus(reason: .routeChanged)
     }
-
-    private func shouldRestorePreferredRoute(from kind: RouteKind) -> Bool {
-        configuration.selectionMode == .automaticFallbackAndRestore
-            && kind == configuration.preferredRoute
-            && activeRoute != configuration.preferredRoute
-            && routes[kind] != nil
-    }
-
-    private func scheduleFallbackIfNeeded(for request: CallStartRequest) {
-        fallbackTask?.cancel()
-        guard configuration.selectionMode != .singleRoute,
-              configuration.enabledRoutes.count > 1,
-              activeRoute == configuration.preferredRoute else { return }
-
-        let generation = generation
-        fallbackTask = Task { [weak self] in
-            let delay = UInt64(max(0, request.configuration.fallbackDelay) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: delay)
-            guard !Task.isCancelled else { return }
-            await self?.activateFallbackRoute(generation: generation)
-        }
-    }
-
-    private func scheduleRestoreToPreferredRoute() {
-        restoreTask?.cancel()
-        let delay = UInt64(max(0, configuration.restoreProbeDuration) * 1_000_000_000)
-        let preferredRoute = configuration.preferredRoute
-        let generation = generation
-        restoreTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: delay)
-            guard !Task.isCancelled else { return }
-            await self?.handover(to: preferredRoute, expectedGeneration: generation)
-        }
-    }
-
-    private func activateFallbackRoute(generation: UUID) async {
-        guard self.generation == generation else { return }
-        guard activeRoute == configuration.preferredRoute else { return }
-        await activateFirstAvailableRoute(excluding: activeRoute)
-    }
-
-    private func activateFirstAvailableRoute(excluding excludedRoute: RouteKind?) async {
-        guard let nextRoute = routes.values.first(where: { $0.kind != excludedRoute }) else {
-            emitState(.failed)
-            emit(.error(.noEnabledRoute))
-            return
-        }
-        await handover(to: nextRoute.kind)
-    }
-
-    private func failover(from routeKind: RouteKind) async {
-        guard configuration.selectionMode != .singleRoute else {
-            emitState(.failed)
-            return
-        }
-        await activateFirstAvailableRoute(excluding: routeKind)
-    }
-
-    private func handover(to nextKind: RouteKind, expectedGeneration: UUID? = nil) async {
-        if let expectedGeneration, expectedGeneration != generation { return }
-        let generation = generation
+    public func startConnection() async {
         guard request != nil else { return }
-        guard let nextRoute = routes[nextKind], activeRoute != nextKind else { return }
-        let previousKind = activeRoute
-        let previousRoute = previousKind.flatMap { routes[$0] }
-
-        activeRoute = nextKind
-        emitRouteSnapshot(isHandoverInProgress: true)
-        await sendRuntimeStatus(reason: .routeChanged)
-        await nextRoute.startConnection()
-        guard self.generation == generation else { return }
-
-        if isMediaStarted {
-            await nextRoute.startMedia()
-            guard self.generation == generation else { return }
-            mediaRoute = nextKind
-            let delay = UInt64(max(0, configuration.handoverFadeDuration) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: delay)
-            guard self.generation == generation else { return }
-            await previousRoute?.stopMedia()
-        }
-
-        if previousKind != configuration.preferredRoute || !configuration.keepsFallbackRouteWarm {
-            await previousRoute?.stopConnection()
-        }
-
-        guard self.generation == generation else { return }
-        emitRouteSnapshot(isHandoverInProgress: false)
-        await sendRuntimeStatus(reason: .routeChanged)
-    }
-
-    private func cancelTimers() {
-        fallbackTask?.cancel()
-        restoreTask?.cancel()
-        runtimeStatusTask?.cancel()
-        fallbackTask = nil
-        restoreTask = nil
-        runtimeStatusTask = nil
-    }
-
-    private func emitRouteSnapshot(isHandoverInProgress: Bool = false) {
-        emit(.routeChanged(routeSnapshot(isHandoverInProgress: isHandoverInProgress)))
-    }
-
-    private func routeSnapshot(isHandoverInProgress: Bool = false) -> ActiveRouteSnapshot {
-        ActiveRouteSnapshot(
-            activeRoute: activeRoute,
-            mediaRoute: mediaRoute,
-            availableRoutes: availableRoutes,
-            isHandoverInProgress: isHandoverInProgress
-        )
-    }
-
-    private func startPeriodicRuntimeStatusBroadcast() {
-        runtimeStatusTask?.cancel()
-        guard runtimeStatusPolicy.isAutomaticBroadcastEnabled,
-              let interval = runtimeStatusPolicy.periodicInterval,
-              interval > 0 else { return }
-
-        runtimeStatusTask = Task { [weak self] in
-            let delay = UInt64(interval * 1_000_000_000)
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: delay)
+        let token = generation
+        emitState(.connecting)
+        await start(configuration.preferredRoute)
+        guard generation == token else { return }
+        if configuration.selectionMode != .singleRoute {
+            let delay = max(0, configuration.fallbackDelay)
+            fallbackTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(delay))
                 guard !Task.isCancelled else { return }
-                await self?.sendRuntimeStatus(reason: .periodic)
+                await self?.startRemaining(generation: token)
             }
         }
+        timer = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(20))
+                guard !Task.isCancelled else { return }
+                await self?.tick(generation: token)
+            }
+        }
+        await broadcast(.presence)
+        await sendRuntimeStatus(reason: .connectionStarted)
     }
-
+    private func start(_ kind: RouteKind) async {
+        guard configuration.enabledRoutes.contains(kind), let route = routes[kind], !started.contains(kind) else { return }
+        started.insert(kind); routeStates[kind] = .connecting
+        await route.startConnection()
+    }
+    private func startRemaining(generation token: UUID) async {
+        guard generation == token, request != nil else { return }
+        for kind in configuration.enabledRoutes.sorted(by: { $0.rawValue < $1.rawValue }) {
+            await start(kind)
+            guard generation == token else { return }
+        }
+    }
+    public func stopConnection() async {
+        await broadcast(.leave)
+        generation = UUID()
+        let token = generation
+        timer?.cancel(); timer = nil; fallbackTask?.cancel(); fallbackTask = nil
+        routeTasks.forEach { $0.cancel() }; routeTasks = []
+        request = nil; relay = nil; started = []; retries = [:]; availableRoutes = []
+        activeRoute = nil; isMediaStarted = false; receiveBuffer.reset()
+        memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
+        for route in routes.values {
+            await route.stopMedia(); await route.stopConnection()
+            guard generation == token else { return }
+        }
+        emit(.membersChanged([])); emitRouteSnapshot(); emitState(.disconnected)
+    }
+    public func startMedia() async {
+        guard request != nil else { return }
+        isMediaStarted = true
+        await sendRuntimeStatus(reason: .mediaStarted)
+        updateState()
+    }
+    public func stopMedia() async {
+        isMediaStarted = false; receiveBuffer.reset()
+        // Relay remains active while this device changes its microphone/output.
+        await sendRuntimeStatus(reason: .mediaStopped)
+        updateState()
+    }
+    public func sendAudioPacket(_ packet: RTCAudioPacket) async {
+        guard isMediaStarted, !localMute, packet.payload.count <= 8192 else { return }
+        await broadcast(.audio(packet))
+    }
+    public func sendApplicationData(_ message: ApplicationDataMessage) async {
+        guard message.namespace != GroupRelay.namespace, message.payload.count <= 12000 else { return }
+        await broadcast(.application(message))
+    }
+    public func setLocalMute(_ muted: Bool) async {
+        localMute = muted
+        await sendRuntimeStatus(reason: .localControlsChanged)
+    }
+    public func setOutputMute(_ muted: Bool) async {
+        outputMute = muted
+        await sendRuntimeStatus(reason: .localControlsChanged)
+    }
+    public func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport]) async {
+        runtimePackageReports = reports.sorted { ($0.package, $0.kind) < ($1.package, $1.kind) }
+        await sendRuntimeStatus(reason: .packageReportsChanged)
+    }
+    private func broadcast(_ body: RelayBody) async {
+        guard let data = try? relay?.make(body, now: Date.timeIntervalSinceReferenceDate), data.count <= 32768 else { return }
+        let skipInternet: Bool
+        if case .audio = body {
+            skipInternet = routeMembers[.webRTC, default: []].isSubset(of: routeMembers[.multipeer, default: []]) && !routeMembers[.multipeer, default: []].isEmpty
+        } else { skipInternet = false }
+        await forward(data, delivery: body.delivery, excluding: skipInternet ? .webRTC : nil)
+    }
+    private func forward(_ data: Data, delivery: ApplicationDataDelivery, excluding: RouteKind? = nil) async {
+        let token = generation
+        let message = ApplicationDataMessage(namespace: GroupRelay.namespace, payload: data, delivery: delivery)
+        for kind in started.sorted(by: { $0.rawValue < $1.rawValue }) where kind != excluding {
+            await routes[kind]?.sendApplicationData(message)
+            guard generation == token else { return }
+        }
+    }
+    private func handle(_ event: RouteEvent, generation token: UUID) async {
+        guard generation == token, request != nil else { return }
+        switch event {
+        case .stateChanged(let kind, let state):
+            routeStates[kind] = state
+            if kind == .webRTC { relay?.internetReady = state == .mediaReady }
+            if [.connected, .authenticated, .mediaReady].contains(state) {
+                availableRoutes.insert(kind); retries[kind] = nil
+                await broadcast(.presence)
+            } else if state == .failed || state == .disconnected {
+                availableRoutes.remove(kind); routeMembers[kind] = []
+                if started.contains(kind) {
+                    let delay = min(30, (retries[kind]?.delay ?? 1) * 2)
+                    retries[kind] = (Date.timeIntervalSinceReferenceDate + delay, delay)
+                }
+            }
+            updateState(); emitRouteSnapshot()
+        case .availabilityChanged(let availability):
+            routeAvailabilities[availability.route] = availability
+            emit(.routeAvailabilityChanged([availability]))
+        case .membersChanged(let kind, let members):
+            routeMembers[kind] = Set(members.filter(\.isConnected).map { $0.peer.id })
+            await broadcast(.presence)
+        case .receivedApplicationData(let kind, let data):
+            guard started.contains(kind), routeMembers[kind, default: []].contains(data.peerID),
+                  data.message.namespace == GroupRelay.namespace,
+                  let result = relay?.receive(data.message.payload, from: data.peerID, now: Date.timeIntervalSinceReferenceDate) else { return }
+            if result.didRestart {
+                receiveBuffer.removePeer(result.peer.id)
+                memberSnapshot.removeAll { $0.peer.id == result.peer.id }
+                emit(.membersChanged(memberSnapshot))
+            }
+            memberRoutes[result.peer.id] = kind
+            updateMembers()
+            switch result.body {
+            case .audio(let packet):
+                if isMediaStarted { receiveBuffer.enqueue(.init(received: .init(peerID: result.peer.id, packet: packet)), receivedAt: Date.timeIntervalSinceReferenceDate) }
+            case .application(let message): emit(.receivedApplicationData(.init(peerID: result.peer.id, message: message)))
+            case .presence, .leave: break
+            }
+            // SFU already fans out to every subscriber. Local links may be a chain.
+            if let bytes = result.forward {
+                var excluded: RouteKind? = kind == .webRTC ? .webRTC : nil
+                if case .audio = result.body, kind == .multipeer {
+                    // One ready gateway per directly connected Local neighborhood.
+                    // During topology convergence duplicate suppression still protects playback.
+                    var candidates = (relay?.internetGateways(now: Date.timeIntervalSinceReferenceDate) ?? []).intersection(routeMembers[.multipeer, default: []])
+                    if relay?.internetReady == true, let id = request?.localPeer.id { candidates.insert(id) }
+                    let elected = candidates.min { $0.rawValue < $1.rawValue }
+                    let originHasInternet = relay?.internetGateways(now: Date.timeIntervalSinceReferenceDate).contains(result.peer.id) == true
+                    if originHasInternet || elected != request?.localPeer.id { excluded = .webRTC }
+                }
+                await forward(bytes, delivery: result.body.delivery, excluding: excluded)
+            }
+        case .receivedAudioPacket: break // Audio uses the authenticated group envelope on every path.
+        case .metricsChanged(let metrics): emit(.metricsChanged(metrics))
+        case .error(_, let error): emit(.error(error))
+        }
+    }
+    private func tick(generation token: UUID) async {
+        guard generation == token, let request else { return }
+        let now = Date.timeIntervalSinceReferenceDate
+        for packet in receiveBuffer.drain(now: now).readyPackets { emit(.receivedAudioPacket(packet)) }
+        if now - lastPresence >= 2 {
+            lastPresence = now
+            await broadcast(.presence)
+            guard generation == token else { return }
+            updateMembers()
+        }
+        for (kind, retry) in retries where now >= retry.deadline {
+            retries[kind]?.deadline = now + retry.delay
+            started.remove(kind)
+            await routes[kind]?.prepare(request)
+            guard generation == token else { return }
+            await start(kind)
+            guard generation == token else { return }
+        }
+        if let interval = runtimeStatusPolicy.periodicInterval, now - lastRuntimeStatus >= interval {
+            lastRuntimeStatus = now
+            await sendRuntimeStatus(reason: .periodic)
+        }
+    }
+    private func updateMembers() {
+        let next = (relay?.members(now: Date.timeIntervalSinceReferenceDate) ?? []).map {
+            CallMemberState(peer: $0, route: memberRoutes[$0.id], isConnected: true)
+        }
+        guard next != memberSnapshot else { return }
+        let departed = Set(memberSnapshot.map { $0.peer.id }).subtracting(next.map { $0.peer.id })
+        for peer in departed { receiveBuffer.removePeer(peer); memberRoutes[peer] = nil }
+        memberSnapshot = next
+        emit(.membersChanged(next)); updateState()
+    }
+    private func updateState() {
+        let live = availableRoutes.intersection(started)
+        activeRoute = live.contains(configuration.preferredRoute) ? configuration.preferredRoute : live.sorted { $0.rawValue < $1.rawValue }.first
+        let state: CallConnectionState = !memberSnapshot.isEmpty ? (isMediaStarted ? .mediaReady : .connected) : (live.isEmpty && !retries.isEmpty ? .reconnecting : .connecting)
+        if connectionState != state { emitState(state) }
+    }
+    private func emitRouteSnapshot() { emit(.routeChanged(routeSnapshot())) }
+    private func routeSnapshot() -> ActiveRouteSnapshot {
+        ActiveRouteSnapshot(activeRoute: activeRoute, mediaRoute: mediaRoute, availableRoutes: availableRoutes,
+                            isHandoverInProgress: !retries.isEmpty && availableRoutes.isEmpty)
+    }
     private func sendRuntimeStatus(reason: RTCRuntimeStatusReason) async {
         guard runtimeStatusPolicy.isAutomaticBroadcastEnabled,
-              let route = activeRoute.flatMap({ routes[$0] }) else { return }
-
-        let delivery: ApplicationDataDelivery = route.supports(.unreliable) ? .unreliable : .reliable
-        guard route.supports(delivery),
-              let message = try? RTCRuntimeStatusTransport.makeMessage(
-                makeRuntimeStatus(reason: reason),
-                delivery: delivery
-              ) else { return }
-
-        await route.sendApplicationData(message)
+              let message = try? RTCRuntimeStatusTransport.makeMessage(makeRuntimeStatus(reason: reason), delivery: .unreliable) else { return }
+        await sendApplicationData(message)
     }
-
     private func makeRuntimeStatus(reason: RTCRuntimeStatusReason) -> RTCRuntimeStatus {
         let request = request ?? CallStartRequest(
             sessionID: "",
@@ -484,16 +336,5 @@ public actor RouteManager: CallSession {
 
     private func emit(_ event: CallSessionEvent) {
         eventSource.yield(event)
-    }
-}
-
-private extension RTCCallRoute {
-    func supports(_ delivery: ApplicationDataDelivery) -> Bool {
-        switch delivery {
-        case .reliable:
-            capabilities.supportsReliableApplicationData
-        case .unreliable:
-            capabilities.supportsUnreliableApplicationData
-        }
     }
 }

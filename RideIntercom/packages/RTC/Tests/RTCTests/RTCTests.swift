@@ -248,7 +248,7 @@ import Testing
 
     #expect(multipeer.prepareCount == 1)
     #expect(multipeer.startConnectionCount == 1)
-    #expect(multipeer.sentApplicationData.filter { $0.namespace == "test" }.count == 1)
+    #expect(relayMessages(multipeer.sentApplicationData).filter { $0.namespace == "test" }.count == 1)
     #expect(webRTC.prepareCount == 0)
     #expect(webRTC.startConnectionCount == 0)
     #expect(webRTC.sentApplicationData.isEmpty)
@@ -313,7 +313,7 @@ import Testing
     await manager.prepare(request)
     await manager.startConnection()
 
-    let messages = multipeer.sentApplicationData.filter { $0.namespace == RTCRuntimeStatusTransport.namespace }
+    let messages = relayMessages(multipeer.sentApplicationData).filter { $0.namespace == RTCRuntimeStatusTransport.namespace }
     let firstMessage = try #require(messages.first)
     let status = try #require(try RTCRuntimeStatusTransport.decode(firstMessage))
     #expect(status.reason == .connectionStarted)
@@ -341,7 +341,7 @@ import Testing
     await manager.startConnection()
     await manager.updateRuntimePackageReports([report])
 
-    let statuses = try multipeer.sentApplicationData
+    let statuses = try relayMessages(multipeer.sentApplicationData)
         .filter { $0.namespace == RTCRuntimeStatusTransport.namespace }
         .compactMap { try RTCRuntimeStatusTransport.decode($0) }
     let status = try #require(statuses.last)
@@ -370,7 +370,7 @@ import Testing
     #expect(webRTC.startConnectionCount >= 1)
 }
 
-@Test func routeManagerForwardsAudioPacketsOnlyToMediaRoute() async {
+@Test func routeManagerEncapsulatesAudioOnlyOnStartedRoutes() async {
     let multipeer = FakeRoute(kind: .multipeer, supportsPacketAudio: true)
     let webRTC = FakeRoute(kind: .webRTC, supportsPacketAudio: false)
 
@@ -382,7 +382,7 @@ import Testing
     await manager.startMedia()
     await manager.sendAudioPacket(makePacket(sequenceNumber: 1))
 
-    #expect(multipeer.sentAudioPackets.count == 1)
+    #expect(relayBodies(multipeer.sentApplicationData).contains { if case .audio = $0 { true } else { false } })
     #expect(webRTC.sentAudioPackets.isEmpty)
 }
 
@@ -596,7 +596,14 @@ private actor ReceivedPackets {
         await manager.prepare(request)
         await manager.startConnection()
         await manager.startMedia()
-        route.yield(.receivedAudioPacket(.multipeer, ReceivedAudioPacket(peerID: PeerID(rawValue: "remote"), packet: makePacket(sequenceNumber: UInt64(sequence)))))
+        var remoteRequest = request
+        remoteRequest.localPeer = .init(id: .init(rawValue: "remote"), displayName: "Remote")
+        var relay = GroupRelay(request: remoteRequest)
+        route.yield(.membersChanged(.multipeer, [.init(peer: remoteRequest.localPeer, route: .multipeer, isConnected: true)]))
+        for body in [RelayBody.presence, .audio(makePacket(sequenceNumber: UInt64(sequence)))] {
+            let payload = try relay.make(body, now: 0)
+            route.yield(.receivedApplicationData(.multipeer, .init(peerID: remoteRequest.localPeer.id, message: .init(namespace: GroupRelay.namespace, payload: payload))))
+        }
         for _ in 0..<100 {
             if await recorded.sequences.count == sequence { break }
             try await Task.sleep(for: .milliseconds(10))
@@ -607,7 +614,7 @@ private actor ReceivedPackets {
         try await Task.sleep(for: .milliseconds(20))
         #expect(await recorded.sequences.count == sequence)
     }
-    #expect(await recorded.sequences == [1, 2])
+    #expect(await recorded.sequences == [2, 2])
 }
 
 private func makeRequest(
@@ -751,6 +758,7 @@ private final class FakeWebRTCSignalingClient: WebRTCSignalingClient, @unchecked
         eventSource.yield(.connected)
     }
 
+    func startPublishing() async {}
     func disconnect() async {
         disconnectCount += 1
         eventSource.yield(.disconnected)
@@ -771,4 +779,14 @@ private final class FakeWebRTCSignalingClient: WebRTCSignalingClient, @unchecked
     func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async {
         sentApplicationData.append((message, peerID))
     }
+}
+
+private func relayBodies(_ messages: [ApplicationDataMessage]) -> [RelayBody] {
+    var request = makeRequest()
+    request.localPeer = .init(id: .init(rawValue: "observer"), displayName: "Observer")
+    var relay = GroupRelay(request: request)
+    return messages.compactMap { relay.receive($0.payload, from: .init(rawValue: "local"), now: 0)?.body }
+}
+private func relayMessages(_ messages: [ApplicationDataMessage]) -> [ApplicationDataMessage] {
+    relayBodies(messages).compactMap { if case .application(let message) = $0 { message } else { nil } }
 }

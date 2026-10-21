@@ -7,10 +7,10 @@
 | 責務 | 実装 |
 |---|---|
 | Worker入口 | SHA-256で登録された個別端末Bearerを検証。秘密の部屋capabilityでルーティング |
-| SignalingRoom (SQLite DO) | 部屋最大8人。SFU publish / subscribe / answer / closeを所有者だけに許可。WSは参加者一覧・App dataに限定 |
+| SignalingRoom (SQLite DO) | 部屋最大8人。SFU establish / publish / subscribe / closeを所有者だけに許可。WSは参加者一覧・App dataに限定 |
 | UsageGuard (SQLite DO) | 全部屋共通の同時数、月の参加者秒、端末ごとの開始回数を直列予約 |
 | Realtime SFU | 音声媒体。端末ごとに1つのPeerConnection。Cloudflareが他の参加者の音声を配信 |
-| RTC package | full SDP交換、lease自動更新、WS再接続、native音声、mute |
+| RTC package | full SDP交換、lease自動更新、WS再接続、符号化済み音声のDataChannel中継 |
 | App | Worker origin・個別端末資格をKeychainに保存。招待group credentialとともにRTCへ渡す |
 
 ```mermaid
@@ -24,15 +24,15 @@ sequenceDiagram
     W->>R: verified owner
     R->>U: reserve participant seconds
     U-->>R: lease / reject
-    R->>S: session new + publish audio
+    R->>S: session new + datachannels/establish
     S-->>A: answer (via Worker)
+    A->>R: ICE接続後 publish
+    R->>S: audio/control DataChannel allocation
     A->>R: authenticated WebSocket
     R-->>A: room peers
     A->>R: subscribe peers
-    R->>S: remote tracks new
-    S-->>A: offer (via Worker)
-    A->>R: answer
-    R->>S: renegotiate
+    R->>S: remote datachannels/new
+    S-->>A: channel IDs (via Worker)
     A->>S: encrypted WebRTC media
     loop while admitted
         A->>R: renew same session
@@ -50,10 +50,10 @@ sequenceDiagram
 | GET `/health` | なし | service / protocol。SFUへの接続確認ではない |
 | GET `/api/status` | Bearer | 月の予約参加者秒・上限・active数。試用資格保持者に公開 |
 | POST `R/join` | participantId、displayName、offer {type,sdp} | sessionId、expiresAt (Unix ms)、renewAfterSeconds、answer |
-| POST `R/sessions/{id}/pull` | peerIds | SFU remote tracks / 必要ならoffer。部屋外peerは拒否 |
-| PUT `R/sessions/{id}/answer` | sessionDescription {type,sdp} | pending offerへのanswerをSFUへ送信 |
+| POST `R/sessions/{id}/publish` | `{}` | audio/control channel ID。ICE接続後、同じsessionで1回確保 |
+| POST `R/sessions/{id}/pull` | peerIds | peerID・channel ID・配送方針。部屋外peerは拒否 |
 | POST `R/sessions/{id}/renew` | `{}` | 同じsessionIdのlease。前半の重複更新は予約追加しない |
-| DELETE `R/sessions/{id}` | なし | 全trackをforce close。利用枠のactive slotを解放 |
+| DELETE `R/sessions/{id}` | なし | 全channelをclose。利用枠のactive slotを解放 |
 | GET `R/sessions/{id}/signal` Upgrade | Bearer | Hibernation WebSocket。1 sessionにつき1接続 |
 | WS → server | `{type:"appData",namespace,payload:base64}` | serverが送信者を付与して同部屋へ中継 |
 | WS ← server | `{type:"peers",peers:[{id,displayName}]}` / appData | RTCが差分購読 / App data受信 |
@@ -62,14 +62,14 @@ sequenceDiagram
 |---|---|
 | 401 / 403 | 未登録資格 / 他ownerのsession / 部屋外の購読を拒否 |
 | 400 | 不正route/body/SDP。HTTP body最大64KiB、SDP最大48KiB |
-| 409 | duplicate participant、pending answer、duplicate WS |
+| 409 | duplicate participant、duplicate WS |
 | 410 | lease期限切れ |
 | 429 | 部屋/同時/月/日上限。新しいSFU呼出前に拒否 |
 | 502 / 503 | upstream失敗 / サービス停止・設定不足 |
-| 音声形式 | joinはOpusを含むaudio m-line 1本。answerはaudioのみ最大8本。video/data channel不可 |
+| 音声形式 | joinはSCTP application m-line 1本。RTP audio/video trackを受け付けない |
 | WS | 最大32KiB、600 messages/UTC分。senderを信用せず所有sessionから決定 |
 
-公開招待URLと近距離音声packetは変更しない。これはWebRTC SFU用のWorker APIであり、旧 `/api/sessions`・部屋全体のoffer/ICE中継は廃止する。
+公開招待URLは維持。中継用wire contractは変更し、全参加者を同じ版へ更新する。これはWebRTC SFU用のWorker APIであり、旧 `/api/sessions`・部屋全体のoffer/ICE中継は廃止する。
 
 ## 継続と後始末
 
@@ -77,8 +77,8 @@ sequenceDiagram
 |---|---|
 | 通常の継続 | 600秒lease、300秒後に更新要求。同じsession/PeerConnectionを維持。前払い予約を上限判定に使う |
 | WS切断 | mediaを閉じず1→2→4→最大10秒で接続を再試行。leaseは独立 |
-| 更新拒否 | clientは通話を終了しDELETE。届かない場合もDO alarmで期限切れtrackを閉じる |
-| 異常終了 | persisted memberをalarmで回収。SFUの成功応答が失われてもstatusからmidを照会 |
+| 更新拒否 | clientは通話を終了しDELETE。届かない場合もDO alarmで期限切れchannelを閉じる |
+| 異常終了 | persisted memberをalarmで回収。SFUの成功応答が失われてもstatusからchannel IDを照会。応答不明のallocationはsession消失まで回収を継続 |
 | providerで既に削除 | 404/410は回収済みと扱う。その他の閉鎖失敗は記録を保持し再試行 |
 | 部屋変更 | 新しいroom capabilityを使い、旧sessionを終了 |
 | SERVICE_ENABLED=false | HTTPを拒否。既存mediaの停止は次のlease alarmまで遅れ得る。即時アカウント停止APIではない |
@@ -138,7 +138,7 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | groupを作成し既存招待URLを共有 | 両端末が同じgroup secretを持つ |
 | Connect、双方向発話、mute | SFU APIの成功だけで音声成功と判定しない |
 | 20分以上継続 | leaseを跨いでsessionIdが変わらず手動再接続不要かを確認 |
-| 一時的WS切断、端末終了 | media継続/WS再接続と、期限切れのtrack閉鎖を別々に確認 |
+| 一時的WS切断、端末終了 | media継続/WS再接続と、期限切れのchannel閉鎖を別々に確認 |
 | 料金計測 | Cloudflare実egress / requests / duration / CPUと `Cost.md` の仮定を比較 |
 
 ## 未確認・公開前条件
@@ -147,10 +147,10 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 |---|---|
 | SFU HTTP契約・所有者・quota・WS sender・expiry alarm | workerd内でproviderを代替した自動テスト。実Cloudflareで未確認 |
 | TURN credential | 今回のnative構成はSTUN + SFU直接接続。TURN発行・更新・失効は未接続。UDP制限環境の成功を保証しない |
-| 大量のpeer入退室 | SDP最大8 media sections。離脱publicationの受信midをtracks/updateで再利用。10回の入替とSwift実クライアントの再参加を自動検証。実SFU側の動作は未確認 |
-| 音声効果・peer個別音量 | native SFU音声へApp Mixerを適用する機能は未対応 |
+| 大量のpeer入退室 | SDPはSCTP 1 section。離脱peerのchannelをcloseして新しい購読を確保。10回の入替とSwiftクライアント再参加を自動検証。実SFUは未確認 |
+| 音声効果・peer個別音量 | Local/Internetとも共通Codec/Mixerを使う契約へ変更。App追従と実機の音質確認を分ける |
 | 公開identity | 個別端末registryは招待制試用向け（約4.5KiBまで）。公開登録/自動発行/失効を行うidentity backendは未実装。SFU transportとgroup招待形式を作り直さず入口認証を拡張する |
-| abuse / 金額上限 | SDP制限・参加者秒予約は悪意あるRTP送信を金額で遮断する保証ではない。edge制限、監視、停止運用、実測が公開前条件 |
+| abuse / 金額上限 | SDP制限・参加者秒予約は改変クライアントの過剰なDataChannel送信を金額で遮断する保証ではない。edge制限、監視、停止運用、実測が公開前条件 |
 | 実機 | Mac/iPhoneの録音再生・音声品質・ロック・Bluetooth・実ネットワーク復帰は後続 |
 
 費用判断の数式・全課金項目・スクリプトは [Cost.md](Cost.md) を参照する。
@@ -162,7 +162,7 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | コマンド / 証跡 | 結果 |
 |---|---|
 | `npm --prefix server run type-check` | 成功 |
-| `npm --prefix server test` | dry-run bundle成功、workerd上9 tests成功。外部SFUはテスト側代替 |
+| `npm --prefix server test` | dry-run bundle成功、workerd上10 tests成功。外部SFUはテスト側代替 |
 | `node --test scripts/Cloudflare/*.test.mjs` | 費用・資格発行3 tests成功 |
 | `/private/tmp/rideintercom-cloudflare-validation/server-final-types.log` | 型検査log |
 | `/private/tmp/rideintercom-cloudflare-validation/server-final-tests.log` | Worker test log |
@@ -180,7 +180,7 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | 実処理 | Swift URLSession HTTP/WS、Worker認証、SignalingRoom、UsageGuard、SQLite、期限更新 |
 | 代替部分 | テスト側SFU REST providerと合成SDP。音声媒体・Cloudflare秘密設定は不要 |
 | peer snapshot | id/displayName/sessionId。認証済みroom参加者だけに通知 |
-| 再参加 | publication sessionIdが変わる。listenerは離脱peerのmidをtracks/updateで再利用し、同じPeerConnectionを維持 |
+| 再参加 | publication sessionIdが変わる。listenerは離脱peerのchannelをcloseして再購読し、同じPeerConnectionを維持 |
 | 終了 | 子プロセスの終了コードを確認。120秒でタイムアウトし、workerdをfinallyで終了 |
 | 位置付け | 制御経路の統合検証。実音声・実Cloudflareアカウント・請求確認と分ける |
 

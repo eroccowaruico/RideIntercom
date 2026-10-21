@@ -5,7 +5,7 @@ import { Miniflare, Response } from 'miniflare';
 export const token = 'test-device-token-with-at-least-32-characters';
 export const hash = createHash('sha256').update(token).digest('hex');
 export const room = 'a'.repeat(64);
-export const offer = { type: 'offer', sdp: 'v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=mid:0\r\na=rtpmap:111 opus/48000/2\r\n' };
+export const offer = { type: 'offer', sdp: 'v=0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:0\r\na=sctp-port:5000\r\n' };
 export const provider = { requests: [], serial: 0, upstreamFails: false, upstreamGone: false };
 export async function makeRuntime(overrides = {}) {
     const instance = new Miniflare({ modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2024-11-01',
@@ -22,6 +22,9 @@ export async function makeRuntime(overrides = {}) {
             if (provider.upstreamGone) return Response.json({}, { status: 410 });
             if (provider.upstreamFails) return Response.json({ errorCode: 'failure' }, { status: 503 });
             if (url.pathname.endsWith('/sessions/new')) return Response.json({ sessionId: `sfu-${++provider.serial}` }, { status: 201 });
+            if (url.pathname.endsWith('/datachannels/establish')) return Response.json({ sessionDescription: { type: 'answer', sdp: 'mock-sfu-sdp' }, dataChannel: { id: 0 } });
+            if (url.pathname.endsWith('/datachannels/new')) return Response.json({ dataChannels: provider.requests.at(-1).body.dataChannels.map(c => ({ ...c, id: ++provider.serial })) });
+            if (url.pathname.endsWith('/datachannels/close')) return Response.json({ dataChannels: provider.requests.at(-1).body.dataChannels });
             if (url.pathname.endsWith('/tracks/update')) return Response.json({ requiresImmediateRenegotiation: false, tracks: provider.requests.at(-1).body.tracks });
             if (url.pathname.endsWith('/tracks/new')) {
                 const body = provider.requests.at(-1).body;

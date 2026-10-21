@@ -24,9 +24,9 @@ test('SFU publishing, authorized subscription, renewal and cleanup use the real 
     assert.ok(a.expiresAt > Date.now()); assert.equal(a.renewAfterSeconds, 300);
     assert.equal('participantToken' in a, false); assert.equal('sfuEndpoint' in a, false);
     const base = `/api/rooms/${room}/sessions/${a.sessionId}`;
+    await call(base + '/publish', {}); await call(`/api/rooms/${room}/sessions/${b.sessionId}/publish`, {});
     const pull = await (await call(base + '/pull', { peerIds: ['b'] })).json();
-    assert.equal(pull.sessionDescription.type, 'offer');
-    assert.equal((await call(base + '/answer', { sessionDescription: { type: 'answer', sdp: offer.sdp } }, 'PUT')).status, 200);
+    assert.equal(pull.channels[0].peerID, 'b');
     const before = provider.requests.length;
     const renewed = await (await call(base + '/renew', {})).json();
     assert.equal(renewed.sessionId, a.sessionId); assert.equal(provider.requests.length, before);
@@ -34,7 +34,7 @@ test('SFU publishing, authorized subscription, renewal and cleanup use the real 
     assert.equal((await call(`/api/rooms/${'b'.repeat(64)}/sessions/${a.sessionId}/renew`, {})).status, 404);
     assert.equal((await call(base, undefined, 'DELETE')).status, 200);
     assert.equal((await call(`/api/rooms/${room}/sessions/${b.sessionId}`, undefined, 'DELETE')).status, 200);
-    assert.ok(provider.requests.some(r => r.url.endsWith('/tracks/close') && r.body.force === true));
+    assert.ok(provider.requests.some(r => r.url.endsWith('/datachannels/close')));
 });
 
 test('quota reservations survive concurrent provider.requests and prevent provider calls', async () => {
@@ -105,10 +105,10 @@ test('expired lease alarm closes media and releases the active-session slot', as
         }
         assert.equal(active, 0);
         // Wait for the asynchronous alarm, not merely the usage index pruning.
-        while (Date.now() < deadline && !provider.requests.some(r => r.url.includes(a.sessionId + '/tracks/close'))) {
+        while (Date.now() < deadline && !provider.requests.some(r => r.url.includes(a.sessionId + '/datachannels/close'))) {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
-        assert.ok(provider.requests.some(r => r.url.includes(a.sessionId + '/tracks/close')));
+        assert.ok(provider.requests.some(r => r.url.includes(a.sessionId + '/datachannels/close')));
     } finally { await instance.dispose(); }
 });
 
@@ -120,23 +120,23 @@ test('already expired provider session can be removed without an endless cleanup
     } finally { provider.upstreamGone = false; }
 });
 
-test('repeated peer replacement reuses subscriber transceivers instead of growing SDP', async () => {
+test('repeated peer replacement closes old subscriptions without growing channel allocations', async () => {
     const instance = await makeRuntime();
     try {
         const listener = await (await join('listener', room, instance)).json();
         for (let n = 0; n < 10; n++) {
             const talker = await (await join('talker', room, instance)).json();
+            await call(`/api/rooms/${room}/sessions/${talker.sessionId}/publish`, {}, 'POST', instance);
             const base = `/api/rooms/${room}/sessions/${listener.sessionId}`;
             const response = await call(base + '/pull', { peerIds: ['talker'] }, 'POST', instance);
             assert.equal(response.status, 200);
             const result = await response.json();
-            if (result.requiresImmediateRenegotiation) {
-                assert.equal((await call(base + '/answer', { sessionDescription: { type: 'answer', sdp: offer.sdp } }, 'PUT', instance)).status, 200);
-            }
+            assert.equal(result.channels.length, 2);
+
             assert.equal((await call(`/api/rooms/${room}/sessions/${talker.sessionId}`, undefined, 'DELETE', instance)).status, 200);
         }
-        const pulls = provider.requests.filter(r => r.url.includes(`/sessions/${listener.sessionId}/tracks/new`) && !r.body.sessionDescription);
-        assert.equal(pulls.length, 1, 'Only the first subscription should allocate a receiving transceiver');
-        assert.equal(provider.requests.filter(r => r.url.includes(`/sessions/${listener.sessionId}/tracks/update`)).length, 9);
+        const pulls = provider.requests.filter(r => r.url.includes(`/sessions/${listener.sessionId}/datachannels/new`));
+        assert.equal(pulls.length, 10);
+        assert.equal(provider.requests.filter(r => r.url.includes(`/sessions/${listener.sessionId}/datachannels/close`)).length, 9);
     } finally { await instance.dispose(); }
 });

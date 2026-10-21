@@ -16,6 +16,6 @@ try {
     });
     assert.equal(code, 0, 'Swift pair test failed or timed out');
     assert.ok(provider.requests.filter(r => r.url.endsWith('/sessions/new')).length >= 3);
-    assert.ok(provider.requests.some(r => r.url.endsWith('/tracks/update')), 'Rejoin must reuse a receiving transceiver');
+    assert.ok(provider.requests.some(r => r.url.endsWith('/datachannels/close')), 'Rejoin must release old subscription channels');
     console.log('PAIR PASS: real Swift HTTP/WS + Worker/DO, external SFU mocked; audio media unverified.');
 } finally { await runtime.dispose(); }

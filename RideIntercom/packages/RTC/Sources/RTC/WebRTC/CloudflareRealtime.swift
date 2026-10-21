@@ -60,6 +60,7 @@ public struct WebRTCSignalingConnectRequest: Equatable, Sendable {
 
 public enum WebRTCSignalingEvent: Equatable, Sendable {
     case connected
+    case dataChannels([WebRTCDataChannel])
     case members([PeerDescriptor])
     case disconnected
     case remotePeerJoined(PeerDescriptor)
@@ -76,8 +77,19 @@ public protocol WebRTCSignalingClient: AnyObject, Sendable {
 
     func connect(_ request: WebRTCSignalingConnectRequest) async
     func disconnect() async
+    func startPublishing() async
     func sendOffer(_ offer: WebRTCSessionDescription, to peerID: PeerID) async
     func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async
     func sendCandidate(_ candidate: WebRTCIceCandidate, to peerID: PeerID) async
     func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async
+}
+
+public struct WebRTCDataChannel: Codable, Equatable, Sendable {
+    public var id: Int32
+    public var peerID: PeerID?
+    public var isPublisher: Bool
+    public var delivery: ApplicationDataDelivery
+    public init(id: Int32, peerID: PeerID? = nil, isPublisher: Bool = false, delivery: ApplicationDataDelivery = .unreliable) {
+        self.id = id; self.peerID = peerID; self.isPublisher = isPublisher; self.delivery = delivery
+    }
 }

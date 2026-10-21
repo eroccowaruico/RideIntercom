@@ -16,29 +16,17 @@ public struct CallRouteConfiguration: Codable, Equatable, Sendable {
     public var preferredRoute: RouteKind
     public var selectionMode: RouteSelectionMode
     public var fallbackDelay: TimeInterval
-    public var restoreProbeDuration: TimeInterval
-    public var handoverFadeDuration: TimeInterval
-    public var keepsPreferredRouteInStandby: Bool
-    public var keepsFallbackRouteWarm: Bool
 
     public init(
         enabledRoutes: Set<RouteKind> = [.multipeer],
         preferredRoute: RouteKind = .multipeer,
         selectionMode: RouteSelectionMode = .automaticFallbackAndRestore,
-        fallbackDelay: TimeInterval = 3.0,
-        restoreProbeDuration: TimeInterval = 7.5,
-        handoverFadeDuration: TimeInterval = 0.35,
-        keepsPreferredRouteInStandby: Bool = true,
-        keepsFallbackRouteWarm: Bool = false
+        fallbackDelay: TimeInterval = 3.0
     ) {
         self.enabledRoutes = enabledRoutes
         self.preferredRoute = preferredRoute
         self.selectionMode = selectionMode
         self.fallbackDelay = fallbackDelay
-        self.restoreProbeDuration = restoreProbeDuration
-        self.handoverFadeDuration = handoverFadeDuration
-        self.keepsPreferredRouteInStandby = keepsPreferredRouteInStandby
-        self.keepsFallbackRouteWarm = keepsFallbackRouteWarm
     }
 
     public func normalized() -> CallRouteConfiguration {

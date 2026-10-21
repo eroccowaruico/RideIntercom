@@ -13,7 +13,8 @@ export interface Env {
 export interface Description { type: 'offer' | 'answer'; sdp: string }
 export interface Member {
     id: string; displayName: string; owner: string; sessionId: string; expiresAt: number
-    mids: string[]; subscriptions: { sessionId: string; mid: string }[]; pendingAnswer: boolean
+    allocationPending?: boolean;
+    channels: number[]; publishers?: { id: number; delivery: string }[]; subscriptions: { sessionId: string; id: number; peerId: string; delivery: string }[]
 }
 export function json(body: unknown, status = 200): Response {
     return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
@@ -39,11 +40,10 @@ export async function readJSON(request: Request): Promise<any> {
     if (!result || Array.isArray(result) || typeof result !== 'object') throw new Error('body')
     return result
 }
-export function audioDescription(value: any, type: 'offer' | 'answer'): value is Description {
+export function dataDescription(value: any, type: 'offer' | 'answer'): value is Description {
     if (value?.type !== type || typeof value.sdp !== 'string' || value.sdp.length > 48 * 1024) return false
     const media = value.sdp.split(/\r?\n/).filter((line: string) => line.startsWith('m='))
-    return media.length > 0 && media.length <= 8 && media.every((line: string) => line.startsWith('m=audio '))
-        && /a=rtpmap:\d+ opus\/48000/i.test(value.sdp)
+    return media.length === 1 && media[0].startsWith('m=application ') && /a=sctp-port:5000/.test(value.sdp)
 }
 export async function sfu(env: Env, path: string, body?: unknown, method = 'POST'): Promise<any> {
     const response = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${encodeURIComponent(env.CLOUDFLARE_SFU_APP_ID)}${path}`, {

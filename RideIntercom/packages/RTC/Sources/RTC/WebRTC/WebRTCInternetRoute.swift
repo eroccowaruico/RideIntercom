@@ -5,15 +5,15 @@ public actor WebRTCInternetRoute: RTCCallRoute {
     public let capabilities = RouteCapabilities(
         supportsLocalDiscovery: false,
         supportsOfflineOperation: false,
-        supportsRouteManagedMedia: true,
-        supportsAppManagedPacketAudio: false,
+        supportsRouteManagedMedia: false,
+        supportsAppManagedPacketAudio: true,
         supportsReliableApplicationData: true,
         supportsUnreliableApplicationData: true,
         requiresSignaling: true,
-        supportedAudioCodecs: [.routeManaged],
+        supportedAudioCodecs: [.pcm16, .opus, .mpeg4AACELDv2],
         backendName: "Cloudflare Realtime SFU"
     )
-    public let mediaOwnership: AudioMediaOwnership = .routeManagedMediaStream
+    public let mediaOwnership: AudioMediaOwnership = .appManagedPacketAudio
     public nonisolated var events: AsyncStream<RouteEvent> { eventSource.stream }
 
     private nonisolated let eventSource = EventSource<RouteEvent>()
@@ -140,7 +140,7 @@ public actor WebRTCInternetRoute: RTCCallRoute {
 
     public func sendApplicationData(_ message: ApplicationDataMessage) async {
         guard connecting else { return }
-        await signalingClient.sendApplicationData(message, to: nil)
+        await engine.sendApplicationData(message, to: sfuPeer.id)
     }
 
     public func setLocalMute(_ muted: Bool) async {
@@ -175,6 +175,8 @@ public actor WebRTCInternetRoute: RTCCallRoute {
             } else {
                 await fail("Could not create WebRTC offer", generation: generation)
             }
+        case .dataChannels(let channels):
+            await engine.configureDataChannels(channels, for: sfuPeer.id)
         case .members(let peers):
             guard connecting else { return }
             remotePeers = Dictionary(peers.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -232,6 +234,7 @@ public actor WebRTCInternetRoute: RTCCallRoute {
             eventSource.yield(.receivedApplicationData(kind, data))
         case .connectionStateChanged(let state):
             iceConnected = state == .connected || state == .mediaReady
+            if iceConnected { await signalingClient.startPublishing() }
             if state == .failed { await fail("WebRTC media connection failed", generation: generation) }
             else { eventSource.yield(.stateChanged(kind, iceConnected && mediaStarted ? .mediaReady : state)) }
         }
@@ -273,6 +276,9 @@ open class NativeWebRTCEngine: NSObject, @unchecked Sendable {
     open func addCandidate(_ candidate: WebRTCIceCandidate, from peerID: PeerID) async {}
     open func setLocalAudioEnabled(_ enabled: Bool) async {}
     open func setOutputMuted(_ muted: Bool) async {}
+
+    open func configureDataChannels(_ channels: [WebRTCDataChannel], for peerID: PeerID) async {}
+    open func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID) async {}
 
     open func closePeerConnection(peerID: PeerID) async {}
     open func close() async {}

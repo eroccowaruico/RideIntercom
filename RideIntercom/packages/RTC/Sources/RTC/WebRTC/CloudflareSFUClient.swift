@@ -22,6 +22,8 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
     private var subscribed: [PeerID: String] = [:]
     private var peerSessions: [PeerID: String] = [:]
     private var awaitingAnswer = false
+    private var localChannels: [WebRTCDataChannel] = []
+    private var publishing = false
     private static let sfuID = PeerID(rawValue: "cloudflare-sfu")
 
     public init(session: URLSession = .shared) { self.session = session }
@@ -49,7 +51,7 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         generation = UUID(); socketTask?.cancel(); renewalTask?.cancel()
         socketTask = nil; renewalTask = nil; socket?.cancel(with: .normalClosure, reason: nil); socket = nil
         let oldID = sessionID, oldRequest = request
-        sessionID = nil; request = nil; peers = []; subscribed = [:]; peerSessions = [:]; awaitingAnswer = false
+        sessionID = nil; request = nil; peers = []; subscribed = [:]; peerSessions = [:]; awaitingAnswer = false; localChannels = []; publishing = false
         // Clear owned state before suspending. An old DELETE must never clear a new call.
         if let oldID, let oldRequest { _ = try? await http(oldRequest, path: "sessions/\(oldID)", method: "DELETE") }
     }
@@ -65,8 +67,9 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             }
             guard let description = lease.sessionDescription, description.type == "answer" else { throw Failure.invalidResponse }
             sessionID = lease.sessionId
+            localChannels = lease.channels ?? []
+            source.yield(.dataChannels(localChannels))
             source.yield(.answer(.init(kind: .answer, sdp: description.sdp), from: Self.sfuID))
-            startSocket(request, id: lease.sessionId, generation: generation)
             renewalTask = Task { [weak self] in
                 var current = lease
                 while !Task.isCancelled {
@@ -78,16 +81,20 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             }
         } catch { await fail(error, generation: generation) }
     }
-    public func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async {
-        guard peerID == Self.sfuID, let request, let sessionID, awaitingAnswer else { return }
+    public func startPublishing() async {
+        guard !publishing, let request, let sessionID else { return }
+        publishing = true
         let generation = generation
         do {
-            _ = try await http(request, path: "sessions/\(sessionID)/answer", method: "PUT", body: ["sessionDescription": ["type": "answer", "sdp": answer.sdp]])
+            let response = try await http(request, path: "sessions/\(sessionID)/publish", body: [:])
             guard self.generation == generation else { return }
-            awaitingAnswer = false
-            try await subscribe(request, id: sessionID, generation: generation)
+            let result = try JSONDecoder().decode(Pull.self, from: response)
+            localChannels += result.channels
+            source.yield(.dataChannels(localChannels))
+            startSocket(request, id: sessionID, generation: generation)
         } catch { await fail(error, generation: generation) }
     }
+    public func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async {}
     // SFU exchange uses complete SDP, including gathered ICE. No peer-to-peer trickle channel.
     public func sendCandidate(_ candidate: WebRTCIceCandidate, to peerID: PeerID) async {}
     public func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async {
@@ -154,16 +161,14 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         guard !awaitingAnswer else { return }
         let fresh = peers.filter { subscribed[$0.id] != peerSessions[$0.id] }
         let sessions = peerSessions
-        guard !fresh.isEmpty else { return }
+        // Pull also releases departed subscriptions even when no peer joined.
         awaitingAnswer = true
-        let response = try await http(request, path: "sessions/\(id)/pull", body: ["peerIds": fresh.map { $0.id.rawValue }])
+        let response = try await http(request, path: "sessions/\(id)/pull", body: ["peerIds": peers.map { $0.id.rawValue }])
         guard self.generation == generation else { return }
         let result = try JSONDecoder().decode(Pull.self, from: response)
         for peer in fresh { subscribed[peer.id] = sessions[peer.id] }
-        if result.requiresImmediateRenegotiation == true {
-            guard let description = result.sessionDescription, description.type == "offer" else { throw Failure.invalidResponse }
-            source.yield(.offer(.init(kind: .offer, sdp: description.sdp), from: Self.sfuID))
-        } else { awaitingAnswer = false }
+        source.yield(.dataChannels(localChannels + result.channels))
+        awaitingAnswer = false
     }
     private func renew(_ request: WebRTCSignalingConnectRequest, lease: Lease, generation: UUID) async -> Lease? {
         var delay = 1.0
@@ -211,8 +216,8 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         return data
     }
     private struct Description: Decodable { let type: String; let sdp: String }
-    private struct Lease: Decodable { let sessionId: String; let expiresAt: Double; let renewAfterSeconds: Double; let sessionDescription: Description? }
-    private struct Pull: Decodable { let sessionDescription: Description?; let requiresImmediateRenegotiation: Bool? }
+    private struct Lease: Decodable { let sessionId: String; let expiresAt: Double; let renewAfterSeconds: Double; let sessionDescription: Description?; let channels: [WebRTCDataChannel]? }
+    private struct Pull: Decodable { let channels: [WebRTCDataChannel] }
     private struct WireEvent: Decodable {
         struct Peer: Decodable { let id: String; let displayName: String; let sessionId: String }
         let type: String; let peers: [Peer]?; let from: String?; let namespace: String?; let payload: String?
