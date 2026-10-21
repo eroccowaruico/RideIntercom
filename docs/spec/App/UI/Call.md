@@ -106,3 +106,11 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | 再開 | `resumeAudioButton`。標準Button、文字ラベルとSF Symbolを併用。認証済みpeerなしでは無効 |
 | 別グループ閲覧 | activeGroup用の機器・経路通知を別groupの状態として表示しない |
 | 到達確認 | 接続状態・mute解除は相手に聞こえた証明ではない。実音声の受け入れを別途行う |
+
+## 経路共通の操作と識別
+
+| 対象 | 契約 |
+|---|---|
+| マスター・参加者音量 / effect / meter | Local / Internet / 中継で共通。経路変更で操作を隠さない |
+| callStatusHeader | 独立したaccessibility container。子の`masterOutputSlider`、`masterOutputMuteButton`などの識別子を上書きしない |
+| 話者設定 | origin peer IDごとに保持。中継gatewayの音量ではない |

@@ -136,8 +136,6 @@ extension IntercomViewModel {
         cancelAudioCheck()
         stopAudioPipeline()
         callSession.disconnect()
-        uiEventRevision += 1
-        rtcConnectionState = .idle
         availableCallRoutes = []
         connectivityNotice = nil
         internetFailureDetail = nil

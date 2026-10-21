@@ -60,7 +60,8 @@ extension IntercomViewModel {
             peerOutputVolumes: remoteOutputVolumes,
             transmitSoundIsolationEnabled: isSoundIsolationEnabled,
             receiveMasterSoundIsolationEnabled: receiveMasterSoundIsolationEnabled,
-            peerSoundIsolationEnabled: remoteSoundIsolationEnabled
+            peerSoundIsolationEnabled: remoteSoundIsolationEnabled,
+            maximumBufferedDuration: 0.1
         )
     }
 

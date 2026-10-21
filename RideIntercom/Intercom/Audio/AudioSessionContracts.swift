@@ -133,7 +133,7 @@ extension SessionManager.AudioInputStreamConfiguration {
 }
 
 extension SessionManager.AudioOutputStreamConfiguration {
-    static let intercom = Self(preferredFormat: .intercomHardwarePreferred)
+    static let intercom = Self(preferredFormat: .intercomHardwarePreferred, maximumBufferedDuration: 0.1)
 }
 
 protocol CallTicking: AnyObject {

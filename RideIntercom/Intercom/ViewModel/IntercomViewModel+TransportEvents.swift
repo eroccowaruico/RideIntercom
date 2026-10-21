@@ -42,10 +42,7 @@ extension IntercomViewModel {
     }
 
     func handleTransportEvent(_ event: TransportEvent) {
-        uiEventRevision += 1
         switch event {
-        case .rtcStateChanged(let state):
-            rtcConnectionState = state
         case .routesChanged(let snapshot):
             availableCallRoutes = snapshot.availableRoutes
             if !isLocalStandbyOnly, !authenticatedPeerIDs.isEmpty {

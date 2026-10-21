@@ -14,7 +14,7 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 
 | 状態 | 内容 |
 |---|---|
-| RTC / network diagnostics | DataChannelのRTT/loss/buffered amountとpeer別の直接/中継到達経路をruntime reportへ公開する。Appで推定した品質を正常値にしない |
+| RTC / network diagnostics | EventSourceでの一時イベント破棄数、DataChannelのRTT/loss/buffered amountとpeer別の直接/中継到達経路をruntime reportへ公開する。Appで推定した品質を正常値にしない |
 | RTC / Worker | 制限回線向けTURN資格の取得・更新・失効が不足。AppへCloudflare秘密を持たせない |
 
 ## 追記ルール

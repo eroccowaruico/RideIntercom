@@ -73,7 +73,6 @@ enum TransportEvent: Equatable {
     case linkFailed(internetAvailable: Bool)
     case receivedAudioPacket(RTC.ReceivedAudioPacket)
     case routeMetrics(RTC.RouteMetrics)
-    case rtcStateChanged(RTC.CallConnectionState)
     case serviceError(String)
     case routesChanged(RTC.ActiveRouteSnapshot)
 }
@@ -356,7 +355,6 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     private func handleRTCStateChanged(_ state: RTC.CallConnectionState) {
-        onEvent?(.rtcStateChanged(state))
         switch state {
         case .idle:
             onEvent?(.localNetworkStatus(LocalNetworkEvent(status: .idle, occurredAt: Date().timeIntervalSince1970)))

@@ -177,6 +177,7 @@ struct CallView: View {
             }
         }
         .appCallCardStyle()
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("callStatusHeader")
     }
 

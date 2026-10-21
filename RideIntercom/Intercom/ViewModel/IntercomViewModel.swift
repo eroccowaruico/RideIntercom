@@ -45,7 +45,6 @@ final class IntercomViewModel {
     var selectedGroup: IntercomGroup?
     var activeGroupID: UUID?
     var connectionState: CallConnectionState = .idle
-    var rtcConnectionState: RTC.CallConnectionState = .idle
     var isMuted = false
     var isVoiceActive = false
     var isAudioReady = false
@@ -134,7 +133,6 @@ final class IntercomViewModel {
     var droppedAudioPacketCount = 0
     var jitterQueuedFrameCount = 0
     var inviteStatusMessage: String?
-    var uiEventRevision = 0
     let callSession: CallSession
     let audioSessionManager: SessionManager.AudioSessionManager
     let audioInputCapture: SessionManager.AudioInputStreamCapture

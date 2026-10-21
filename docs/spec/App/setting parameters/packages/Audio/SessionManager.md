@@ -31,8 +31,8 @@
 
 | package 設定 | App から渡す値 | 種別 | Diagnostics で確認する値 |
 |---|---|---|---|
-| `format.sampleRate` | `16_000` | 固定 | input stream snapshot format |
-| `format.channelCount` | `1` | 固定 | input stream snapshot format |
+| `preferredFormat.sampleRate` | `48_000` | 希望値。実値はsnapshot | input stream actualHardwareFormat |
+| `preferredFormat.channelCount` | `1` | 固定 | input stream snapshot format |
 | `bufferFrameCount` | `128` | 固定 | start operation report |
 | `voiceProcessing` | `AudioInputVoiceProcessingConfiguration` の導出値 | 画面設定と再生状態から導出 | input stream snapshot `inputVoiceProcessing` |
 
@@ -64,8 +64,9 @@ Voice Isolation Effect の画面設定は `SoundIsolation` effect の有効/無�
 
 | package 設定 | App から渡す値 | 種別 | Diagnostics で確認する値 |
 |---|---|---|---|
-| `format.sampleRate` | `16_000` | 固定 | output stream snapshot format |
-| `format.channelCount` | `1` | 固定 | output stream snapshot format |
+| `preferredFormat.sampleRate` | `48_000` | 希望値。実値はsnapshot | output stream actualHardwareFormat |
+| `preferredFormat.channelCount` | `1` | 固定 | output stream snapshot format |
+| `maximumBufferedDuration` | `0.1`秒 | 通話とAudio Checkのhardware出力予約上限 | bufferedOutputDuration / playbackResetCount |
 
 出力 renderer の `start()`、`schedule(_:)`、`stop()` は `AudioStreamOperationReport` と `AudioStreamRuntimeEvent` を Diagnostics に集約する。
 
@@ -93,3 +94,5 @@ Voice Isolation Effect の画面設定は `SoundIsolation` effect の有効/無�
 | `AudioInputVoiceProcessingManager` | App は直接保持しない |
 
 詳細な OS 差分と内部既定値は `docs/spec/packages/Audio/SessionManager.md` を正とする。
+
+入力・出力の希望formatと実hardware formatは同一と仮定しない。Mixerのsource/sink境界で明示的に変換する。Audio Checkの5秒録音はMixer sourceで保持し、hardware出力にはengineの進行に合わせて渡す。

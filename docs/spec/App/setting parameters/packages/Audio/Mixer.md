@@ -11,11 +11,12 @@
 | package 設定 | App から渡す値 | 種別 |
 |---|---|---|
 | format | 48kHz mono。TX sinkは選択RTC format、RX sinkはSessionManagerのactualHardwareFormat | adapter 導出 |
+| `addPCMSource.maximumBufferedDuration` | 通話TX/RXは`0.1`秒、Audio Checkは`nil` | adapter固定 |
 | TX bus effect chain | `AudioMixerSnapshot.buses[id == "tx-bus"].effectChain`。SoundIsolation → DynamicsProcessor → PeakLimiter。VADGateはMixer前段 | adapter 導出 |
 | RX peer bus effect chain | `AudioMixerSnapshot.buses[id == "rx-peer-{peerID}"].effectChain`。SoundIsolationを接続し `remoteSoundIsolationEnabled` でbypassを切替 | 画面設定から導出 |
 | RX master bus effect chain | `AudioMixerSnapshot.buses[id == "rx-master"].effectChain`。SoundIsolation。master faderの後に `rx-output` busをrouteしPeakLimiterを適用 | 画面設定 + adapter 固定 |
 | master bus volume | `isOutputMuted ? 0 : masterOutputVolume` | 画面設定から導出 |
-| peer bus volume | `remoteOutputVolumes[peerID]`。未設定 peer は `1.0` | 画面設定から導出 |
+| peer source volume | `remoteOutputVolumes[peerID]`。未設定 peer は `1.0` | 画面設定から導出 |
 
 受信側は peer ごとに RX peer bus を作り、全 RX peer bus を receive master bus へ route して mix down する。相手が複数いる場合は peer bus も複数になり、master bus は mix 後の 1 本だけを表す。
 
@@ -28,7 +29,7 @@ RX masterの表示用effect chainは、実snapshotの `rx-master.effectChain` �
 | snapshot | App での扱い |
 |---|---|
 | `AudioMixerSnapshot.busIDs` | TX bus、RX peer bus、RX master bus の存在確認に使う |
-| `MixerBusSnapshot.sources` | マイク入力、RTC peer audio source、master 入力数の表示に使う |
+| `MixerBusSnapshot.sources` | マイク入力、RTC peer audio source、予約時間・リセット回数を確認する |
 | `MixerBusSnapshot.effectChain` | Diagnostics の effect chip の順序、状態、詳細に使う |
 | `AudioMixerSnapshot.routes` | RX peer bus から `rx-master` への mix down 表示に使う |
 | `AudioMixerSnapshot.outputBusID` | 最終出力へ接続された bus の確認に使う |

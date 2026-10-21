@@ -93,3 +93,14 @@ App 側の report 更新間隔は 0.5 秒を下限とする。RTC は package re
 | WebRTC native 型 | App API と UI へ露出しない |
 
 詳細な route、packet audio、WebRTC、handover の仕様は `docs/spec/packages/RTC.md` を正とする。
+
+## 音声の待ち時間
+
+| 境界 | 値・所有 |
+|---|---|
+| adapter送信待ち | 最新1件、100ms。接続操作列へ音声を連結しない |
+| RTC EventSource | package既定の64件・100ms。一時的な音声/telemetryに限定 |
+| RTC再生待ち | package既定の15ms playout、100ms lifetime、256件上限 |
+| Internet配送 | package/Workerで音声unreliable・unordered・再送0。利用者へTCP/UDP選択を要求しない |
+
+各境界の期限であり総遅延の保証値ではない。packetLifetime等をApp側で再定義せず、[RTC仕様](../../../packages/RTC.md)の契約を使う。

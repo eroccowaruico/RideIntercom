@@ -21,6 +21,7 @@ struct AppAudioPipelineConfiguration: Equatable {
     var transmitSoundIsolationEnabled: Bool
     var receiveMasterSoundIsolationEnabled: Bool
     var peerSoundIsolationEnabled: [String: Bool]
+    var maximumBufferedDuration: TimeInterval?
 
     init(
         mixerFormat: AudioFormat = .intercomMixer,
@@ -34,7 +35,8 @@ struct AppAudioPipelineConfiguration: Equatable {
         peerOutputVolumes: [String: Float] = [:],
         transmitSoundIsolationEnabled: Bool = true,
         receiveMasterSoundIsolationEnabled: Bool = false,
-        peerSoundIsolationEnabled: [String: Bool] = [:]
+        peerSoundIsolationEnabled: [String: Bool] = [:],
+        maximumBufferedDuration: TimeInterval? = nil
     ) {
         self.mixerFormat = mixerFormat
         self.rtcSendFormat = rtcSendFormat
@@ -48,6 +50,7 @@ struct AppAudioPipelineConfiguration: Equatable {
         self.transmitSoundIsolationEnabled = transmitSoundIsolationEnabled
         self.receiveMasterSoundIsolationEnabled = receiveMasterSoundIsolationEnabled
         self.peerSoundIsolationEnabled = peerSoundIsolationEnabled
+        self.maximumBufferedDuration = maximumBufferedDuration
     }
 
     var codecOptions: AppAudioCodecOptions {
@@ -142,7 +145,7 @@ final class AppAudioPipeline {
             parameters: Self.effectParameters(package: "DynamicsProcessor", label: "Dynamics", detail: "Threshold \(dynamics.configuration.threshold) dB"))
         transmitDynamics = dynamics
         transmitLimiter = try installLimiter(on: txBus)
-        let txSource = try txBus.addPCMSource(id: "microphone-input")
+        let txSource = try txBus.addPCMSource(id: "microphone-input", maximumBufferedDuration: configuration.maximumBufferedDuration)
         let transmitDelivery = AudioFrameDelivery { [weak self] frame in
             guard let self, self.generation == generation else { return }
             self.encodeAndPublish(frame)
@@ -245,7 +248,7 @@ final class AppAudioPipeline {
         guard let mixer, let rxMasterBus else { throw AppAudioPipelineError.notConfigured }
         let peerBus = try mixer.createBus("rx-peer-\(peerID)")
         try installIsolation(on: peerBus, enabled: configuration.peerSoundIsolationEnabled[peerID] ?? false)
-        let source = try peerBus.addPCMSource(id: "rtc-audio-\(peerID)")
+        let source = try peerBus.addPCMSource(id: "rtc-audio-\(peerID)", maximumBufferedDuration: configuration.maximumBufferedDuration)
         source.volume = configuration.peerOutputVolumes[peerID] ?? 1
         try mixer.route(peerBus, to: rxMasterBus)
         rxSourcesByPeerID[peerID] = source

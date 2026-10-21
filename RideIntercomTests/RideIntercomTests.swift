@@ -905,15 +905,15 @@ struct RideIntercomTests {
         h.viewModel.setRemoteOutputVolume(peerID: "member-108", volume: 0.25)
         h.viewModel.setRemoteOutputVolume(peerID: "member-109", volume: 0)
         h.viewModel.setMasterOutputVolume(0.5)
-        let wave = (0..<9600).map { Float(sin(Double($0) * 2 * .pi * 400 / 48000)) * 0.4 }
+        let wave = (0..<3840).map { Float(sin(Double($0) * 2 * .pi * 400 / 48000)) * 0.4 }
         let frame = PCMFrame(sequenceNumber: 1, format: .intercomMixer, capturedAt: 0, samples: wave)
         for peer in ["member-108", "member-109"] {
             h.callSession.receive(try Self.receivedAudioPacket(peerID: peer, frame: frame, codec: .pcm16))
         }
-        await Self.waitUntil { h.outputBackend.scheduledFrames.flatMap(\.samples).count >= 8192 }
+        await Self.waitUntil { h.outputBackend.scheduledFrames.flatMap(\.samples).count >= 3072 }
         let samples = h.outputBackend.scheduledFrames.flatMap(\.samples)
-        #expect(samples.count >= 8192)
-        let peak = samples.suffix(4096).map { abs($0) }.max() ?? 0
+        #expect(samples.count >= 3072)
+        let peak = samples.suffix(2048).map { abs($0) }.max() ?? 0
         #expect(peak > 0.045 && peak < 0.055) // 0.4 × peer 0.25 × master 0.5; the other peer is silent.
     }
 
@@ -1077,6 +1077,24 @@ struct RideIntercomTests {
         #expect(store.load()?.workerURL.absoluteString == "https://ride.example.com")
         #expect(store.load()?.accessToken == "device-token")
         #expect(!keychain.value!.contains("invitation-secret"))
+    }
+
+    @Test func liveCallBoundsPCMReservationsWithoutRebuildingEffects() async throws {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        defer { h.viewModel.disconnect() }
+        let engines = h.audioDriver.createdEngineCount
+        for sequence in 0..<20 {
+            let frame = PCMFrame(sequenceNumber: UInt64(sequence), format: .intercomMixer, capturedAt: 0,
+                samples: Array(repeating: 0.2, count: 960))
+            h.callSession.receive(try Self.receivedAudioPacket(peerID: "member-108", frame: frame, codec: .pcm16))
+        }
+        let peer = try #require(h.viewModel.audioPipeline.snapshot.buses.first { $0.id == "rx-peer-member-108" }?.sources.first)
+        #expect((peer.bufferedDuration ?? 1) <= 0.1)
+        #expect(peer.playbackResetCount > 0)
+        #expect(h.audioDriver.createdEngineCount == engines)
     }
 
     @Test func frameDeliveryBoundsWaitingAudioAndCancelsWithoutLateCallbacks() async {
