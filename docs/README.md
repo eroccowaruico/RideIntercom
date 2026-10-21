@@ -5,42 +5,44 @@
 | 目的 | 最初に読む | 次に読む |
 |---|---|---|
 | 通話を使いたい | [使い方](manual/使い方.md) | [設定と音声効果](manual/設定と音声効果.md)、[困ったとき](manual/困ったとき.md) |
-| アプリの根本要求を把握したい | [製品要求](requirements/製品要求.md) | [要求の分類](requirements/README.md)、[パッケージ要求と実装状況](requirements/パッケージ要求.md)、[背景と候補](requirements/background/初期構想と対応経緯.md) |
+| アプリの根本要求を把握したい | [製品要求](requirements/製品要求.md) | [要求の分類](requirements/README.md)、[パッケージ要求](requirements/パッケージ要求.md) |
 | 開発・文書作成のルールを知りたい | [開発方針](policies/開発方針.md) | [文書作成規約](policies/文書作成規約.md)、[ログ記録規約](policies/ログ記録規約.md) |
 | 構造を理解・変更したい | [アーキテクチャ](spec/アーキテクチャ.md) | 対応するApp / package / server仕様 |
 | 設定を実装したい | [App設定値](spec/App/Configuration/設定値一覧.md) | 同階層Bindings、package契約、Settings画面仕様 |
-| 開発・試用を始めたい | [Xcode / VS Code](development/開発環境.md) | [自動検証](development/自動検証.md)、[Worker準備](spec/server/Worker.md) |
+| 開発・試用を始めたい | [Xcode / VS Code](development/開発環境.md) | [自動検証](development/自動検証.md)、[Cloudflare試用手順](development/Cloudflare試用手順.md) |
+| これから作るものを知りたい | [課題](backlog/README.md) | 実装作業と未採用候補 |
+| 何をまだ確認していないか | [未確認事項](validation/未確認事項.md) | 試験条件と必要な環境 |
 | どこまで動いたか知りたい | [検証状況](validation/README.md) | 条件・commitを明記した履歴 |
 
 ## 配置の規則
 
 | 配置 | 正本にする情報 | 他の文書との関係 |
 |---|---|---|
-| requirements | 製品の根本要求、packageの恒久要求と実装状態、背景・候補 | 作り方のルールを混ぜず、実装済みという説明だけで要求を置き換えない |
+| requirements | 製品・packageの目的、背景、統一して求める方針 | Howは最小限。実装詳細・状態表・課題表を混ぜない |
+| backlog | 未実装課題・未採用候補・実装前の設計案 | 実装時は仕様へ反映し、確認待ちは検証へ引き継ぐ |
 | policies | 開発方針、文書作成規約、共通ログ記録規約 | 製品が提供する機能とは別の制約。ツール入口はこの正本を参照 |
 | manual | 現在の画面操作、効果、反映、保存、切り分け | 内部API値はspecを参照。未実装操作を案内しない |
 | spec/App | UI、状態、group/transport、音声composition、ログ | Appの責務単位で実装と対応 |
 | spec/App/Configuration | 利用者設定とAppがpackageへ渡す固定・導出値 | BindingsはApp採用値。package自体の既定・許容範囲とは区別 |
 | spec/packages | package単独の型・API・責務・platform差・report | App設定をpackageの普遍的契約へ持ち込まない |
 | spec/server | WorkerのAPI・資格・利用枠・費用条件 | マニュアルと開発手順から参照 |
-| development | エディタ、build、検証、WebRTC更新。historyは過去計画 | 現行の手順と、再実行しない旧計画を分離 |
-| validation | 今回までの受け入れ状況、historyに過去の結果 | 当時のテスト数を現行HEADの実績と扱わない |
+| development | エディタ、build、検証、WebRTC更新、試用手順、費用仮定。historyは過去計画 | 現行の手順と、再実行しない旧計画を分離 |
+| validation | 未確認事項、試験範囲、受け入れ結果。historyに過去の記録 | 当時のテスト数を現行HEADの実績と扱わない |
 | design | UIの共通デザイン・アイコン規則 | App/UIが適用先を定義 |
 
 ## 保守するとき
 
-実装変更時は、要求への影響 → 所有者の仕様 → 設定・操作マニュアル → 自動検証・受け入れ状況を確認する。文書移動では本文を保持してリンクとこの索引を更新する。過去の失敗・残件・判断理由は履歴へ残す。
+実装変更時は、要求への影響 → 課題の設計案 → 実装と同じ変更で所有者の仕様 → 設定・操作マニュアル → 検証状況を確認する。文書移動では本文を保持してリンクとこの索引を更新する。過去の失敗・残件・判断理由は履歴へ残す。
 
 `python3 scripts/check_documentation.py`はローカル参照、索引からの到達性、Settings項目の仕様記載、空文書ディレクトリ、開発ツール入口の参照を検査する。`scripts/validate.sh`とCIでも実行する。文章の意味や実機品質の自動証明ではない。
 
 ## 文書一覧
 
-### 要求と背景
+### 要求
 
 | 文書 | 役割 / 表題 |
 |---|---|
 | [requirements/README.md](<requirements/README.md>) | 要求の入口 |
-| [requirements/background/初期構想と対応経緯.md](<requirements/background/初期構想と対応経緯.md>) | 初期構想と対応経緯 |
 | [requirements/パッケージ要求.md](<requirements/パッケージ要求.md>) | パッケージ要求 |
 | [requirements/製品要求.md](<requirements/製品要求.md>) | 製品要求 |
 
@@ -51,6 +53,14 @@
 | [policies/ログ記録規約.md](<policies/ログ記録規約.md>) | ログ記録規約 |
 | [policies/文書作成規約.md](<policies/文書作成規約.md>) | 文書作成規約 |
 | [policies/開発方針.md](<policies/開発方針.md>) | 開発方針 |
+
+### 未実装課題と候補
+
+| 文書 | 役割 / 表題 |
+|---|---|
+| [backlog/README.md](<backlog/README.md>) | 課題と候補 |
+| [backlog/改善候補.md](<backlog/改善候補.md>) | 改善候補 |
+| [backlog/未実装課題.md](<backlog/未実装課題.md>) | 未実装課題 |
 
 ### 利用マニュアル
 
@@ -112,33 +122,38 @@
 
 | 文書 | 役割 / 表題 |
 |---|---|
-| [spec/server/Cost.md](<spec/server/Cost.md>) | Cloudflare 音声通話の費用試算 |
-| [spec/server/Worker.md](<spec/server/Worker.md>) | Cloudflare Worker / SFU 仕様と試用手順 |
+| [spec/server/Worker.md](<spec/server/Worker.md>) | Cloudflare Worker / SFU 仕様 |
 
 ### 開発手順と過去計画
 
 | 文書 | 役割 / 表題 |
 |---|---|
 | [development/BuildWebRTC/WebRTCビルドスクリプト.md](<development/BuildWebRTC/WebRTCビルドスクリプト.md>) | WebRTCビルドスクリプト |
+| [development/Cloudflare試用手順.md](<development/Cloudflare試用手順.md>) | Cloudflare試用手順 |
+| [development/Cloudflare費用試算.md](<development/Cloudflare費用試算.md>) | Cloudflare 音声通話の費用試算 |
 | [development/history/旧HE-AAC-v2追加計画.md](<development/history/旧HE-AAC-v2追加計画.md>) | 旧HE-AAC-v2追加計画 |
 | [development/history/旧アーキテクチャ再編計画.md](<development/history/旧アーキテクチャ再編計画.md>) | 旧アーキテクチャ再編計画 |
 | [development/history/旧音声入出力と画面改修計画.md](<development/history/旧音声入出力と画面改修計画.md>) | 旧音声入出力と画面改修計画 |
 | [development/自動検証.md](<development/自動検証.md>) | ビルド・起動と自動検証 |
 | [development/開発環境.md](<development/開発環境.md>) | Xcode / VS Codeの開発環境 |
 
-### 検証状況と履歴
+### 検証と履歴
 
 | 文書 | 役割 / 表題 |
 |---|---|
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
 | [validation/history/Cloudflare検証.md](<validation/history/Cloudflare検証.md>) | Cloudflare 試用準備の検証記録 |
+| [validation/history/初期構想と対応経緯.md](<validation/history/初期構想と対応経緯.md>) | 初期構想と対応経緯 |
 | [validation/history/品質点検.md](<validation/history/品質点検.md>) | Cloudflare試用前の品質点検 |
 | [validation/history/復旧検証記録.md](<validation/history/復旧検証記録.md>) | dev 復旧検証記録 |
+| [validation/history/文書役割分離記録.md](<validation/history/文書役割分離記録.md>) | 要求・仕様・課題・検証の役割分離 |
 | [validation/history/混在通話検証.md](<validation/history/混在通話検証.md>) | 混在グループ通話・音声機器切断の検証 |
 | [validation/history/要求構造整理記録.md](<validation/history/要求構造整理記録.md>) | 要求と開発規約の構造整理記録 |
 | [validation/history/通信診断とTURN資格検証.md](<validation/history/通信診断とTURN資格検証.md>) | 通信診断とTURN資格の検証 |
 | [validation/history/音声エフェクト接続検証.md](<validation/history/音声エフェクト接続検証.md>) | 音声エフェクトのApp接続と自動検証 |
 | [validation/文書整理記録.md](<validation/文書整理記録.md>) | 文書構造と実装整合の点検記録 |
+| [validation/未確認事項.md](<validation/未確認事項.md>) | 未確認事項 |
+| [validation/自動検証範囲.md](<validation/自動検証範囲.md>) | 自動検証範囲 |
 
 ### デザイン
 

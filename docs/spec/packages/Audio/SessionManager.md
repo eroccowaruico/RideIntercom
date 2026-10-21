@@ -99,8 +99,6 @@ sequenceDiagram
 | 通話終了で `setActive(false)` する | `.notifyOthersOnDeactivation` 付きdeactivate | 既にmixされていた音声は継続する | 原則不要 | duckが解除され、他アプリ音声は通常音量へ戻る |
 | 他アプリ音声が非mixableで、OSがmixを許可しない | packageはmix希望を出す | OS判断 | 場合による | 結果は `setActive(true)` の operation report で見る |
 | 電話など高優先度sessionが存在する | `playAndRecord` sessionのactive化を試みる | package側では止めない | 場合による | OSが `insufficientPriority` 相当でactive化を拒否し得る |
-| 将来 `.mixWithOthers` を外す | `.playAndRecord` の非mixable挙動へ寄る | 止まり得る | 必要になり得る | 現在仕様からの体験変更。実装前に仕様更新が必要 |
-| 将来 `.duckOthers` を外して `.mixWithOthers` だけ残す | mixだけ許可する | 原則止まらない | 原則不要 | 他アプリ音声は下がらず、通話音声と競合しやすい |
 | `interruptSpokenAudioAndMixWithOthers` を追加する | 現在は未採用 | spoken audioをpauseし得る | 必要になり得る | navigation prompt用途のoption。通話常用設定へ入れない |
 
 ## iOS利用者体験マトリックス

@@ -79,31 +79,9 @@ flowchart LR
 | 離脱・期限切れ | known channelをcloseし、GET sessionの残存channelも確認。部分成功・応答不明の割当ては回収記録を保持 |
 | upstream不明 | timeoutしたallocationの完了を空のGET結果だけで断定しない。session消失確認まで再確認 |
 | native audio device | 本経路ではWebRTCへマイクを接続しない。DSP・codec・ミュート・相手別音量は共通音声pipeline |
-| TURN | WorkerからSDP作成前に短期資格を取得し、更新通知を既存native connectionのsetConfigurationへ適用。Worker設定・制限回線での実サービス確認は別途 |
+| TURN | WorkerからSDP作成前に短期資格を取得し、更新通知を既存native connectionのsetConfigurationへ適用。設定はWorker仕様を参照 |
 
-Cloudflareは[custom media payloads](https://developers.cloudflare.com/realtime/sfu/features/datachannels/#custom-media-payloads)を認める一方、復号・再生時刻・欠落回復をアプリに委ねる。本実装は既存Codecと受信待ちを利用し、SDKのRTP jitter/codec/DTXが動いているとは記載しない。音声品質は実機評価が必要。
-
-## 実行・検証の範囲
-
-| 検証 | 内容 |
-|---|---|
-| RelayTests | 4頂点の混在経路、離脱後の代替経路、異group・改ざん・未知hop・duplicate拒否、10分相当30,000フレーム |
-| GroupContinuityTests | 4個の実RouteManagerと仮想route。Local専用参加者、双方向送受信、中継mute/stopMedia、中継交代 |
-| NativeNegotiationTests | 同梱SDKのSDP生成・拒否・終了と2個の実WebRTC engineのloopback双方向パケット配送。マイクを使用しない |
-| WorkerPairTests | 実Swift HTTP/WSとローカルworkerd/SQLite DO。SFU外部APIのみfixture。資格・lease更新・再参加 |
-| 既存パケット試験 | per-route packet APIの暗号化・codec metadata・jitter・終了処理の回帰も保持 |
-| 未確認 | Cloudflare実アカウントのSFU媒体、実機無線、Mac/iPhone音声品質、Bluetooth実機、ロック中の継続 |
-
-```sh
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --package-path RideIntercom/packages/RTC
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npm --prefix server run test:pair
-```
-
-| 保留事項 | 状態 |
-|---|---|
-| per-route旧音声API | `CallSession`の共通中継経路は使用しない。既存API・暗号化処理・回帰テストの一括削除は自動承認レビューで拒否され、保持。整理完了とは扱わない |
-| 旧アプリとの通信 | 招待URLは同じ。中継wire contractは変更されるため、新旧binary混在通話を保証しない。同じ版へ更新して試用する |
-| 自動検証と実通話 | 仮想時間30,000フレームやloopback SDK配送を、実時間10分の音声品質合格とは扱わない |
+Cloudflareは[custom media payloads](https://developers.cloudflare.com/realtime/sfu/features/datachannels/#custom-media-payloads)を認める一方、復号・再生時刻・欠落回復をアプリに委ねる。本実装は既存Codecと受信待ちを利用し、SDKのRTP jitter/codec/DTXが動いているとは記載しない。受け入れ条件は[検証](../../validation/未確認事項.md)を参照する。
 
 ## 音声の配送と待ち行列
 
@@ -128,7 +106,6 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 | Multipeer browser / advertiser生成・開始・停止・解放 | main run loopへ直列化。main上からの同期再入は直接実行してdeadlockを避ける |
 | 停止 | delegateを外して探索・sessionを停止。停止済み・別sessionの遅延callbackを拒否 |
 | 理由 | SimulatorのDisconnect UIでBonjour `_MonitorCancel` / `_netServiceMonitorCallBack` がEXC_BAD_ACCESSとなった。探索の寿命をcallback側run loopと揃える |
-| 検証 | 実Multipeer探索の反復start/stopとSimulatorの接続・切断UI。端末間の無線通信・実機相互通話は別途 |
 
 ## ネットワーク診断の契約
 
@@ -153,6 +130,9 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 | lease更新 | Workerのrenew応答にiceServersがある場合だけ更新。Cloudflare長期秘密は受け取らない |
 | 中断 | SFU session成立前は試行leaseID付きDELETE、成立後はsession DELETE。古い試行の遅延cleanupは新資格を削除できない |
 | エラー | 資格の取得・適用失敗はInternet routeの失敗として既存report/eventに反映。他の有効なLocal経路を止めない |
-| 確認範囲 | HTTP契約・資格通知・native既存connectionへの設定更新を自動検証。実TURNを通る長時間更新と制限回線は実サービス未確認 |
 
 [Cloudflare公式の資格生成・失効・更新](https://developers.cloudflare.com/realtime/turn/generate-credentials/)に基づく。資格の期間・利用枠・失効再試行は[Worker](../server/Worker.md)が所有する。
+
+## 互換性と保持するAPI
+
+旧per-route音声API・暗号化処理・回帰テストを保持する。CallSessionの共通中継経路はこれらを使用しない。招待URLは同じだが、中継wire contractは旧版と異なるため同じ版を使用する。整理作業は[課題](../../backlog/未実装課題.md)、試験範囲は[自動検証範囲](../../validation/自動検証範囲.md)を参照する。

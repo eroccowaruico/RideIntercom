@@ -126,16 +126,7 @@ engine.connect(dynamics.node, to: engine.mainMixerNode, format: format)
 | リミッターとの関係 | クリップ最終保護は PeakLimiter の責務とし、DynamicsProcessor は聞き取りやすさの調整を主目的にする |
 | ライブラリ責務 | フォールバック音声経路の構築、UI表示、診断ログ、音声品質評価は呼び出し側で行う |
 
-## テスト仕様
-
-| テスト観点 | 確認内容 |
-|---|---|
-| Audio Unit descriptor | Apple の `AUDynamicsProcessor` effect を指す定数になっている |
-| 既定値 | RideIntercom の声用途初期設定になっている |
-| 値の正規化 | 各設定値が定義範囲に丸められる |
-| runtime snapshot | 設定、support、state を Codable として roundtrip できる |
-
-実 Audio Unit の存在や音質は実行環境に依存するため、単体テストでは設定値と descriptor の正しさを検証する。実機やOS差を含む音声品質評価は、このライブラリを呼び出す統合経路側で扱う。
+試験範囲は[自動検証範囲](../../../../validation/自動検証範囲.md)を参照する。
 
 ## 固定Apple Audio Unitの生成
 

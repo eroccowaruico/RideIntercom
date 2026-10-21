@@ -151,18 +151,4 @@ if analysis.state == .speech {
 | gate gain | 完全 mute が不自然な場合は `silenceGain` を `0.1` などに上げる |
 | リアルタイム処理 | 高頻度コールを想定し、Audio Session や engine 操作は行わない |
 
-## テスト仕様
-
-| テスト観点 | 確認内容 |
-|---|---|
-| 既定値 | Realtime VAD / gate 用の初期設定になっている |
-| 値の正規化 | 各設定値が定義範囲に丸められる |
-| RMS | `[Float]` サンプルから RMS と dBFS を計算できる |
-| attack | speech しきい値超過が attack duration 続くまで `silence` を維持する |
-| release/hangover | silence しきい値未満が release duration 続くまで `speech` を維持する |
-| gate | `applyGate(to:)` が更新後 gain をサンプルへ適用する |
-| runtime snapshot | 設定、現在状態、最後の解析結果を Codable として roundtrip できる |
-| VADGateEffect 生成 | `VADGateEffect.make()` が `AVAudioNode` を持つ effect を返す |
-| VADGateEffect 設定反映 | `make(configuration:)` で渡した設定が `vadGate.configuration` に反映される |
-
-実マイクや実スピーカーに依存する音声品質評価は、このライブラリを呼び出す統合経路側で扱う。
+試験範囲は[自動検証範囲](../../../../validation/自動検証範囲.md)を参照する。

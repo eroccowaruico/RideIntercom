@@ -57,7 +57,7 @@ RealtimeKit は完成した会議機能を含む別製品であり、SFUを自�
 | PCM fallbackの参考仮定 | 1536kbps。無圧縮へfallbackしても低価格が保証されるわけではない |
 | 複数中継 | `relayCopies=1`が通常の選出済み中継。分散したLocal隣接グラフや収束中の複数gatewayでは増える。2などで感度分析する |
 | 以前の64kbps表 | RTP Opus方式を仮定した旧試算。現行group relayの試算として無効。試算テストでは比較基準として明示指定して残す |
-| 小型化 | 独自バイナリparser導入は自動承認レビューで拒否され未実装。現在はFoundationのbinary PropertyListを使用 |
+| 現行形式 | Foundationのbinary PropertyListを使用。小型化案は[改善候補](../backlog/改善候補.md)で管理 |
 
 全peerへSFUがfanoutする保守的モデル。実際にSFUへ接続しないLocal-onlyの人数やLocal優先で抑制できる配信分を割り引いていない。一方、再送・制御payloadの増加・複数gatewayなどはこの既定値を超え得る。最大payload制約をwire帯域のハードキャップとは扱わない。
 
@@ -128,4 +128,4 @@ node --test scripts/Cloudflare/*.test.mjs
 
 既定はTURN無効。有効時は接続試行で資格生成APIを追加し、lease更新に合わせて更新、切断で未期限切れ資格を失効する。資格は利用枠予約後にのみ発行する。更新でSFU sessionを作り直さないため、資格更新自体で全員の再接続を発生させない。
 
-既存の[試算](Cost.md)の媒体byte条件は維持するが、追加のWorker HTTP・DO保存・alarm・外部API待ち時間と、持ち出されたTURN資格の独立利用は別途実測する。参加者秒で短期資格の有効時間を制限しても、TURNの実転送量を直接止めるbyte上限ではない。既存無料枠や試算を新実装の実請求確認済みとして扱わない。
+既存の[試算](Cloudflare費用試算.md)の媒体byte条件は維持するが、追加のWorker HTTP・DO保存・alarm・外部API待ち時間と、持ち出されたTURN資格の独立利用は別途実測する。参加者秒で短期資格の有効時間を制限しても、TURNの実転送量を直接止めるbyte上限ではない。既存無料枠や試算を新実装の実請求確認済みとして扱わない。

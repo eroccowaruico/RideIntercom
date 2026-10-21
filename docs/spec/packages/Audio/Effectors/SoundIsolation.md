@@ -129,18 +129,7 @@ engine.connect(isolation.node, to: engine.mainMixerNode, format: format)
 | 実行環境差 | OSが対応していても環境によって Audio Unit が利用できない可能性があるため、必ず `isAvailable` または `make` の失敗を扱う |
 | ライブラリ責務 | フォールバック音声経路の構築、UI表示、診断ログ、音声品質評価は呼び出し側で行う |
 
-## テスト仕様
-
-| テスト観点 | 確認内容 |
-|---|---|
-| Audio Unit descriptor | Apple の `AUSoundIsolation` effect を指す定数になっている |
-| Mix 正規化 | `mix` が `0.0...1.0` に丸められる |
-| Wet/Dry 変換 | `mix` が `0...100` の `kAUSoundIsolationParam_WetDryMixPercent` 値へ変換される |
-| Sound Type | `.voice` が安定して `kAUSoundIsolationSoundType_Voice` へ変換される |
-| High Quality availability | `.highQualityVoice` が iOS 18 / macOS 15 未満では使用不可として扱われる |
-| runtime snapshot | 設定、support、state を Codable として roundtrip できる |
-
-実 Audio Unit の存在や音質は実行環境に依存するため、単体テストでは設定値と descriptor の正しさを検証する。実機やOS差を含む音声品質評価は、このライブラリを呼び出す統合経路側で扱う。
+試験範囲は[自動検証範囲](../../../../validation/自動検証範囲.md)を参照する。
 
 ## 固定Apple Audio Unitの生成
 
