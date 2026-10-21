@@ -89,3 +89,13 @@
 | 手動再接続を減らす | 同一SFU sessionのlease自動更新。WS一時切断はmediaとは別に復帰 |
 | 公開できる構成へ進む | SFUとWorker契約を固定し、公開登録/資格発行/失効・abuse対策を追加する。招待制registryを公開登録完成と呼ばない |
 | 検証区分 | 自動検証、実Cloudflare未確認、実機未確認を分ける。実測料金で試算条件を更新 |
+
+## 品質・保守性点検の反映
+
+| 要求 | 現行の対応 | 残る受け入れ |
+|---|---|---|
+| UIなしの自動化 | headless入口。9 package/native SDP/Worker/Swiftペア/scripts | 実SFU媒体をローカル代替テストで保証しない |
+| ペア・再接続 | 双方向制御、lease跨ぎ、片側再参加、10回の受信枠再利用、生成PCM双方30,000フレーム | 実回線/音響/画面ロック/音声デバイス切替 |
+| 診断導線 | 経路概要、サービス認証、Audio Checkを分離。未提供指標を正常表示しない | native詳細統計、TURN、native DSP契約 |
+| UI自動化 | 専用Simulator、主要導線、資格入力、large text/dark/landscape | VoiceOver実操作とMac/iPadサイズ別の最終目視 |
+| 拡張性 | 既存route factory、codec、backend、Effector境界を維持。動的plugin機構は追加しない | 公開identity・abuse・課金運用の実サービス確認 |

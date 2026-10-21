@@ -6,11 +6,17 @@ final class RideIntercomUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
 
+        #if os(iOS)
+        XCUIDevice.shared.orientation = .portrait
+        #endif
         launchApp()
     }
 
     private func launchApp(startOnDiagnostics: Bool = false) {
         app = XCUIApplication()
+        if name.contains("Adaptive") {
+            app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        }
         app.launch()
         app.activate()
 
@@ -35,6 +41,8 @@ final class RideIntercomUITests: XCTestCase {
         let localRoute = app.switches["Local Network"].firstMatch
         XCTAssertTrue(localRoute.waitForExistence(timeout: 3))
         if localRoute.value as? String == "0" { localRoute.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+        let internetRoute = app.switches["Internet"].firstMatch
+        if internetRoute.value as? String == "1" { internetRoute.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         openGroupsTab()
         createTalkGroupAndOpenCall()
         try checkGroupSelectionOpensCallScreen()
@@ -71,12 +79,51 @@ final class RideIntercomUITests: XCTestCase {
         openGroupsTab()
         openSettingsTab()
         XCTAssertTrue(app.buttons["configureInternetConnection"].exists)
+        let internet = app.switches["Internet"].firstMatch
+        if internet.value as? String == "0" { internet.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         let local = app.switches["Local Network"].firstMatch
         let original = local.value as? String
         local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertNotEqual(local.value as? String, original)
         local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertEqual(local.value as? String, original)
+    }
+
+    @MainActor
+    func testAdaptiveDiagnosticsAndConfigurationRemainReachable() {
+        openDiagnosticsTab()
+        let status = app.staticTexts["internetServiceCheckStatus"]
+        for _ in 0..<8 where !status.isHittable { app.swipeUp() }
+        XCTAssertTrue(status.exists)
+        XCTAssertTrue(app.buttons["checkInternetService"].exists)
+        XCTAssertFalse(app.buttons["checkInternetService"].isEnabled)
+        attachScreen("Diagnostics Large Text Dark")
+        openSettingsTab()
+        let configure = app.buttons["configureInternetConnection"]
+        for _ in 0..<6 where !configure.isHittable { app.swipeUp() }
+        configure.tap()
+        XCTAssertTrue(app.textFields["internetWorkerURL"].waitForExistence(timeout: 3))
+        #if os(iOS)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { [unowned self] _, _ in
+            self.app.frame.width > self.app.frame.height && self.app.buttons["closeInternetConnection"].isHittable
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed)
+        #endif
+        XCTAssertTrue(app.buttons["closeInternetConnection"].waitForExistence(timeout: 3))
+        let save = app.buttons["saveInternetConnection"]
+        let form = app.collectionViews.containing(.textField, identifier: "internetWorkerURL").firstMatch
+        XCTAssertTrue(form.exists)
+        for _ in 0..<4 where save.frame.maxY > app.frame.maxY - 20 { form.swipeUp() }
+        XCTAssertTrue(save.exists)
+        attachScreen("Internet Settings Landscape Large Text")
+        XCTAssertLessThanOrEqual(save.frame.maxY, app.frame.maxY - 20)
+        app.buttons["closeInternetConnection"].tap()
+        #if os(iOS)
+        XCUIDevice.shared.orientation = .portrait
+        #endif
+        openGroupsTab()
+        XCTAssertTrue(waitForVisibleRoot(in: app))
     }
 
     private func checkInternetSettingsRejectUnsecuredURL() {
@@ -93,6 +140,7 @@ final class RideIntercomUITests: XCTestCase {
         save.tap()
         XCTAssertTrue(app.staticTexts["Could not save. Check the HTTPS URL, device token, and Keychain access."].waitForExistence(timeout: 3))
         app.buttons["closeInternetConnection"].tap()
+        XCTAssertTrue(url.waitForNonExistence(timeout: 5))
     }
 
     private func checkSettingsChangesPersistAcrossTabs() {
@@ -101,6 +149,7 @@ final class RideIntercomUITests: XCTestCase {
         let local = app.switches["Local Network"].firstMatch
         let internet = app.switches["Internet"].firstMatch
         XCTAssertTrue(local.waitForExistence(timeout: 3))
+        if internet.value as? String == "0" { internet.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         let original = local.value as? String
         local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertNotEqual(local.value as? String, original)
@@ -143,7 +192,13 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func attachScreen(_ name: String) {
+        #if os(iOS)
+        // App-scoped screenshots can crop a rotated sheet using portrait bounds.
+        // This is the dedicated test Simulator, so capture its complete screen.
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        #else
         let attachment = XCTAttachment(screenshot: app.screenshot())
+        #endif
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
@@ -159,7 +214,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Participants"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.descendants(matching: .any)["localMicrophonePanel"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["localMicrophoneMeter"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Live"].exists)
+        XCTAssertTrue(app.staticTexts["Unmuted"].exists)
         XCTAssertTrue(app.staticTexts["callPresenceLabel"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["routeLabel"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["localMicrophoneMuteButton"].waitForExistence(timeout: 3))
@@ -406,7 +461,7 @@ final class RideIntercomUITests: XCTestCase {
         defer {
             let scroll = app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch
             for _ in 0..<6 {
-                if app.descendants(matching: .any)["pipeline-session-step"].firstMatch.isHittable { break }
+                if app.descendants(matching: .any)["audioPathSummary"].firstMatch.isHittable { break }
                 scroll.swipeDown()
             }
         }
@@ -439,9 +494,7 @@ final class RideIntercomUITests: XCTestCase {
                 let identified = app.buttons["settingsTab"].firstMatch
                 let button = identified.exists ? identified : app.tabBars.buttons["Settings"].firstMatch
                 XCTAssertTrue(button.waitForExistence(timeout: 3))
-                // The floating iOS tab bar sometimes reports an invalid automatic
-                // hit point during animation. Tap the observed button's center.
-                button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                button.tap()
             }
         }
         guard scroll.waitForExistence(timeout: 5) else {

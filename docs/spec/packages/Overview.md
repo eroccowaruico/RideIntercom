@@ -163,3 +163,17 @@ flowchart TB
 | user settings からpackage設定への変換 | codec payload の中身解釈 |
 
 `MediaPipeline` package は作らない。composition は App が行うが、glue code で package責務を肩代わりしない。
+
+## 差し替えと拡張の入口
+
+| 変更したいもの | 既存の入口 | 追加すべきでない構造 |
+|---|---|---|
+| 通信方式 | RTCのRTCCallRoute / AnyRouteFactory / capabilities / mediaOwnership | App内の別ルーター、方式別ViewModel |
+| native WebRTC | NativeWebRTCEngine、WebRTCSignalingClient | SFU DataChannelとWorker WSの二重制御経路 |
+| 音声codec | Codecのencoder/decoder選択とavailability report | App内のcodec実装、暗黙のsample rate変換 |
+| 効果 | AudioMixerのbus/source/sinkとEffector node | 通信packageへDSPを埋め込むこと |
+| 入出力backend | SessionManagerのbackend契約 | テスト用の本番launch分岐 |
+| 公開用identity | Worker入口でtokenをownerへ解決する境界 | group招待と端末資格の共用、AppへのSFU secret配布 |
+| 検証 | package単体 / native SDP / Worker / Swift-Workerペア / App / UI | 全層をfakeにして外部契約が未検証のまま成功と呼ぶこと |
+
+ここでのプラグイン性は、ビルド時に既存protocol/factoryへ差し替える意味。動的コード読み込みや外部プラグイン市場は実装しない。nativeのeffect/音量/統計とTURNは不足として別に管理し、Appの暫定DSPで埋めない。

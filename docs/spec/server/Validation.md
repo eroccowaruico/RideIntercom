@@ -90,3 +90,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
 | 本記録を含む最終コミット | 資格編集sheet、UI回帰、要求・仕様・検証記録 |
 
 main/devへのマージ、push、Cloudflareデプロイは行っていない。
+
+## 後続の品質点検
+
+2026-10-21の追加点検で、購読midの再利用、Swift clientとWorkerのペア検証、native SDPの自動検証を追加した。上記の未確認事項のうち「peer入替時のSDP再利用」はローカル自動検証済みとなった。実Cloudflare媒体の確認は引き続き必要。最新の結果は [品質点検](../scripts/品質点検.md) を参照する。
