@@ -70,14 +70,17 @@ OUTPUT_DIR="${PWD}/out"
 XCFRAMEWORK_DIR="${OUTPUT_DIR}/WebRTC.xcframework"
 # Upstream deprecation warnings from newer Apple SDKs remain visible in logs.
 # Do not make vendor warnings fatal; compiler/linker errors still fail the build.
-COMMON_GN_ARGS="treat_warnings_as_errors=false is_debug=${DEBUG} rtc_libvpx_build_vp9=true is_component_build=false rtc_include_tests=false rtc_enable_objc_symbol_export=true enable_stripping=true enable_dsyms=false use_lld=true rtc_ios_use_opengl_rendering=true rtc_system_openh264=true rtc_use_h265=true"
+COMMON_GN_ARGS="treat_warnings_as_errors=false is_debug=${DEBUG} rtc_libvpx_build_vp9=true is_component_build=false rtc_include_tests=false rtc_enable_objc_symbol_export=true enable_stripping=true use_lld=true rtc_ios_use_opengl_rendering=true rtc_system_openh264=true rtc_use_h265=true"
 PLISTBUDDY_EXEC="/usr/libexec/PlistBuddy"
 
 build_ios() {
   local arch="$1"
   local environment="$2"
+  # Device symbols must travel with the iOS binary for App Store uploads.
+  local enable_dsyms=false
+  [[ "${environment}" != "device" ]] || enable_dsyms=true
   local gen_dir="${OUTPUT_DIR}/ios-${arch}-${environment}"
-  local gen_args="${COMMON_GN_ARGS} target_cpu=\"${arch}\" target_os=\"ios\" target_environment=\"${environment}\" ios_deployment_target=\"${IOS_DEPLOYMENT_TARGET}\" ios_enable_code_signing=false"
+  local gen_args="${COMMON_GN_ARGS} enable_dsyms=${enable_dsyms} target_cpu=\"${arch}\" target_os=\"ios\" target_environment=\"${environment}\" ios_deployment_target=\"${IOS_DEPLOYMENT_TARGET}\" ios_enable_code_signing=false"
   gn gen "${gen_dir}" --args="${gen_args}"
   gn args --list "${gen_dir}" > "${gen_dir}/gn-args.txt"
   ninja -C "${gen_dir}" framework_objc
@@ -86,7 +89,7 @@ build_ios() {
 build_macos() {
   local arch="$1"
   local gen_dir="${OUTPUT_DIR}/macos-${arch}"
-  local gen_args="${COMMON_GN_ARGS} target_cpu=\"${arch}\" target_os=\"mac\" mac_deployment_target=\"${MACOS_DEPLOYMENT_TARGET}\""
+  local gen_args="${COMMON_GN_ARGS} enable_dsyms=false target_cpu=\"${arch}\" target_os=\"mac\" mac_deployment_target=\"${MACOS_DEPLOYMENT_TARGET}\""
   gn gen "${gen_dir}" --args="${gen_args}"
   gn args --list "${gen_dir}" > "${gen_dir}/gn-args.txt"
   ninja -C "${gen_dir}" mac_framework_objc
@@ -166,6 +169,14 @@ if [[ "${IOS}" == "true" ]]; then
   mkdir "${XCFRAMEWORK_DIR}/${ios_identifier}" "${XCFRAMEWORK_DIR}/${simulator_identifier}"
   plist_add_library "${library_count}" "${ios_identifier}" ios
   plist_add_architecture "${library_count}" arm64
+  "${PLISTBUDDY_EXEC}" -c "Add :AvailableLibraries:${library_count}:DebugSymbolsPath string dSYMs" "${INFO_PLIST}"
+  device_dsym="${OUTPUT_DIR}/ios-arm64-device/WebRTC.dSYM"
+  if [[ ! -f "${device_dsym}/Contents/Resources/DWARF/WebRTC" ]]; then
+    echo "Missing iOS device dSYM: rebuild with enable_dsyms=true." >&2
+    exit 1
+  fi
+  mkdir -p "${XCFRAMEWORK_DIR}/${ios_identifier}/dSYMs"
+  cp -R "${device_dsym}" "${XCFRAMEWORK_DIR}/${ios_identifier}/dSYMs/WebRTC.framework.dSYM"
   library_count=$((library_count + 1))
   plist_add_library "${library_count}" "${simulator_identifier}" ios simulator
   plist_add_architecture "${library_count}" arm64

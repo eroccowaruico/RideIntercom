@@ -15,7 +15,7 @@ WebRTC本体とChromium依存ソースは巨大なため、RideIntercom reposito
 | `scripts/BuildWebRTC/resolve-webrtc-branch.sh` | Chromium Dashboardからstable milestoneのWebRTC branch-headを取得する | 直接実行またはbuild scriptから自動実行する |
 | `scripts/BuildWebRTC/build-current-webrtc-xcframework.sh` | 現在stableのWebRTC branchを自動取得して `WebRTC.xcframework` をビルドする | 上位スクリプトが内部で使う。buildだけを確認したい場合に使う |
 | `scripts/BuildWebRTC/build-webrtc-xcframework.sh` | 指定されたbranch、platform、deployment targetでビルドする | 上位スクリプトが内部で使う。branchやplatformを固定したい場合に使う |
-| `scripts/BuildWebRTC/verify-webrtc-xcframework.sh` | Info.plist、実バイナリのarchitecture、必須platform、public headersを検証する | 上位スクリプトが内部で使う。成果物だけを検証したい場合に使う |
+| `scripts/BuildWebRTC/verify-webrtc-xcframework.sh` | Info.plist、実バイナリのarchitecture、必須platform、iOS実機dSYMのUUID、public headersを検証する | 上位スクリプトが内部で使う。成果物だけを検証したい場合に使う |
 | `scripts/BuildWebRTC/import-webrtc-xcframework.sh` | 検証済みzipをRTC package配下のbinary target入力へ取り込む | 上位スクリプトが内部で使う。既存zipだけを取り込み直す場合に使う |
 | `scripts/BuildWebRTC/clean-webrtc-build-resources.sh` | WebRTC build output、SwiftPM artifact、source checkoutを削除する | build後の容量整理に使う |
 
@@ -44,7 +44,7 @@ scripts/BuildWebRTC/update-webrtc-binary.sh
 | branch解決 | `WEBRTC_BRANCH` 未指定時にstable branch-headを取得する | 取得不能なら `WEBRTC_BRANCH=branch-heads/<number>` の指定を案内する |
 | source取得 | `WEBRTC_BUILD_ROOT/src` がなければ `fetch --nohooks webrtc_ios` から開始する | `depot_tools` 不備なら設定値を案内する |
 | sync/build | cleanなsourceをbranchへ切替え、`gclient sync`、`gn gen`、`ninja` でiOS/macOS sliceをビルドする | 中断する。旧出力の自動再組み立てで成功に置き換えない |
-| 成果物検証 | Info.plistと実バイナリのarchitecture、必須slice、`WebRTC.h` のimport先を検証する | 欠落があれば採用しない。空のdirectoryも失敗 |
+| 成果物検証 | Info.plistと実バイナリのarchitecture、必須slice、iOS実機dSYMのUUID、`WebRTC.h` のimport先を検証する | 欠落があれば採用しない。空のdirectoryも失敗 |
 | 隔離取り込み | 一時directoryへRTC packageをコピーし、候補zipを取り込む | repository内の採用済みzipとmetadataは維持 |
 | SwiftPM検証 | 一時packageで `RTCNativeWebRTC` をビルドする | 失敗時は旧成果物を維持 |
 | テスト | 一時packageで `RTC` testsを実行する | 失敗時は旧成果物を維持 |
@@ -179,7 +179,7 @@ MACOS=true \
 scripts/BuildWebRTC/build-webrtc-xcframework.sh
 ```
 
-この指定では `fetch`、`gclient sync`、`gn gen`、`ninja` を実行しない。既存の `../webrtc-build/src/out/*/WebRTC.framework` だけを入力にする。
+この指定では `fetch`、`gclient sync`、`gn gen`、`ninja` を実行しない。既存の `../webrtc-build/src/out/*/WebRTC.framework` とiOS実機用の `ios-arm64-device/WebRTC.dSYM` を入力にする。dSYMがない旧出力は再組み立てだけでは修復できないため、同じsource revisionからiOS実機sliceを再ビルドする。
 
 ## iOSとmacOSの差分
 
@@ -190,6 +190,12 @@ scripts/BuildWebRTC/build-webrtc-xcframework.sh
 | macOS | `mac_framework_objc` | `WebRTC.framework/Versions/A/Headers` | x86_64とarm64を `lipo` で統合する |
 
 macOS sliceでは、配布済みbinaryと同様にpublic headersが不足する場合がある。`scripts/BuildWebRTC/build-webrtc-xcframework.sh` はmacOSの `gen/sdk/WebRTC.framework/Headers` を優先してpublic headersを補完し、`gen/sdk` が存在しない場合のみiOS device sliceをfallbackとして使う。その後 `scripts/BuildWebRTC/verify-webrtc-xcframework.sh` で必須headerと `WebRTC.h` がimportするheaderの存在を検証する。
+
+## iOS配布用デバッグシンボル
+
+iOS実機sliceは `enable_dsyms=true` でビルドする。生成された `WebRTC.dSYM` をxcframework内の `ios-arm64/dSYMs/WebRTC.framework.dSYM` へ同梱し、Info.plistの `DebugSymbolsPath` に `dSYMs` を登録する。XcodeがArchiveへコピーできる形でbinaryと一体管理する。SimulatorとmacOSのdSYM同梱は今回のiOS配布修復の対象外とする。
+
+検証スクリプトはiOS実機dSYMの宣言・DWARFファイル・binaryとのUUID/architecture一致を必須とする。別sliceのファイルや空の代用品では通らない。AppのArchiveでも `dSYMs/WebRTC.framework.dSYM` が存在し、App内のWebRTC.frameworkとUUIDが一致することを確認する。再ビルド前のArchiveには新しいdSYMを流用せず、新Archiveを配布する。
 
 ## 成果物検証
 
@@ -278,11 +284,11 @@ DRY_RUN=false scripts/BuildWebRTC/clean-webrtc-build-resources.sh
 
 | 方式 | 利点 | 注意点 |
 |---|---|---|
-| zipをrepositoryに含める | checkout後すぐにSwiftPMで解決できる。外部配布URLが不要 | Git repositoryが約30MB増える。更新のたびにbinary diffではなくzip全体が履歴に残る |
+| zipをrepositoryに含める | checkout後すぐにSwiftPMで解決できる。外部配布URLが不要 | dSYMを含むzip全体がGit repositoryへ追加される。更新のたびにbinary diffではなくzip全体が履歴に残る |
 | zipをrelease等へ置く | repository本体を軽く保てる。SwiftPM checksumで固定できる | private配布、URL管理、checksum更新の運用が必要 |
 | xcframework directoryをrepositoryに含める | 中身を直接確認しやすい | ファイル数が多く、symlinkやframework構造の差分管理が重い |
 
-現時点ではzipが約30MBでGitHubの単一ファイル上限を下回るため、初期採用はrepository同梱で成立する。更新頻度が上がる、またはartifactが大きくなる場合はrelease配布へ移す。
+iOS実機dSYMの同梱でzip容量が増えるため、更新ごとに実サイズを確認する。更新頻度が上がる、またはartifactが大きくなる場合はrelease配布へ移す。
 ## 更新処理の回帰テスト
 
 ```bash
@@ -292,6 +298,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer python3 -m unittest dis
 | ケース | 確認 |
 |---|---|
 | 空のxcframework | headersが見つからないまま成功にしない |
+| iOS実機dSYMの欠落・UUID不一致 | 宣言の欠落、DWARF欠落、別sliceのUUIDをそれぞれ拒否する |
 | candidateのSwiftPM検証失敗 | 採用済みzipとmetadataが変わらない |
 
 resolverはOSの証明書ストアを利用するcurlで公式Chromium Dashboardへアクセスする。証明書検証を無効化しない。

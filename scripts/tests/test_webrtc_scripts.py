@@ -1,5 +1,6 @@
 """Regression checks for artifact validation and failed-update preservation."""
 import os
+import plistlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -64,6 +65,46 @@ class WebRTCScriptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run([str(SCRIPTS / 'verify-webrtc-xcframework.sh'), directory], capture_output=True)
             self.assertNotEqual(result.returncode, 0, result.stdout.decode())
+
+    def test_distribution_slice_without_symbols_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(['unzip', '-q', str(ARTIFACT), '-d', directory], check=True)
+            root = Path(directory) / 'WebRTC.xcframework'
+            manifest_path = root / 'Info.plist'
+            manifest = plistlib.loads(manifest_path.read_bytes())
+            device = next(item for item in manifest['AvailableLibraries']
+                          if item['SupportedPlatform'] == 'ios'
+                          and not item.get('SupportedPlatformVariant'))
+            device.pop('DebugSymbolsPath', None)
+            manifest_path.write_bytes(plistlib.dumps(manifest))
+            result = subprocess.run([str(SCRIPTS / 'verify-webrtc-xcframework.sh'), str(root)],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Missing dSYM', result.stderr)
+
+    def test_missing_or_mismatched_dsym_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(['unzip', '-q', str(ARTIFACT), '-d', directory], check=True)
+            root = Path(directory) / 'WebRTC.xcframework'
+            manifest = plistlib.loads((root / 'Info.plist').read_bytes())
+            device = next(item for item in manifest['AvailableLibraries']
+                          if item['SupportedPlatform'] == 'ios'
+                          and not item.get('SupportedPlatformVariant'))
+            dwarf = (root / device['LibraryIdentifier'] / device['DebugSymbolsPath']
+                     / 'WebRTC.framework.dSYM/Contents/Resources/DWARF/WebRTC')
+            dwarf.unlink()
+            result = subprocess.run([str(SCRIPTS / 'verify-webrtc-xcframework.sh'), str(root)],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Missing dSYM', result.stderr)
+            # Use a real Mach-O from another slice, so a file-existence check cannot pass.
+            mac = next(item for item in manifest['AvailableLibraries']
+                       if item['SupportedPlatform'] == 'macos')
+            shutil.copyfile(root / mac['LibraryIdentifier'] / mac['LibraryPath'] / 'WebRTC', dwarf)
+            result = subprocess.run([str(SCRIPTS / 'verify-webrtc-xcframework.sh'), str(root)],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('dSYM UUID mismatch', result.stderr)
 
     def test_failed_native_validation_keeps_installed_artifact(self):
         with tempfile.TemporaryDirectory() as directory:

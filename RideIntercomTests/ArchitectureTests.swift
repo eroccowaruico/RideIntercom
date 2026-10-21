@@ -14,6 +14,14 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct ArchitectureTests {
+    @Test func appDoesNotRequestUnusedICloudServices() throws {
+        let url = AppTestSupport.workspaceRoot().appendingPathComponent("RideIntercom/RideIntercom.entitlements")
+        let entitlements = try #require(
+            PropertyListSerialization.propertyList(from: Data(contentsOf: url), options: [], format: nil) as? [String: Any]
+        )
+        #expect(entitlements.keys.contains { $0.hasPrefix("com.apple.developer.icloud-") } == false)
+    }
+
     @Test func appTargetSupportsIOSAndMacOSWithoutAudioUnitLinkage() throws {
         let project = try AppTestSupport.source("RideIntercom.xcodeproj/project.pbxproj")
 

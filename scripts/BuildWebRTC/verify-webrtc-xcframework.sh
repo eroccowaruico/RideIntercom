@@ -15,8 +15,16 @@ fi
 
 # Validate the manifest and the actual binaries, not just any folders found.
 python3 - "${XCFRAMEWORK_PATH}" <<'PYTHON'
-import pathlib, plistlib, subprocess, sys
+import pathlib, plistlib, re, subprocess, sys
 root = pathlib.Path(sys.argv[1])
+
+def uuids(path):
+    output = subprocess.check_output(['xcrun', 'dwarfdump', '--uuid', str(path)], text=True)
+    values = set(re.findall(r'UUID: ([0-9A-Fa-f-]+) \(([^)]+)\)', output))
+    if not values:
+        raise ValueError(f'Missing UUID: {path}')
+    return values
+
 try:
     with (root / 'Info.plist').open('rb') as source:
         libraries = plistlib.load(source)['AvailableLibraries']
@@ -31,6 +39,17 @@ try:
         declared = set(library['SupportedArchitectures'])
         if actual != declared:
             raise ValueError(f'{binary}: declared {declared}, actual {actual}')
+        symbols_path = library.get('DebugSymbolsPath')
+        # iOS device symbols are required for App Store distribution.
+        if not symbols_path and platform == ('ios', ''):
+            raise ValueError(f'Missing dSYM declaration: {binary}')
+        if symbols_path:
+            dwarf = (framework.parent / symbols_path / 'WebRTC.framework.dSYM'
+                     / 'Contents/Resources/DWARF/WebRTC')
+            if not dwarf.is_file():
+                raise ValueError(f'Missing dSYM: {dwarf}')
+            if uuids(binary) != uuids(dwarf):
+                raise ValueError(f'dSYM UUID mismatch: {binary} and {dwarf}')
         found.setdefault(platform, set()).update(actual)
     for platform, architectures in expected.items():
         if not architectures <= found.get(platform, set()):
@@ -91,4 +110,4 @@ if [[ "${missing_count}" -ne 0 ]]; then
   exit 1
 fi
 
-echo "WebRTC.xcframework header verification passed: ${XCFRAMEWORK_PATH}"
+echo "WebRTC.xcframework slice, dSYM UUID, and header verification passed: ${XCFRAMEWORK_PATH}"
