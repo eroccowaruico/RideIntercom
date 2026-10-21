@@ -4,6 +4,18 @@
 
 この仕様書は、利用者が mixer graph を安全に組み立て、改修者が format 正規化や graph 変更の影響範囲を判断できることを目的とする。
 
+## 実装の責務配置
+
+公開APIと処理順は維持し、変更理由ごとに実装を分離する。状態とlockは元の所有者に置き、分割のための公開APIや中間protocolは追加しない。
+
+| ファイル | 所有する責務 |
+|---|---|
+| `AudioMixer.swift` | bus間のgraph接続、bus所有、graph snapshot |
+| `MixerBus.swift` | 所属node/effect/tapの寿命とメタデータ同期 |
+| `MixerPCMPorts.swift` | source再生待ちとsink配信 |
+| `MixerPCMNormalizer.swift` | PCM形式変換とbuffer境界 |
+| `MixerModels.swift` | 公開snapshot・errorの値型 |
+
 ## Package Profile
 
 | 項目 | 仕様 |

@@ -2,6 +2,21 @@
 
 `SessionManager` は OS audio session と audio hardware の境界を扱う package である。入力された PCM を変換せず、出力する PCM も変換しない。sample rate、channel count、volume、gain、effect、mix の吸収は `AudioMixer` が担当する。
 
+## 実装の責務配置
+
+公開APIと処理順は維持し、変更理由ごとに実装を分離する。状態とlockは元の所有者に置き、分割のための公開APIや中間protocolは追加しない。
+
+| ファイル | 所有する責務 |
+|---|---|
+| `SessionManager.swift` | 共通session操作とbackend契約 |
+| `SessionModels.swift` | 設定解決と公開reportの値型 |
+| `VoiceProcessing.swift` | input voice processingの操作とOS bridge |
+| `SystemAudioSessionBackend*.swift` | OS session操作とiOS/macOSの機器・通知処理 |
+| `AudioStreams.swift` | stream設定・report・backend契約 |
+| `AudioInputStreamCapture.swift` / `AudioOutputStreamRenderer.swift` | 入出力それぞれのlifecycle |
+| `SystemAudioInputStreamBackend.swift` / `SystemAudioOutputStreamBackend.swift` | AVAudioEngineの入出力所有 |
+| `AudioStreamPCM.swift` | PCMとOS bufferの境界 |
+
 ## Package Profile
 
 | 項目 | 仕様 |
