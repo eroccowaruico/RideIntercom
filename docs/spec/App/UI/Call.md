@@ -50,8 +50,8 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 | 通話状態要約 | `callStatusHeader` | `connectionStatusIcon` | `Call status` | `callPresenceLabel`, `routeLabel`, `connectionState`, `isAudioReady` | 接続アイコン + 2 行テキスト | Idle、Waiting、Connected / Audio Idle、通話中 |
 | 接続状態ラベル | `connectionStatusIcon` | `callPresenceLabel` | 接続状態名 | `String` | 1 行目 | 状態不明時も文言化する |
 | 経路ラベル | `connectionStatusIcon` | `routeLabel` | 経路 | `String` | 2 行目補助テキスト | Local / Internet / Offline / Control Only |
-| ローカル入力ヘッダー | `callStatusHeader` | `localMicrophoneHeaderControl` | `Input` | `GroupMember`, `Bool` | ローカル入力状態カード | Live / Muted |
-| ローカル入力状態ラベル | `localMicrophoneHeaderControl` | `localMicrophoneStateLabel` | `Live` / `Muted` | `isMuted` | 状態テキスト | 入力状態 |
+| ローカル入力ヘッダー | `callStatusHeader` | `localMicrophoneHeaderControl` | `Input` | `GroupMember`, `Bool` | ローカル入力状態カード | Unmuted / Muted |
+| ローカル入力状態ラベル | `localMicrophoneHeaderControl` | `localMicrophoneStateLabel` | `Unmuted` / `Muted` | `isMuted` | 状態テキスト | 入力状態 |
 | ローカル入力メーター | `localMicrophoneHeaderControl` | `localMicrophoneMeter` | なし | `voiceLevel`, `voicePeakLevel`, `isMuted` | 値文字列なしのメーター | 入力レベルとピーク |
 | ローカルミュートボタン | `localMicrophoneHeaderControl` | `localMicrophoneMuteButton` | `Mute` / `Unmute` | `Bool` | アイコン付きボタン | 押下でマイクミュート反転 |
 | マスター出力グループ | `callStatusHeader` | `outputStateLabel` | `Output` | `masterOutputVolume`, `isOutputMuted`, `receiveMasterSoundIsolationEnabled` | 出力ラベル + スライダー + Voice Isolation + ミュート | OS 音量ではなく App 最終出力 |
@@ -94,3 +94,14 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 ## Voice Isolationの現在の提供状態
 
 SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操作を表示する。通話開始時に実Mixerへノードを接続し、設定変更は実Audio Unitのbypassへ反映する。停止中は要求設定だけ保持し、稼働中とは表示しない。非対応環境では操作を表示せずsupport reportで区別する。
+
+## Internet nativeの表示
+
+| 項目 | 仕様 |
+|---|---|
+| 接続状態 | RTCの状態を保持し、mediaReady前はConnecting Audio/Audio Idle、mediaReady後はAudio Active |
+| マイク | Muted/Unmutedは操作状態。Unmutedを音声到達の証明にしない |
+| nativeメーター | 未提供と表示。Local packet meterの0を流用しない |
+| master音量 | native時はSystem volume。App gain sliderを表示しない。出力muteは有効 |
+| peer音量/Voice Isolation | native時は操作を表示せず、Local Networkで提供する旨を表示 |
+| 切断 | native所有権とRTC表示状態を初期化し、Local用設定操作へ戻す |

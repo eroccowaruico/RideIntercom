@@ -792,8 +792,8 @@ struct RideIntercomTests {
         #expect(snapshot.connectionSummary == "PEERS 0")
 
         let overviewRows = harness.viewModel.diagnosticsOverviewRows
-        #expect(overviewRows.map(\.id) == ["call", "network", "invite"])
-        #expect(overviewRows.map(\.title) == ["Call", "Network Quality", "Invite"])
+        #expect(overviewRows.map(\.id) == ["media", "call", "network", "invite"])
+        #expect(overviewRows.map(\.title) == ["Audio Path", "Call", "Network Quality", "Invite"])
         #expect(overviewRows.contains { $0.accessibilityIdentifier == "audioSessionSummaryLabel" } == false)
         #expect(overviewRows.contains { $0.accessibilityIdentifier == "audioInputProcessingSummaryLabel" } == false)
         #expect(overviewRows.contains { $0.accessibilityIdentifier == "playbackDebugSummaryLabel" } == false)
@@ -1083,6 +1083,55 @@ struct RideIntercomTests {
         harness.viewModel.disconnect()
     }
 
+    @Test func nativeOutputRouteChangeDoesNotStartThePacketRenderer() async {
+        let harness = Self.makeHarness()
+        harness.callSession.usesRouteManagedAudio = true
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        harness.viewModel.refreshOutputRendererIfNeeded()
+        #expect(harness.outputBackend.startCount == 0)
+        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        harness.viewModel.disconnect()
+    }
+
+    @Test func connectingCancelsAudioCheckBeforePeerAuthentication() {
+        let harness = Self.makeHarness()
+        harness.viewModel.startAudioCheck()
+        #expect(harness.viewModel.audioCheckPhase == .recording)
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        #expect(harness.viewModel.audioCheckPhase == .idle)
+        #expect(!harness.viewModel.audioCheckOwnsAudioPipeline)
+        harness.viewModel.startAudioCheck()
+        #expect(harness.viewModel.audioCheckPhase == .idle)
+        harness.viewModel.disconnect()
+    }
+
+    @Test func internetSettingsValidationPreservesCallAndSavedCheckUsesNoMedia() async throws {
+        let keychain = InternetTestKeychain()
+        let store = InternetConnectionSettingsStore(keychain: keychain)
+        let harness = Self.makeHarness(internetSettingsStore: store)
+        await harness.viewModel.checkInternetService()
+        #expect(harness.viewModel.internetCheckMessage.contains("Configure"))
+        let stops = harness.callSession.disconnectCallCount
+        #expect(throws: (any Error).self) { try harness.viewModel.saveInternetConnection(url: "http://example.com", token: "wrong") }
+        #expect(harness.callSession.disconnectCallCount == stops)
+        #expect(!harness.viewModel.hasInternetCredentials)
+        try harness.viewModel.saveInternetConnection(url: "https://worker.test", token: "private-token")
+        #expect(harness.callSession.disconnectCallCount == stops + 1)
+        #expect(harness.viewModel.hasInternetCredentials)
+        #expect(harness.viewModel.internetWorkerURL == "https://worker.test")
+        #expect(!harness.viewModel.internetCheckMessage.contains("private-token"))
+        #expect(harness.callSession.startMediaCallCount == 0)
+        harness.callSession.usesRouteManagedAudio = true
+        #expect(!harness.viewModel.supportsPacketAudioControls)
+        harness.viewModel.handleTransportEvent(.rtcStateChanged(.connecting))
+        #expect(harness.viewModel.connectionLabel == "Internet / Connecting Audio")
+        harness.viewModel.handleTransportEvent(.rtcStateChanged(.mediaReady))
+        #expect(harness.viewModel.connectionLabel == "Internet / Audio Active")
+        #expect(harness.viewModel.diagnosticsOverviewRows.first?.summary == "Internet native Opus")
+    }
+
     private struct Harness {
         let viewModel: IntercomViewModel
         let callSession: RecordingCallSession
@@ -1096,7 +1145,8 @@ struct RideIntercomTests {
     private static func makeHarness(
         groups: [IntercomGroup]? = nil,
         credentialStore: GroupCredentialStoring? = nil,
-        appSettingsStore: AppSettingsStoring? = nil
+        appSettingsStore: AppSettingsStoring? = nil,
+        internetSettingsStore: InternetConnectionSettingsStore? = nil
     ) -> Harness {
         let groups = groups ?? IntercomSeedData.recentGroups
         let credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
@@ -1115,6 +1165,7 @@ struct RideIntercomTests {
             credentialStore: credentialStore,
             groupStore: groupStore,
             appSettingsStore: appSettingsStore,
+            internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: InternetTestKeychain()),
             localMemberIdentityStore: identityStore,
             audioSessionManager: AudioSessionManager(backend: audioSessionBackend),
             audioInputCapture: AudioInputStreamCapture(

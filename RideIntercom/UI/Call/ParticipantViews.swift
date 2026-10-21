@@ -4,6 +4,7 @@ import RTC
 struct LocalMicrophoneHeaderControl: View {
     let member: GroupMember
     let isMuted: Bool
+    let showsMeter: Bool
     let onToggleMute: () -> Void
 
     var body: some View {
@@ -19,19 +20,23 @@ struct LocalMicrophoneHeaderControl: View {
                             .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.textSecondary)
                     }
 
-                    Text(isMuted ? "Muted" : "Live")
+                    Text(isMuted ? "Muted" : "Unmuted")
                         .font(AppTypography.captionStrongMono)
                         .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.success)
                         .accessibilityIdentifier("localMicrophoneStateLabel")
                 }
 
-                VoiceMeterView(
-                    level: isMuted ? 0 : member.voiceLevel,
-                    peakLevel: isMuted ? 0 : member.voicePeakLevel,
-                    isMuted: isMuted,
-                    showsValueText: false
-                )
-                .accessibilityIdentifier("localMicrophoneMeter")
+                if showsMeter {
+                    VoiceMeterView(
+                        level: isMuted ? 0 : member.voiceLevel,
+                        peakLevel: isMuted ? 0 : member.voicePeakLevel,
+                        isMuted: isMuted,
+                        showsValueText: false
+                    )
+                    .accessibilityIdentifier("localMicrophoneMeter")
+                } else {
+                    Text("Native audio — meter unavailable").font(.footnote)
+                }
             }
 
             Button(action: onToggleMute) {
@@ -41,12 +46,12 @@ struct LocalMicrophoneHeaderControl: View {
             .appSecondaryButtonStyle()
             .tint(isMuted ? AppColorPalette.danger : AppColorPalette.buttonProminentBackground)
             .accessibilityLabel(isMuted ? "Unmute" : "Mute")
-            .accessibilityValue(isMuted ? "Muted" : "Live")
+            .accessibilityValue(isMuted ? "Muted" : "Unmuted")
             .accessibilityIdentifier("localMicrophoneMuteButton")
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Your microphone")
-        .accessibilityValue(isMuted ? "Muted" : "Live")
+        .accessibilityValue(isMuted ? "Muted" : "Unmuted")
         .accessibilityIdentifier("localMicrophoneHeaderControl")
     }
 }
@@ -87,8 +92,13 @@ struct RemoteParticipantRowView: View {
             }
 
             VStack(alignment: .leading, spacing: AppSpacing.l) {
-                participantMeter
-                participantOutputControls
+                if viewModel.supportsPacketAudioControls {
+                    participantMeter
+                    participantOutputControls
+                } else {
+                    Text("Native Opus audio. Per-rider volume and meters are available on Local Network.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -6,6 +6,7 @@ import SessionManager
 extension IntercomViewModel {
     func connectLocal() {
         guard let selectedGroup else { return }
+        cancelAudioCheck()
 
         if let activeGroupID,
            activeGroupID != selectedGroup.id,
@@ -141,6 +142,8 @@ extension IntercomViewModel {
         cancelAudioCheck()
         stopAudioPipeline()
         callSession.disconnect()
+        uiEventRevision += 1
+        rtcConnectionState = .idle
         connectionState = .idle
         isVoiceActive = false
         remoteVoiceReceivedAt.removeAll()

@@ -30,8 +30,8 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 |---|---|---|---|---|---|
 | 診断画面 | `diagnosticsScrollView` | package runtime report と App 状態を要約する | `DiagnosticsView` | 0.5 秒 | `TimelineView` + `ScrollView` |
 | 送信パイプライン | `liveTransmitPipelineView` | ローカル送信がどこまで進んでいるかを読む | `LiveTransmitPipelineView` | 0.5 秒 | compact row。effect chain は TX bus 内に内包表示 |
-| 受信パイプライン | `liveReceivePipelineView` | 受信音声が出力までどこまで進んでいるかを読む | `LiveReceivePipelineView` | 0.5 秒 | compact row。peer bus は複数行一覧、effect chain は該当 bus 内に内包表示。RX master FXは実グラフの内容のみを表示する（現在空） |
-| 現在状態一覧 | `diagnosticsOverviewGrid` | pipeline と重複しない App 状態を見る | `DiagnosticsOverviewGrid` | 0.5 秒 | adaptive grid。Call / Network Quality / Invite のみ |
+| 受信パイプライン | `liveReceivePipelineView` | 受信音声が出力までどこまで進んでいるかを読む | `LiveReceivePipelineView` | 0.5 秒 | compact row。peer bus は複数行一覧、effect chain は該当 bus 内に内包表示。RX master FXは実グラフの内容のみを表示する |
+| 現在状態一覧 | `diagnosticsOverviewGrid` | pipeline と重複しない App 状態を見る | `DiagnosticsOverviewGrid` | 0.5 秒 | 先頭のadaptive grid。Audio Path / Call / Network Quality / Invite |
 
 ## 送信パイプライン
 
@@ -167,3 +167,17 @@ AudioMixer package は UI 描画用の専用 DTO ではなく、現在の信号�
 ## 診断と適用状態の区別
 
 実Mixerを毎回作り直して表示用の仮ノードを足す処理は使用しない。`AppAudioPipeline.snapshot` のbus、source、sink、routeをそのまま報告する。VADはMixer前段で実行するのでMixerのeffect chipには追加しない。上記stage IDは実ノードを配線した場合の表示契約であり、現在のSoundIsolation / DynamicsProcessor / PeakLimiter適用を示すものではない。
+
+## 確認導線と実音声の区別
+
+| 順序 / 項目 | ID / 表示 | 契約 |
+|---|---|---|
+| 概要 | `audioPathSummary` / Call / Network / Invite | 現在の媒体所有者を最初に表示。長い値は行数で切り捨てない |
+| Internet Service | `internetServiceCheckStatus` | 保存前、確認中、認証済み、失敗をテキスト表示。tokenを含めない |
+| Check Internet Service | `checkInternetService` | RTCのcheckServiceを呼ぶ。資格がない場合と確認中はdisabled。SFU媒体を作らない |
+| 認証成功後 | active session数、予約参加者秒/月枠、対象月 | Workerの設定と端末認証の確認。SFU App Secretの正当性や音声成功とは別 |
+| Local packet音声 | 既存TX/RX pipeline | 実際のMixer/codecのruntime reportを表示 |
+| Internet native音声 | TX/RX packet pipelineを非表示 | Appのゼロpacket値を品質指標として表示しない。native levelの未提供を明記 |
+| Network | 測定値が全てnilならneutral | 不明をloss 0%や正常と扱わない |
+
+Audio CheckはSettingsに置く。端末内の録音再生、サービス認証、ペアの媒体、実機の音響品質を別の確認として扱う。

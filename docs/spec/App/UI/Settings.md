@@ -59,7 +59,7 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 状態 |
 |---|---|---|---|---|---|---|---|
-| 通話状態表示 | `audioCheckPanel` | `liveAudioStateLabel` | `Call` | `isAudioReady` | 常時 | 右寄せ表示 | Call Live / Call Idle |
+| 通話状態表示 | `audioCheckPanel` | `liveAudioStateLabel` | `Call` | `connectionLabel` | 常時 | 右寄せ表示 | RTCの実状態を表示。準備済みだけでLiveとしない |
 | チェック状態表示 | `audioCheckPanel` | `audioCheckPhaseLabel` | `Audio Check` | `audioCheckPhase` | 常時 | 右寄せ表示 | idle / recording / playing / completed / failed |
 | マイク入力確認 | `audioCheckPanel` | `audioCheckInputMeter` | `Microphone Input` | `diagnosticsInputLevel`, `diagnosticsInputPeakLevel` | 常時 | 入力メーター | 権限未許可時は上がらない |
 | スピーカー出力確認 | `audioCheckPanel` | `audioCheckOutputMeter` | `Speaker Output` | `diagnosticsOutputLevel`, `diagnosticsOutputPeakLevel` | 常時 | 出力メーター | 最終出力へ回した音声を示す |
@@ -102,3 +102,15 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | 保存 | `saveInternetConnection` | 入力検証後に保存、通話終了、RTC configuration 更新。保存失敗は画面内テキストで表示 |
 
 保存済み資格は入力欄へ再表示しない。試用時は同一 Worker の個別端末資格を入力し、Local Network を OFF にして Internet のみで接続を確認できる。
+
+## 音声経路による操作範囲
+
+| 状態 | 操作 / 表示 |
+|---|---|
+| Local / 停止中 | packageのcodec、VAD、effect、volumeを設定可能 |
+| Internet native | codec/VAD欄を経路説明へ置換。Session/Device欄は無効化。OS側のrouting/volumeを使う。保存したLocal設定は保持 |
+| Audio Check | 通話接続中・接続開始中は開始不可。録音/再生中は `stopAudioCheckButton` で停止可能 |
+| 通話への移行 | Connect開始時にAudio Checkを停止。古い完了処理は通話を停止しない |
+| 資格保存 | ViewModelが入力検証・Keychain保存・切断・RTC設定適用を担当。Viewは入力と表示だけ |
+| 資格保存失敗 | 現在の通話・保存済み設定を維持 |
+| 設定確認 | `internetConfigurationStatus` は保存の有無。認証成功とは区別し、DiagnosticsのCheck Internet Serviceへ誘導 |

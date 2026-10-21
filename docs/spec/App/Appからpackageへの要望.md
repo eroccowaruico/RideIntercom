@@ -14,7 +14,8 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 
 | 状態 | 内容 |
 |---|---|
-| 追加要求 | なし |
+| RTC / native media | 音声level・RTT/loss等のruntime report、peer音量・effect用の入出力契約が不足。Appに別capture/renderを足して代用しない |
+| RTC / Worker | 制限回線向けTURN資格の取得・更新・失効が不足。AppへCloudflare秘密を持たせない |
 
 ## 追記ルール
 
@@ -39,4 +40,3 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 |---|---|---|
 | native media | RTCがcapture/render/Opusを所有しApp Mixerを通さない | native mediaへeffect・peer音量を適用する契約は未提供。App側の仮処理で適用済みにしない |
 | ネットワーク制約 | STUN + SFU直接接続 | TURN資格の取得・更新・失効をRTC/Workerの責務で扱い、制限回線を検証する |
-| 継続利用 | leaseは同一sessionを更新 | 多数のpeer入替に伴うSDP m-line再利用と実通話の長時間確認を行う |

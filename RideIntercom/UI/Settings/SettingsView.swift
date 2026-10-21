@@ -8,12 +8,20 @@ struct SettingsView: View {
     var body: some View {
         Form {
             CommunicationPanel(viewModel: viewModel)
-            InternetConnectionPanel(isEditing: $isEditingInternet)
+            InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
             AudioSessionPanel(viewModel: viewModel)
+                .disabled(!viewModel.supportsPacketAudioControls)
             AudioIOPanel(viewModel: viewModel)
+                .disabled(!viewModel.supportsPacketAudioControls)
             AudioCheckPanel(viewModel: viewModel)
-            TransmitCodecPanel(viewModel: viewModel)
-            VoiceActivityPanel(viewModel: viewModel)
+            if viewModel.supportsPacketAudioControls {
+                TransmitCodecPanel(viewModel: viewModel)
+                VoiceActivityPanel(viewModel: viewModel)
+            } else {
+                Section("Internet Audio") {
+                    Text("WebRTC uses native Opus. Local session, device, codec, VAD, effects and volume controls apply when using Local Network. Use system routing and volume for Internet audio.")
+                }
+            }
             ResetSettingsPanel(viewModel: viewModel)
         }
         .formStyle(.grouped)
@@ -270,9 +278,9 @@ struct AudioCheckPanel: View {
                 Text("Call")
                 Spacer()
                 VStack(alignment: .trailing, spacing: AppSpacing.xxs) {
-                    Text(viewModel.isAudioReady ? "Call Live" : "Call Idle")
+                    Text(viewModel.connectionLabel)
                         .font(AppTypography.bodyStrong)
-                        .foregroundStyle(viewModel.isAudioReady ? AppColorPalette.success : AppColorPalette.textSecondary)
+                        .foregroundStyle(AppColorPalette.textPrimary)
                         .accessibilityIdentifier("liveAudioStateLabel")
                     Text(viewModel.audioCheckPhase.rawValue)
                         .font(AppTypography.captionStrongMono)
@@ -307,6 +315,11 @@ struct AudioCheckPanel: View {
                 .lineLimit(nil)
                 .accessibilityIdentifier("audioCheckStatusLabel")
 
+            if viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing {
+                Button("Stop Audio Check") { viewModel.cancelAudioCheck() }
+                    .accessibilityIdentifier("stopAudioCheckButton")
+            }
+
             Button {
                 viewModel.startAudioCheck()
             } label: {
@@ -314,7 +327,7 @@ struct AudioCheckPanel: View {
             }
             .appProminentButtonStyle()
             .controlSize(.large)
-            .disabled(viewModel.isAudioReady || viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing)
+            .disabled(!viewModel.canStartAudioCheck)
             .accessibilityValue(viewModel.audioCheckPhase.rawValue)
             .accessibilityIdentifier("audioCheckButton")
         } header: {
@@ -382,9 +395,12 @@ struct ResetSettingsPanel: View {
 }
 
 struct InternetConnectionPanel: View {
+    @Bindable var viewModel: IntercomViewModel
     @Binding var isEditing: Bool
     var body: some View {
         Section {
+            Text(viewModel.hasInternetCredentials ? "Device token saved" : "Not configured")
+                .accessibilityIdentifier("internetConfigurationStatus")
             Button("Configure Internet Connection") { isEditing = true }
                 .accessibilityIdentifier("configureInternetConnection")
         } header: { Label("Internet Connection", systemImage: "globe") }
@@ -420,14 +436,9 @@ private struct InternetConnectionEditor: View {
                 Button("Save Internet Connection") {
                     focusedField = nil
                     do {
-                        let store = InternetConnectionSettingsStore()
-                        try store.save(url: workerURL, token: token)
-                        if let configuration = store.load() {
-                            viewModel.disconnect()
-                            viewModel.callSession.updateInternetConfiguration(configuration)
-                            token = ""
-                            status = "Saved. Connect to a group to try Internet calling."
-                        }
+                        try viewModel.saveInternetConnection(url: workerURL, token: token)
+                        token = ""
+                        status = "Saved. Use Check Internet Service in Diagnostics before connecting."
                     } catch {
                         status = "Could not save. Check the HTTPS URL, device token, and Keychain access."
                     }
@@ -438,10 +449,8 @@ private struct InternetConnectionEditor: View {
             } header: { Label("Internet Connection", systemImage: "globe") }
             footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
             .onAppear {
-                if let saved = InternetConnectionSettingsStore().load() {
-                    workerURL = saved.workerURL.absoluteString
-                    status = "Device token is saved in Keychain."
-                }
+                workerURL = viewModel.internetWorkerURL
+                if viewModel.hasInternetCredentials { status = "Device token is saved in Keychain." }
             }
         }
     }

@@ -44,6 +44,8 @@ extension IntercomViewModel {
     func handleTransportEvent(_ event: TransportEvent) {
         uiEventRevision += 1
         switch event {
+        case .rtcStateChanged(let state):
+            rtcConnectionState = state
         case .audioOwnershipChanged:
             if isAudioReady { stopAudioPipeline() }
             startActiveCallAfterAuthenticatedPeer()

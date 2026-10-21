@@ -38,11 +38,11 @@ private struct DiagnosticsOverviewCard: View {
                 Text(row.summary)
                     .font(AppTypography.footnoteStrong)
                     .foregroundStyle(AppColorPalette.textPrimary)
-                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(row.detail)
                     .font(AppTypography.caption2Mono)
                     .foregroundStyle(AppColorPalette.textSecondary)
-                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

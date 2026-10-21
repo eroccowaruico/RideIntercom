@@ -16,6 +16,10 @@
 
 画面項目の詳細な配置、ラベル、表示条件は `docs/spec/App/UI/画面項目定義.md` から参照する画面別文書を正とする。
 
+## 音声経路による違い
+
+DiagnosticsのAudio Pathを先に確認する。以下のPCM meter・effect chain・peer音量・TX/RX pipelineはLocal packet audio用。Internet native Opusでは未計測/未対応であることを表示し、正常値として扱わない。Internet Serviceのチェックは設定と認証だけを確認し、実媒体の成功を示さない。
+
 ## Call 画面で確認する状態
 
 | 表示 | 読み方 |
@@ -25,7 +29,7 @@
 | 経路表示 | Local / Internet / Offline など、現在使っている、または試行している経路 |
 | Connect / Disconnect | 接続開始できる状態か、既に接続中で切断操作になる状態かを確認する |
 | Invite | 招待 URL を共有できる状態かを確認する |
-| 入力状態 | 自分のマイクが Live か Muted かを確認する |
+| 入力状態 | 自分のマイクが Unmuted か Muted かを確認する |
 | 入力メーター | 自分の声がアプリへ入っているかを確認する |
 | 出力状態 | 受信音声のマスター音量と出力ミュートを確認する |
 | 他音声ダック状態 | 設定 ON と実際の発動中を区別して確認する |

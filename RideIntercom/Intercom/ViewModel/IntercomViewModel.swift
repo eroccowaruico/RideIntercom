@@ -34,10 +34,18 @@ final class IntercomViewModel {
     nonisolated static let audibleOutputLevelThreshold: Float = 0.00025
     nonisolated static let runtimePackageReportPublishInterval: TimeInterval = 0.5
 
+    var internetWorkerURL = ""
+    var hasInternetCredentials = false
+    var internetCheckMessage = "Not checked. Configure Internet Connection in Settings."
+    var isCheckingInternet = false
+    var internetCheckGeneration = UUID()
+    let internetSettingsStore: InternetConnectionSettingsStore
+
     var groups: [IntercomGroup]
     var selectedGroup: IntercomGroup?
     var activeGroupID: UUID?
     var connectionState: CallConnectionState = .idle
+    var rtcConnectionState: RTC.CallConnectionState = .idle
     var isMuted = false
     var isVoiceActive = false
     var isAudioReady = false
@@ -176,6 +184,7 @@ final class IntercomViewModel {
         credentialStore: GroupCredentialStoring? = nil,
         groupStore: GroupStoring? = nil,
         appSettingsStore: AppSettingsStoring? = nil,
+        internetSettingsStore: InternetConnectionSettingsStore? = nil,
         localMemberIdentityStore: LocalMemberIdentityStoring? = nil,
         audioSessionManager: SessionManager.AudioSessionManager? = nil,
         audioInputCapture: SessionManager.AudioInputStreamCapture? = nil,
@@ -185,6 +194,7 @@ final class IntercomViewModel {
         callTicker: CallTicking? = nil,
         remoteTalkerTimeout: TimeInterval = 0.6
     ) {
+        let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentityStore = localMemberIdentityStore ?? InMemoryLocalMemberIdentityStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let groupStore = groupStore ?? InMemoryGroupStore()
@@ -204,6 +214,12 @@ final class IntercomViewModel {
         self.credentialProvider = DefaultGroupCredentialProvider()
         self.groupStore = groupStore
         self.appSettingsStore = appSettingsStore
+        self.internetSettingsStore = internetSettingsStore
+        if let saved = internetSettingsStore.load() {
+            self.internetWorkerURL = saved.workerURL.absoluteString
+            self.hasInternetCredentials = true
+            self.internetCheckMessage = "Device token saved. Service not checked."
+        }
         self.localMemberIdentity = localMemberIdentity
         self.audioSessionSnapshot = (try? sessionManager.snapshot()) ?? Self.defaultAudioSessionSnapshot()
         self.remoteTalkerTimeout = remoteTalkerTimeout

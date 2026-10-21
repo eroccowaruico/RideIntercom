@@ -32,6 +32,7 @@ extension IntercomViewModel {
     }
 
     func refreshOutputRendererIfNeeded() {
+        guard !callSession.usesRouteManagedAudio else { return }
         guard isAudioReady || audioCheckPhase == .playing else { return }
         lastOutputStreamOperationReport = audioOutputRenderer.stop()
         lastOutputStreamOperationReport = audioOutputRenderer.start()

@@ -74,6 +74,7 @@ enum TransportEvent: Equatable {
     case receivedAudioPacket(RTC.ReceivedAudioPacket)
     case routeMetrics(RTC.RouteMetrics)
     case audioOwnershipChanged
+    case rtcStateChanged(RTC.CallConnectionState)
     case serviceError(String)
 }
 
@@ -184,6 +185,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
     func disconnect() {
         connectionRequest = nil
         mediaRequested = false
+        usesRouteManagedAudio = false
+        activeRouteDebugTypeName = "RTC RouteManager"
         invalidateEvents()
         enqueue { [rtcSession] in
             await rtcSession.stopConnection()
@@ -333,6 +336,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     private func handleRTCStateChanged(_ state: RTC.CallConnectionState) {
+        onEvent?(.rtcStateChanged(state))
         switch state {
         case .idle:
             onEvent?(.localNetworkStatus(LocalNetworkEvent(status: .idle, occurredAt: Date().timeIntervalSince1970)))
@@ -359,7 +363,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     private func activeAudioCodec() -> AudioCodecIdentifier {
-        audioPolicy.preferredCodecs.first ?? .pcm16
+        usesRouteManagedAudio ? .opus : (audioPolicy.preferredCodecs.first ?? .pcm16)
     }
 
     private func rebuildOwnedRTCSession() {

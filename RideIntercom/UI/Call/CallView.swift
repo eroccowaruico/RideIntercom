@@ -92,6 +92,7 @@ struct CallView: View {
                 LocalMicrophoneHeaderControl(
                     member: localMember,
                     isMuted: viewModel.isMuted,
+                    showsMeter: viewModel.supportsPacketAudioControls,
                     onToggleMute: { viewModel.toggleMute() }
                 )
             }
@@ -118,6 +119,7 @@ struct CallView: View {
                         .foregroundStyle(AppColorPalette.textSecondary)
                         .accessibilityIdentifier("outputStateLabel")
 
+                    if viewModel.supportsPacketAudioControls {
                     Slider(
                         value: Binding(
                             get: { Double(viewModel.masterOutputVolume) },
@@ -128,6 +130,7 @@ struct CallView: View {
                     .accessibilityLabel("Output Volume")
                     .accessibilityValue(outputPercentLabel)
                     .accessibilityIdentifier("masterOutputSlider")
+                    }
 
                     if viewModel.supportsSoundIsolation {
                         Toggle(isOn: Binding(
@@ -179,11 +182,11 @@ struct CallView: View {
     }
 
     private var outputStateLabel: String {
-        viewModel.isOutputMuted ? "Output Muted" : "Output \(Int(viewModel.masterOutputVolume * 100))%"
+        viewModel.isOutputMuted ? "Output Muted" : (viewModel.supportsPacketAudioControls ? "Output \(Int(viewModel.masterOutputVolume * 100))%" : "System volume")
     }
 
     private var showsDuckingStatusIcon: Bool {
-        viewModel.supportsAdvancedMixingOptions && viewModel.isDuckOthersEnabled
+        viewModel.supportsPacketAudioControls && viewModel.supportsAdvancedMixingOptions && viewModel.isDuckOthersEnabled
     }
 
     private var duckingStatusIconColor: Color {
