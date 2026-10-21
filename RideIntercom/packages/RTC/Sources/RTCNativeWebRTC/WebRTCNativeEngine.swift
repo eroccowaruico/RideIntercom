@@ -112,16 +112,6 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
         return await connection.rtcSetRemoteDescription(description)
     }
 
-    public override func addCandidate(_ candidate: WebRTCIceCandidate, from peerID: PeerID) async {
-        let rtcCandidate = RTCIceCandidate(
-            sdp: candidate.sdp,
-            sdpMLineIndex: candidate.sdpMLineIndex,
-            sdpMid: candidate.sdpMid
-        )
-        let connection = lock.withLock { peerConnections[peerID] }
-        await connection?.addIceCandidate(rtcCandidate)
-    }
-
     public override func configureDataChannels(_ allocations: [WebRTCDataChannel], for peerID: PeerID) async {
         guard let connection = lock.withLock({ peerConnections[peerID] }) else { return }
         let wanted = Set(allocations.map(\.id))
@@ -266,13 +256,7 @@ private extension RTCPeerConnection {
         }
     }
 
-    func addIceCandidate(_ candidate: RTCIceCandidate) async {
-        await withCheckedContinuation { continuation in
-            add(candidate) { _ in
-                continuation.resume()
-            }
-        }
-    }
+
 }
 
 private extension RTCIceConnectionState {

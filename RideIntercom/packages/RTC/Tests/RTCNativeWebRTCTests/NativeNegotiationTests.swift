@@ -46,21 +46,26 @@ private actor PacketRecorder {
     let at = Task { for await e in ae { await ar.record(e) } }, bt = Task { for await e in be { await br.record(e) } }
     defer { at.cancel(); bt.cancel() }
     await a.createPeerConnection(for: peer); await b.createPeerConnection(for: peer)
-    await a.configureDataChannels([.init(id: 2, isPublisher: true), .init(id: 4, peerID: .init(rawValue: "b"))], for: peer.id)
-    await b.configureDataChannels([.init(id: 4, isPublisher: true), .init(id: 2, peerID: .init(rawValue: "a"))], for: peer.id)
+    await a.configureDataChannels([.init(id: 2, isPublisher: true), .init(id: 4, peerID: .init(rawValue: "b")), .init(id: 6, isPublisher: true, delivery: .reliable), .init(id: 8, peerID: .init(rawValue: "b"), delivery: .reliable)], for: peer.id)
+    await b.configureDataChannels([.init(id: 4, isPublisher: true), .init(id: 2, peerID: .init(rawValue: "a")), .init(id: 8, isPublisher: true, delivery: .reliable), .init(id: 6, peerID: .init(rawValue: "a"), delivery: .reliable)], for: peer.id)
     let offer = try #require(await a.makeOffer(for: peer.id))
     let answer = try #require(await b.acceptOffer(offer, from: peer.id))
     #expect(await a.acceptAnswer(answer, from: peer.id))
     let audio = RTCAudioPacket(sequenceNumber: 1, codec: .pcm16, format: .init(sampleRate: 16000, channelCount: 1), payload: Data(repeating: 42, count: 640))
     let message = ApplicationDataMessage(namespace: "encoded-audio", payload: try JSONEncoder().encode(audio), delivery: .unreliable)
+    let control = ApplicationDataMessage(namespace: "control", payload: Data([1]), delivery: .reliable)
     for _ in 0..<200 {
+        await a.sendApplicationData(control, to: peer.id); await b.sendApplicationData(control, to: peer.id)
         await a.sendApplicationData(message, to: peer.id); await b.sendApplicationData(message, to: peer.id)
-        let aReady = await !ar.messages.isEmpty, bReady = await !br.messages.isEmpty
+        let aMessages = await ar.messages, bMessages = await br.messages
+        let aReady = aMessages.contains(message) && aMessages.contains(control)
+        let bReady = bMessages.contains(message) && bMessages.contains(control)
         if aReady && bReady { break }
         try await Task.sleep(for: .milliseconds(25))
     }
     let asText = await ar.states, bsText = await br.states
     #expect(await ar.messages.contains(message), "A states: \(asText)"); #expect(await br.messages.contains(message), "B states: \(bsText)")
+    #expect(await ar.messages.contains(control)); #expect(await br.messages.contains(control))
     #expect(await a.configureIceServers([.init(urls: ["stun:localhost:3478"])]))
     await a.sendApplicationData(message, to: peer.id)
     let metrics = await a.networkStatistics(for: peer.id)

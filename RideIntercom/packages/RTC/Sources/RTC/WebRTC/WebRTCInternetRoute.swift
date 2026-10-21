@@ -163,22 +163,11 @@ public actor WebRTCInternetRoute: RTCCallRoute {
             emitMembers()
         case .disconnected:
             await stopConnection()
-        case .remotePeerJoined, .remotePeerLeft:
-            break
-        case .offer(let offer, let peerID):
-            guard connecting, peerID == sfuPeer.id else { return }
-            if let answer = await engine.acceptOffer(offer, from: peerID), self.generation == generation {
-                await signalingClient.sendAnswer(answer, to: peerID)
-            } else {
-                await fail("Could not accept WebRTC offer", generation: generation)
-            }
         case .answer(let answer, let peerID):
             guard connecting, peerID == sfuPeer.id else { return }
             if await !engine.acceptAnswer(answer, from: peerID) {
                 await fail("Could not accept WebRTC answer", generation: generation)
             }
-        case .iceCandidate:
-            break
         case .receivedApplicationData(let data):
             guard remotePeers[data.peerID] != nil else { return }
             eventSource.yield(.receivedApplicationData(kind, data))
@@ -207,8 +196,6 @@ public actor WebRTCInternetRoute: RTCCallRoute {
     private func handleEngineEvent(_ event: WebRTCEngineEvent, generation: UUID) async {
         guard self.generation == generation, connecting else { return }
         switch event {
-        case .localIceCandidate(let candidate, let peerID):
-            await signalingClient.sendCandidate(candidate, to: peerID)
         case .receivedApplicationData(let data):
             guard remotePeers[data.peerID] != nil else { return }
             eventSource.yield(.receivedApplicationData(kind, data))
@@ -235,7 +222,6 @@ public enum WebRTCEngineEvent: Equatable, Sendable {
         return false
     }
 
-    case localIceCandidate(WebRTCIceCandidate, peerID: PeerID)
     case receivedApplicationData(ReceivedApplicationData)
     case connectionStateChanged(RouteConnectionState)
 }
@@ -261,7 +247,6 @@ open class NativeWebRTCEngine: NSObject, @unchecked Sendable {
     }
 
     open func acceptAnswer(_ answer: WebRTCSessionDescription, from peerID: PeerID) async -> Bool { false }
-    open func addCandidate(_ candidate: WebRTCIceCandidate, from peerID: PeerID) async {}
 
     open func configureDataChannels(_ channels: [WebRTCDataChannel], for peerID: PeerID) async {}
     open func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID) async {}

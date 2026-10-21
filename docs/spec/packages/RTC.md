@@ -139,6 +139,7 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 |---|---|
 | RTCCallRoute | 接続、認証済みmembership、application data、ネットワーク診断を配送。音声開始・ミュート・再生のAPIは持たない |
 | CallSession / RouteManager | 共通の音声開始・停止・ミュート・暗号化中継・受信待ちを所有 |
+| SFU signaling | 完全なSDP offer / answerとmembership snapshotを使用。trickle候補の個別配送や空のsendAnswer APIは持たない |
 | NativeWebRTCEngine.prepareTransport | 接続試行の診断を初期化。マイク・スピーカーを取得しない |
 | Local wire | handshakeはreliable、application dataはmessage.deliveryに従う。音声も認証済みgroup envelopeをapplication dataとして送る |
 

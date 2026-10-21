@@ -36,18 +36,6 @@ public struct WebRTCSessionDescription: Codable, Equatable, Sendable {
     }
 }
 
-public struct WebRTCIceCandidate: Codable, Equatable, Sendable {
-    public var sdp: String
-    public var sdpMid: String?
-    public var sdpMLineIndex: Int32
-
-    public init(sdp: String, sdpMid: String?, sdpMLineIndex: Int32) {
-        self.sdp = sdp
-        self.sdpMid = sdpMid
-        self.sdpMLineIndex = sdpMLineIndex
-    }
-}
-
 public struct WebRTCSignalingConnectRequest: Equatable, Sendable {
     public var call: CallStartRequest
     public var cloudflare: CloudflareRealtimeConfiguration
@@ -64,11 +52,7 @@ public enum WebRTCSignalingEvent: Equatable, Sendable {
     case dataChannels([WebRTCDataChannel])
     case members([PeerDescriptor])
     case disconnected
-    case remotePeerJoined(PeerDescriptor)
-    case remotePeerLeft(PeerID)
-    case offer(WebRTCSessionDescription, from: PeerID)
     case answer(WebRTCSessionDescription, from: PeerID)
-    case iceCandidate(WebRTCIceCandidate, from: PeerID)
     case receivedApplicationData(ReceivedApplicationData)
     case failed(String)
 }
@@ -80,8 +64,6 @@ public protocol WebRTCSignalingClient: AnyObject, Sendable {
     func disconnect() async
     func startPublishing() async
     func sendOffer(_ offer: WebRTCSessionDescription, to peerID: PeerID) async
-    func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async
-    func sendCandidate(_ candidate: WebRTCIceCandidate, to peerID: PeerID) async
     func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async
 }
 

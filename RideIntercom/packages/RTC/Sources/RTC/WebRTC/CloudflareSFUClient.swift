@@ -113,9 +113,6 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             startSocket(request, id: sessionID, generation: generation)
         } catch { await fail(error, generation: generation) }
     }
-    public func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async {}
-    // SFU exchange uses complete SDP, including gathered ICE. No peer-to-peer trickle channel.
-    public func sendCandidate(_ candidate: WebRTCIceCandidate, to peerID: PeerID) async {}
     public func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async {
         guard peerID == nil, let socket else { return }
         let generation = generation

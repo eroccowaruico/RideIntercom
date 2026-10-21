@@ -280,21 +280,18 @@ import Testing
     await route.stopConnection()
 }
 
-@Test func webRTCRouteAnswersSFURenegotiationAndStopsAfterFailure() async {
+@Test func webRTCRouteStopsAfterFailureAndRejectsLateSignaling() async {
     let signaling = FakeWebRTCSignalingClient(), engine = FakeWebRTCEngine()
     let route = WebRTCInternetRoute(cloudflareConfiguration: makeCloudflareConfiguration(), signalingClient: signaling, engine: engine)
     await route.prepare(makeRequest()); await route.startConnection()
-    let id = PeerID(rawValue: "cloudflare-sfu")
-    signaling.yield(.offer(WebRTCSessionDescription(kind: .offer, sdp: "sfu-offer"), from: id))
     try? await Task.sleep(for: .milliseconds(30))
-    #expect(signaling.sentAnswers.first?.1 == id)
     signaling.yield(.failed("Monthly budget reached"))
     try? await Task.sleep(for: .milliseconds(30))
     #expect(engine.closeCount > 0)
-    let count = signaling.sentAnswers.count
-    signaling.yield(.offer(WebRTCSessionDescription(kind: .offer, sdp: "late"), from: id))
+    let count = engine.acceptedAnswers.count
+    signaling.yield(.answer(.init(kind: .answer, sdp: "late"), from: .init(rawValue: "cloudflare-sfu")))
     try? await Task.sleep(for: .milliseconds(30))
-    #expect(signaling.sentAnswers.count == count)
+    #expect(engine.acceptedAnswers.count == count)
 }
 
 @Test func webRTCConnectionReadinessRequiresICEAndRejectsEventsAfterStop() async {
@@ -319,14 +316,14 @@ import Testing
 
 @Test func webRTCNegotiationFailureClosesSignalingAndAllowsRetry() async {
     let signaling = FakeWebRTCSignalingClient(), engine = FakeWebRTCEngine()
-    engine.rejectOffer = true
+    engine.rejectAnswer = true
     let route = WebRTCInternetRoute(cloudflareConfiguration: makeCloudflareConfiguration(), signalingClient: signaling, engine: engine)
     await route.prepare(makeRequest()); await route.startConnection()
-    signaling.yield(.offer(.init(kind: .offer, sdp: "invalid"), from: .init(rawValue: "cloudflare-sfu")))
+    signaling.yield(.answer(.init(kind: .answer, sdp: "invalid"), from: .init(rawValue: "cloudflare-sfu")))
     try? await Task.sleep(for: .milliseconds(80))
     #expect(signaling.disconnectCount > 0)
     #expect(engine.closeCount > 0)
-    engine.rejectOffer = false
+    engine.rejectAnswer = false
     await route.startConnection()
     try? await Task.sleep(for: .milliseconds(50))
     #expect(engine.prepareCount >= 2)
@@ -486,11 +483,11 @@ private final class FakeWebRTCEngine: NativeWebRTCEngine, @unchecked Sendable {
     private let eventSource = EventSource<WebRTCEngineEvent>()
     private(set) var createdPeerIDs: [PeerID] = []
     private(set) var closeCount = 0
-    var rejectOffer = false
+    var rejectAnswer = false
     private(set) var prepareCount = 0
     override func prepareTransport() async { prepareCount += 1 }
     override func close() async { closeCount += 1 }
-    private(set) var acceptedOffers: [(WebRTCSessionDescription, PeerID)] = []
+    private(set) var acceptedAnswers: [(WebRTCSessionDescription, PeerID)] = []
 
     override func createPeerConnection(for peer: PeerDescriptor) async {
         createdPeerIDs.append(peer.id)
@@ -500,10 +497,9 @@ private final class FakeWebRTCEngine: NativeWebRTCEngine, @unchecked Sendable {
         WebRTCSessionDescription(kind: .offer, sdp: "offer-\(peerID.rawValue)")
     }
 
-    override func acceptOffer(_ offer: WebRTCSessionDescription, from peerID: PeerID) async -> WebRTCSessionDescription? {
-        acceptedOffers.append((offer, peerID))
-        if rejectOffer { return nil }
-        return WebRTCSessionDescription(kind: .answer, sdp: "answer-\(peerID.rawValue)")
+    override func acceptAnswer(_ answer: WebRTCSessionDescription, from peerID: PeerID) async -> Bool {
+        acceptedAnswers.append((answer, peerID))
+        return !rejectAnswer
     }
 
     func yield(_ event: WebRTCEngineEvent) {
@@ -517,8 +513,6 @@ private final class FakeWebRTCSignalingClient: WebRTCSignalingClient, @unchecked
     private let eventSource = EventSource<WebRTCSignalingEvent>()
     private(set) var disconnectCount = 0
     private(set) var sentOffers: [(WebRTCSessionDescription, PeerID)] = []
-    private(set) var sentAnswers: [(WebRTCSessionDescription, PeerID)] = []
-    private(set) var sentCandidates: [(WebRTCIceCandidate, PeerID)] = []
     private(set) var sentApplicationData: [(ApplicationDataMessage, PeerID?)] = []
 
     func yield(_ event: WebRTCSignalingEvent) {
@@ -537,14 +531,6 @@ private final class FakeWebRTCSignalingClient: WebRTCSignalingClient, @unchecked
 
     func sendOffer(_ offer: WebRTCSessionDescription, to peerID: PeerID) async {
         sentOffers.append((offer, peerID))
-    }
-
-    func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async {
-        sentAnswers.append((answer, peerID))
-    }
-
-    func sendCandidate(_ candidate: WebRTCIceCandidate, to peerID: PeerID) async {
-        sentCandidates.append((candidate, peerID))
     }
 
     func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async {
