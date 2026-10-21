@@ -365,3 +365,16 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 | 実行環境 | AVAudioEngineのoffline manual rendering。実マイク・実スピーカーの音響結果には依存しない |
 
 既存のplayer nodeの連続scheduleで成立するため、App内の配列ミキサーや独自のPCM加算経路は追加しない。`PCMContinuityTests`で保護する。
+
+## 再生予約量の制御
+
+| 項目 | 契約 |
+|---|---|
+| `addPCMSource(id:maximumBufferedDuration:)` | nilは録音済み音声などの連続予約。正の秒数を指定するとlive音声の予約上限 |
+| 計測 | source playerの有効な再生sample時刻と予約末尾の差。停止前・開始直後の無効なAVAudioTimeを照会しない |
+| 超過 | 同じsourceの古い予約をstopで解放し、最新bufferから再開。他peerのsourceやeffect instanceは変更しない |
+| 単一frameが上限超過 | schedule失敗として報告。長いframeを遅延再生したり、formatを偽装して短く扱わない |
+| snapshot | `bufferedDuration`と`playbackResetCount`をsourceごとに報告 |
+| Mixer停止 | 全PCM sourceを停止して予約も解放する。再開後に旧音声を出さない |
+
+これはアプリケーションの再生予約上限であり、OS・実機の出力遅延保証ではない。瞬間的な欠落よりも過去の会話が遅れて続くことを避けるlive用途と、録音再生用途を明示的に分ける。

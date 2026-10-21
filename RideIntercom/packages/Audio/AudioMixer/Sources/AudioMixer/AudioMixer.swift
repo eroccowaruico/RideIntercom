@@ -81,6 +81,8 @@ public struct MixerSourceSnapshot: Codable, Equatable, Sendable {
 	public var mixerFormat: AudioFormat?
 	public var scheduledFrameCount: Int
 	public var normalizationReport: AudioProcessingReport?
+	public var bufferedDuration: TimeInterval?
+	public var playbackResetCount: Int
 	public var lastFailure: String?
 
 	public init(
@@ -92,7 +94,9 @@ public struct MixerSourceSnapshot: Codable, Equatable, Sendable {
 		mixerFormat: AudioFormat? = nil,
 		scheduledFrameCount: Int = 0,
 		normalizationReport: AudioProcessingReport? = nil,
-		lastFailure: String? = nil
+		lastFailure: String? = nil,
+		bufferedDuration: TimeInterval? = nil,
+		playbackResetCount: Int = 0
 	) {
 		self.id = id
 		self.typeName = typeName
@@ -103,6 +107,8 @@ public struct MixerSourceSnapshot: Codable, Equatable, Sendable {
 		self.scheduledFrameCount = scheduledFrameCount
 		self.normalizationReport = normalizationReport
 		self.lastFailure = lastFailure
+		self.bufferedDuration = bufferedDuration
+		self.playbackResetCount = playbackResetCount
 	}
 }
 
@@ -267,6 +273,20 @@ public final class MixerPCMSource {
 	public let mixerFormat: AudioFormat
 
 	private let recordSchedule: (PCMFrame, AudioProcessingReport?, String?) -> Void
+	private let maximumBufferedDuration: TimeInterval?
+	private var scheduledEndSample: AVAudioFramePosition = 0
+	public private(set) var playbackResetCount = 0
+
+	private var renderedSample: AVAudioFramePosition {
+		playerNode.lastRenderTime.flatMap { time in
+			guard time.isSampleTimeValid || time.isHostTimeValid,
+			      let played = playerNode.playerTime(forNodeTime: time), played.isSampleTimeValid else { return nil }
+			return played.sampleTime
+		} ?? 0
+	}
+	public var bufferedDuration: TimeInterval {
+		Double(max(0, scheduledEndSample - renderedSample)) / mixerFormat.sampleRate
+	}
 
 	public var volume: Float {
 		get { faderNode.outputVolume }
@@ -278,6 +298,7 @@ public final class MixerPCMSource {
 		playerNode: AVAudioPlayerNode,
 		faderNode: AVAudioMixerNode,
 		mixerFormat: AudioFormat,
+		maximumBufferedDuration: TimeInterval?,
 		recordSchedule: @escaping (PCMFrame, AudioProcessingReport?, String?) -> Void
 	) {
 		self.id = id
@@ -285,6 +306,7 @@ public final class MixerPCMSource {
 		self.faderNode = faderNode
 		self.mixerFormat = mixerFormat
 		self.recordSchedule = recordSchedule
+		self.maximumBufferedDuration = maximumBufferedDuration
 	}
 
 	@discardableResult
@@ -292,6 +314,19 @@ public final class MixerPCMSource {
 		do {
 			let normalized = try MixerPCMNormalizer.normalize(frame, to: mixerFormat, operation: .normalizeSource)
 			let buffer = try normalized.frame.makePCMBuffer()
+			if let limit = maximumBufferedDuration {
+				let duration = Double(buffer.frameLength) / mixerFormat.sampleRate
+				guard limit.isFinite, limit > 0, duration <= limit else {
+					throw AudioMixerError.pcmSourceScheduleFailed("Frame exceeds live playback budget")
+				}
+				if bufferedDuration + duration > limit {
+					let wasPlaying = playerNode.isPlaying
+					stop()
+					playbackResetCount += 1
+					if wasPlaying { start() }
+				}
+			}
+			scheduledEndSample = max(scheduledEndSample, renderedSample) + AVAudioFramePosition(buffer.frameLength)
 			playerNode.scheduleBuffer(buffer, completionHandler: nil)
 			recordSchedule(frame, normalized.report, nil)
 			return normalized.report
@@ -310,6 +345,7 @@ public final class MixerPCMSource {
 
 	public func stop() {
 		playerNode.stop()
+		scheduledEndSample = 0
 	}
 }
 
@@ -474,6 +510,7 @@ public final class AudioMixer {
 	}
 
 	public func stop() {
+		for bus in buses.values { bus.stopPCMSources() }
 		engine.stop()
 	}
 
@@ -718,7 +755,7 @@ public final class MixerBus {
 	}
 
 	@discardableResult
-	public func addPCMSource(id sourceID: String) throws -> MixerPCMSource {
+	public func addPCMSource(id sourceID: String, maximumBufferedDuration: TimeInterval? = nil) throws -> MixerPCMSource {
 		let player = AVAudioPlayerNode()
 		let fader = AVAudioMixerNode()
 		let nodeID = ObjectIdentifier(player)
@@ -747,6 +784,7 @@ public final class MixerBus {
 			playerNode: player,
 			faderNode: fader,
 			mixerFormat: audioFormat,
+			maximumBufferedDuration: maximumBufferedDuration,
 			recordSchedule: { [weak self, weak player] frame, report, failure in
 				guard let player else { return }
 				self?.recordPCMSourceSchedule(
@@ -794,6 +832,8 @@ public final class MixerBus {
 		return sink
 	}
 
+	func stopPCMSources() { pcmSourceByNodeID.values.forEach { $0.stop() } }
+
 	public func snapshot() -> MixerBusSnapshot {
 		let sourceSnapshots = sourceNodeOrder.enumerated().compactMap { index, nodeID in
 			sourceMetadataByNodeID[nodeID].map {
@@ -806,7 +846,9 @@ public final class MixerBus {
 					mixerFormat: $0.mixerFormat,
 					scheduledFrameCount: $0.scheduledFrameCount,
 					normalizationReport: $0.normalizationReport,
-					lastFailure: $0.lastFailure
+					lastFailure: $0.lastFailure,
+					bufferedDuration: pcmSourceByNodeID[nodeID]?.bufferedDuration,
+					playbackResetCount: pcmSourceByNodeID[nodeID]?.playbackResetCount ?? 0
 				)
 			}
 		}

@@ -376,3 +376,35 @@ import AVFAudio
     #expect(snapshot.sinks.first?.mixerFormat == AudioFormat(sampleRate: 48_000, channelCount: 1))
     #expect(snapshot.sinks.first?.targetFormat == AudioFormat(sampleRate: 16_000, channelCount: 1))
 }
+
+@Test func liveSourceDiscardsBacklogAndPlaysNewestBuffer() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init(sampleRate: 48000, channelCount: 1))
+    let bus = try mixer.createBus("live")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.1)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    for sequence in 0..<6 {
+        _ = try source.schedule(.init(sequenceNumber: UInt64(sequence), format: mixer.audioFormat, capturedAt: 0,
+            samples: Array(repeating: sequence == 5 ? Float(0.8) : Float(0.1), count: 960)))
+    }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
+    #expect(try engine.renderOffline(1024, to: output) == .success)
+    let peak = (0..<Int(output.frameLength)).map { abs(output.floatChannelData![0][$0]) }.max() ?? 0
+    #expect(peak > 0.79 && peak < 0.81)
+    #expect(source.playbackResetCount == 1)
+    #expect(source.bufferedDuration == 0)
+    #expect(bus.snapshot().sources.first?.playbackResetCount == 1)
+    #expect(throws: (any Error).self) {
+        try source.schedule(.init(sequenceNumber: 9, format: mixer.audioFormat, capturedAt: 0, samples: Array(repeating: 0.2, count: 9600)))
+    }
+    _ = try source.schedule(.init(sequenceNumber: 10, format: mixer.audioFormat, capturedAt: 0, samples: Array(repeating: 0.3, count: 960)))
+    mixer.stop()
+    #expect(source.bufferedDuration == 0)
+    try mixer.start(); source.start()
+    #expect(try engine.renderOffline(1024, to: output) == .success)
+    #expect((0..<Int(output.frameLength)).allSatisfy { abs(output.floatChannelData![0][$0]) < 0.001 })
+}

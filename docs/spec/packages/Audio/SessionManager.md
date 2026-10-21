@@ -575,3 +575,16 @@ SimulatorのApp初期表示でAURemoteIOのRPC timeoutによるabortが観測さ
 | 実行中の設定変更 | backendへ即時反映し、再起動しない |
 
 Simulator UIの待受中ミュート操作でAURemoteIO初期化がRPC timeoutによりabortする事象を確認した。停止中の設定変更による不要なI/O初期化を排除し、実際の録音開始と分離する。
+
+## 出力の再生予約上限
+
+| 項目 | 契約 |
+|---|---|
+| `AudioOutputStreamConfiguration.maximumBufferedDuration` | nilは予約量制限なし。正の秒数でlive出力の予約上限を指定 |
+| System backend | 有効なplayer再生時刻と予約末尾で予約量を計測。上限超過時は旧予約を解放し最新bufferから再開。engine/sessionは維持 |
+| 長過ぎる単一frame | `invalidFrame`として報告 |
+| stop | playerと予約末尾を初期化。再開後に旧出力を出さない |
+| runtime snapshot | `bufferedOutputDuration` / `playbackResetCount`。未提供backendはnilであり正常値の0に置換しない |
+| 手動rendering engine | manualRenderingFormatを出力境界として使う。実機hardware formatとして偽装しない |
+
+SessionManagerは受け取ったhardware formatのPCMを予約するだけで、音量・mix・effect・再符号化は行わない。予約量超過は通信エラーやsession切断として扱わない。

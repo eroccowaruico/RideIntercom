@@ -395,3 +395,33 @@ private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
     }
 }
 #endif
+
+#if canImport(AVFAudio)
+@Test func outputBackendDropsStalledPlaybackAndRetainsNewestAudio() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+    let backend = SystemAudioOutputStreamBackend(engine: engine)
+    let actual = try backend.startRendering(configuration: .init(preferredFormat: .init(sampleRate: 48000, channelCount: 1), maximumBufferedDuration: 0.1))
+    defer { try? backend.stopRendering() }
+    for sequence in 0..<6 {
+        try backend.schedule(.init(sequenceNumber: UInt64(sequence), format: actual, capturedAt: 0,
+            samples: Array(repeating: sequence == 5 ? Float(0.8) : Float(0.1), count: 960)))
+    }
+    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
+    #expect(try engine.renderOffline(1024, to: buffer) == .success)
+    let peak = (0..<Int(buffer.frameLength)).map { abs(buffer.floatChannelData![0][$0]) }.max() ?? 0
+    #expect(peak > 0.79 && peak < 0.81)
+    #expect(backend.playbackResetCount == 1)
+    #expect(backend.bufferedOutputDuration == 0)
+    #expect(throws: (any Error).self) {
+        try backend.schedule(.init(sequenceNumber: 9, format: actual, capturedAt: 0, samples: Array(repeating: 0.2, count: 9600)))
+    }
+    try backend.schedule(.init(sequenceNumber: 10, format: actual, capturedAt: 0, samples: Array(repeating: 0.3, count: 960)))
+    try backend.stopRendering()
+    #expect(backend.bufferedOutputDuration == 0)
+    _ = try backend.startRendering(configuration: .init(preferredFormat: actual, maximumBufferedDuration: 0.1))
+    #expect(try engine.renderOffline(1024, to: buffer) == .success)
+    #expect((0..<Int(buffer.frameLength)).allSatisfy { abs(buffer.floatChannelData![0][$0]) < 0.001 })
+}
+#endif

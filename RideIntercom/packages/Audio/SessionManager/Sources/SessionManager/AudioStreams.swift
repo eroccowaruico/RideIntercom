@@ -28,9 +28,11 @@ public struct AudioInputStreamConfiguration: Codable, Equatable, Sendable {
 
 public struct AudioOutputStreamConfiguration: Codable, Equatable, Sendable {
     public var preferredFormat: AudioFormat
+    public var maximumBufferedDuration: TimeInterval?
 
-    public init(preferredFormat: AudioFormat = AudioFormat()) {
+    public init(preferredFormat: AudioFormat = AudioFormat(), maximumBufferedDuration: TimeInterval? = nil) {
         self.preferredFormat = preferredFormat
+        self.maximumBufferedDuration = maximumBufferedDuration
     }
 }
 
@@ -40,6 +42,8 @@ public struct AudioStreamSnapshot: Codable, Equatable, Sendable {
     public var preferredFormat: AudioFormat
     public var actualHardwareFormat: AudioFormat
     public var processedFrameCount: UInt64
+    public var bufferedOutputDuration: TimeInterval?
+    public var playbackResetCount: Int?
     public var inputVoiceProcessing: AudioInputVoiceProcessingConfiguration?
 
     public init(
@@ -48,7 +52,9 @@ public struct AudioStreamSnapshot: Codable, Equatable, Sendable {
         preferredFormat: AudioFormat,
         actualHardwareFormat: AudioFormat,
         processedFrameCount: UInt64,
-        inputVoiceProcessing: AudioInputVoiceProcessingConfiguration? = nil
+        inputVoiceProcessing: AudioInputVoiceProcessingConfiguration? = nil,
+        bufferedOutputDuration: TimeInterval? = nil,
+        playbackResetCount: Int? = nil
     ) {
         self.direction = direction
         self.isRunning = isRunning
@@ -56,6 +62,8 @@ public struct AudioStreamSnapshot: Codable, Equatable, Sendable {
         self.actualHardwareFormat = actualHardwareFormat
         self.processedFrameCount = processedFrameCount
         self.inputVoiceProcessing = inputVoiceProcessing
+        self.bufferedOutputDuration = bufferedOutputDuration
+        self.playbackResetCount = playbackResetCount
     }
 }
 
@@ -133,9 +141,16 @@ public extension AudioInputStreamBackend {
 }
 
 public protocol AudioOutputStreamBackend: AnyObject {
+    var bufferedOutputDuration: TimeInterval? { get }
+    var playbackResetCount: Int? { get }
     func startRendering(configuration: AudioOutputStreamConfiguration) throws -> AudioFormat
     func stopRendering() throws
     func schedule(_ frame: PCMFrame) throws
+}
+
+public extension AudioOutputStreamBackend {
+    var bufferedOutputDuration: TimeInterval? { nil }
+    var playbackResetCount: Int? { nil }
 }
 
 public final class AudioInputStreamCapture {
@@ -371,7 +386,9 @@ public final class AudioOutputStreamRenderer {
             isRunning: isRunning,
             preferredFormat: configuration.preferredFormat,
             actualHardwareFormat: actualHardwareFormat,
-            processedFrameCount: scheduledFrameCount
+            processedFrameCount: scheduledFrameCount,
+            bufferedOutputDuration: backend.bufferedOutputDuration,
+            playbackResetCount: backend.playbackResetCount
         )
     }
 
@@ -502,6 +519,21 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
     private let playerNode: AVAudioPlayerNode
     private var isGraphConfigured = false
     private var configuredHardwareFormat: AudioFormat?
+    private var maximumBufferedDuration: TimeInterval?
+    private var scheduledEndSample: AVAudioFramePosition = 0
+    private var resetCount = 0
+    public var playbackResetCount: Int? { resetCount }
+    private var renderedSample: AVAudioFramePosition {
+        playerNode.lastRenderTime.flatMap { time in
+                guard time.isSampleTimeValid || time.isHostTimeValid,
+                      let played = playerNode.playerTime(forNodeTime: time), played.isSampleTimeValid else { return nil }
+                return played.sampleTime
+            } ?? 0
+    }
+    public var bufferedOutputDuration: TimeInterval? {
+        guard let format = configuredHardwareFormat else { return nil }
+        return Double(max(0, scheduledEndSample - renderedSample)) / format.sampleRate
+    }
 
     public init(
         engine: AVAudioEngine = AVAudioEngine(),
@@ -512,8 +544,12 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
     }
 
     public func startRendering(configuration: AudioOutputStreamConfiguration) throws -> AudioFormat {
+        if let limit = configuration.maximumBufferedDuration, !limit.isFinite || limit <= 0 {
+            throw AudioStreamError.invalidFrame("Invalid playback budget")
+        }
+        maximumBufferedDuration = configuration.maximumBufferedDuration
         let hardwareFormat = AudioFormat(
-            avAudioFormat: engine.outputNode.inputFormat(forBus: 0),
+            avAudioFormat: engine.isInManualRenderingMode ? engine.manualRenderingFormat : engine.outputNode.inputFormat(forBus: 0),
             fallback: configuration.preferredFormat
         )
         if !isGraphConfigured || configuredHardwareFormat != hardwareFormat {
@@ -544,11 +580,23 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
 
     public func stopRendering() throws {
         playerNode.stop()
+        scheduledEndSample = 0
         engine.stop()
     }
 
     public func schedule(_ frame: PCMFrame) throws {
         let buffer = try frame.makePCMBuffer()
+        if let limit = maximumBufferedDuration {
+            let duration = Double(buffer.frameLength) / frame.format.sampleRate
+            guard duration <= limit else { throw AudioStreamError.invalidFrame("Frame exceeds live playback budget") }
+            if (bufferedOutputDuration ?? 0) + duration > limit {
+                playerNode.stop()
+                scheduledEndSample = 0
+                resetCount += 1
+                playerNode.play()
+            }
+        }
+        scheduledEndSample = max(scheduledEndSample, renderedSample) + AVAudioFramePosition(buffer.frameLength)
         playerNode.scheduleBuffer(buffer, at: nil, options: [])
     }
 }
