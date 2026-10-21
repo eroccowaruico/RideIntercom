@@ -10,18 +10,10 @@ struct SettingsView: View {
             CommunicationPanel(viewModel: viewModel)
             InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
             AudioSessionPanel(viewModel: viewModel)
-                .disabled(!viewModel.supportsPacketAudioControls)
             AudioIOPanel(viewModel: viewModel)
-                .disabled(!viewModel.supportsPacketAudioControls)
             AudioCheckPanel(viewModel: viewModel)
-            if viewModel.supportsPacketAudioControls {
-                TransmitCodecPanel(viewModel: viewModel)
-                VoiceActivityPanel(viewModel: viewModel)
-            } else {
-                Section("Internet Audio") {
-                    Text("WebRTC uses native Opus. Local session, device, codec, VAD, effects and volume controls apply when using Local Network. Use system routing and volume for Internet audio.")
-                }
-            }
+            TransmitCodecPanel(viewModel: viewModel)
+            VoiceActivityPanel(viewModel: viewModel)
             ResetSettingsPanel(viewModel: viewModel)
         }
         .formStyle(.grouped)

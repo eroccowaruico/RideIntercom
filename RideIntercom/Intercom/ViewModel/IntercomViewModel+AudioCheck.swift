@@ -116,6 +116,8 @@ extension IntercomViewModel {
         guard audioCheckOwnsAudioPipeline else { return }
 
         audioGeneration = UUID()
+        inputFrameDelivery?.finish()
+        inputFrameDelivery = nil
         audioPipeline.stop()
         _ = audioInputCapture.stop()
         _ = audioOutputRenderer.stop()

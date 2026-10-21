@@ -4,7 +4,6 @@ import RTC
 struct LocalMicrophoneHeaderControl: View {
     let member: GroupMember
     let isMuted: Bool
-    let showsMeter: Bool
     let onToggleMute: () -> Void
 
     var body: some View {
@@ -26,17 +25,13 @@ struct LocalMicrophoneHeaderControl: View {
                         .accessibilityIdentifier("localMicrophoneStateLabel")
                 }
 
-                if showsMeter {
-                    VoiceMeterView(
-                        level: isMuted ? 0 : member.voiceLevel,
-                        peakLevel: isMuted ? 0 : member.voicePeakLevel,
-                        isMuted: isMuted,
-                        showsValueText: false
-                    )
-                    .accessibilityIdentifier("localMicrophoneMeter")
-                } else {
-                    Text("Native audio — meter unavailable").font(.footnote)
-                }
+                VoiceMeterView(
+                    level: isMuted ? 0 : member.voiceLevel,
+                    peakLevel: isMuted ? 0 : member.voicePeakLevel,
+                    isMuted: isMuted,
+                    showsValueText: false
+                )
+                .accessibilityIdentifier("localMicrophoneMeter")
             }
 
             Button(action: onToggleMute) {
@@ -92,13 +87,8 @@ struct RemoteParticipantRowView: View {
             }
 
             VStack(alignment: .leading, spacing: AppSpacing.l) {
-                if viewModel.supportsPacketAudioControls {
-                    participantMeter
-                    participantOutputControls
-                } else {
-                    Text("Native Opus audio. Per-rider volume and meters are available on Local Network.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
+                participantMeter
+                participantOutputControls
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

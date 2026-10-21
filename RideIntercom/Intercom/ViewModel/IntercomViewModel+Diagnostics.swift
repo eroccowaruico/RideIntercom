@@ -12,11 +12,10 @@ import VADGate
 extension IntercomViewModel {
     var isInternetOnlyCall: Bool {
         if !availableCallRoutes.isEmpty { return availableCallRoutes == [.webRTC] }
-        return enabledRTCTransportRoutes == [.webRTC] || callSession.usesRouteManagedAudio
+        return enabledRTCTransportRoutes == [.webRTC]
     }
 
     var connectionLabel: String {
-        if let nativeConnectionLabel { return nativeConnectionLabel }
         if hasPresentedAuthenticatedConnection && !isAudioReady {
             return "\(connectionState.label) / Audio Idle"
         }
@@ -63,7 +62,6 @@ extension IntercomViewModel {
 
     var callPresenceLabel: String {
         if selectedGroup?.id == activeGroupID, isAudioPausedForDeviceChange { return "Connected / Audio Paused" }
-        if selectedGroup?.id == activeGroupID, let nativeConnectionLabel { return nativeConnectionLabel }
         let connectionState = presentedConnectionState
         let localNetworkStatus = presentedLocalNetworkStatus
         if connectionState == .idle, localNetworkStatus != .idle {
@@ -107,23 +105,8 @@ extension IntercomViewModel {
         }
     }
 
-    private var nativeConnectionLabel: String? {
-        guard !supportsPacketAudioControls else { return nil }
-        switch rtcConnectionState {
-        case .mediaReady: return "Internet / Audio Active"
-        case .failed: return "Internet / Connection Failed"
-        case .disconnected, .idle: return "Internet / Audio Idle"
-        default: return "Internet / Connecting Audio"
-        }
-    }
-
-    var supportsPacketAudioControls: Bool {
-        _ = uiEventRevision
-        return !callSession.usesRouteManagedAudio
-    }
-
     var supportsSoundIsolation: Bool {
-        supportsPacketAudioControls && VoiceIsolationSupport.isAvailable
+        VoiceIsolationSupport.isAvailable
     }
 
     var selectedTransmitCodec: AudioCodecIdentifier {
@@ -149,8 +132,8 @@ extension IntercomViewModel {
                 id: "media",
                 title: "Audio Path",
                 icon: "waveform",
-                summary: supportsPacketAudioControls ? "Shared packet audio" : "Internet native Opus",
-                detail: supportsPacketAudioControls ? "SessionManager → Mixer / effects → Codec → Local / Internet relay" : "WebRTC owns audio. Packet meters, effects and per-rider volume do not measure or control this path.",
+                summary: "Shared packet audio",
+                detail: "SessionManager → Mixer / effects → Codec → Local / Internet relay",
                 severity: .neutral,
                 accessibilityIdentifier: "audioPathSummary"
             ),

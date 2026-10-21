@@ -73,7 +73,6 @@ enum TransportEvent: Equatable {
     case linkFailed(internetAvailable: Bool)
     case receivedAudioPacket(RTC.ReceivedAudioPacket)
     case routeMetrics(RTC.RouteMetrics)
-    case audioOwnershipChanged
     case rtcStateChanged(RTC.CallConnectionState)
     case serviceError(String)
     case routesChanged(RTC.ActiveRouteSnapshot)
@@ -82,7 +81,6 @@ enum TransportEvent: Equatable {
 protocol CallSession: AnyObject {
     var onEvent: ((TransportEvent) -> Void)? { get set }
     var activeRouteDebugTypeName: String { get }
-    var usesRouteManagedAudio: Bool { get }
     func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration)
 
     func startStandby(group: IntercomGroup)
@@ -101,7 +99,6 @@ protocol CallSession: AnyObject {
 }
 
 extension CallSession {
-    var usesRouteManagedAudio: Bool { false }
     func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration) {}
 }
 
@@ -119,13 +116,15 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     private nonisolated static let keepaliveNamespace = "rideintercom.keepalive"
     private nonisolated static let peerMuteStateNamespace = "rideintercom.peerMuteState"
-    private(set) var usesRouteManagedAudio = false
     private var internetConfiguration: RTC.CloudflareRealtimeConfiguration?
     private let memberID: String
     private var rtcSession: RTC.CallSession
     private let ownsRTCSession: Bool
     private var eventTask: Task<Void, Never>?
     private var operationTask: Task<Void, Never>?
+    private var audioSendTask: Task<Void, Never>?
+    private var audioSendGeneration = UUID()
+    private var pendingAudio: (packet: RTC.RTCAudioPacket, queuedAt: ContinuousClock.Instant)?
     private var eventGeneration = UUID()
     private var connectionRequest: RTC.CallStartRequest?
     private var mediaRequested = false
@@ -154,6 +153,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     deinit {
         eventTask?.cancel()
+        audioSendTask?.cancel()
     }
 
     func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration) {
@@ -177,6 +177,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     func stopMedia() {
+        clearPendingAudio()
         mediaRequested = false
         enqueue { [rtcSession] in
             await rtcSession.stopMedia()
@@ -186,7 +187,6 @@ final class RideIntercomCallSessionAdapter: CallSession {
     func disconnect() {
         connectionRequest = nil
         mediaRequested = false
-        usesRouteManagedAudio = false
         activeRouteDebugTypeName = "RTC RouteManager"
         invalidateEvents()
         enqueue { [rtcSession] in
@@ -211,6 +211,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     func setLocalMute(_ muted: Bool) {
+        if muted { clearPendingAudio() }
         enqueue { [rtcSession] in
             await rtcSession.setLocalMute(muted)
         }
@@ -229,9 +230,29 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     func sendAudioPacket(_ packet: RTC.RTCAudioPacket) {
-        enqueue { [rtcSession] in
-            await rtcSession.sendAudioPacket(packet)
+        guard mediaRequested else { return }
+        pendingAudio = (packet, .now)
+        guard audioSendTask == nil else { return }
+        let generation = audioSendGeneration
+        let barrier = operationTask
+        audioSendTask = Task { [weak self, rtcSession] in
+            await barrier?.value
+            while !Task.isCancelled, let self, self.audioSendGeneration == generation {
+                guard let next = self.pendingAudio else { break }
+                self.pendingAudio = nil
+                if next.queuedAt.duration(to: .now) < .milliseconds(100) {
+                    await rtcSession.sendAudioPacket(next.packet)
+                }
+            }
+            if let self, self.audioSendGeneration == generation { self.audioSendTask = nil }
         }
+    }
+
+    private func clearPendingAudio() {
+        audioSendGeneration = UUID()
+        pendingAudio = nil
+        audioSendTask?.cancel()
+        audioSendTask = nil
     }
 
     func sendControl(_ message: ControlMessage) {
@@ -264,6 +285,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     private func invalidateEvents() {
+        clearPendingAudio()
         eventGeneration = UUID()
         eventTask?.cancel()
         eventTask = nil
@@ -361,7 +383,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     private func activeAudioCodec() -> AudioCodecIdentifier {
-        usesRouteManagedAudio ? .opus : (audioPolicy.preferredCodecs.first ?? .pcm16)
+        audioPolicy.preferredCodecs.first ?? .pcm16
     }
 
     private func rebuildOwnedRTCSession() {

@@ -61,17 +61,6 @@ extension IntercomViewModel {
 
         cancelAudioCheck()
         bindAudioEvents()
-        if callSession.usesRouteManagedAudio {
-            guard configureAudioSession(active: true) else { return false }
-            callSession.setLocalMute(isMuted)
-            callSession.setOutputMute(isOutputMuted)
-            callSession.startMedia()
-            isAudioReady = true
-            callTicker.start()
-            audioErrorMessage = nil
-            publishRuntimePackageReports(force: true)
-            return true
-        }
         callSession.startMedia()
         guard configureAudioSession(active: true),
               applyCurrentVoiceProcessingConfiguration(),
@@ -100,6 +89,8 @@ extension IntercomViewModel {
 
     func stopAudioPipeline(deactivateSession: Bool = false) {
         audioGeneration = UUID()
+        inputFrameDelivery?.finish()
+        inputFrameDelivery = nil
         let wasAudioReady = isAudioReady
         setOtherAudioDuckingActive(false)
         callSession.stopMedia()
@@ -179,17 +170,22 @@ extension IntercomViewModel {
         connectionGeneration = UUID()
         let generation = connectionGeneration
         callSession.onEvent = { [weak self] event in
-            DispatchQueue.main.async {
-                guard let self, self.connectionGeneration == generation else { return }
-                self.handleTransportEvent(event)
-            }
+            guard let self, self.connectionGeneration == generation else { return }
+            self.handleTransportEvent(event)
         }
     }
 
     func bindAudioEvents() {
         audioGeneration = UUID()
         let generation = audioGeneration
+        inputFrameDelivery?.finish()
+        let delivery = AudioFrameDelivery { [weak self] frame in
+            guard let self, self.audioGeneration == generation else { return }
+            self.handleMicrophoneFrame(frame)
+        }
+        inputFrameDelivery = delivery
         audioInputCapture.setRuntimeEventHandler { [weak self] event in
+            if case .inputFrame(let frame) = event { delivery.yield(frame); return }
             DispatchQueue.main.async {
                 guard let self, self.audioGeneration == generation else { return }
                 self.handleAudioStreamRuntimeEvent(event)

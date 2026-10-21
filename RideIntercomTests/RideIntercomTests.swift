@@ -861,9 +861,11 @@ struct RideIntercomTests {
         harness.viewModel.disconnect()
     }
 
-    @Test func actualEffectsFollowSettingsWithoutRestartingMedia() async throws {
+    @Test(arguments: [RTC.RouteKind.multipeer, .webRTC])
+    func actualEffectsFollowSettingsWithoutRestartingMedia(route: RTC.RouteKind) async throws {
         let harness = Self.makeHarness()
         let model = harness.viewModel
+        model.setRTCTransportRoute(route == .webRTC ? .multipeer : .webRTC, enabled: false)
         #expect(model.supportsSoundIsolation == VoiceIsolationSupport.isAvailable)
         model.selectGroup(IntercomSeedData.recentGroups[0])
         harness.callSession.authenticate(["member-108"])
@@ -890,6 +892,29 @@ struct RideIntercomTests {
         model.disconnect()
         #expect(model.audioPipeline.snapshot.busIDs.isEmpty)
         #expect(!model.lastRuntimePackageReports.contains { $0.package == "PeakLimiter" && $0.kind.contains("RuntimeSnapshot") })
+    }
+
+    @Test(arguments: [RTC.RouteKind.multipeer, .webRTC])
+    func individualVolumeScalesRealPCMThroughEveryRoute(route: RTC.RouteKind) async throws {
+        let h = Self.makeHarness()
+        h.viewModel.setRTCTransportRoute(route == .webRTC ? .multipeer : .webRTC, enabled: false)
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108", "member-109"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        defer { h.viewModel.disconnect() }
+        h.viewModel.setRemoteOutputVolume(peerID: "member-108", volume: 0.25)
+        h.viewModel.setRemoteOutputVolume(peerID: "member-109", volume: 0)
+        h.viewModel.setMasterOutputVolume(0.5)
+        let wave = (0..<9600).map { Float(sin(Double($0) * 2 * .pi * 400 / 48000)) * 0.4 }
+        let frame = PCMFrame(sequenceNumber: 1, format: .intercomMixer, capturedAt: 0, samples: wave)
+        for peer in ["member-108", "member-109"] {
+            h.callSession.receive(try Self.receivedAudioPacket(peerID: peer, frame: frame, codec: .pcm16))
+        }
+        await Self.waitUntil { h.outputBackend.scheduledFrames.flatMap(\.samples).count >= 8192 }
+        let samples = h.outputBackend.scheduledFrames.flatMap(\.samples)
+        #expect(samples.count >= 8192)
+        let peak = samples.suffix(4096).map { abs($0) }.max() ?? 0
+        #expect(peak > 0.045 && peak < 0.055) // 0.4 × peer 0.25 × master 0.5; the other peer is silent.
     }
 
     @Test func actualOutputLimiterProtectsCombinedPeersAfterMasterGain() async throws {
@@ -1054,45 +1079,79 @@ struct RideIntercomTests {
         #expect(!keychain.value!.contains("invitation-secret"))
     }
 
-    @Test func routeManagedAudioDoesNotStartPacketAudioCaptureOrMixer() async {
-        let harness = Self.makeHarness()
-        harness.callSession.usesRouteManagedAudio = true
-        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
-        harness.callSession.authenticate(["member-108"])
-        await Self.waitUntil { harness.viewModel.isAudioReady }
-        #expect(harness.viewModel.isAudioReady)
-        #expect(harness.audioDriver.createdEngineCount == 0)
-        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
-        harness.viewModel.disconnect()
+    @Test func frameDeliveryBoundsWaitingAudioAndCancelsWithoutLateCallbacks() async {
+        var received: [UInt64] = []
+        let delivery = AudioFrameDelivery { received.append($0.sequenceNumber) }
+        for i in 0..<1000 {
+            delivery.yield(PCMFrame(sequenceNumber: UInt64(i), format: .intercomMixer, capturedAt: 0, samples: [0]))
+        }
+        await Self.waitUntil { received.count == 32 }
+        #expect(received == Array(968..<1000).map(UInt64.init))
+        delivery.yield(PCMFrame(sequenceNumber: 1000, format: .intercomMixer, capturedAt: 0, samples: [0]))
+        delivery.finish()
+        await Task.yield()
+        #expect(received.last == 999)
     }
 
-    @Test func audioOwnershipTransitionStopsLocalPipelineAndStartsNativeAudio() async {
-        let harness = Self.makeHarness()
-        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
-        harness.callSession.authenticate(["member-108"])
-        await Self.waitUntil { harness.viewModel.isAudioReady }
-        #expect(!harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
-        harness.callSession.usesRouteManagedAudio = true
-        harness.callSession.onEvent?(.audioOwnershipChanged)
-        await Self.waitUntil { harness.viewModel.connectionState == .internetConnected }
-        #expect(harness.viewModel.isAudioReady)
-        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
-        #expect(harness.viewModel.connectionState == .internetConnected)
-        harness.viewModel.rebuildAudioPipelineIfRunning()
-        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
-        harness.viewModel.disconnect()
+    @Test func adapterKeepsOnlyFreshAudioWhileConnectionCommandsAreBusy() async {
+        let rtc = FakeRTCCallSession()
+        rtc.prepareDelay = .milliseconds(50)
+        let adapter = RideIntercomCallSessionAdapter(rtcSession: rtc)
+        adapter.connect(group: IntercomSeedData.recentGroups[0])
+        adapter.startMedia()
+        for sequence in 0..<100 {
+            adapter.sendAudioPacket(.init(sequenceNumber: UInt64(sequence), codec: .pcm16, payload: Data([0, 0])))
+        }
+        await Self.waitUntil { !rtc.sentAudioSequences.isEmpty }
+        #expect(rtc.sentAudioSequences == [99])
+        adapter.disconnect()
+
+        let stalled = FakeRTCCallSession()
+        stalled.prepareDelay = .milliseconds(200)
+        let other = RideIntercomCallSessionAdapter(rtcSession: stalled)
+        other.connect(group: IntercomSeedData.recentGroups[0])
+        other.startMedia()
+        other.sendAudioPacket(.init(sequenceNumber: 0, codec: .pcm16, payload: Data([0, 0])))
+        await Self.waitUntil { stalled.operations.contains("startMedia") }
+        try? await Task.sleep(for: .milliseconds(20))
+        #expect(stalled.sentAudioSequences.isEmpty)
+        other.disconnect()
     }
 
-    @Test func nativeOutputRouteChangeDoesNotStartThePacketRenderer() async {
-        let harness = Self.makeHarness()
-        harness.callSession.usesRouteManagedAudio = true
-        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
-        harness.callSession.authenticate(["member-108"])
-        await Self.waitUntil { harness.viewModel.isAudioReady }
-        harness.viewModel.refreshAudioDevicesIfNeeded()
-        #expect(harness.outputBackend.startCount == 0)
-        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
-        harness.viewModel.disconnect()
+    @Test func internetUsesSharedCaptureMixerAndDeviceRestart() async {
+        let h = Self.makeHarness()
+        h.viewModel.setRTCTransportRoute(.multipeer, enabled: false)
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        #expect(h.viewModel.isAudioReady)
+        #expect(h.audioDriver.createdEngineCount == 1)
+        #expect(!h.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        let starts = h.outputBackend.startCount
+        h.viewModel.refreshAudioDevicesIfNeeded()
+        #expect(h.outputBackend.startCount == starts + 1)
+        #expect(h.viewModel.isAudioReady)
+        h.viewModel.disconnect()
+    }
+
+    @Test func routeChangesPreservePeerVolumesAndEffectInstances() async throws {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        h.viewModel.setRemoteOutputVolume(peerID: "member-108", volume: 0.25)
+        h.viewModel.setRemoteSoundIsolationEnabled(peerID: "member-108", enabled: true)
+        h.viewModel.setMasterOutputVolume(0.75)
+        let engines = h.audioDriver.createdEngineCount
+        let before = h.viewModel.audioPipeline.snapshot
+        for routes: Set<RTC.RouteKind> in [[.webRTC], [.webRTC, .multipeer], [.multipeer]] {
+            h.viewModel.handleTransportEvent(.routesChanged(.init(activeRoute: routes.contains(.webRTC) ? .webRTC : .multipeer,
+                mediaRoute: nil, availableRoutes: routes, isHandoverInProgress: false)))
+            #expect(h.viewModel.audioPipeline.snapshot == before)
+            #expect(h.viewModel.remoteOutputVolumes["member-108"] == 0.25)
+            #expect(h.audioDriver.createdEngineCount == engines)
+        }
+        h.viewModel.disconnect()
     }
 
     @Test func connectingCancelsAudioCheckBeforePeerAuthentication() {
@@ -1123,13 +1182,7 @@ struct RideIntercomTests {
         #expect(harness.viewModel.internetWorkerURL == "https://worker.test")
         #expect(!harness.viewModel.internetCheckMessage.contains("private-token"))
         #expect(harness.callSession.startMediaCallCount == 0)
-        harness.callSession.usesRouteManagedAudio = true
-        #expect(!harness.viewModel.supportsPacketAudioControls)
-        harness.viewModel.handleTransportEvent(.rtcStateChanged(.connecting))
-        #expect(harness.viewModel.connectionLabel == "Internet / Connecting Audio")
-        harness.viewModel.handleTransportEvent(.rtcStateChanged(.mediaReady))
-        #expect(harness.viewModel.connectionLabel == "Internet / Audio Active")
-        #expect(harness.viewModel.diagnosticsOverviewRows.first?.summary == "Internet native Opus")
+        #expect(harness.viewModel.diagnosticsOverviewRows.first?.summary == "Shared packet audio")
     }
 
     @Test func deviceLossPausesOwnAudioButPreservesGroupAndDoesNotAutoResume() async {
@@ -1183,7 +1236,6 @@ struct RideIntercomTests {
         rtc.emit(.routeChanged(.init(activeRoute: .webRTC, mediaRoute: .webRTC,
             availableRoutes: [.webRTC, .multipeer], isHandoverInProgress: false)))
         await Self.waitUntil { adapter.activeRouteDebugTypeName.contains("WebRTC") }
-        #expect(!adapter.usesRouteManagedAudio)
         let h = Self.makeHarness()
         h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
         h.callSession.authenticate(["member-108"])
@@ -1192,7 +1244,6 @@ struct RideIntercomTests {
         h.viewModel.handleTransportEvent(.routesChanged(.init(activeRoute: .webRTC, mediaRoute: .webRTC,
             availableRoutes: [.webRTC, .multipeer], isHandoverInProgress: false)))
         #expect(h.viewModel.routeLabel == "Local + Internet / Relay")
-        #expect(h.viewModel.supportsPacketAudioControls)
         #expect(h.inputBackend.startCount == starts)
         h.viewModel.handleTransportEvent(.routesChanged(.init(activeRoute: .multipeer, mediaRoute: .multipeer,
             availableRoutes: [.multipeer], isHandoverInProgress: false)))
@@ -1360,7 +1411,6 @@ struct RideIntercomTests {
 }
 
 private final class RecordingCallSession: RideIntercom.CallSession {
-    var usesRouteManagedAudio = false
     var onEvent: ((TransportEvent) -> Void)?
     private(set) var activeRouteDebugTypeName = "RecordingCallSession"
     private(set) var connectedGroup: IntercomGroup?
@@ -1486,7 +1536,8 @@ private final class FakeRTCCallSession: RTC.CallSession {
     func stopConnection() async { operations.append("stopConnection") }
     func startMedia() async { operations.append("startMedia") }
     func stopMedia() async { operations.append("stopMedia") }
-    func sendAudioPacket(_ packet: RTC.RTCAudioPacket) async {}
+    private(set) var sentAudioSequences: [UInt64] = []
+    func sendAudioPacket(_ packet: RTC.RTCAudioPacket) async { sentAudioSequences.append(packet.sequenceNumber) }
     func sendApplicationData(_ message: RTC.ApplicationDataMessage) async {}
     func updateRuntimePackageReports(_ reports: [RTC.RTCRuntimePackageReport]) async {}
     func setLocalMute(_ muted: Bool) async {}

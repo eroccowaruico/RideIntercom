@@ -46,9 +46,6 @@ extension IntercomViewModel {
         switch event {
         case .rtcStateChanged(let state):
             rtcConnectionState = state
-        case .audioOwnershipChanged:
-            if isAudioReady { stopAudioPipeline() }
-            startActiveCallAfterAuthenticatedPeer()
         case .routesChanged(let snapshot):
             availableCallRoutes = snapshot.availableRoutes
             if !isLocalStandbyOnly, !authenticatedPeerIDs.isEmpty {

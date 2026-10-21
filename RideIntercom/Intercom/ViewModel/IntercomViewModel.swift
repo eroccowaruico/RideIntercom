@@ -146,6 +146,7 @@ final class IntercomViewModel {
     let appSettingsStore: AppSettingsStoring
     let localMemberIdentity: LocalMemberIdentity
     let remoteTalkerTimeout: TimeInterval
+    var inputFrameDelivery: AudioFrameDelivery?
     let audioPipeline: AppAudioPipeline
     var audioTransmissionController: AudioTransmissionController
     var audioSessionSnapshot: SessionManager.AudioSessionSnapshot

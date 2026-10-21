@@ -22,7 +22,7 @@ App は必要な package だけを組み合わせる。package 内の責務を A
 |---|---|---|---|
 | PCM型、signal meter、report型だけ使う | `AudioCore` | なし | `SessionManager`, `AudioMixer`, `Codec`, `RTC` |
 | OS audio session / hardware I/Oだけ使う | `SessionManager` | `AudioCore` | `AudioMixer`, `Codec`, `RTC` |
-| PCM graph / mix / effect chainだけ使う | `AudioMixer` | `AudioCore`、必要なEffectors | `SessionManager`, `Codec`, `RTC` |
+| PCM graph / mix / effect chainだけ使う | `AudioMixer` | `AudioCore`（Effectorsは使用側で追加） | `SessionManager`, `Codec`, `RTC` |
 | codec encode / decodeだけ使う | `Codec` | `AudioCore` | `SessionManager`, `AudioMixer`, `RTC` |
 | VAD / Dynamics / Limiter / SoundIsolationだけ使う | 対象Effector | packageごとの依存だけ | `AudioMixer`, `SessionManager`, `Codec`, `RTC` |
 | route / packet / encryption / handoverだけ使う | `RTC` | なし | Audio packages |
@@ -42,7 +42,8 @@ flowchart LR
     Session -. uses PCM types .-> Core
     Mixer -. uses PCM types .-> Core
     Codec -. uses PCM types .-> Core
-    Mixer -. optional effects .-> Effectors
+    App --> Effectors
+    Effectors -->|AVAudioNode injection| Mixer
 
     App --> Session
     App --> Mixer
@@ -91,7 +92,7 @@ flowchart LR
 |---|---|---|---|
 | `AudioCore` | なし | PCM共通語彙、validation、signal measurement、report型 | resample、channel mix、volume、hardware、codec、transport |
 | `SessionManager` | `AudioCore` | Audio Session、device、route、hardware capture/render、OS voice processing | PCM正規化、mix、effect、codec、RTC |
-| `AudioMixer` | `AudioCore`、Effectors | PCM source/sink、bus graph、source ingress正規化、sink egress正規化、effect chain、volume、mix | hardware、codec、packet、暗号化 |
+| `AudioMixer` | `AudioCore` | PCM source/sink、bus graph、source ingress正規化、sink egress正規化、effect chain、volume、mix | hardware、codec、packet、暗号化 |
 | `Codec` | `AudioCore` | `PCMFrame <-> EncodedCodecFrame`、codec availability、bit rate option、fallback report | PCM正規化、mix、packet、暗号化、jitter |
 | Effectors | 必要に応じて `AudioCore` | 単機能effect、effect runtime snapshot | graph構築、hardware、codec、transport |
 | `RTC` | なし | route、handover、packet envelope、encryption、jitter、metadata、runtime status | Audio package依存、DSP、codec encode/decode |
@@ -176,4 +177,18 @@ flowchart TB
 | 公開用identity | Worker入口でtokenをownerへ解決する境界 | group招待と端末資格の共用、AppへのSFU secret配布 |
 | 検証 | package単体 / native SDP / Worker / Swift-Workerペア / App / UI | 全層をfakeにして外部契約が未検証のまま成功と呼ぶこと |
 
-ここでのプラグイン性は、ビルド時に既存protocol/factoryへ差し替える意味。動的コード読み込みや外部プラグイン市場は実装しない。nativeのeffect/音量/統計とTURNは不足として別に管理し、Appの暫定DSPで埋めない。
+ここでのプラグイン性は、ビルド時に既存protocol/factoryへ差し替える意味。動的コード読み込みや外部プラグイン市場は実装しない。Internetも共通Mixerのeffect/音量を使用する。Codecの追加は現状Codec package内の実装・availability表を拡張する方式で、外部codec登録protocolはない。通信統計とTURNの不足は別に管理し、Appで推定・代替しない。
+
+## 状態と寿命の所有
+
+| 対象 | 状態の所有者 | 生成・変更・解放 | 経路変更時 |
+|---|---|---|---|
+| 音声エンジン・bus/source/sink・effect順序 | AudioMixer | compositionがgraphを指定、Mixerが接続・format変換・合成・停止を実行 | 同じgraphを維持 |
+| DSP内部状態・パラメータ | 各Effector / AVAudioUnit | busごとに独立instance。bypass/parameter更新で同一nodeを変更 | リセットしない |
+| peer音量 | Mixer source fader | origin peer IDに対する設定をcompositionから渡す | route/gateway IDではなく同じ話者に追従 |
+| TX / RX master音量とmute | Mixer bus fader / input gate | ユーザー設定で更新 | 同じ設定を維持 |
+| codec識別・format変換境界 | Codec / Mixer | Codecはencode/decode、Mixerはsample rate/channel変換 | RTCはpayloadを解釈・再符号化しない |
+| 認証・重複・経路・中継・ネットワーク待ち | RTC | session/peer lifecycleに従い初期化。配送特性は音声と制御で分ける | 残った経路を維持 |
+| 選択設定・graphの組み合わせ・callback寿命 | App composition | package生成・接続・停止。DSP計算や経路選択は持たない | 音声所有者を切り替えない |
+
+EffectorはMixerそのものでも通信routeでもない。Mixerは注入されたAVAudioNodeを順序どおり実行し、各Effectorの種類を知る必要がない。同じnode instanceを複数peerのbusへ共有しない。Appは標準effectの組み合わせを一箇所で決め、DiagnosticsにはMixerの実snapshotを渡す。外部plugin探索・追加のregistry・中間packageは設けない。

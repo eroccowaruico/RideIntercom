@@ -49,7 +49,6 @@ extension IntercomViewModel {
     }
 
     func refreshAudioDevicesIfNeeded() {
-        guard !callSession.usesRouteManagedAudio else { return }
         if audioCheckPhase == .recording || audioCheckPhase == .playing {
             cancelAudioCheck()
             audioCheckStatusMessage = "Audio device changed. Run Audio Check again."

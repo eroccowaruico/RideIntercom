@@ -84,6 +84,7 @@ final class AppAudioPipeline {
 
     private let makeEngine: () -> AVAudioEngine
     private var generation = UUID()
+    private var frameDeliveries: [AudioFrameDelivery] = []
 
     init(makeEngine: @escaping () -> AVAudioEngine = { AVAudioEngine() }) {
         self.makeEngine = makeEngine
@@ -142,15 +143,15 @@ final class AppAudioPipeline {
         transmitDynamics = dynamics
         transmitLimiter = try installLimiter(on: txBus)
         let txSource = try txBus.addPCMSource(id: "microphone-input")
+        let transmitDelivery = AudioFrameDelivery { [weak self] frame in
+            guard let self, self.generation == generation else { return }
+            self.encodeAndPublish(frame)
+        }
+        frameDeliveries.append(transmitDelivery)
         _ = try txBus.installPCMSink(
             id: "rtc-send",
             targetFormat: configuration.rtcSendFormat
-        ) { [weak self] frame, _ in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.generation == generation else { return }
-                self.encodeAndPublish(frame)
-            }
-        }
+        ) { frame, _ in transmitDelivery.yield(frame) }
 
         let rxMasterBus = try mixer.createBus("rx-master")
         rxMasterBus.volume = configuration.isOutputMuted ? 0 : configuration.masterOutputVolume
@@ -159,15 +160,15 @@ final class AppAudioPipeline {
         let rxOutputBus = try mixer.createBus("rx-output")
         outputLimiter = try installLimiter(on: rxOutputBus)
         try mixer.route(rxMasterBus, to: rxOutputBus)
+        let outputDelivery = AudioFrameDelivery { [weak self] frame in
+            guard let self, self.generation == generation else { return }
+            self.publishOutput(frame)
+        }
+        frameDeliveries.append(outputDelivery)
         _ = try rxOutputBus.installPCMSink(
             id: "speaker-output",
             targetFormat: configuration.outputHardwareFormat
-        ) { [weak self] frame, _ in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.generation == generation else { return }
-                self.publishOutput(frame)
-            }
-        }
+        ) { frame, _ in outputDelivery.yield(frame) }
         let engineOutputBus = try mixer.createBus("engine-output")
         engineOutputBus.volume = 0
         try mixer.route(txBus, to: engineOutputBus)
@@ -189,6 +190,8 @@ final class AppAudioPipeline {
 
     func stop() {
         generation = UUID()
+        frameDeliveries.forEach { $0.finish() }
+        frameDeliveries.removeAll()
         mixer?.stop()
         mixer = nil
         txSource = nil

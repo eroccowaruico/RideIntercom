@@ -83,9 +83,18 @@ final class RideIntercomUITests: XCTestCase {
         if internet.value as? String == "0" { internet.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         let local = app.switches["Local Network"].firstMatch
         let original = local.value as? String
-        local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertNotEqual(local.value as? String, original)
-        local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        if original == "1" { local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+        XCTAssertEqual(local.value as? String, "0")
+        // Internet-only uses the same controls, even before credentials are configured.
+        openGroupsTab()
+        createTalkGroupAndOpenCall()
+        XCTAssertTrue(app.sliders["masterOutputSlider"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["localMicrophoneMeter"].exists)
+        XCTAssertFalse(app.staticTexts["Native audio — meter unavailable"].exists)
+        attachScreen("Internet Shared Audio Controls")
+        openSettingsTab()
+        for _ in 0..<8 where !local.isHittable { app.swipeDown() }
+        if original == "1" { local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         XCTAssertEqual(local.value as? String, original)
     }
 

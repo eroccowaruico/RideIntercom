@@ -22,10 +22,8 @@ struct DiagnosticsView: View {
                                 .font(.footnote).foregroundStyle(.secondary)
                         }.frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    if viewModel.supportsPacketAudioControls {
-                        LiveTransmitPipelineView(viewModel: viewModel)
-                        LiveReceivePipelineView(viewModel: viewModel)
-                    }
+                    LiveTransmitPipelineView(viewModel: viewModel)
+                    LiveReceivePipelineView(viewModel: viewModel)
                 }
                 .padding(AppSpacing.l)
             }
