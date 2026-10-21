@@ -13,7 +13,7 @@ public actor WebRTCInternetRoute: RTCCallRoute {
     )
     public nonisolated var events: AsyncStream<RouteEvent> { eventSource.stream }
 
-    private nonisolated let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient })
+    private nonisolated let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient }, overflowEvent: .stateChanged(.webRTC, .failed))
     private let cloudflareConfigurationProvider: @Sendable (CallStartRequest) -> CloudflareRealtimeConfiguration?
     private let signalingClient: WebRTCSignalingClient
     private let engine: NativeWebRTCEngine
@@ -227,7 +227,7 @@ public enum WebRTCEngineEvent: Equatable, Sendable {
 }
 
 open class NativeWebRTCEngine: NSObject, @unchecked Sendable {
-    private let eventSource = EventSource<WebRTCEngineEvent>(isTransient: { $0.isTransient })
+    private let eventSource = EventSource<WebRTCEngineEvent>(isTransient: { $0.isTransient }, overflowEvent: .connectionStateChanged(.failed))
     public var eventDropReport: RTCEventDropReport { eventSource.report }
     public func emit(_ event: WebRTCEngineEvent) { eventSource.yield(event) }
     open var isAvailable: Bool { false }

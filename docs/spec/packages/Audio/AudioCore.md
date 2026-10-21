@@ -127,3 +127,7 @@ caller input
 | frame | sample count と channel count の不整合を拒否する |
 | meter | RMS / peak / clipping を計算し、frame を変更しない |
 | metadata | sample count / bit rate を安全な値に丸める |
+
+## 外部入力の検証
+
+`PCMFrame.validated()`は公開可変プロパティやDecodable経由の値も再検証する。sample rateは有限の8–96 kHz、channelは1–2、timestampと全sampleは有限値でなければ拒否する。ゼロchannelのframeCountは0を返して除算例外を避ける。RMSはDoubleで累積し、有限の大きなFloat入力で中間値がoverflowしない。

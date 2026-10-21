@@ -44,7 +44,7 @@ public struct DynamicsProcessorConfiguration: Codable, Equatable, Sendable {
 	}
 
 	private static func clamp(_ value: Float, _ range: ClosedRange<Float>) -> Float {
-		min(max(value, range.lowerBound), range.upperBound)
+		value.isFinite ? min(max(value, range.lowerBound), range.upperBound) : range.lowerBound
 	}
 }
 
@@ -129,6 +129,7 @@ public final class DynamicsProcessorEffect {
 	}
 
 	public func apply(_ configuration: DynamicsProcessorConfiguration) throws {
+		let configuration = DynamicsProcessorConfiguration(threshold: configuration.threshold, headRoom: configuration.headRoom, expansionRatio: configuration.expansionRatio, expansionThreshold: configuration.expansionThreshold, attackTime: configuration.attackTime, releaseTime: configuration.releaseTime, overallGain: configuration.overallGain)
 		try setValue(AUValue(configuration.threshold), for: AUParameterAddress(kDynamicsProcessorParam_Threshold), missingParameter: .threshold)
 		try setValue(AUValue(configuration.headRoom), for: AUParameterAddress(kDynamicsProcessorParam_HeadRoom), missingParameter: .headRoom)
 		try setValue(AUValue(configuration.expansionRatio), for: AUParameterAddress(kDynamicsProcessorParam_ExpansionRatio), missingParameter: .expansionRatio)

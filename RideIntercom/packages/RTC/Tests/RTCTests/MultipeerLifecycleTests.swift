@@ -3,6 +3,17 @@ import MultipeerConnectivity
 import Testing
 @testable import RTC
 
+@Test func multipeerRejectsInvalidIdentifierBeforeCreatingNativePeer() async {
+    for id in ["", String(repeating: "a", count: 64), String(repeating: "あ", count: 22)] {
+        let route = MultipeerLocalRoute()
+        var events = route.events.makeAsyncIterator()
+        await route.prepare(CallStartRequest(sessionID: "s", localPeer: .init(id: .init(rawValue: id), displayName: "Local")))
+        guard case .error = await events.next() else { Issue.record("Expected invalid identifier failure"); return }
+        guard case .stateChanged(_, .failed) = await events.next() else { Issue.record("Expected failed state"); return }
+        await route.stopConnection()
+    }
+}
+
 private final class TransportEvents: @unchecked Sendable {
     private let lock = NSLock()
     private var events: [MultipeerConnectionEvent] = []

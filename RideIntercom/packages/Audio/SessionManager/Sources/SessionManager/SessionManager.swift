@@ -182,7 +182,10 @@ public struct AudioSessionConfiguration: Codable, Equatable, Sendable {
         if mode == .voiceChat && prefersEchoCancelledInput {
             throw AudioSessionManagerError.echoCancelledInputRequiresDefaultMode
         }
+        return resolvedValue
+    }
 
+    fileprivate var resolvedValue: ResolvedAudioSessionConfiguration {
         var options: Set<AudioSessionCategoryOption> = [
             .allowBluetoothA2DP,
             .allowBluetoothHFP,
@@ -378,13 +381,16 @@ public final class AudioSessionManager {
     public private(set) var configuration: AudioSessionConfiguration
     public private(set) var resolvedConfiguration: ResolvedAudioSessionConfiguration
 
-    public convenience init() {
-        self.init(backend: SystemAudioSessionBackend())
+    public init(backend: AudioSessionBackend = SystemAudioSessionBackend()) {
+        let configuration = AudioSessionConfiguration()
+        self.configuration = configuration
+        self.resolvedConfiguration = configuration.resolvedValue
+        self.backend = backend
     }
 
-    public init(configuration: AudioSessionConfiguration = AudioSessionConfiguration(), backend: AudioSessionBackend) {
+    public init(configuration: AudioSessionConfiguration, backend: AudioSessionBackend) throws {
         self.configuration = configuration
-        self.resolvedConfiguration = try! configuration.resolved()
+        self.resolvedConfiguration = try configuration.resolved()
         self.backend = backend
     }
 

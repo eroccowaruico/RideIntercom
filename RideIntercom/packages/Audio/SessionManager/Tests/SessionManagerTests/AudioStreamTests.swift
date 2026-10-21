@@ -4,6 +4,19 @@ import Testing
 
 #if canImport(AVFAudio)
 import AVFAudio
+
+@Test func pcmBufferPreservesInterleavedChannelsAndRejectsUnsupportedHardware() throws {
+    let stereo = try #require(AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 2, interleaved: true))
+    let buffer = try #require(AVAudioPCMBuffer(pcmFormat: stereo, frameCapacity: 2))
+    buffer.frameLength = 2
+    for (i, value) in [Float(0.1), 0.2, 0.3, 0.4].enumerated() { buffer.floatChannelData![0][i] = value }
+    #expect(PCMFrame(buffer: buffer, sequenceNumber: 0, capturedAt: 0)?.samples == [0.1, 0.2, 0.3, 0.4])
+    let layout = try #require(AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_MPEG_5_1_A))
+    let surround = AVAudioFormat(standardFormatWithSampleRate: 48000, channelLayout: layout)
+    let unsupported = try #require(AVAudioPCMBuffer(pcmFormat: surround, frameCapacity: 1))
+    unsupported.frameLength = 1
+    #expect(PCMFrame(buffer: unsupported, sequenceNumber: 0, capturedAt: 0) == nil)
+}
 #endif
 
 @Test func inputCaptureReportsHardwareFramesWithoutFormatConversion() {
@@ -425,3 +438,14 @@ private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
     #expect((0..<Int(buffer.frameLength)).allSatisfy { abs(buffer.floatChannelData![0][$0]) < 0.001 })
 }
 #endif
+
+@Test func voiceProcessingFailureDoesNotStartCapture() {
+    let backend = FakeInputStreamBackend()
+    backend.updateVoiceProcessingError = AudioStreamError.engineOperationFailed("injected")
+    let capture = AudioInputStreamCapture(backend: backend)
+    let report = capture.start()
+    #expect(report.result == .failed(.engineOperationFailed("injected")))
+    #expect(!report.snapshot.isRunning)
+    #expect(backend.startCount == 0)
+    #expect(backend.stopCount == 1)
+}

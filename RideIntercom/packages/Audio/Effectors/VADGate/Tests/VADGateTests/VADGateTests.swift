@@ -1,3 +1,4 @@
+import Dispatch
 import Testing
 @testable import VADGate
 import AVFAudio
@@ -109,4 +110,24 @@ import Foundation
     let decoded = try JSONDecoder().decode(VADGateRuntimeSnapshot.self, from: data)
 
     #expect(decoded == snapshot)
+}
+
+@Test func nonfiniteConfigurationAndSamplesRemainFinite() {
+    var configuration = VADGateConfiguration(minimumNoiseFloorDBFS: .nan, maximumNoiseFloorDBFS: .infinity)
+    configuration.attackDuration = .nan
+    let gate = VADGate(configuration: configuration)
+    var samples: [Float] = [.nan, .infinity, -.infinity, 0.1]
+    let analysis = gate.applyGate(to: &samples, duration: .infinity)
+    #expect(analysis.gain.isFinite)
+    #expect(analysis.noiseFloorDBFS.isFinite)
+    #expect(samples.allSatisfy { $0.isFinite })
+}
+
+@Test func concurrentSettingsAndAnalysisHaveConsistentSnapshots() {
+    let gate = VADGate()
+    DispatchQueue.concurrentPerform(iterations: 200) { i in
+        if i.isMultiple(of: 3) { gate.apply(configuration: .init(speechGain: 0.7)) }
+        else { _ = gate.process(rmsDBFS: -20) }
+        #expect(gate.runtimeSnapshot.gain.isFinite)
+    }
 }

@@ -1,7 +1,6 @@
 #if canImport(MultipeerConnectivity)
 import Foundation
 @preconcurrency import MultipeerConnectivity
-import OSLog
 
 public actor MultipeerLocalRoute: RTCCallRoute {
     public let kind: RouteKind = .multipeer
@@ -18,7 +17,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
     }
     nonisolated public var events: AsyncStream<RouteEvent> { eventSource.stream }
 
-    private let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient })
+    private let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient }, overflowEvent: .stateChanged(.multipeer, .failed))
     private let audioPolicy: RTCAudioPolicy
     private var generation = UUID()
     private var transportEventsTask: Task<Void, Never>?
@@ -46,8 +45,13 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         transportEventsTask?.cancel()
         transport?.stop()
         transport = nil
+        guard (1...63).contains(request.localPeer.id.rawValue.utf8.count) else {
+            eventSource.yield(.error(kind, .connectionFailed(kind, "Invalid local peer identifier")))
+            eventSource.yield(.stateChanged(kind, .failed))
+            return
+        }
         let transport = MultipeerConnectionTransport(request: request)
-        let source = EventSource<MultipeerConnectionEvent>(isTransient: { $0.isTransient })
+        let source = EventSource<MultipeerConnectionEvent>(isTransient: { $0.isTransient }, overflowEvent: .failed("Control event queue overflow"))
         transportSource = source
         transport.onEvent = { source.yield($0) }
         let generation = generation
@@ -64,7 +68,8 @@ public actor MultipeerLocalRoute: RTCCallRoute {
     }
 
     public func startConnection() async {
-        transport?.start()
+        guard let transport else { return }
+        transport.start()
         eventSource.yield(.stateChanged(kind, .connecting))
     }
 
@@ -115,7 +120,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         switch payload {
         case .handshake(let handshake):
             guard transport?.accept(handshake, from: peerID) == true else {
-                eventSource.yield(.error(kind, .connectionFailed(kind, "Multipeer handshake rejected: \(peerID.rawValue)")))
+                eventSource.yield(.error(kind, .connectionFailed(kind, "Multipeer handshake rejected")))
                 return
             }
             eventSource.yield(.stateChanged(kind, .authenticated))
@@ -149,7 +154,6 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     private let queue = DispatchQueue.main
     private var isStopped = false
     private var connectedPeerIDs: Set<PeerID> = []
-    private let logger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "rtc-multipeer")
     private var advertiser: MCNearbyServiceAdvertiser?
     private var browser: MCNearbyServiceBrowser?
     private var authenticatedPeers: Set<PeerID> = []
@@ -219,7 +223,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             do {
                 try session.send(payload.data, toPeers: peers, with: payload.mcSendMode)
             } catch {
-                logger.error("Failed to send Multipeer payload: \(error.localizedDescription, privacy: .public)")
+                onEvent?(.failed("Multipeer payload send failed"))
             }
 
         }
@@ -263,7 +267,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             let payload = try MultipeerPayloadBuilder.makeControlPayload(.handshake(handshake))
             try session.send(payload.data, toPeers: [peerID], with: payload.mcSendMode)
         } catch {
-            logger.error("Failed to send Multipeer handshake: \(error.localizedDescription, privacy: .public)")
+            onEvent?(.failed("Multipeer handshake send failed"))
         }
     }
 }
@@ -353,6 +357,7 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
     }
 
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
+        guard data.count <= 65536 else { return }
         queue.async { [self] in
             guard !isStopped, self.session === session else { return }
             do {
@@ -364,7 +369,7 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
                 }
                 onEvent?(.message(message, PeerID(rawValue: peerID.displayName)))
             } catch {
-                logger.debug("Ignoring unknown Multipeer payload from \(peerID.displayName, privacy: .public)")
+                // Invalid remote payloads are dropped without logging identifiers or data.
             }
 
         }

@@ -412,7 +412,7 @@ public final class AudioMixer {
 	}
 
 	public convenience init(engine: AVAudioEngine = AVAudioEngine(), audioFormat: AudioFormat) throws {
-		guard let format = AVAudioFormat(audioFormat: audioFormat) else {
+		guard audioFormat.isValid, let format = AVAudioFormat(audioFormat: audioFormat) else {
 			throw AudioMixerError.formatCreationFailed(audioFormat)
 		}
 		self.init(engine: engine, format: format)
@@ -468,6 +468,21 @@ public final class AudioMixer {
 
 	public func bus(_ id: String) -> MixerBus? {
 		buses[id]
+	}
+
+	/// Graph mutations belong to one serial owner. Discard references to the
+	/// removed bus and its sources; unrelated buses continue to run.
+	public func removeBus(_ id: String) throws {
+		guard let bus = buses.removeValue(forKey: id) else { throw AudioMixerError.unknownBus(id) }
+		for child in parentByChildID.filter({ $0.value == id }).map(\.key) {
+			if let source = buses[child] { engine.disconnectNodeOutput(source.outputNode) }
+			parentByChildID[child] = nil
+			destinationInputBusIndexByChildID[child] = nil
+		}
+		parentByChildID[id] = nil
+		destinationInputBusIndexByChildID[id] = nil
+		if outputBusID == id { outputBusID = nil }
+		bus.detach()
 	}
 
 	public func route(_ source: MixerBus, to destination: MixerBus) throws {
@@ -696,6 +711,7 @@ public final class MixerBus {
 	private var sourceNodeOrder: [ObjectIdentifier] = []
 	private var sourceMetadataByNodeID: [ObjectIdentifier: MixerSourceMetadata] = [:]
 	private var pcmSourceByNodeID: [ObjectIdentifier: MixerPCMSource] = [:]
+	private let metadataLock = NSRecursiveLock()
 	private var sinkOrder: [String] = []
 	private var sinksByID: [String: MixerPCMSink] = [:]
 	private var sinkMetadataByID: [String: MixerSinkMetadata] = [:]
@@ -708,6 +724,16 @@ public final class MixerBus {
 	private var nextSinkSequenceNumber: UInt64 = 0
 
 	public private(set) var effects: [AVAudioNode] = []
+
+	fileprivate func detach() {
+		stopPCMSources()
+		if isTapInstalled { faderMixer.removeTap(onBus: 0); isTapInstalled = false }
+		let sourceFaders = Set(pcmSourceByNodeID.values.map { ObjectIdentifier($0.faderNode) })
+		let owned = engine.attachedNodes.filter {
+			sourceNodeIDs.contains(ObjectIdentifier($0)) || sourceFaders.contains(ObjectIdentifier($0)) || effectNodeIDs.contains(ObjectIdentifier($0)) || $0 === inputMixer || $0 === faderMixer
+		}
+		for node in owned { engine.disconnectNodeInput(node); engine.disconnectNodeOutput(node); engine.detach(node) }
+	}
 
 	public var volume: Float {
 		get { faderMixer.outputVolume }
@@ -806,6 +832,11 @@ public final class MixerBus {
 		bufferFrameCount: UInt32 = 128,
 		onFrame: @escaping (PCMFrame, AudioProcessingReport) -> Void
 	) throws -> MixerPCMSink {
+		guard targetFormat.isValid, bufferFrameCount > 0 else {
+			throw AudioMixerError.pcmSinkInstallFailed("Invalid sink format or buffer size")
+		}
+		metadataLock.lock()
+		defer { metadataLock.unlock() }
 		let resolvedID = try resolveNodeID(
 			sinkID,
 			generatedPrefix: "pcm-sink",
@@ -835,6 +866,8 @@ public final class MixerBus {
 	func stopPCMSources() { pcmSourceByNodeID.values.forEach { $0.stop() } }
 
 	public func snapshot() -> MixerBusSnapshot {
+		metadataLock.lock()
+		defer { metadataLock.unlock() }
 		let sourceSnapshots = sourceNodeOrder.enumerated().compactMap { index, nodeID in
 			sourceMetadataByNodeID[nodeID].map {
 				MixerSourceSnapshot(
@@ -983,7 +1016,8 @@ public final class MixerBus {
 	}
 
 	func deliverToSinks(_ frame: PCMFrame) throws {
-		for sink in sinkOrder.compactMap({ sinksByID[$0] }) {
+		let sinks = metadataLock.withLock { sinkOrder.compactMap { sinksByID[$0] } }
+		for sink in sinks {
 			_ = try sink.receive(frame)
 		}
 	}
@@ -1017,6 +1051,8 @@ public final class MixerBus {
 		report: AudioProcessingReport?,
 		failure: String?
 	) {
+		metadataLock.lock()
+		defer { metadataLock.unlock() }
 		guard var metadata = sourceMetadataByNodeID[nodeID] else { return }
 		metadata.originalFormat = frame.format
 		metadata.normalizationReport = report
@@ -1028,6 +1064,8 @@ public final class MixerBus {
 	}
 
 	private func recordPCMSinkEmit(id: String, report: AudioProcessingReport?, failure: String?) {
+		metadataLock.lock()
+		defer { metadataLock.unlock() }
 		guard var metadata = sinkMetadataByID[id] else { return }
 		metadata.normalizationReport = report
 		metadata.lastFailure = failure
@@ -1094,6 +1132,9 @@ private enum MixerPCMNormalizer {
 		to targetFormat: AudioFormat,
 		operation: AudioProcessingOperation
 	) throws -> (frame: PCMFrame, report: AudioProcessingReport) {
+		guard targetFormat.isValid else {
+			throw AudioProcessingFailure(operation: operation, sourceFormat: frame.format, targetFormat: targetFormat, reason: "invalid target format")
+		}
 		do {
 			_ = try frame.validated()
 		} catch let failure as AudioProcessingFailure {
@@ -1187,11 +1228,11 @@ private enum MixerPCMNormalizer {
 		for frameIndex in 0..<sourceFrameCount {
 			let sourceOffset = frameIndex * sourceChannelCount
 			if targetChannelCount == 1 {
-				var sum: Float = 0
+				var sum: Double = 0
 				for channelIndex in 0..<sourceChannelCount {
-					sum += samples[sourceOffset + channelIndex]
+					sum += Double(samples[sourceOffset + channelIndex])
 				}
-				converted.append(sum / Float(sourceChannelCount))
+				converted.append(Float(sum / Double(sourceChannelCount)))
 			} else {
 				for channelIndex in 0..<targetChannelCount {
 					let sourceChannel = min(channelIndex, sourceChannelCount - 1)
@@ -1228,7 +1269,7 @@ private enum MixerPCMNormalizer {
 			for channelIndex in 0..<channelCount {
 				let lower = samples[lowerFrameIndex * channelCount + channelIndex]
 				let upper = samples[upperFrameIndex * channelCount + channelIndex]
-				resampled.append(lower + (upper - lower) * fraction)
+				resampled.append(Float(Double(lower) * (1 - Double(fraction)) + Double(upper) * Double(fraction)))
 			}
 		}
 		return resampled

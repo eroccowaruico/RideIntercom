@@ -233,3 +233,7 @@ RideIntercomのLocal / Internet / 中継は同じ符号化済みpacket経路を�
 | runtime report | requested / active / fallback / availability を保持する |
 
 実 AudioConverter による AAC / Opus の音質、遅延、availability は環境差があるため、単体テストでは固定しない。利用環境ごとの品質と遅延は統合経路または実機検証で確認する。
+
+## 復号時の資源上限
+
+外部payloadは最大1 MiB、復号frame数は最大96,000。format・timestamp・sample数・packet数・最大packet byte数・各packetのoffsetと終端をAudioConverterやbuffer確保より前に検証する。sample数はframe数×channel数と一致させ、加算・乗算のoverflowを許さない。不正データはdecode失敗として呼出側へ返す。PCM16の低水準変換は非有限sampleを0にするが、通常のCodecEncoder入口はAudioCoreの検証で拒否する。

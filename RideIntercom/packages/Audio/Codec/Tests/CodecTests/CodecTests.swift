@@ -152,3 +152,28 @@ import Testing
     #expect(CodecSupport.isEncodingAvailable(for: CodecEncodingConfiguration(codec: .pcm16)))
     #expect(CodecSupport.isDecodingAvailable(for: .pcm16))
 }
+
+@Test func compressedEnvelopeRejectsInvalidAllocationAndPacketRanges() throws {
+    let valid: [String: Any] = ["codec": "opus", "sourceSampleCount": 960, "sourceFrameCount": 960,
+        "maximumPacketSize": 8, "packetCount": 1,
+        "packetDescriptions": [["startOffset": 0, "variableFramesInPacket": 960, "dataByteSize": 8]],
+        "data": Data(repeating: 0, count: 8).base64EncodedString()]
+    let mutations: [[String: Any]] = [
+        ["maximumPacketSize": 0], ["maximumPacketSize": Int.max], ["packetCount": 0],
+        ["packetCount": UInt32.max], ["sourceFrameCount": UInt32.max], ["sourceSampleCount": -1],
+        ["packetDescriptions": [["startOffset": -1, "variableFramesInPacket": 960, "dataByteSize": 8]]],
+        ["packetDescriptions": [["startOffset": 4, "variableFramesInPacket": 960, "dataByteSize": 8]]],
+        ["data": Data(repeating: 0, count: 16).base64EncodedString()]
+    ]
+    for mutation in mutations {
+        let payload = try JSONSerialization.data(withJSONObject: valid.merging(mutation) { _, new in new })
+        let frame = EncodedCodecFrame(sequenceNumber: 1, codec: .opus, format: AudioFormat(), capturedAt: 0, sampleCount: 960, payload: payload)
+        #expect(throws: CodecError.malformedPayload(.opus)) { try CodecDecoder().decode(frame) }
+    }
+}
+
+@Test func pcmDecoderAcceptsDataSliceAndEncoderHandlesNonfinitePrimitiveInput() throws {
+    let bytes = Data([99, 99, 0, 0, 255, 127]).dropFirst(2)
+    #expect(try PCM16Codec.decode(bytes) == [0, 1])
+    #expect(try PCM16Codec.decode(PCM16Codec.encode([.nan, .infinity])) == [0, 0])
+}

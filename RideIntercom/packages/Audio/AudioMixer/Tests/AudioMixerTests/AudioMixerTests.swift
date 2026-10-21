@@ -1,5 +1,20 @@
 import AudioCore
 import Testing
+
+@Test func removingBusReleasesItsNodesAndAllowsRecreation() throws {
+    let mixer = AudioMixer()
+    let output = try mixer.createBus("output")
+    let baseline = mixer.engine.attachedNodes.count
+    for _ in 0..<20 {
+        let peer = try mixer.createBus("peer")
+        _ = try peer.addPCMSource(id: "remote")
+        try mixer.route(peer, to: output)
+        try mixer.removeBus("peer")
+        #expect(mixer.engine.attachedNodes.count == baseline)
+        #expect(mixer.snapshot().routes.isEmpty)
+        #expect(mixer.busIDs == ["output"])
+    }
+}
 @testable import AudioMixer
 import AVFAudio
 
@@ -407,4 +422,15 @@ import AVFAudio
     try mixer.start(); source.start()
     #expect(try engine.renderOffline(1024, to: output) == .success)
     #expect((0..<Int(output.frameLength)).allSatisfy { abs(output.floatChannelData![0][$0]) < 0.001 })
+}
+
+@Test func rejectsInvalidSinkFormatBeforeInstallingTap() throws {
+    let mixer = try AudioMixer(audioFormat: AudioFormat())
+    let bus = try mixer.createBus("test")
+    var invalid = AudioFormat()
+    invalid.channelCount = -1
+    #expect(throws: AudioMixerError.self) {
+        try bus.installPCMSink(id: "invalid", targetFormat: invalid) { _, _ in }
+    }
+    #expect(bus.snapshot().sinkCount == 0)
 }

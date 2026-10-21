@@ -49,7 +49,7 @@ public struct VoiceIsolationConfiguration: Codable, Equatable, Sendable {
 
 	public init(soundType: VoiceIsolationSoundType = .voice, mix: Float = 1) {
 		self.soundType = soundType
-		self.mix = min(max(mix, 0), 1)
+		self.mix = mix.isFinite ? min(max(mix, 0), 1) : 0
 	}
 
 	var wetDryMixPercent: AUValue {
@@ -148,6 +148,7 @@ public final class VoiceIsolationEffect {
 	}
 
 	public func apply(_ configuration: VoiceIsolationConfiguration) throws {
+		let configuration = VoiceIsolationConfiguration(soundType: configuration.soundType, mix: configuration.mix)
 		guard let soundTypeValue = configuration.soundType.parameterValue else {
 			throw VoiceIsolationError.unsupportedSoundType(configuration.soundType)
 		}

@@ -142,3 +142,7 @@ engine.connect(isolation.node, to: engine.mainMixerNode, format: format)
 任意の外部AU extensionの非同期ロードは対象外。旧async factoryは残さず、Apple SDKのEffect initializerを使用する。
 
 `VoiceIsolationEffect.runtimeSnapshot.state` は実Audio Unitの `bypass` に従い `active` / `bypassed` を返す。生成できない環境の説明用snapshotは `unavailable` として区別する。
+
+## 設定入力の検証
+
+公開可変・Decodable経由の設定もapply時に再正規化する。非有限数値をAUへ渡さず、定義済み範囲の下限値へ戻す。

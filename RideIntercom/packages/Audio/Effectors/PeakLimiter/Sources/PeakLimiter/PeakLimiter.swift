@@ -24,7 +24,7 @@ public struct PeakLimiterConfiguration: Codable, Equatable, Sendable {
 	}
 
 	private static func clamp(_ value: Float, _ range: ClosedRange<Float>) -> Float {
-		min(max(value, range.lowerBound), range.upperBound)
+		value.isFinite ? min(max(value, range.lowerBound), range.upperBound) : range.lowerBound
 	}
 }
 
@@ -109,6 +109,7 @@ public final class PeakLimiterEffect {
 	}
 
 	public func apply(_ configuration: PeakLimiterConfiguration) throws {
+		let configuration = PeakLimiterConfiguration(attackTime: configuration.attackTime, decayTime: configuration.decayTime, preGain: configuration.preGain)
 		try setValue(AUValue(configuration.attackTime), for: AUParameterAddress(kLimiterParam_AttackTime), missingParameter: .attackTime)
 		try setValue(AUValue(configuration.decayTime), for: AUParameterAddress(kLimiterParam_DecayTime), missingParameter: .decayTime)
 		try setValue(AUValue(configuration.preGain), for: AUParameterAddress(kLimiterParam_PreGain), missingParameter: .preGain)

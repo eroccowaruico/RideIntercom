@@ -90,3 +90,25 @@ import Testing
     #expect(metadata.sampleCount == 0)
     #expect(metadata.bitRate == 0)
 }
+
+@Test func pcmRejectsMutatedFormatAndNonfiniteInput() {
+    for channels in [0, -1, 3, Int.max] {
+        var format = AudioFormat()
+        format.channelCount = channels
+        #expect(throws: AudioProcessingFailure.self) { try PCMFrame(sequenceNumber: 0, format: format, samples: []).validated() }
+    }
+    for rate in [Double.nan, .infinity, 0, -1, 100_000] {
+        var format = AudioFormat()
+        format.sampleRate = rate
+        #expect(throws: AudioProcessingFailure.self) { try PCMFrame(sequenceNumber: 0, format: format, samples: []).validated() }
+    }
+    for sample in [Float.nan, .infinity, -.infinity] {
+        #expect(throws: AudioProcessingFailure.self) { try PCMFrame(sequenceNumber: 0, samples: [sample]).validated() }
+    }
+}
+
+@Test func meterDoesNotOverflowForFiniteLargeSamples() throws {
+    let measurement = try AudioSignalMeter.measure(PCMFrame(sequenceNumber: 0, samples: [.greatestFiniteMagnitude, .greatestFiniteMagnitude]))
+    #expect(measurement.rms.isFinite)
+    #expect(measurement.isClipped)
+}

@@ -1,7 +1,8 @@
 import Foundation
 
-/// Each reader owns a mailbox. Slow readers keep control transitions, but audio
-/// and telemetry are useful only while fresh. A wake-up never carries payloads.
+/// Each reader owns a bounded mailbox. Control overflow reports a failure and
+/// waits for the reader to consume it before accepting recovery events.
+/// Audio and telemetry expire; a wake-up never carries payloads.
 final class EventSource<Event: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var subscriptions: [UUID: Subscription] = [:]
@@ -10,14 +11,16 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
     var report: RTCEventDropReport { counters.lock.withLock { counters.report } }
     func resetDiagnostics() { counters.lock.withLock { counters.report = .init() } }
     private let isTransient: @Sendable (Event) -> Bool
+    private let overflowEvent: Event?
 
-    init(isTransient: @escaping @Sendable (Event) -> Bool = { _ in false }) {
+    init(isTransient: @escaping @Sendable (Event) -> Bool = { _ in false }, overflowEvent: Event? = nil) {
         self.isTransient = isTransient
+        self.overflowEvent = overflowEvent
     }
 
     var stream: AsyncStream<Event> {
         let id = UUID()
-        let subscription = Subscription(isTransient: isTransient, counters: counters)
+        let subscription = Subscription(isTransient: isTransient, counters: counters, overflowEvent: overflowEvent)
         lock.withLock {
             if isFinished { subscription.finish() }
             else { subscriptions[id] = subscription }
@@ -55,12 +58,14 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
         private let lock = NSLock()
         private let isTransient: @Sendable (Event) -> Bool
         private let counters: Counters
+        private let overflowEvent: Event?
         private let wakeup = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         private var entries: [Entry] = []
         private var isFinished = false
+        private var awaitingOverflowConsumption = false
 
-        init(isTransient: @escaping @Sendable (Event) -> Bool, counters: Counters) {
-            self.isTransient = isTransient; self.counters = counters
+        init(isTransient: @escaping @Sendable (Event) -> Bool, counters: Counters, overflowEvent: Event?) {
+            self.isTransient = isTransient; self.counters = counters; self.overflowEvent = overflowEvent
         }
         private func expire(at now: ContinuousClock.Instant) {
             let before = entries.count
@@ -71,9 +76,20 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
         func yield(_ event: Event) {
             lock.withLock {
                 guard !isFinished else { return }
+                if awaitingOverflowConsumption {
+                    counters.lock.withLock { counters.report.overflow += 1 }
+                    return
+                }
                 let now = ContinuousClock.now
                 expire(at: now)
                 let transient = isTransient(event)
+                if !transient, entries.lazy.filter({ $0.expiresAt == nil }).count >= 256 {
+                    counters.lock.withLock { counters.report.overflow += entries.count + 1 }
+                    entries = overflowEvent.map { [Entry(event: $0, expiresAt: nil)] } ?? []
+                    awaitingOverflowConsumption = overflowEvent != nil
+                    wakeup.continuation.yield(())
+                    return
+                }
                 if transient, entries.lazy.filter({ $0.expiresAt != nil }).count >= 64,
                    let oldest = entries.firstIndex(where: { $0.expiresAt != nil }) {
                     entries.remove(at: oldest)
@@ -89,6 +105,7 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
                 let (event, finished): (Event?, Bool) = lock.withLock {
                     let now = ContinuousClock.now
                     expire(at: now)
+                    if !entries.isEmpty { awaitingOverflowConsumption = false }
                     return (entries.isEmpty ? nil : entries.removeFirst().event, isFinished)
                 }
                 if let event { return event }

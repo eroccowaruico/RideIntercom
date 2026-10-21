@@ -10,7 +10,7 @@ public struct CloudflareServiceStatus: Decodable, Equatable, Sendable {
 /// The SFU secret never enters this client. All media mutations are authorized by the Worker.
 public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
     public nonisolated var events: AsyncStream<WebRTCSignalingEvent> { source.stream }
-    private nonisolated let source = EventSource<WebRTCSignalingEvent>()
+    private nonisolated let source = EventSource<WebRTCSignalingEvent>(overflowEvent: .failed("Control event queue overflow"))
     private let session: URLSession
     private var request: WebRTCSignalingConnectRequest?
     private var sessionID: String?
@@ -147,7 +147,8 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         var url = URLComponents(url: endpoint(request, path: "sessions/\(id)/signal"), resolvingAgainstBaseURL: false)!
         url.scheme = url.scheme == "https" ? "wss" : "ws"
         var upgrade = URLRequest(url: url.url!); upgrade.setValue("Bearer \(request.cloudflare.accessToken)", forHTTPHeaderField: "Authorization")
-        let socket = session.webSocketTask(with: upgrade); self.socket = socket; socket.resume()
+        let socket = session.webSocketTask(with: upgrade); socket.maximumMessageSize = 65536
+        self.socket = socket; socket.resume()
         defer {
             socket.cancel(with: .normalClosure, reason: nil)
             if self.socket === socket { self.socket = nil }

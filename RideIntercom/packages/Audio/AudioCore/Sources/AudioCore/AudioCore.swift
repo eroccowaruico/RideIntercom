@@ -8,6 +8,11 @@ public struct AudioFormat: Codable, Equatable, Sendable {
     public var sampleRate: Double
     public var channelCount: Int
 
+    public var isValid: Bool {
+        sampleRate.isFinite && Self.allowedSampleRateRange.contains(sampleRate)
+            && Self.allowedChannelCountRange.contains(channelCount)
+    }
+
     public init(sampleRate: Double = Self.defaultSampleRate, channelCount: Int = 1) {
         let finiteSampleRate = sampleRate.isFinite ? sampleRate : Self.defaultSampleRate
         self.sampleRate = min(Self.allowedSampleRateRange.upperBound, max(Self.allowedSampleRateRange.lowerBound, finiteSampleRate))
@@ -34,10 +39,14 @@ public struct PCMFrame: Codable, Equatable, Sendable {
     }
 
     public var frameCount: Int {
-        samples.count / format.channelCount
+        format.channelCount > 0 ? samples.count / format.channelCount : 0
     }
 
     public func validated() throws -> PCMFrame {
+        guard format.isValid, capturedAt.isFinite, samples.allSatisfy(\.isFinite) else {
+            throw AudioProcessingFailure(operation: .validateFrame, sourceFormat: format,
+                targetFormat: format, reason: "invalid format, timestamp, or nonfinite sample")
+        }
         guard samples.count.isMultiple(of: format.channelCount) else {
             throw AudioProcessingFailure(
                 operation: .validateFrame,
@@ -69,16 +78,16 @@ public enum AudioSignalMeter {
             return AudioSignalMeasurement(rms: 0, peak: 0, isClipped: false)
         }
 
-        var sum: Float = 0
+        var sum: Double = 0
         var peak: Float = 0
         for sample in frame.samples {
             let magnitude = abs(sample)
-            sum += sample * sample
+            sum += Double(sample) * Double(sample)
             peak = max(peak, magnitude)
         }
 
         return AudioSignalMeasurement(
-            rms: sqrt(sum / Float(frame.samples.count)),
+            rms: Float(sqrt(sum / Double(frame.samples.count))),
             peak: peak,
             isClipped: peak >= clippingThreshold
         )

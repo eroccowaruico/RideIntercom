@@ -133,3 +133,7 @@ engine.connect(limiter.node, to: engine.mainMixerNode, format: format)
 | 検証 | 実Audio Unitの生成、parameterの再適用、runtime snapshot一致を実行する |
 
 任意の外部AU extensionの非同期ロードは対象外。旧async factoryは残さず、Apple SDKのEffect initializerを使用する。
+
+## 設定入力の検証
+
+公開可変・Decodable経由の設定もapply時に再正規化する。非有限数値をAUへ渡さず、定義済み範囲の下限値へ戻す。

@@ -378,3 +378,9 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 | Mixer停止 | 全PCM sourceを停止して予約も解放する。再開後に旧音声を出さない |
 
 これはアプリケーションの再生予約上限であり、OS・実機の出力遅延保証ではない。瞬間的な欠落よりも過去の会話が遅れて続くことを避けるlive用途と、録音再生用途を明示的に分ける。
+
+## 所有権と資源解放
+
+Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ。tap由来のsink診断更新はlockで保護し、利用者callbackはlockを外して呼ぶ。sink登録時は有効なformatと正のbuffer frame数を要求する。
+
+`removeBus(id)`は対象busのsource/player/fader/effect/tapを停止・detachし、関連routeを除く。対象へ入力していた別bus自体は残し、再route可能にする。削除したbus/sourceへの参照は破棄し再利用しない。他のbusは継続する。参加者の入れ替わりに伴うノード蓄積を防げる。

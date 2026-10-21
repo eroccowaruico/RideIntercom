@@ -152,3 +152,7 @@ if analysis.state == .speech {
 | リアルタイム処理 | 高頻度コールを想定し、Audio Session や engine 操作は行わない |
 
 試験範囲は[自動検証範囲](../../../../validation/自動検証範囲.md)を参照する。
+
+## 設定と並行実行の境界
+
+init・applyで可変または復号済み設定を再正規化する。非有限設定値は安全な下限値へ、noise floorは−120…0 dBFSへ制限する。processの非有限RMSは−120 dBFS、無効durationは設定間隔として扱う。非有限sampleはgate出力で0にする。apply・reset・process・snapshotを同じlockで保護し、設定変更と音声処理が重なっても内部状態を競合させない。

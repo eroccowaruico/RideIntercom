@@ -419,3 +419,11 @@ private final class FakeVoiceProcessingBackend: AudioInputVoiceProcessingBackend
         events.append(.setInputMuted(muted))
     }
 }
+
+@Test func initializerRejectsInvalidConfigurationBeforeUsingBackend() {
+    let backend = FakeAudioSessionBackend()
+    #expect(throws: AudioSessionManagerError.echoCancelledInputRequiresDefaultMode) {
+        try AudioSessionManager(configuration: AudioSessionConfiguration(mode: .voiceChat, prefersEchoCancelledInput: true), backend: backend)
+    }
+    #expect(backend.events.isEmpty)
+}

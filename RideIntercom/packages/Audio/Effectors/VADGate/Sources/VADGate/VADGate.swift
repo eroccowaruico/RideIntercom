@@ -41,6 +41,8 @@ public struct VADGateConfiguration: Codable, Equatable, Sendable {
 		gainAttackDuration: Double = 0.03,
 		gainReleaseDuration: Double = 0.12
 	) {
+		let minimumNoiseFloorDBFS = Self.clamp(minimumNoiseFloorDBFS.isFinite ? minimumNoiseFloorDBFS : -90, -120...0)
+		let maximumNoiseFloorDBFS = Self.clamp(maximumNoiseFloorDBFS.isFinite ? maximumNoiseFloorDBFS : -20, -120...0)
 		let noiseFloorLowerBound = min(minimumNoiseFloorDBFS, maximumNoiseFloorDBFS)
 		let noiseFloorUpperBound = max(minimumNoiseFloorDBFS, maximumNoiseFloorDBFS)
 		let normalizedSpeechThresholdOffsetDB = Self.clamp(speechThresholdOffsetDB, 1...40)
@@ -60,12 +62,16 @@ public struct VADGateConfiguration: Codable, Equatable, Sendable {
 		self.gainReleaseDuration = Self.clamp(gainReleaseDuration, 0.001...2)
 	}
 
+	fileprivate var normalized: Self {
+		Self(attackDuration: attackDuration, releaseDuration: releaseDuration, updateInterval: updateInterval, speechThresholdOffsetDB: speechThresholdOffsetDB, silenceThresholdOffsetDB: silenceThresholdOffsetDB, initialNoiseFloorDBFS: initialNoiseFloorDBFS, minimumNoiseFloorDBFS: minimumNoiseFloorDBFS, maximumNoiseFloorDBFS: maximumNoiseFloorDBFS, noiseFloorAdaptation: noiseFloorAdaptation, speechGain: speechGain, silenceGain: silenceGain, gainAttackDuration: gainAttackDuration, gainReleaseDuration: gainReleaseDuration)
+	}
+
 	private static func clamp(_ value: Double, _ range: ClosedRange<Double>) -> Double {
-		min(max(value, range.lowerBound), range.upperBound)
+		value.isFinite ? min(max(value, range.lowerBound), range.upperBound) : range.lowerBound
 	}
 
 	private static func clamp(_ value: Float, _ range: ClosedRange<Float>) -> Float {
-		min(max(value, range.lowerBound), range.upperBound)
+		value.isFinite ? min(max(value, range.lowerBound), range.upperBound) : range.lowerBound
 	}
 }
 
@@ -102,36 +108,49 @@ public struct VADGateRuntimeSnapshot: Codable, Equatable, Sendable {
 }
 
 public final class VADGate {
-	public private(set) var configuration: VADGateConfiguration
-	public private(set) var state: VADGateState = .silence
-	public private(set) var noiseFloorDBFS: Float
-	public private(set) var gain: Float
-	public private(set) var lastAnalysis: VADGateAnalysis?
+	private let lock = NSRecursiveLock()
+	private var _configuration: VADGateConfiguration
+	public var configuration: VADGateConfiguration { lock.withLock { _configuration } }
+	private var _state: VADGateState = .silence
+	public var state: VADGateState { lock.withLock { _state } }
+	private var _noiseFloorDBFS: Float
+	public var noiseFloorDBFS: Float { lock.withLock { _noiseFloorDBFS } }
+	private var _gain: Float
+	public var gain: Float { lock.withLock { _gain } }
+	private var _lastAnalysis: VADGateAnalysis?
+	public var lastAnalysis: VADGateAnalysis? { lock.withLock { _lastAnalysis } }
 
 	private var attackElapsed: Double = 0
 	private var releaseElapsed: Double = 0
 
 	public init(configuration: VADGateConfiguration = VADGateConfiguration()) {
-		self.configuration = configuration
-		self.noiseFloorDBFS = configuration.initialNoiseFloorDBFS
-		self.gain = configuration.silenceGain
+		self._configuration = configuration.normalized
+		self._noiseFloorDBFS = configuration.normalized.initialNoiseFloorDBFS
+		self._gain = configuration.normalized.silenceGain
 	}
 
 	public func apply(configuration: VADGateConfiguration) {
-		self.configuration = configuration
+		lock.lock()
+		defer { lock.unlock() }
+		self._configuration = configuration.normalized
 	}
 
 	public func reset(noiseFloorDBFS: Float? = nil) {
-		state = .silence
+		lock.lock()
+		defer { lock.unlock() }
+		_state = .silence
 		attackElapsed = 0
 		releaseElapsed = 0
-		self.noiseFloorDBFS = noiseFloorDBFS ?? configuration.initialNoiseFloorDBFS
-		gain = configuration.silenceGain
-		lastAnalysis = nil
+		let floor = noiseFloorDBFS.flatMap { $0.isFinite ? $0 : nil } ?? configuration.initialNoiseFloorDBFS
+		self._noiseFloorDBFS = min(configuration.maximumNoiseFloorDBFS, max(configuration.minimumNoiseFloorDBFS, floor))
+		_gain = configuration.silenceGain
+		_lastAnalysis = nil
 	}
 
 	public var runtimeSnapshot: VADGateRuntimeSnapshot {
-		VADGateRuntimeSnapshot(
+		lock.lock()
+		defer { lock.unlock() }
+		return VADGateRuntimeSnapshot(
 			configuration: configuration,
 			state: state,
 			noiseFloorDBFS: noiseFloorDBFS,
@@ -147,7 +166,10 @@ public final class VADGate {
 
 	@discardableResult
 	public func process(rmsDBFS: Float, duration: Double? = nil) -> VADGateAnalysis {
-		let frameDuration = duration ?? configuration.updateInterval
+		lock.lock()
+		defer { lock.unlock() }
+		let rmsDBFS = rmsDBFS.isFinite ? min(0, max(-120, rmsDBFS)) : -120
+		let frameDuration = duration.flatMap { $0.isFinite && $0 > 0 ? min(1, $0) : nil } ?? configuration.updateInterval
 		let speechThreshold = noiseFloorDBFS + configuration.speechThresholdOffsetDB
 		let silenceThreshold = noiseFloorDBFS + configuration.silenceThresholdOffsetDB
 
@@ -156,7 +178,7 @@ public final class VADGate {
 			if rmsDBFS > speechThreshold {
 				attackElapsed += frameDuration
 				if attackElapsed >= configuration.attackDuration {
-					state = .speech
+					_state = .speech
 					attackElapsed = 0
 					releaseElapsed = 0
 				}
@@ -168,7 +190,7 @@ public final class VADGate {
 			if rmsDBFS < silenceThreshold {
 				releaseElapsed += frameDuration
 				if releaseElapsed >= configuration.releaseDuration {
-					state = .silence
+					_state = .silence
 					releaseElapsed = 0
 					attackElapsed = 0
 				}
@@ -179,7 +201,7 @@ public final class VADGate {
 
 		updateGain(duration: frameDuration)
 		let analysis = makeAnalysis(rmsDBFS: rmsDBFS)
-		lastAnalysis = analysis
+		_lastAnalysis = analysis
 		return analysis
 	}
 
@@ -187,15 +209,15 @@ public final class VADGate {
 	public func applyGate(to samples: inout [Float], duration: Double? = nil) -> VADGateAnalysis {
 		let analysis = process(samples: samples, duration: duration)
 		for index in samples.indices {
-			samples[index] *= analysis.gain
+			samples[index] = samples[index].isFinite ? samples[index] * analysis.gain : 0
 		}
 		return analysis
 	}
 
 	public static func rms(samples: [Float]) -> Float {
 		guard !samples.isEmpty else { return 0 }
-		let sumOfSquares = samples.reduce(Float(0)) { $0 + $1 * $1 }
-		return (sumOfSquares / Float(samples.count)).squareRoot()
+		let sumOfSquares = samples.reduce(Double(0)) { $0 + ($1.isFinite ? Double($1) * Double($1) : 0) }
+		return Float((sumOfSquares / Double(samples.count)).squareRoot())
 	}
 
 	public static func rmsDBFS(samples: [Float]) -> Float {
@@ -204,15 +226,15 @@ public final class VADGate {
 
 	private func adaptNoiseFloor(toward rmsDBFS: Float) {
 		let adapted = noiseFloorDBFS + (rmsDBFS - noiseFloorDBFS) * configuration.noiseFloorAdaptation
-		noiseFloorDBFS = min(max(adapted, configuration.minimumNoiseFloorDBFS), configuration.maximumNoiseFloorDBFS)
+		_noiseFloorDBFS = min(max(adapted, configuration.minimumNoiseFloorDBFS), configuration.maximumNoiseFloorDBFS)
 	}
 
 	private func updateGain(duration: Double) {
-		let targetGain = state == .speech ? configuration.speechGain : configuration.silenceGain
-		let rampDuration = state == .speech ? configuration.gainAttackDuration : configuration.gainReleaseDuration
+		let targetGain = _state == .speech ? configuration.speechGain : configuration.silenceGain
+		let rampDuration = _state == .speech ? configuration.gainAttackDuration : configuration.gainReleaseDuration
 		let step = rampDuration <= 0 ? 1 : min(1, Float(duration / rampDuration))
-		gain += (targetGain - gain) * step
-		gain = min(max(gain, min(configuration.silenceGain, configuration.speechGain)), max(configuration.silenceGain, configuration.speechGain))
+		_gain += (targetGain - gain) * step
+		_gain = min(max(gain, min(configuration.silenceGain, configuration.speechGain)), max(configuration.silenceGain, configuration.speechGain))
 	}
 
 	private func makeAnalysis(rmsDBFS: Float) -> VADGateAnalysis {

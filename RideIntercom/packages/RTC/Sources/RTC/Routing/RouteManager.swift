@@ -4,7 +4,7 @@ import Foundation
 /// disconnects one group of members merely because another path became ready.
 public actor RouteManager: CallSession {
     nonisolated public var events: AsyncStream<CallSessionEvent> { eventSource.stream }
-    private let eventSource = EventSource<CallSessionEvent>(isTransient: { $0.isTransient })
+    private let eventSource = EventSource<CallSessionEvent>(isTransient: { $0.isTransient }, overflowEvent: .stateChanged(.failed))
     private let routes: [RouteKind: RTCCallRoute]
     private var configuration: CallRouteConfiguration
     private let runtimeStatusPolicy: RTCRuntimeStatusPolicy
@@ -12,6 +12,7 @@ public actor RouteManager: CallSession {
     private var request: CallStartRequest?
     private var routeTasks: [Task<Void, Never>] = []
     private var timer: Task<Void, Never>?
+    private var isConnectionStarted = false
     private var fallbackTask: Task<Void, Never>?
     private var routeStates: [RouteKind: RouteConnectionState] = [:]
     private var routeAvailabilities: [RouteKind: RouteAvailability] = [:]
@@ -36,7 +37,7 @@ public actor RouteManager: CallSession {
 
     public init(routes: [RTCCallRoute], configuration: CallRouteConfiguration = .init(),
                 runtimeStatusPolicy: RTCRuntimeStatusPolicy = .init()) {
-        self.routes = Dictionary(uniqueKeysWithValues: routes.map { ($0.kind, $0) })
+        self.routes = Dictionary(routes.map { ($0.kind, $0) }, uniquingKeysWith: { first, _ in first })
         self.configuration = configuration.normalized()
         self.runtimeStatusPolicy = runtimeStatusPolicy
     }
@@ -49,7 +50,7 @@ public actor RouteManager: CallSession {
         self.request = request
         configuration = request.configuration.normalized()
         relay = GroupRelay(request: request)
-        observedPaths = [:]; eventSource.resetDiagnostics()
+        observedPaths = [:]; lastPresence = 0; lastRuntimeStatus = 0; eventSource.resetDiagnostics()
         receiveBuffer.reset(); memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
         routeStates = [:]; routeAvailabilities = [:]; started = []; retries = [:]
         availableRoutes = []; activeRoute = nil; isMediaStarted = false
@@ -72,7 +73,8 @@ public actor RouteManager: CallSession {
         emitRouteSnapshot()
     }
     public func startConnection() async {
-        guard request != nil else { return }
+        guard request != nil, !isConnectionStarted else { return }
+        isConnectionStarted = true
         let token = generation
         emitState(.connecting)
         await start(configuration.preferredRoute)
@@ -112,8 +114,9 @@ public actor RouteManager: CallSession {
         generation = UUID()
         let token = generation
         timer?.cancel(); timer = nil; fallbackTask?.cancel(); fallbackTask = nil
+        isConnectionStarted = false
         routeTasks.forEach { $0.cancel() }; routeTasks = []
-        observedPaths = [:]; eventSource.resetDiagnostics()
+        observedPaths = [:]; lastPresence = 0; lastRuntimeStatus = 0; eventSource.resetDiagnostics()
         request = nil; relay = nil; started = []; retries = [:]; availableRoutes = []
         activeRoute = nil; isMediaStarted = false; receiveBuffer.reset()
         memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
@@ -156,7 +159,7 @@ public actor RouteManager: CallSession {
         await sendRuntimeStatus(reason: .packageReportsChanged)
     }
     private func broadcast(_ body: RelayBody) async {
-        guard let data = try? relay?.make(body, now: Date.timeIntervalSinceReferenceDate), data.count <= 32768 else { return }
+        guard let data = try? relay?.make(body, now: ProcessInfo.processInfo.systemUptime), data.count <= 32768 else { return }
         let skipInternet: Bool
         if case .audio = body {
             skipInternet = routeMembers[.webRTC, default: []].isSubset(of: routeMembers[.multipeer, default: []]) && !routeMembers[.multipeer, default: []].isEmpty
@@ -184,7 +187,7 @@ public actor RouteManager: CallSession {
                 availableRoutes.remove(kind); routeMembers[kind] = []
                 if started.contains(kind) {
                     let delay = min(30, (retries[kind]?.delay ?? 1) * 2)
-                    retries[kind] = (Date.timeIntervalSinceReferenceDate + delay, delay)
+                    retries[kind] = (ProcessInfo.processInfo.systemUptime + delay, delay)
                 }
             }
             updateState(); emitRouteSnapshot()
@@ -197,7 +200,7 @@ public actor RouteManager: CallSession {
         case .receivedApplicationData(let kind, let data):
             guard started.contains(kind), routeMembers[kind, default: []].contains(data.peerID),
                   data.message.namespace == GroupRelay.namespace,
-                  let result = relay?.receive(data.message.payload, from: data.peerID, now: Date.timeIntervalSinceReferenceDate) else { return }
+                  let result = relay?.receive(data.message.payload, from: data.peerID, now: ProcessInfo.processInfo.systemUptime) else { return }
             if result.didRestart {
                 receiveBuffer.removePeer(result.peer.id)
                 memberSnapshot.removeAll { $0.peer.id == result.peer.id }
@@ -208,7 +211,7 @@ public actor RouteManager: CallSession {
             updateMembers()
             switch result.body {
             case .audio(let packet):
-                if isMediaStarted { receiveBuffer.enqueue(.init(received: .init(peerID: result.peer.id, packet: packet)), receivedAt: Date.timeIntervalSinceReferenceDate) }
+                if isMediaStarted { receiveBuffer.enqueue(.init(received: .init(peerID: result.peer.id, packet: packet)), receivedAt: ProcessInfo.processInfo.systemUptime) }
             case .application(let message): emit(.receivedApplicationData(.init(peerID: result.peer.id, message: message)))
             case .presence, .leave: break
             }
@@ -218,10 +221,10 @@ public actor RouteManager: CallSession {
                 if case .audio = result.body, kind == .multipeer {
                     // One ready gateway per directly connected Local neighborhood.
                     // During topology convergence duplicate suppression still protects playback.
-                    var candidates = (relay?.internetGateways(now: Date.timeIntervalSinceReferenceDate) ?? []).intersection(routeMembers[.multipeer, default: []])
+                    var candidates = (relay?.internetGateways(now: ProcessInfo.processInfo.systemUptime) ?? []).intersection(routeMembers[.multipeer, default: []])
                     if relay?.internetReady == true, let id = request?.localPeer.id { candidates.insert(id) }
                     let elected = candidates.min { $0.rawValue < $1.rawValue }
-                    let originHasInternet = relay?.internetGateways(now: Date.timeIntervalSinceReferenceDate).contains(result.peer.id) == true
+                    let originHasInternet = relay?.internetGateways(now: ProcessInfo.processInfo.systemUptime).contains(result.peer.id) == true
                     if originHasInternet || elected != request?.localPeer.id { excluded = .webRTC }
                 }
                 await forward(bytes, delivery: result.body.delivery, excluding: excluded)
@@ -232,7 +235,7 @@ public actor RouteManager: CallSession {
     }
     private func tick(generation token: UUID) async {
         guard generation == token, let request else { return }
-        let now = Date.timeIntervalSinceReferenceDate
+        let now = ProcessInfo.processInfo.systemUptime
         for packet in receiveBuffer.drain(now: now).readyPackets { emit(.receivedAudioPacket(packet)) }
         if now - lastPresence >= 2 {
             lastPresence = now
@@ -254,7 +257,7 @@ public actor RouteManager: CallSession {
         }
     }
     private func updateMembers() {
-        let next = (relay?.members(now: Date.timeIntervalSinceReferenceDate) ?? []).map {
+        let next = (relay?.members(now: ProcessInfo.processInfo.systemUptime) ?? []).map {
             CallMemberState(peer: $0, route: memberRoutes[$0.id], isConnected: true)
         }
         guard next != memberSnapshot else { return }

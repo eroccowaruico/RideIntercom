@@ -586,3 +586,9 @@ Simulator UIの待受中ミュート操作でAURemoteIO初期化がRPC timeout�
 | 手動rendering engine | manualRenderingFormatを出力境界として使う。実機hardware formatとして偽装しない |
 
 SessionManagerは受け取ったhardware formatのPCMを予約するだけで、音量・mix・effect・再符号化は行わない。予約量超過は通信エラーやsession切断として扱わない。
+
+## 初期化と入力境界
+
+既定の`AudioSessionManager(backend:)`は既知の有効な設定で初期化する。明示設定を渡す`init(configuration:backend:)`はthrowsであり、voiceChatとecho cancelled inputの不整合を初期化失敗として通知し、backendへ適用しない。
+
+入力voice processingの結果がfailedならcaptureを開始せずbackendを停止する。unsupportedのignoredは従来通りcaptureを継続する。hardware PCMは有限の8–96 kHz・1–2 channelを要求し、対応外channelを丸めて偽ったmetadataで配送しない。interleaved/noninterleaved Float bufferを同じPCM sample順へ読み出す。利用者callbackは内部状態lockの外で呼び、開始・停止は単一の直列ownerが管理する。

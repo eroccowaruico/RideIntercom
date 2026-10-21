@@ -196,7 +196,11 @@ extension WebRTCNativeEngine: RTCPeerConnectionDelegate {
 extension WebRTCNativeEngine: RTCDataChannelDelegate {
     public func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
         guard dataChannel.readyState == .open else { return }
-        let publishing = lock.withLock { publishers.values.contains { $0[.unreliable] == dataChannel.channelId } }
+        let publishing = lock.withLock {
+            publishers.contains { peer, ids in
+                ids[.unreliable] == dataChannel.channelId && channels[peer]?[dataChannel.channelId] === dataChannel
+            }
+        }
         if publishing { emit(.connectionStateChanged(.mediaReady)) }
     }
     public func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {

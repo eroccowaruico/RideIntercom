@@ -197,7 +197,12 @@ public final class AudioInputStreamCapture {
             self.generation = UUID()
             return self.generation
         }
-        applyVoiceProcessing(configuration.voiceProcessing)
+        let processing = applyVoiceProcessing(configuration.voiceProcessing)
+        if case .failed = processing.result {
+            stateLock.withLock { self.generation = UUID() }
+            do { try backend.stopCapture() } catch { _ = emitReport(.stopInputCapture, Self.operationResult(for: error)) }
+            return emitReport(.startInputCapture, processing.result)
+        }
         do {
             let hardwareFormat = try backend.startCapture(configuration: configuration) { [weak self] frame in
                 self?.handleCapturedFrame(frame, generation: generation)
@@ -257,12 +262,13 @@ public final class AudioInputStreamCapture {
     }
 
     private func handleCapturedFrame(_ frame: PCMFrame, generation: UUID) {
-        stateLock.withLock {
-            guard isRunning, self.generation == generation else { return }
+        let handler: ((AudioStreamRuntimeEvent) -> Void)? = stateLock.withLock {
+            guard isRunning, self.generation == generation else { return nil }
             actualHardwareFormat = frame.format
             capturedFrameCount += 1
-            runtimeEventHandler?(.inputFrame(frame))
+            return runtimeEventHandler
         }
+        handler?(.inputFrame(frame))
     }
 
     private func snapshot() -> AudioStreamSnapshot {
@@ -287,7 +293,8 @@ public final class AudioInputStreamCapture {
             result: result,
             snapshot: snapshot()
         )
-        stateLock.withLock { runtimeEventHandler?(.operation(report)) }
+        let handler = stateLock.withLock { runtimeEventHandler }
+        handler?(.operation(report))
         return report
     }
 }
@@ -465,6 +472,10 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
         let inputNode = engine.inputNode
         openedInputNode = inputNode
         let inputFormat = inputNode.outputFormat(forBus: bus)
+        guard inputFormat.sampleRate.isFinite, (8000...96000).contains(inputFormat.sampleRate),
+              (1...2).contains(inputFormat.channelCount), configuration.bufferFrameCount > 0 else {
+            throw AudioStreamError.invalidFrame("Unsupported input hardware format or buffer size")
+        }
         let hardwareFormat = AudioFormat(avAudioFormat: inputFormat, fallback: configuration.preferredFormat)
         inputNode.removeTap(onBus: bus)
         inputNode.installTap(
@@ -618,7 +629,9 @@ extension PCMFrame {
         sequenceNumber: UInt64,
         capturedAt: TimeInterval
     ) {
-        guard let channelData = buffer.floatChannelData else { return nil }
+        guard buffer.format.sampleRate.isFinite, (8000...96000).contains(buffer.format.sampleRate),
+              (1...2).contains(buffer.format.channelCount), capturedAt.isFinite,
+              let channelData = buffer.floatChannelData else { return nil }
         let format = AudioFormat(avAudioFormat: buffer.format)
         let frameLength = Int(buffer.frameLength)
         guard frameLength > 0 else {
@@ -631,7 +644,9 @@ extension PCMFrame {
         samples.reserveCapacity(frameLength * channelCount)
         for frameIndex in 0..<frameLength {
             for channelIndex in 0..<channelCount {
-                samples.append(channelData[channelIndex][frameIndex])
+                samples.append(buffer.format.isInterleaved
+                    ? channelData[0][frameIndex * channelCount + channelIndex]
+                    : channelData[channelIndex][frameIndex])
             }
         }
         self.init(
@@ -643,9 +658,7 @@ extension PCMFrame {
     }
 
     func makePCMBuffer() throws -> AVAudioPCMBuffer {
-        guard samples.count.isMultiple(of: format.channelCount) else {
-            throw AudioStreamError.invalidFrame("sample count is not divisible by channel count")
-        }
+        _ = try validated()
         guard let avFormat = AVAudioFormat(audioFormat: format),
               let buffer = AVAudioPCMBuffer(
                 pcmFormat: avFormat,

@@ -30,12 +30,12 @@ public struct CallRouteConfiguration: Codable, Equatable, Sendable {
     }
 
     public func normalized() -> CallRouteConfiguration {
-        guard !enabledRoutes.isEmpty, enabledRoutes.contains(preferredRoute) else {
-            var copy = self
+        var copy = self
+        copy.fallbackDelay = fallbackDelay.isFinite ? min(60, max(0, fallbackDelay)) : 3
+        if !enabledRoutes.contains(preferredRoute) {
             copy.preferredRoute = enabledRoutes.sorted { $0.rawValue < $1.rawValue }.first ?? .multipeer
-            return copy
         }
-        return self
+        return copy
     }
 }
 

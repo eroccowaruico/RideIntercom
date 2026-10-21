@@ -143,6 +143,7 @@ public struct EncodedCodecFrame: Codable, Equatable, Sendable {
 
 public enum CodecSupport {
     public static func isEncodingAvailable(for configuration: CodecEncodingConfiguration) -> Bool {
+        guard configuration.format.isValid else { return false }
         switch configuration.codec {
         case .pcm16:
             return true
@@ -163,6 +164,7 @@ public enum CodecSupport {
         for codec: CodecIdentifier,
         format: AudioFormat = AudioFormat()
     ) -> Bool {
+        guard format.isValid else { return false }
         switch codec {
         case .pcm16:
             return true
@@ -292,9 +294,18 @@ public final class CodecEncoder {
 }
 
 public final class CodecDecoder {
+    /// Bounds untrusted compressed allocation to one second of the supported PCM range.
+    public static let maximumDecodedFrameCount = 96_000
+    public static let maximumPayloadBytes = 1_048_576
     public init() {}
 
     public func decode(_ frame: EncodedCodecFrame) throws -> PCMFrame {
+        guard frame.format.isValid else { throw CodecError.invalidFormat(frame.format) }
+        guard frame.payload.count <= Self.maximumPayloadBytes, frame.capturedAt.isFinite,
+              frame.sampleCount >= 0,
+              frame.sampleCount <= Self.maximumDecodedFrameCount * frame.format.channelCount else {
+            throw CodecError.malformedPayload(frame.codec)
+        }
         let samples: [Float]
         switch frame.codec {
         case .pcm16:
@@ -327,7 +338,7 @@ public enum PCM16Codec {
         data.reserveCapacity(samples.count * MemoryLayout<Int16>.size)
 
         for sample in samples {
-            let clamped = min(1, max(-1, sample))
+            let clamped = sample.isFinite ? min(1, max(-1, sample)) : 0
             let scale: Float = clamped < 0 ? 32_768 : 32_767
             let rounded = Int((clamped * scale).rounded(.toNearestOrAwayFromZero))
             let bounded = min(Int(Int16.max), max(Int(Int16.min), rounded))
@@ -345,8 +356,8 @@ public enum PCM16Codec {
         }
 
         return stride(from: 0, to: data.count, by: MemoryLayout<Int16>.size).map { offset in
-            let low = UInt16(data[offset])
-            let high = UInt16(data[offset + 1]) << 8
+            let low = UInt16(data[data.startIndex + offset])
+            let high = UInt16(data[data.startIndex + offset + 1]) << 8
             let rawValue = Int16(littleEndian: Int16(bitPattern: low | high))
             if rawValue == Int16.min {
                 return -1
@@ -411,6 +422,9 @@ private enum AudioConverterBridge {
         guard !payload.isEmpty else { return [] }
 
         let envelope = try CompressedPayloadEnvelope.decode(payload, expectedCodec: codec)
+        guard envelope.sourceSampleCount == Int(envelope.sourceFrameCount) * format.channelCount else {
+            throw CodecError.malformedPayload(codec)
+        }
         guard !envelope.data.isEmpty else { return [] }
         guard let pcmFormat = makePCMFormat(format) else {
             throw CodecError.invalidFormat(format)
@@ -461,7 +475,8 @@ private enum AudioConverterBridge {
     }
 
     static func makePCMFormat(_ format: AudioFormat) -> AVAudioFormat? {
-        AVAudioFormat(
+        guard format.isValid else { return nil }
+        return AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: format.sampleRate,
             channels: AVAudioChannelCount(format.channelCount),
@@ -470,6 +485,7 @@ private enum AudioConverterBridge {
     }
 
     static func makeCompressedFormat(codec: CodecIdentifier, format: AudioFormat, bitRate: Int?) -> AVAudioFormat? {
+        guard format.isValid else { return nil }
         guard codec != .pcm16 else { return makePCMFormat(format) }
 
         var settings: [String: Any] = [
@@ -614,6 +630,31 @@ private struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
             }
             guard envelope.packetDescriptions.isEmpty || envelope.packetDescriptions.count == Int(envelope.packetCount) else {
                 throw CodecError.malformedPayload(expectedCodec)
+            }
+            // Validate every size before AVAudioCompressedBuffer allocation and memcpy.
+            let count = Int(envelope.packetCount)
+            guard envelope.sourceFrameCount <= CodecDecoder.maximumDecodedFrameCount,
+                  envelope.sourceSampleCount >= 0,
+                  envelope.maximumPacketSize > 0,
+                  envelope.maximumPacketSize <= CodecDecoder.maximumPayloadBytes,
+                  count <= CodecDecoder.maximumPayloadBytes / envelope.maximumPacketSize,
+                  envelope.data.count <= count * envelope.maximumPacketSize else {
+                throw CodecError.malformedPayload(expectedCodec)
+            }
+            if envelope.data.isEmpty {
+                guard count == 0, envelope.sourceFrameCount == 0, envelope.sourceSampleCount == 0,
+                      envelope.packetDescriptions.isEmpty else { throw CodecError.malformedPayload(expectedCodec) }
+            } else {
+                guard count > 0, envelope.sourceFrameCount > 0 else { throw CodecError.malformedPayload(expectedCodec) }
+                for packet in envelope.packetDescriptions {
+                    guard packet.startOffset >= 0, packet.startOffset <= envelope.data.count,
+                          packet.dataByteSize > 0,
+                          packet.dataByteSize <= envelope.maximumPacketSize,
+                          Int(packet.dataByteSize) <= envelope.data.count - Int(packet.startOffset),
+                          packet.variableFramesInPacket <= CodecDecoder.maximumDecodedFrameCount else {
+                        throw CodecError.malformedPayload(expectedCodec)
+                    }
+                }
             }
             return envelope
         } catch let error as CodecError {

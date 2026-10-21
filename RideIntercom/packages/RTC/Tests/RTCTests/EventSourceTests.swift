@@ -54,3 +54,17 @@ import Testing
     #expect(source.report == RTCEventDropReport())
     source.finish()
 }
+
+@Test func controlFloodReportsFailureAndRetainsSubscriptionForRecovery() async {
+    let source = EventSource<Int>(overflowEvent: -999)
+    let slow = source.stream
+    for event in 0..<300 { source.yield(event) }
+    var slowIterator = slow.makeAsyncIterator()
+    #expect(await slowIterator.next() == -999)
+    #expect(source.report.overflow > 0)
+    var fresh = source.stream.makeAsyncIterator()
+    source.yield(42)
+    #expect(await fresh.next() == 42)
+    #expect(await slowIterator.next() == 42)
+    source.finish()
+}
