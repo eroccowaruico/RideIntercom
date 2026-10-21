@@ -1,5 +1,15 @@
 # RideIntercom Diagnostics 画面項目
 
+## 表示実装の所有
+
+| 所有者 | 責務 |
+|---|---|
+| DiagnosticsInput | 更新時にViewModelから必要な値だけsnapshot化。子ViewはViewModelを保持しない |
+| TransmitPipelinePresentation / ReceivePipelinePresentation | snapshotから状態・理由・step・peer表示を純粋に導出。副作用やObservable状態を持たない |
+| LiveTransmitPipelineView / LiveReceivePipelineView | 表示順と画面構成。既存の項目・更新周期・識別子を維持 |
+| PipelineComponents / ReceiveTransportViews / ReceiveMixViews | 必要な表示値だけ受け取る描画部品。色とアイコンの対応も描画側に置く |
+
+
 ## 目的
 
 本書は Diagnostics タブの UI 項目を定義する。

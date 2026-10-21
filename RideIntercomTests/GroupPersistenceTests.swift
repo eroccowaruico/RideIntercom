@@ -5,32 +5,25 @@ import Testing
 @MainActor
 struct GroupPersistenceTests {
     @Test func persistenceStoresIdentityWithoutRuntimeStateOrSecret() throws {
-        let name = "RideIntercom.tests.\(UUID())"
-        let defaults = try #require(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        let store = UserDefaultsGroupStore(defaults: defaults)
+        let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try IntercomGroup(name: "Saved", members: [.init(id: "local", displayName: "You", isMuted: true, isTalking: true, voiceLevel: 0.7, receivedAudioPacketCount: 4, authenticationState: .authenticated, connectionState: .connected)], accessSecret: "never-persist")
-        try store.saveGroups([group])
-        let data = try #require(defaults.data(forKey: "RideIntercom.groups"))
-        let text = String(decoding: data, as: UTF8.self)
+        try f.repository.save([group], credential: .init(groupID: group.id, secret: "never-persist"))
+        let text = String(decoding: try Data(contentsOf: f.file.url), as: UTF8.self)
         #expect(!text.contains("never-persist"))
         #expect(!text.contains("voiceLevel"))
         #expect(!text.contains("isMuted"))
-        let restored = try #require(store.loadGroups().first)
+        let restored = try #require(try f.restart().load(localMemberID: "local").first)
         #expect(restored.members[0].connectionState == .offline)
         #expect(!restored.members[0].isTalking)
         #expect(!restored.members[0].isMuted)
     }
 
     @Test func corruptStoreIsReportedAndPreserved() throws {
-        let name = "RideIntercom.tests.\(UUID())"
-        let defaults = try #require(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
+        let f = try GroupStorageFixture(); defer { f.remove() }
         let data = Data("{broken".utf8)
-        defaults.set(data, forKey: "RideIntercom.groups")
-        let store = UserDefaultsGroupStore(defaults: defaults)
-        #expect(throws: (any Error).self) { try store.loadGroups() }
-        #expect(defaults.data(forKey: "RideIntercom.groups") == data)
+        try data.write(to: f.file.url)
+        #expect(throws: (any Error).self) { try f.restart().load(localMemberID: "local") }
+        #expect(try Data(contentsOf: f.file.url) == data)
     }
 
     @Test func groupCapacityAndIdentityAreValidated() throws {
@@ -54,32 +47,25 @@ struct GroupPersistenceTests {
     }
 
     @Test func failedReadBlocksWritesAndDoesNotCreateKeys() throws {
-        let name = "RideIntercom.tests.\(UUID())"
-        let defaults = try #require(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
+        let f = try GroupStorageFixture(); defer { f.remove() }
         let corrupted = Data("invalid".utf8)
-        defaults.set(corrupted, forKey: "RideIntercom.groups")
-        let keys = InMemoryGroupCredentialStore()
-        let repository = GroupRepository(store: UserDefaultsGroupStore(defaults: defaults), credentials: keys)
+        try corrupted.write(to: f.file.url)
+        let repository = f.restart()
         #expect(throws: (any Error).self) { try repository.load(localMemberID: "local") }
-        let group = try IntercomGroup(name: "New", members: [.init(id: "local", displayName: "You")])
+        let group = try f.group()
         #expect(throws: (any Error).self) { try repository.save([group], credential: .init(groupID: group.id, secret: "key")) }
-        #expect(defaults.data(forKey: "RideIntercom.groups") == corrupted)
-        #expect(keys.credential(for: group.id) == nil)
+        #expect(try Data(contentsOf: f.file.url) == corrupted)
+        #expect(f.keys.references().isEmpty)
     }
 
     @Test func decodedStoredGroupsStillValidateIdentityAndRestoreLocalFirst() throws {
-        let name = "RideIntercom.tests.\(UUID())"
-        let defaults = try #require(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        let store = UserDefaultsGroupStore(defaults: defaults)
+        let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try IntercomGroup(name: "Order", members: [.init(id: "remote", displayName: "Rider"), .init(id: "local", displayName: "You")])
-        try store.saveGroups([group])
-        let repository = GroupRepository(store: store, credentials: InMemoryGroupCredentialStore())
-        #expect(try repository.load(localMemberID: "local")[0].members[0].id == "local")
-        var json = try #require(JSONSerialization.jsonObject(with: defaults.data(forKey: "RideIntercom.groups")!) as? [[String: Any]])
-        json[0]["members"] = [["id": "local", "displayName": "A"], ["id": "local", "displayName": "B"]]
-        defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "RideIntercom.groups")
-        #expect(throws: (any Error).self) { try store.loadGroups() }
+        try f.repository.save([group])
+        #expect(try f.restart().load(localMemberID: "local")[0].members[0].id == "local")
+        var snapshot = try #require(try f.file.read())
+        snapshot.groups[0].members = [.init(id: "local", displayName: "A"), .init(id: "local", displayName: "B")]
+        try JSONEncoder().encode(snapshot).write(to: f.file.url)
+        #expect(throws: (any Error).self) { try f.restart().load(localMemberID: "local") }
     }
 }

@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location('validation', Path(__file__).resolve().parents[1] / 'validate.py')
 
@@ -100,6 +101,27 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(saved['bad']['exit_code'], 7)
         self.assertEqual(saved['bad']['status'], 'failed')
         self.assertIn('command', saved['bad'])
+
+    def test_recovery_reuses_build_and_its_isolated_storage_namespace(self):
+        commands = {}
+        def run(name, command, **kwargs):
+            commands[name] = command
+            self.runner.results[name] = {'status': 'passed'}
+            if name.endswith('-summary'):
+                (self.runner.out / (name + '.log')).write_text(json.dumps({'totalTestCount': 1, 'passedTests': 1}))
+            return True
+        with patch.object(self.runner, 'run', side_effect=run):
+            self.runner.xcode('ios-tests', 'owned-device', skip='Recovery')
+            self.runner.xcode('ios-recovery', 'owned-device', only='Recovery', reuse_build='ios-tests')
+        original = commands['ios-tests']
+        recovery = commands['ios-recovery']
+        self.assertIn('test-without-building', recovery)
+        self.assertIn('-skip-testing:Recovery', original)
+        self.assertIn('-only-testing:Recovery', recovery)
+        self.assertEqual(original[original.index('-derivedDataPath') + 1], recovery[recovery.index('-derivedDataPath') + 1])
+        namespace = 'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.run.ios-tests'
+        self.assertIn(namespace, original)
+        self.assertIn(namespace, recovery)
 
     def test_launch_verification_matches_physical_path_with_spaces(self):
         root = Path(self.temporary.name)

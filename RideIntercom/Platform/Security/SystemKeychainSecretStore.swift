@@ -2,6 +2,21 @@ import Foundation
 import Security
 
 final class SystemKeychainSecretStore: KeychainSecretStoring {
+    func accounts(service: String) throws -> [String] {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service, kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return [] }
+        guard status == errSecSuccess else { throw KeychainSecretStoreError.unexpectedStatus(status) }
+        guard let rows = result as? [[String: Any]] else { throw KeychainSecretStoreError.invalidData }
+        return try rows.map {
+            guard let account = $0[kSecAttrAccount as String] as? String else { throw KeychainSecretStoreError.invalidData }
+            return account
+        }
+    }
+
     func deleteSecret(service: String, account: String) throws {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service, kSecAttrAccount as String: account]

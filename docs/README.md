@@ -149,6 +149,7 @@
 | [validation/history/文書役割分離記録.md](<validation/history/文書役割分離記録.md>) | 要求・仕様・課題・検証の役割分離 |
 | [validation/history/混在通話検証.md](<validation/history/混在通話検証.md>) | 混在グループ通話・音声機器切断の検証 |
 | [validation/history/要求構造整理記録.md](<validation/history/要求構造整理記録.md>) | 要求と開発規約の構造整理記録 |
+| [validation/history/責務分解と保存復旧.md](<validation/history/責務分解と保存復旧.md>) | 責務分解・保存復旧・設定待機の検証 |
 | [validation/history/通信診断とTURN資格検証.md](<validation/history/通信診断とTURN資格検証.md>) | 通信診断とTURN資格の検証 |
 | [validation/history/音声エフェクト接続検証.md](<validation/history/音声エフェクト接続検証.md>) | 音声エフェクトのApp接続と自動検証 |
 | [validation/文書整理記録.md](<validation/文書整理記録.md>) | 文書構造と実装整合の点検記録 |

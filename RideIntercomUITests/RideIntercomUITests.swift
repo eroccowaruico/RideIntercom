@@ -34,6 +34,33 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testCorruptGroupStoreRecovery() throws {
+        // validate.py supplies corrupt bytes only after the ordinary UI suite,
+        // inside its own Simulator and build-specific storage namespace.
+        let status = app.descendants(matching: .any)["groupStorageStatus"].firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["createGroupButton"].isEnabled)
+        XCTAssertFalse(app.descendants(matching: .any)["groupErrorLabel"].exists)
+        app.buttons["reloadSavedGroupsButton"].tap()
+        XCTAssertTrue(status.exists)
+        attachScreen("Saved Groups Recovery")
+        app.buttons["resetSavedGroupsButton"].tap()
+        let cancel = app.alerts.buttons["cancelResetSavedGroupsButton"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+        attachScreen("Confirm Saved Groups Reset")
+        cancel.tap()
+        XCTAssertTrue(status.exists)
+        XCTAssertFalse(app.buttons["createGroupButton"].isEnabled)
+        app.buttons["resetSavedGroupsButton"].tap()
+        app.alerts.buttons["confirmResetSavedGroupsButton"].firstMatch.tap()
+        XCTAssertTrue(status.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["createGroupButton"].isEnabled)
+        createTalkGroupAndOpenCall()
+        try checkGroupDeletionCanBeExercisedFromUI()
+        attachScreen("Saved Groups Recovered")
+    }
+
+    @MainActor
     func testRecoveryWorkflowInOneLaunch() throws {
         // Restore the required route through UI even if a previous run stopped
         // halfway through changing settings. Do not erase application data.

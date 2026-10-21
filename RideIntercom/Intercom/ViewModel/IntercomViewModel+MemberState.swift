@@ -183,9 +183,10 @@ extension IntercomViewModel {
         do {
             try groupRepository.save(updated)
             groups = updated
+            refreshGroupStorageStatus()
             return true
         } catch {
-            groupErrorMessage = "Could not save groups. Saved data has been preserved."
+            reportGroupStorageError(error)
             return false
         }
     }

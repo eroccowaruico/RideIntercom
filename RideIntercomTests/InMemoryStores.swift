@@ -28,45 +28,39 @@ final class InMemoryLocalMemberIdentityStore: LocalMemberIdentityStoring {
 }
 
 final class InMemoryGroupStore: GroupStoring {
-    private var groups: [IntercomGroup]
+    var snapshot: GroupSnapshot
     private(set) var saveCount = 0
     var failSaving = false
-
-    init(groups: [IntercomGroup] = []) {
-        self.groups = groups.map { group in
-            var group = group
-            group.accessSecret = nil
-            return group
-        }
+    var readError: Error?
+    init(groups: [IntercomGroup] = []) { snapshot = GroupSnapshot(groups: groups.map { .init($0) }) }
+    func read() throws -> GroupSnapshot? {
+        if let readError { throw readError }
+        return try snapshot.validated()
     }
-
-    func loadGroups() -> [IntercomGroup] {
-        groups
-    }
-
-    func saveGroups(_ groups: [IntercomGroup]) throws {
+    func commit(_ snapshot: GroupSnapshot) throws {
         if failSaving { throw IntercomGroupError.storageUnavailable }
-        saveCount += 1
-        self.groups = groups.map { group in
-            var group = group
-            group.accessSecret = nil
-            return group
-        }
+        self.snapshot = snapshot; saveCount += 1
     }
+    func loadGroups() -> [IntercomGroup] { snapshot.groups.compactMap { try? $0.group() } }
+    func lock() {}
+    func unlock() {}
+    func archive(legacyData: Data?) {}
 }
 
 final class InMemoryGroupCredentialStore: GroupCredentialStoring {
-    private var credentialsByGroupID: [UUID: GroupAccessCredential] = [:]
-
-    func save(_ credential: GroupAccessCredential) {
-        credentialsByGroupID[credential.groupID] = credential
+    var values: [UUID: String] = [:]
+    var failDeleting = false
+    var failReading = false
+    func saveSecret(_ secret: String, reference: UUID) { values[reference] = secret }
+    func secret(reference: UUID) throws -> String? {
+        if failReading { throw IntercomGroupError.storageUnavailable }
+        return values[reference]
     }
-
-    func credential(for groupID: UUID) -> GroupAccessCredential? {
-        credentialsByGroupID[groupID]
+    func delete(reference: UUID) throws {
+        if failDeleting { throw IntercomGroupError.storageUnavailable }
+        values[reference] = nil
     }
-
-    func delete(for groupID: UUID) { credentialsByGroupID[groupID] = nil }
+    func references() -> Set<UUID> { Set(values.keys) }
 }
 
 final class InMemoryAppSettingsStore: AppSettingsStoring {

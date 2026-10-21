@@ -54,6 +54,9 @@ extension IntercomViewModel {
                 connectivityNotice = nil
                 internetFailureDetail = nil
             }
+        case .commandQueueFailed:
+            disconnect()
+            groupErrorMessage = "Too many pending operations. The call stopped; connect again to retry."
         case .serviceError(let reason):
             internetFailureDetail = reason
             connectivityNotice = "Internet is unavailable. Retrying automatically; reachable riders stay connected."

@@ -17,7 +17,7 @@ enum IntercomSeedData {
             id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
             name: "Morning Hike",
             members: [
-                GroupMember(id: "member-010", displayName: "You"),
+                GroupMember(id: "member-001", displayName: "You"),
                 GroupMember(id: "member-400", displayName: "Ken")
             ],
             accessSecret: "fixture-morning-hike-secret"

@@ -10,11 +10,17 @@ import VADGate
 
 extension IntercomViewModel {
     static func makeForCurrentProcess() -> IntercomViewModel {
-        let localMemberIdentityStore = UserDefaultsLocalMemberIdentityStore()
+        // A build may own an independent data namespace (e.g. an internal build).
+        // The default preserves the installed app's existing settings and keys.
+        let namespace = Bundle.main.object(forInfoDictionaryKey: "StorageNamespace") as? String ?? "RideIntercom"
+        let defaults = namespace == "RideIntercom" ? UserDefaults.standard : UserDefaults(suiteName: namespace)!
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(namespace, isDirectory: true).appendingPathComponent("Groups", isDirectory: true)
+        let localMemberIdentityStore = UserDefaultsLocalMemberIdentityStore(defaults: defaults)
         return IntercomViewModel(
-            credentialStore: KeychainGroupCredentialStore(),
-            groupStore: UserDefaultsGroupStore(),
-            appSettingsStore: UserDefaultsAppSettingsStore(),
+            groupRepository: GroupRepository(store: FileGroupStore(directory: directory), credentials: KeychainGroupCredentialStore(namespace: namespace), legacy: LegacyGroupReader(defaults: defaults, namespace: namespace)),
+            appSettingsStore: UserDefaultsAppSettingsStore(defaults: defaults),
+            internetSettingsStore: InternetConnectionSettingsStore(namespace: namespace),
             localMemberIdentityStore: localMemberIdentityStore
         )
     }

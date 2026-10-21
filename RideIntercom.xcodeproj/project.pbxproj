@@ -450,6 +450,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideIntercom/Info.plist;
+				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover nearby riders for intercom calls.";
@@ -512,6 +513,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideIntercom/Info.plist;
+				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover nearby riders for intercom calls.";

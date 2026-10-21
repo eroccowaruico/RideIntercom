@@ -129,6 +129,9 @@ final class IntercomViewModel {
     var droppedAudioPacketCount = 0
     var jitterQueuedFrameCount = 0
     var groupErrorMessage: String?
+    var groupStorageIssue: GroupStorageIssue?
+    var groupsMissingKeys: Set<UUID> = []
+    var groupKeyCleanupPending = false
     var inviteStatusMessage: String?
     let callSession: CallSession
     let audioSessionManager: SessionManager.AudioSessionManager
@@ -178,10 +181,8 @@ final class IntercomViewModel {
     var lastRuntimePackageReportPublishedAt: TimeInterval?
 
     init(
-        groups: [IntercomGroup]? = nil,
         callSession: CallSession? = nil,
-        credentialStore: GroupCredentialStoring,
-        groupStore: GroupStoring,
+        groupRepository: GroupRepository,
         appSettingsStore: AppSettingsStoring,
         internetSettingsStore: InternetConnectionSettingsStore? = nil,
         localMemberIdentityStore: LocalMemberIdentityStoring,
@@ -196,12 +197,17 @@ final class IntercomViewModel {
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()
-        let repository = GroupRepository(store: groupStore, credentials: credentialStore)
+        let repository = groupRepository
         self.groupRepository = repository
-        do { self.groups = try groups ?? repository.load(localMemberID: localMemberIdentity.memberID) }
+        do {
+            let restored = try repository.load(localMemberID: localMemberIdentity.memberID)
+            self.groups = restored
+        }
         catch {
             self.groups = []
-            self.groupErrorMessage = "Could not read saved groups. Stored data has been preserved; restart to retry."
+            let issue = GroupStorageIssue.classify(error)
+            self.groupStorageIssue = issue
+            self.groupErrorMessage = issue.message
         }
         let internetConfiguration: RTC.CloudflareRealtimeConfiguration?
         do { internetConfiguration = try internetSettingsStore.load() }
@@ -241,6 +247,7 @@ final class IntercomViewModel {
         self.callSession.setEnabledRoutes(enabledRTCTransportRoutes)
         self.callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
 
+        refreshGroupStorageStatus()
         bindConnectionEvents()
         self.audioSessionManager.setRuntimeEventHandler { [weak self] event in
             DispatchQueue.main.async { self?.handleAudioSessionRuntimeEvent(event) }

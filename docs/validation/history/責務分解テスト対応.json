@@ -1,0 +1,971 @@
+{
+  "baseline": "f870c03556bc4d19597b7f37e3081af21e426c4c",
+  "tests": [
+    {
+      "test": "removingBusReleasesItsNodesAndAllowsRecreation",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "defaultFormatUsesStereoFloat32At48kHz",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "mixerCanBeCreatedFromAudioCoreFormat",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "createBusReturnsExistingBusForSameID",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "createBusRejectsEmptyID",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "busVolumeUsesFaderMixerOutputVolume",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "busStoresEffectsAndSupportsRemoval",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "removeEffectRejectsInvalidIndex",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "addEffectRejectsSinkNode",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "addSourceRejectsEngineInternalNode",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "routeRejectsCycles",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "routeRejectsMultipleParents",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "mixerSnapshotReportsGraphState",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "mixerSnapshotReportsEffectChainOrderAndDefaultIDs",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "effectSnapshotStateCanBeUpdatedWithoutKnowingEffectorPackage",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift"
+      ]
+    },
+    {
+      "test": "pcmSourceNormalizesMixedFormatFramesBeforeBusInput",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMPortTests.swift"
+      ]
+    },
+    {
+      "test": "pcmSourceReportsConversionFailureWithoutScheduling",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMPortTests.swift"
+      ]
+    },
+    {
+      "test": "pcmSourceVolumeIsPerPeerAndClamped",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMPortTests.swift"
+      ]
+    },
+    {
+      "test": "pcmSinkNormalizesBusFormatForConsumerTarget",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMPortTests.swift"
+      ]
+    },
+    {
+      "test": "pcmSourceAndSinkSnapshotsAreSymmetric",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMPortTests.swift"
+      ]
+    },
+    {
+      "test": "liveSourceDiscardsBacklogAndPlaysNewestBuffer",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMPortTests.swift"
+      ]
+    },
+    {
+      "test": "rejectsInvalidSinkFormatBeforeInstallingTap",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/AudioMixerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMPortTests.swift"
+      ]
+    },
+    {
+      "test": "consecutiveFramesPreserveDurationAndMixOtherSpeakerOffline",
+      "before": "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMContinuityTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/AudioMixer/Tests/AudioMixerTests/PCMContinuityTests.swift"
+      ]
+    },
+    {
+      "test": "pcmBufferPreservesInterleavedChannelsAndRejectsUnsupportedHardware",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "inputCaptureReportsHardwareFramesWithoutFormatConversion",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "stoppedInputStoresVoiceProcessingWithoutOpeningBackend",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "stoppedInputAppliesLatestConfigurationOnlyOnRestart",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "inputCaptureAppliesInitialVoiceProcessingBeforeStarting",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "inputCaptureUpdatesVoiceProcessingWhileRunningWithoutRestarting",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "inputCaptureContinuesStartingWhenVoiceProcessingIsUnsupported",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "inputCaptureMapsUnsupportedBackendToIgnoredReport",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "outputRendererSchedulesOnlyHardwareFormatFrames",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "pcmFrameRoundTripsThroughPCMBuffer",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "failedInputStartCleansUpAndRetryRejectsOldCallbacks",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "failedOutputStartCleansUpAndRetryDoesNotQueueAfterStop",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "constructingAndStoppingUnusedInputBackendDoesNotOpenHardware",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "outputBackendDropsStalledPlaybackAndRetainsNewestAudio",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "voiceProcessingFailureDoesNotStartCapture",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/AudioStreamTests.swift"
+      ]
+    },
+    {
+      "test": "defaultConfigurationResolvesLatestIOSOptions",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "defaultToSpeakerIsOptIn",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "defaultToSpeakerAutomaticallyRequestsEchoCancelledInputInDefaultMode",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "voiceChatDoesNotApplyEchoCancelledInputPreference",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "echoCancelledInputRequiresDefaultMode",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "managerAppliesConfigurationBeforeActivating",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "managerCanReturnToSystemDefaultDevices",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "managerReportsRecoverableConfigurationOperationsWithoutStoppingConfiguration",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "managerExposesSnapshotFromBackend",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "managerForwardsSnapshotChangeEventsFromBackend",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "managerEmitsRuntimeSnapshotChangesFromBackend",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "voiceProcessingEnablesAdvancedDuckingWithoutStoppingInput",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/VoiceProcessingTests.swift"
+      ]
+    },
+    {
+      "test": "voiceProcessingKeepsAllAdvancedDuckingLevels",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/VoiceProcessingTests.swift"
+      ]
+    },
+    {
+      "test": "voiceProcessingDisablesAdvancedDuckingWhenOtherAudioDuckingIsDisabled",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/VoiceProcessingTests.swift"
+      ]
+    },
+    {
+      "test": "voiceProcessingCanDisableProcessingWhileStillApplyingMuteState",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/VoiceProcessingTests.swift"
+      ]
+    },
+    {
+      "test": "systemVoiceProcessingBackendCanBeCalledWithoutInputNode",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/VoiceProcessingTests.swift"
+      ]
+    },
+    {
+      "test": "systemSessionManagerReportsPlatformSpecificSelectionsAsIgnored",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "initializerRejectsInvalidConfigurationBeforeUsingBackend",
+      "before": "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift",
+      "after": [
+        "RideIntercom/packages/Audio/SessionManager/Tests/SessionManagerTests/SessionManagerTests.swift"
+      ]
+    },
+    {
+      "test": "tenMinutesOfGeneratedPCMThroughEncryptedDuplexTransport",
+      "before": "RideIntercomTests/GeneratedDuplexAudioTests.swift",
+      "after": [
+        "RideIntercomTests/GeneratedDuplexAudioTests.swift"
+      ]
+    },
+    {
+      "test": "persistenceStoresIdentityWithoutRuntimeStateOrSecret",
+      "before": "RideIntercomTests/GroupPersistenceTests.swift",
+      "after": [
+        "RideIntercomTests/GroupPersistenceTests.swift"
+      ]
+    },
+    {
+      "test": "corruptStoreIsReportedAndPreserved",
+      "before": "RideIntercomTests/GroupPersistenceTests.swift",
+      "after": [
+        "RideIntercomTests/GroupPersistenceTests.swift"
+      ]
+    },
+    {
+      "test": "groupCapacityAndIdentityAreValidated",
+      "before": "RideIntercomTests/GroupPersistenceTests.swift",
+      "after": [
+        "RideIntercomTests/GroupPersistenceTests.swift"
+      ]
+    },
+    {
+      "test": "decodedInviteRejectsUnsupportedVersionAndOversizedURL",
+      "before": "RideIntercomTests/GroupPersistenceTests.swift",
+      "after": [
+        "RideIntercomTests/GroupPersistenceTests.swift"
+      ]
+    },
+    {
+      "test": "failedReadBlocksWritesAndDoesNotCreateKeys",
+      "before": "RideIntercomTests/GroupPersistenceTests.swift",
+      "after": [
+        "RideIntercomTests/GroupPersistenceTests.swift"
+      ]
+    },
+    {
+      "test": "decodedStoredGroupsStillValidateIdentityAndRestoreLocalFirst",
+      "before": "RideIntercomTests/GroupPersistenceTests.swift",
+      "after": [
+        "RideIntercomTests/GroupPersistenceTests.swift"
+      ]
+    },
+    {
+      "test": "eventMetadataReplacesRawIdentifiersWithStableHashes",
+      "before": "RideIntercomTests/LoggingPrivacyTests.swift",
+      "after": [
+        "RideIntercomTests/LoggingPrivacyTests.swift"
+      ]
+    },
+    {
+      "test": "corruptLocalIdentityReportsCreationFailureWithoutWritingGroups",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "appDecodeRejectsUnknownCodecAndInvalidFormatBeforeConversion",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "appTargetSupportsIOSAndMacOSWithoutAudioUnitLinkage",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/ArchitectureTests.swift"
+      ]
+    },
+    {
+      "test": "appSourcesDoNotContainTestOnlyLaunchSwitchesOrObsoleteAudioPipeline",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/ArchitectureTests.swift"
+      ]
+    },
+    {
+      "test": "uiSourcesAreSplitByScreenResponsibility",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/ArchitectureTests.swift"
+      ]
+    },
+    {
+      "test": "appRootKeepsPlatformSpecificWindowPolicyAtMacBoundary",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/ArchitectureTests.swift"
+      ]
+    },
+    {
+      "test": "appInfoPlistEnablesBackgroundAudioMode",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/ArchitectureTests.swift"
+      ]
+    },
+    {
+      "test": "currentProcessUsesPackageBackedRTCRouteManager",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/TransportAdapterTests.swift"
+      ]
+    },
+    {
+      "test": "callSessionAdapterIgnoresFallbackRouteFailureUntilSessionFails",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/TransportAdapterTests.swift"
+      ]
+    },
+    {
+      "test": "groupInviteTokenRoundTripsAndRejectsTampering",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "audioTransmissionControllerSendsVoiceAndKeepalive",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelCreatesAndPersistsTalkGroupWithoutTestMode",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelAcceptsInviteURLAndStoresCredential",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelConnectsAuthenticatedPeerAndStartsPackageAudioPipeline",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelSendsVoiceSamplesFromPackageInputFrames",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelReceivesRTCFrameAndSchedulesPackageOutput",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelUsesRTCMetricsForReceiveBufferDiagnostics",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/DiagnosticsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelBroadcastsMuteStateAndUpdatesPackageVoiceProcessing",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelAudioCheckRecordsAndSchedulesPlaybackThroughPackageOutput",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelResetAllSettingsKeepsGroupsAndRestoresAudioDefaults",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelKeepsParticipantOutputVolumeInsideAppAudioPipeline",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelAppliesMasterOutputSettingsThroughAudioMixer",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelTracksReceiveVoiceIsolationControls",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelTracksRemoteCodecMetadataPerPeer",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelExposesTransmitEffectChainFromRuntimeSettings",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/DiagnosticsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelPublishesPackageRuntimeReportsForDiagnosticsAndRTC",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/DiagnosticsTests.swift"
+      ]
+    },
+    {
+      "test": "effectChainDisplayPreservesRuntimeRegisteredOrder",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/DiagnosticsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelKeepsCodecUISettingsAsRequestedValues",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelAppliesAudioSessionMatrixProfilesThroughSessionManager",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelLoadsAndPersistsAppAudioSettings",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "userDefaultsSettingsStoreMigratesLegacyRTCTransportRouteSettingsToDefault",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelLoadsPersistsAndAppliesRTCTransportRouteOptOut",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "viewModelRepairsEmptyRTCTransportRoutesBeforeConnecting",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "changingRTCTransportRoutesStopsActiveConnectionBeforeApplyingPolicy",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "diagnosticsRowsSummarizeCurrentAppState",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/DiagnosticsTests.swift"
+      ]
+    },
+    {
+      "test": "partialAudioStartCleansUpAndRetries",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "audioCheckIsCancelledBeforeCallStartsAndCannotStopCallLater",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "browsingPreservesCallButConnectingRejectsQueuedOldEvents",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/CallLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "actualEffectsFollowSettingsWithoutRestartingMedia",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "individualVolumeScalesRealPCMThroughEveryRoute",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "actualOutputLimiterProtectsCombinedPeersAfterMasterGain",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "actualTransmitDynamicsChangesPCMBeforeEncoding",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "effectGraphStartFailureReleasesNodesAndCanRetry",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "diagnosticsReportOnlyTheGraphActuallyProcessingAudio",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/DiagnosticsTests.swift"
+      ]
+    },
+    {
+      "test": "failedMixerRebuildReleasesGraphAndAllowsRetry",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "deletingBrowsedGroupPreservesActiveCallAndRejectsUntrustedMute",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "adapterSerializesSuspendingRTCOperations",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/TransportAdapterTests.swift"
+      ]
+    },
+    {
+      "test": "lastPeerDisconnectStopsMediaAndAllowsAuthenticatedReconnect",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/CallLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "internetConfigurationUsesKeychainAndRejectsUnsecuredEndpoint",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "liveCallBoundsPCMReservationsWithoutRebuildingEffects",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "frameDeliveryBoundsWaitingAudioAndCancelsWithoutLateCallbacks",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "adapterKeepsOnlyFreshAudioWhileConnectionCommandsAreBusy",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/TransportAdapterTests.swift"
+      ]
+    },
+    {
+      "test": "internetUsesSharedCaptureMixerAndDeviceRestart",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "routeChangesPreservePeerVolumesAndEffectInstances",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "connectingCancelsAudioCheckBeforePeerAuthentication",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "internetSettingsValidationPreservesCallAndSavedCheckUsesNoMedia",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/SettingsTests.swift"
+      ]
+    },
+    {
+      "test": "deviceLossPausesOwnAudioButPreservesGroupAndDoesNotAutoResume",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "outputRestartFailureReleasesInputAndAllowsRetry",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/CallLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "internetFailureDoesNotMisreportHealthyLocalAudio",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/CallLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "mixedRoutesKeepEffectsAndPacketAudioOwnership",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "deviceResumeRetriesFailureAndPreservesMuteIntent",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/CallLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "actualDefaultDeviceChangeRestartsBothStreamsAndInterruptsAudioCheck",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/CallLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "networkDiagnosticsDistinguishUnknownValuesAndClearOnDisconnect",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/DiagnosticsTests.swift"
+      ]
+    },
+    {
+      "test": "createdGroupUsesSamePersistedRandomKeyForInviteAndConnection",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "missingGroupKeyCannotStartPlaintextCallOrInventInvite",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "credentialPersistenceFailureDoesNotCreateOrJoinGroup",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "emptyInviteCannotReplaceAnExistingGroupKey",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "runtimeUpdatesDoNotWriteGroupStorage",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "removingMemberFromInactiveGroupPreservesActiveCall",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "failedMetadataSaveDoesNotPublishGroupOrLosePreviousKey",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "deletionRemovesKeyAndActiveInviteCannotReplaceKey",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    },
+    {
+      "test": "departedPeerReleasesAudioGraphAndRemoteClockCannotHoldTalkingState",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "vadUsesCapturedDurationAndDoesNotReplayOldPreroll",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/AudioPipelineTests.swift"
+      ]
+    },
+    {
+      "test": "fullGroupReplacesDepartedRiderForNewAuthenticatedMember",
+      "before": "RideIntercomTests/RideIntercomTests.swift",
+      "after": [
+        "RideIntercomTests/GroupLifecycleTests.swift"
+      ]
+    }
+  ]
+}

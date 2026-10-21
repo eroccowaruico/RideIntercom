@@ -6,6 +6,13 @@ struct GroupSelectionView: View {
 
     var body: some View {
         List {
+            if let message = viewModel.groupStorageNotice {
+                GroupStorageSection(message: message,
+                    canReset: viewModel.groupStorageIssue == .corrupted,
+                    canReload: viewModel.activeGroupID == nil && viewModel.groupStorageIssue != .unsupportedVersion,
+                    reloadRequiresDisconnect: viewModel.activeGroupID != nil,
+                    reload: viewModel.reloadSavedGroups, reset: viewModel.resetSavedGroups)
+            }
             Section("Recent Groups") {
                 if viewModel.groups.isEmpty {
                     Text("Create a group to start a call.")
@@ -50,6 +57,7 @@ struct GroupSelectionView: View {
                     Label("Create Talk Group", systemImage: "plus")
                 }
                 .accessibilityIdentifier("createGroupButton")
+                .disabled(!viewModel.canEditSavedGroups)
             }
         }
         .accessibilityIdentifier("groupSelectionList")

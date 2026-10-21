@@ -109,7 +109,8 @@ extension IntercomViewModel {
     func deleteGroup(_ groupID: UUID) {
         let remaining = groups.filter { $0.id != groupID }
         do { try groupRepository.delete(groupID, remaining: remaining) }
-        catch { groupErrorMessage = "Could not delete the group and its key. Try again."; return }
+        catch { reportGroupStorageError(error); return }
+        refreshGroupStorageStatus()
         if activeGroupID == groupID { disconnect() }
         if selectedGroup?.id == groupID { selectedGroup = nil }
         groups = remaining
@@ -156,9 +157,9 @@ extension IntercomViewModel {
             return
         }
         let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
-        do { try groupRepository.save([newGroup] + groups, credential: .init(groupID: groupID, secret: secret)) }
+        do { try groupRepository.save([newGroup] + groups, credential: .init(groupID: groupID, secret: secret)); refreshGroupStorageStatus() }
         catch {
-            groupErrorMessage = "Could not save the group and its key. Try again."
+            reportGroupStorageError(error)
             return
         }
         groups.insert(newGroup, at: 0)
@@ -215,9 +216,9 @@ extension IntercomViewModel {
         } else {
             updated.insert(group, at: 0)
         }
-        do { try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret)) }
+        do { try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret)); refreshGroupStorageStatus() }
         catch {
-            groupErrorMessage = "Could not save the group and its key. Try the invitation again."
+            reportGroupStorageError(error)
             throw error
         }
         groups = updated

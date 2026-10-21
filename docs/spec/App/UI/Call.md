@@ -119,7 +119,19 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 
 | 状態 | 表示・動作 |
 |---|---|
-| 鍵不足・保存失敗・不正招待 | Call入口の `groupErrorLabel`。標準Labelをsafe area内に配置し、理由と再招待/再試行を表示する。新しい接続は開始しない |
+| 鍵不足・保存失敗・不正招待・command過負荷 | Call入口の `groupErrorLabel`。標準Labelをsafe area内に配置し、理由と再招待/再試行を表示する。切断後にも表示し、新しい接続は利用者の操作で開始する |
 | 新規グループ作成・有効な選択/接続 | 以前のgroupエラーを解除。通話中に別groupの招待が失敗しても旧通話は維持 |
 
-情報は色だけに依存せずテキストとアイコンで伝え、操作を妨げる確認ダイアログは追加しない。[Apple HIG Alerts](https://developer.apple.com/design/human-interface-guidelines/alerts)の文脈内表示の方針に従う。
+情報は色だけに依存せずテキストとアイコンで伝え、通常エラーは文脈内に表示する。[Apple HIG Alerts](https://developer.apple.com/design/human-interface-guidelines/alerts)に従い、明示的に全groupを消すresetだけ確認を要求する。
+
+## 保存済みグループの復旧
+
+| 項目ID | 表示・操作 | 条件と結果 |
+|---|---|---|
+| groupStorageStatus | Groups上部のSaved Groups Section、文字とSF Symbol | 一時アクセス失敗・破損・未知schema・鍵欠落・回収待ちを区別。固定高を設けず折り返す。同じ保存エラーを上部bannerへ重複表示しない |
+| reloadSavedGroupsButton | Reload Saved Groups | 通話中は無効でDisconnectを案内。未知schemaも無効。成功時は一覧を再構成し選択とerrorを解除 |
+| resetSavedGroupsButton | Reset Saved Groups… | 破損時のみ標準destructive Button。標準alertに影響、退避、再招待の必要性を表示 |
+| confirmResetSavedGroupsButton / cancelResetSavedGroupsButton | Reset Saved Groups / Cancel | 確認後だけ通話を終了し、元データ退避→空manifest commit→group鍵回収。Cancelを明示し、取り消しなら変更なし |
+| createGroupButton | Create Talk Group | 保存読込に失敗している間は無効。鍵欠落・回収待ちだけなら他groupの利用を妨げない |
+
+resetでrider identity・音声設定・Internet資格は変更しない。退避失敗なら元データを保持してerrorを表示する。一般commandの待機上限超過はCallの案内から、停止完了後の明示Connectを促す。

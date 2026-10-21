@@ -205,7 +205,6 @@ enum IntercomGroupError: Error, Equatable {
     case invalidStoredGroups
     case storageUnavailable
     case credentialVerificationFailed
-    case rollbackFailed
 }
 
 struct GroupAccessCredential: Equatable {
@@ -213,10 +212,4 @@ struct GroupAccessCredential: Equatable {
     let secret: String
 
 
-}
-
-protocol GroupCredentialStoring: AnyObject {
-    func save(_ credential: GroupAccessCredential) throws
-    func credential(for groupID: UUID) throws -> GroupAccessCredential?
-    func delete(for groupID: UUID) throws
 }

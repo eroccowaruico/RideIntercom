@@ -136,20 +136,26 @@ class Runner:
             print('\n'.join(path.read_text(errors='replace').splitlines()[-12:]), flush=True)
         return passed
 
-    def xcode(self, name, destination, only=None, needs=()):
+    def xcode(self, name, destination, only=None, needs=(), skip=None, reuse_build=None):
         bundle = self.out / f'{name}.xcresult'
         # Xcode's live Repository group must not recursively discover its own
         # generated package checkout/build tree while constructing the graph.
-        parent = os.environ.get('VALIDATION_DERIVED_DATA') or tempfile.mkdtemp(prefix='RideIntercom-validation-')
-        derived = Path(parent).resolve() / f'DerivedData-{name}'
+        if reuse_build:
+            derived = Path((self.out / f'{reuse_build}-derived-data.txt').read_text().strip())
+        else:
+            parent = os.environ.get('VALIDATION_DERIVED_DATA') or tempfile.mkdtemp(prefix='RideIntercom-validation-')
+            derived = Path(parent).resolve() / f'DerivedData-{name}'
         if derived.is_relative_to(ROOT):
             return self.record(name, [], 'blocked', None, time.monotonic(), 'DerivedData must be outside the synchronized repository')
         (self.out / f'{name}-derived-data.txt').write_text(str(derived) + '\n')
-        command = ['xcodebuild', 'test', '-project', 'RideIntercom.xcodeproj', '-scheme', 'RideIntercom',
+        command = ['xcodebuild', 'test-without-building' if reuse_build else 'test', '-project', 'RideIntercom.xcodeproj', '-scheme', 'RideIntercom',
                    '-destination', destination, '-parallel-testing-enabled', 'NO',
-                   '-derivedDataPath', str(derived), '-resultBundlePath', str(bundle)]
+                   '-derivedDataPath', str(derived), '-resultBundlePath', str(bundle),
+                   'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.' + self.out.name + '.' + (reuse_build or name)]
         if only:
             command.append(f'-only-testing:{only}')
+        if skip:
+            command.append(f'-skip-testing:{skip}')
         self.run(name, command, needs=needs)
         summary_name = name + '-summary'
         self.run(summary_name, ['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)], needs=[name], timeout=60)
@@ -243,8 +249,19 @@ def main():
                 runner.run('simulator-boot', ['xcrun', 'simctl', 'boot', sim], needs=['simulator-create'], timeout=120)
                 runner.run('simulator-ready', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], needs=['simulator-boot'], timeout=180)
                 runner.run('simulator-appearance', ['xcrun', 'simctl', 'ui', sim, 'appearance', os.environ.get('SIMULATOR_APPEARANCE', 'dark')], needs=['simulator-ready'], timeout=30)
+                recovery = 'RideIntercomUITests/RideIntercomUITests/testCorruptGroupStoreRecovery'
                 runner.xcode('ios-tests', 'platform=iOS Simulator,id=' + sim, only='RideIntercomUITests' if mode == 'ios-ui' else None,
-                             needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'])
+                             needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'], skip=recovery)
+                runner.run('recovery-container', ['xcrun', 'simctl', 'get_app_container', sim,
+                           'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-tests-acceptance'], timeout=60)
+                fixture = [python, '-m', 'scripts.group_recovery_fixture', str(runner.out)]
+                runner.run('recovery-prepare', fixture + ['prepare'], needs=['recovery-container'])
+                runner.xcode('ios-recovery', 'platform=iOS Simulator,id=' + sim, only=recovery,
+                             needs=['recovery-prepare'], reuse_build='ios-tests')
+                # Xcode may reinstall the app and relocate its retained data.
+                runner.run('recovery-container-after', ['xcrun', 'simctl', 'get_app_container', sim,
+                           'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-recovery-acceptance'], timeout=60)
+                runner.run('recovery-verify', fixture + ['verify'], needs=['recovery-container-after'])
         except (OSError, ValueError, KeyError) as error:
             runner.record('simulator-availability', [], 'blocked', None, time.monotonic(), str(error))
         finally:

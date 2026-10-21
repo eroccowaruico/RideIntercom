@@ -4,8 +4,10 @@ import RTC
 /// Device access is stored separately from group invitations and audio preferences.
 final class InternetConnectionSettingsStore {
     private let keychain: KeychainSecretStoring
-    private let service = "RideIntercom.InternetConnection"
-    init(keychain: KeychainSecretStoring = SystemKeychainSecretStore()) { self.keychain = keychain }
+    private let service: String
+    init(keychain: KeychainSecretStoring = SystemKeychainSecretStore(), namespace: String = "RideIntercom") {
+        self.keychain = keychain; self.service = namespace + ".InternetConnection"
+    }
     private struct Saved: Codable { let workerURL: URL; let accessToken: String }
     enum ValidationError: Error { case invalidURL, missingToken }
     private func validated(url: String, token: String) throws -> Saved {
