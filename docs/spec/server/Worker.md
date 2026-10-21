@@ -224,3 +224,5 @@ npx wrangler secret put CLOUDFLARE_TURN_API_TOKEN
 | 秘密の保存 | 短期資格をroom DOへ保存。no-store応答で返し、ログ・runtime reportへ含めない。取得・失効の長期秘密はWorkerのみ |
 
 TURN資格は受け取った端末から別用途へ持ち出され得る。参加者秒・発行制限は実wire byteの厳密な請求上限ではない。公開時のabuse監視・実請求監視と制限回線での長時間試験は引き続き必要。失効APIの成功から実際の転送停止までの時間も実サービスで確認する。
+
+未成立のTURN試行もroom上限内で並行回収する。各外部APIの8秒timeoutを端末数だけ逐次加算せず、DOのblockConcurrencyWhileの時間上限内に収める。失効に失敗した記録は次のalarmへ残す。

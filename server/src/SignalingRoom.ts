@@ -226,11 +226,12 @@ export class SignalingRoom {
             try { await this.close(m) } catch { /* Keep cleanup record and retry. */ }
         }))
         const active = new Set((await this.members()).map(m => m.id))
-        for (const ice of await this.turn.all()) {
-            if (!active.has(ice.peer) && (ice.expiresAt <= Date.now() || this.env.SERVICE_ENABLED !== 'true')) {
-                try { await this.turn.remove(ice); await this.usage('release', { id: `${this.state.id}:${ice.peer}` }) } catch { /* Retain for retry/TTL expiry. */ }
-            }
-        }
+        const orphans = (await this.turn.all()).filter(ice => !active.has(ice.peer)
+            && (ice.expiresAt <= Date.now() || this.env.SERVICE_ENABLED !== 'true'))
+        // Room capacity bounds this batch. Avoid up to eight sequential upstream timeouts.
+        await Promise.all(orphans.map(async ice => {
+            try { await this.turn.remove(ice); await this.usage('release', { id: `${this.state.id}:${ice.peer}` }) } catch { /* Retain for retry/TTL expiry. */ }
+        }))
         await this.broadcastPeers()
         const remaining = await this.members()
         if (remaining.some(m => m.expiresAt <= Date.now()) || (await this.turn.all()).some(m => m.expiresAt <= Date.now())) await this.state.storage.setAlarm(Date.now() + 30000)

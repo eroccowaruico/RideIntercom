@@ -85,3 +85,23 @@ test('failed revocation retains cleanup and is retried instead of abandoning cre
         assert.equal((await call(runtime, 'ice/retry', { leaseID: 'new-attempt' })).status, 200);
     } finally { provider.revokeFails = false; await runtime.dispose(); }
 });
+
+
+test('orphan credential cleanup does not serialize upstream delays across participants', async () => {
+    const runtime = await makeRuntime({ TURN_ENABLED: 'true', CLOUDFLARE_TURN_KEY_ID: 'test-turn', CLOUDFLARE_TURN_API_TOKEN: 'test-turn-secret' });
+    let active = 0, peak = 0;
+    try {
+        for (const peer of ['orphan-a', 'orphan-b']) await call(runtime, `ice/${peer}`, { leaseID });
+        provider.revokeFails = true;
+        for (const peer of ['orphan-a', 'orphan-b']) assert.equal((await call(runtime, `ice/${peer}`, { leaseID }, 'DELETE')).status, 502);
+        provider.revokeFails = false;
+        provider.onRevoke = async () => {
+            peak = Math.max(peak, ++active);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            active--;
+        };
+        await new Promise(resolve => setTimeout(resolve, 2200));
+        assert.equal(peak, 2, 'alarm should overlap independent revocations');
+        for (const peer of ['orphan-a', 'orphan-b']) assert.equal((await call(runtime, `ice/${peer}`, { leaseID: 'next-attempt' })).status, 200);
+    } finally { provider.revokeFails = false; provider.onRevoke = undefined; await runtime.dispose(); }
+});
