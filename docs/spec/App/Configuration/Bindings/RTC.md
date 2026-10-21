@@ -21,9 +21,9 @@ App は実体 route を直接構築しない。`CallSessionFactoryConfiguration`
 
 | App 状態 | package へ渡す `enabledRoutes` | App の即時動作 |
 |---|---|---|
-| Local Network ON、Internet ON | `[.multipeer, .webRTC]` | active RTC connection があれば停止する。次回 standby / connect は RTC package が両 route を構築し、両経路の維持・中継・再試行を扱う |
-| Local Network ON、Internet OFF | `[.multipeer]` | active RTC connection があれば停止する。次回 standby / connect は Multipeer route だけを有効にする |
-| Local Network OFF、Internet ON | `[.webRTC]` | active RTC connection があれば停止する。次回 standby / connect は WebRTC route だけを有効にする |
+| Local Network ON、Internet ON | `[.multipeer, .webRTC]` | active RTC connection があれば停止する。次回 connect は RTC package が両 route を構築し、両経路の維持・中継・再試行を扱う |
+| Local Network ON、Internet OFF | `[.multipeer]` | active RTC connection があれば停止する。次回 connect は Multipeer route だけを有効にする |
+| Local Network OFF、Internet ON | `[.webRTC]` | active RTC connection があれば停止する。次回 connect は WebRTC route だけを有効にする |
 | Local Network OFF、Internet OFF | 許可しない | 最後に残った route の toggle は無効化し、旧設定で空集合を読んだ場合は `[.multipeer, .webRTC]` へ修復する |
 
 App は RTC package の route manager、route state、runtime status を置き換えない。Settings は `CallSession.setEnabledRoutes(_:)` で App-owned adapter policy を更新し、adapter は次回の RTC session / `CallStartRequest.configuration` へ渡すだけである。

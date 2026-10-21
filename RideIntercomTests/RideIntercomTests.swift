@@ -1462,11 +1462,6 @@ private final class RecordingCallSession: RideIntercom.CallSession {
     private(set) var sentControlMessages: [ControlMessage] = []
     private(set) var sentApplicationDataMessages: [ApplicationDataMessage] = []
 
-    func startStandby(group: IntercomGroup) {
-        connectedGroup = group
-        onEvent?(.localNetworkStatus(LocalNetworkEvent(status: .advertisingBrowsing)))
-    }
-
     func connect(group: IntercomGroup) {
         connectedGroup = group
         let peerIDs = group.members.dropFirst().map(\.id)

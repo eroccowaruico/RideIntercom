@@ -20,7 +20,6 @@ extension IntercomViewModel {
             bindConnectionEvents()
         }
 
-        isLocalStandbyOnly = false
         connectionState = isInternetOnlyCall
             ? (connectedPeerIDs.isEmpty ? .internetConnecting : .internetConnected)
             : (connectedPeerIDs.isEmpty ? .localConnecting : .localConnected)
@@ -45,8 +44,7 @@ extension IntercomViewModel {
     }
 
     func startActiveCallAfterAuthenticatedPeer() {
-        guard !isLocalStandbyOnly,
-              !isAudioPausedForDeviceChange,
+        guard !isAudioPausedForDeviceChange,
               !authenticatedPeerIDs.isEmpty,
               startAudioPipelineIfNeeded() else { return }
 
@@ -113,22 +111,6 @@ extension IntercomViewModel {
         }
     }
 
-    func startLocalStandby() {
-        guard let selectedGroup,
-              !isAudioReady,
-              localNetworkStatus == .idle,
-              selectedGroup.id == activeGroupID else { return }
-
-        isLocalStandbyOnly = true
-        var group = selectedGroup
-        if let credential = credentialStore.credential(for: selectedGroup.id) {
-            group.accessSecret = credential.secret
-        }
-        callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
-        publishRuntimePackageReports(force: true)
-        callSession.startStandby(group: group)
-    }
-
     func disconnect() {
         let disconnectingGroupID = activeGroupID
         connectionGeneration = UUID()
@@ -147,7 +129,6 @@ extension IntercomViewModel {
         resetVoiceLevelWindows()
         connectedPeerIDs = []
         authenticatedPeerIDs = []
-        isLocalStandbyOnly = false
         localNetworkStatus = .idle
         lastLocalNetworkPeerID = nil
         lastLocalNetworkEventAt = nil

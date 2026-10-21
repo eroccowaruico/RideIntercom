@@ -83,7 +83,6 @@ protocol CallSession: AnyObject {
     var activeRouteDebugTypeName: String { get }
     func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration)
 
-    func startStandby(group: IntercomGroup)
     func connect(group: IntercomGroup)
     func startMedia()
     func stopMedia()
@@ -161,12 +160,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
         if ownsRTCSession { rebuildOwnedRTCSession() }
     }
 
-    func startStandby(group: IntercomGroup) {
-        prepareConnection(group: group, start: false)
-    }
-
     func connect(group: IntercomGroup) {
-        prepareConnection(group: group, start: true)
+        prepareConnection(group: group)
     }
 
     func startMedia() {
@@ -291,7 +286,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
         eventTask = nil
     }
 
-    private func prepareConnection(group: IntercomGroup, start: Bool) {
+    private func prepareConnection(group: IntercomGroup) {
         let request = makeRTCRequest(from: group)
         connectionRequest = request
         invalidateEvents()
@@ -300,7 +295,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
             guard let self, self.eventGeneration == generation else { return }
             self.bindEvents()
             await rtcSession.prepare(request)
-            if start { await rtcSession.startConnection() }
+            await rtcSession.startConnection()
         }
     }
 
@@ -463,7 +458,6 @@ final class RideIntercomCallSessionAdapter: CallSession {
     ) -> RTC.CallSession {
         RTC.CallSessionFactory.makeSession(
             RTC.CallSessionFactoryConfiguration(
-                localDisplayName: memberID,
                 routeConfiguration: makeRouteConfiguration(enabledRoutes: enabledRoutes),
                 audioPolicy: audioPolicy,
                 webRTC: RTC.WebRTCRouteFactoryConfiguration(

@@ -5,34 +5,35 @@ import Testing
 @testable import RTC
 @testable import RideIntercom
 
-/// Synthetic time exercises real PCM codec, authenticated payload, jitter and replay paths.
+/// Synthetic time exercises the current codec, encrypted relay and playout path.
 /// Discovery, radio transport and acoustic quality still require physical devices.
 @Test @MainActor func tenMinutesOfGeneratedPCMThroughEncryptedDuplexTransport() throws {
     let format = AudioFormat(sampleRate: 16_000, channelCount: 1)
     let credential = RTCCredential.derived(groupID: "generated-audio", secret: "test-only-secret")
     let peers = [PeerID(rawValue: "a"), PeerID(rawValue: "b")]
-    let sessions = try peers.map { peer in
-        try MultipeerPacketMediaSession(request: CallStartRequest(
+    var relays = peers.map { peer in
+        GroupRelay(request: CallStartRequest(
             sessionID: "generated-audio",
             localPeer: PeerDescriptor(id: peer, displayName: peer.rawValue),
             credential: credential,
             audioPolicy: RTCAudioPolicy(preferredSendFormat: RTCAudioFormat(audioFormat: format), preferredCodecs: [.pcm16])
         ))
     }
-    sessions.forEach { $0.isActive = true }
+    var buffers = [PacketAudioReceiveBuffer(), PacketAudioReceiveBuffer()]
     let waves: [[Float]] = [1.0, 2.0].map { cycles in
         (0..<320).map { Float(sin(Double($0) * cycles * 2 * .pi / 320)) * 0.3 }
     }
-    var decodedSamples = [0, 0]
-    var expectedSequences: [UInt64] = [0, 0]
+    var decodedSamples = [0, 0], frameCounts = [0, 0], duplicateCounts = [0, 0]
+    var lastSequences: [UInt64] = [0, 0]
     var maximumError: Float = 0
-    func consume(_ report: PacketAudioReceiveBufferReport?, receiver: Int) throws {
-        guard let report else { Issue.record("Active media returned no report"); return }
+    func consume(_ report: PacketAudioReceiveBufferReport, receiver: Int) throws {
         #expect(report.queuedPacketCount <= 2)
         for received in report.readyPackets {
             #expect(received.peerID == peers[1 - receiver])
-            #expect(received.packet.sequenceNumber == expectedSequences[receiver])
-            expectedSequences[receiver] += 1
+            #expect(received.packet.sequenceNumber > lastSequences[receiver])
+            #expect(received.packet.capturedAt == Double(frameCounts[receiver]) * 0.02)
+            lastSequences[receiver] = received.packet.sequenceNumber
+            frameCounts[receiver] += 1
             let decoded = try AppAudioCodecBridge.decode(received.packet)
             #expect(decoded.format == format)
             #expect(decoded.samples.count == 320)
@@ -45,26 +46,33 @@ import Testing
     for sequence in 0..<30_000 {
         let time = Double(sequence) * 0.02
         for sender in 0..<2 {
+            let receiver = 1 - sender
+            if sequence % 100 == 0 {
+                let presence = try relays[sender].make(.presence, now: time)
+                #expect(relays[receiver].receive(presence, from: peers[sender], now: time) != nil)
+            }
             let packet = RTCAudioPacket(sequenceNumber: UInt64(sequence), codec: .pcm16,
                 format: RTCAudioFormat(audioFormat: format), capturedAt: time,
                 sampleCount: 320, payload: PCM16Codec.encode(waves[sender]))
-            let payload = try #require(try sessions[sender].makePayload(from: packet))
-            guard case .packetAudio(let envelope) = try MultipeerPayloadBuilder.decode(payload.data, credential: credential) else {
-                Issue.record("Expected encrypted packet audio"); return
+            let payload = try relays[sender].make(.audio(packet), now: time)
+            let reception = relays[receiver].receive(payload, from: peers[sender], now: time)
+            let result = try #require(reception)
+            guard case .audio(let receivedPacket) = result.body else {
+                Issue.record("Expected common encrypted audio envelope"); return
             }
-            let receiver = 1 - sender
-            try consume(sessions[receiver].accept(envelope, from: peers[sender], receivedAt: time), receiver: receiver)
-            try consume(sessions[receiver].accept(envelope, from: peers[sender], receivedAt: time), receiver: receiver)
+            buffers[receiver].enqueue(.init(received: .init(peerID: result.peer.id, packet: receivedPacket)), receivedAt: time)
+            if relays[receiver].receive(payload, from: peers[sender], now: time) == nil { duplicateCounts[receiver] += 1 }
+            try consume(buffers[receiver].drain(now: time), receiver: receiver)
         }
     }
     for receiver in 0..<2 {
-        try consume(sessions[receiver].drain(now: 600), receiver: receiver)
-        #expect(expectedSequences[receiver] == 30_000)
+        try consume(buffers[receiver].drain(now: 600), receiver: receiver)
+        #expect(frameCounts[receiver] == 30_000)
         #expect(decodedSamples[receiver] == 9_600_000)
-        #expect(sessions[receiver].drain(now: 600)?.droppedPacketCount == 30_000)
-        #expect(sessions[receiver].drain(now: 600)?.queuedPacketCount == 0)
-        sessions[receiver].isActive = false
-        #expect(sessions[receiver].timeUntilNextReadyPacket(now: 600) == nil)
+        #expect(duplicateCounts[receiver] == 30_000)
+        #expect(buffers[receiver].queuedPacketCount == 0)
+        buffers[receiver].reset()
+        #expect(buffers[receiver].drain(now: 601).readyPackets.isEmpty)
     }
     #expect(maximumError < 0.000_04)
 }

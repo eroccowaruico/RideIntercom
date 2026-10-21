@@ -106,13 +106,6 @@ extension View {
         appCardStyle(background: AnyShapeStyle(AppColorPalette.diagnosticsCardMaterial))
     }
 
-    func appPanelCardStyle(borderColor: Color? = nil) -> some View {
-        appCardStyle(
-            background: AnyShapeStyle(AppColorPalette.panelSurface),
-            borderColor: borderColor ?? AppColorPalette.cardBorder
-        )
-    }
-
     private func appCardStyle(background: AnyShapeStyle, borderColor: Color = AppColorPalette.cardBorder) -> some View {
         let shape = RoundedRectangle(cornerRadius: AppCornerRadius.card)
         return padding(AppSpacing.xl)

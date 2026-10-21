@@ -167,9 +167,3 @@ private extension Data {
         self.init(base64Encoded: base64)
     }
 }
-
-struct OwnerElection {
-    static func owner(from memberIDs: [String]) -> String? {
-        memberIDs.min()
-    }
-}

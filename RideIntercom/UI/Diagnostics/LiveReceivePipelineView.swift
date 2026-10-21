@@ -593,7 +593,6 @@ private struct ReceivePeerCodecChip: View {
         if codec == .pcm16 { return "PCM" }
         if codec == .mpeg4AACELDv2 { return "AAC" }
         if codec == .opus { return "Opus" }
-        if codec == .routeManaged { return "Route" }
         return codec.rawValue
     }
 }

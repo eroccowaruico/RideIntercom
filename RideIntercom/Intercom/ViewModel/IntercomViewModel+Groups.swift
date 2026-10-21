@@ -151,18 +151,6 @@ extension IntercomViewModel {
         selectGroup(newGroup)
     }
 
-    func addPendingMember(displayName: String? = nil) {
-        guard var group = selectedGroup,
-              group.members.count < IntercomGroup.maximumMemberCount else { return }
-
-        let nextNumber = group.members.count
-        let memberID = "\(Self.pendingMemberPrefix)\(group.id.uuidString.prefix(8).lowercased())-\(nextNumber)"
-        let name = displayName ?? "Rider \(nextNumber)"
-        group.members.append(GroupMember(id: memberID, displayName: name))
-        selectedGroup = group
-        replaceSelectedGroup(group)
-    }
-
     func reserveInviteMemberSlot(displayName: String? = nil) {
         guard var group = selectedGroup,
               group.members.count < IntercomGroup.maximumMemberCount else { return }

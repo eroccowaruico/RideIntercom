@@ -14,7 +14,6 @@ import VADGate
 @MainActor
 @Observable
 final class IntercomViewModel {
-    static let pendingMemberPrefix = "pending-"
     static let pendingInviteMemberPrefix = "invite-pending-"
     nonisolated static let defaultSoundIsolationEnabled = true
     nonisolated static let defaultReceiveSoundIsolationEnabled = false
@@ -160,7 +159,6 @@ final class IntercomViewModel {
     var audioGeneration = UUID()
     var audioCheckTask: Task<Void, Never>?
     var audioCheckOwnsAudioPipeline = false
-    var isLocalStandbyOnly = false
     var nextAudioFrameID = 1
     var isOtherAudioDuckingActiveInternal = false
     var lastAudioSessionConfigurationReport: SessionManager.AudioSessionConfigurationReport?

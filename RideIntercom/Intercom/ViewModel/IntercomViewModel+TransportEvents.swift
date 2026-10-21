@@ -45,7 +45,7 @@ extension IntercomViewModel {
         switch event {
         case .routesChanged(let snapshot):
             availableCallRoutes = snapshot.availableRoutes
-            if !isLocalStandbyOnly, !authenticatedPeerIDs.isEmpty {
+            if !authenticatedPeerIDs.isEmpty {
                 connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
             } else if connectionState == .localConnecting || connectionState == .internetConnecting {
                 connectionState = isInternetOnlyCall ? .internetConnecting : .localConnecting
@@ -74,13 +74,9 @@ extension IntercomViewModel {
             removeDisconnectedAuthenticatedPeers(connectedPeerIDs: peerIDs)
             if authenticatedPeerIDs.isEmpty, isAudioReady { stopAudioPipeline() }
             localNetworkStatus = peerIDs.isEmpty ? .advertisingBrowsing : .connected
-            if isLocalStandbyOnly {
-                connectionState = .idle
-            } else {
-                connectionState = isInternetOnlyCall
-                    ? (peerIDs.isEmpty ? .internetConnecting : .internetConnected)
-                    : (peerIDs.isEmpty ? .localConnecting : .localConnected)
-            }
+            connectionState = isInternetOnlyCall
+                ? (peerIDs.isEmpty ? .internetConnecting : .internetConnected)
+                : (peerIDs.isEmpty ? .localConnecting : .localConnected)
             markConnectedMembers(peerIDs: peerIDs)
             publishRuntimePackageReports(force: true)
         case .authenticated(let peerIDs):
@@ -88,9 +84,7 @@ extension IntercomViewModel {
             authenticatedPeerIDs = Array(authenticatedPeerIDSet).sorted()
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()
             addDiscoveredMembersIfNeeded(peerIDs: authenticatedPeerIDs)
-            if !isLocalStandbyOnly {
-                connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
-            }
+            connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
             markConnectedMembers(peerIDs: connectedPeerIDs)
             startActiveCallAfterAuthenticatedPeer()
             sendStateMetadataSnapshot()
