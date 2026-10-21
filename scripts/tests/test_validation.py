@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -99,6 +100,32 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(saved['bad']['exit_code'], 7)
         self.assertEqual(saved['bad']['status'], 'failed')
         self.assertIn('command', saved['bad'])
+
+    def test_launch_verification_matches_physical_path_with_spaces(self):
+        root = Path(self.temporary.name)
+        scripts = root / 'workspace/scripts'
+        scripts.mkdir(parents=True)
+        entry = scripts / 'build_and_run.sh'
+        shutil.copy2(self.module.ROOT / 'scripts/build_and_run.sh', entry)
+        output = root / 'build output'
+        output.mkdir()
+        alias = root / 'output-link'
+        alias.symlink_to(output, target_is_directory=True)
+        binary = output.resolve() / 'Build/Products/Debug/RideIntercom.app/Contents/MacOS/RideIntercom'
+        stubs = root / 'bin'
+        stubs.mkdir()
+        for name, code in {
+            'xcodebuild': 'exit 0', 'open': 'exit 0', 'sleep': 'exit 0',
+            'ps': 'if [ "$2" = "comm=" ]; then printf "%s\\n" "$EXPECTED_BINARY"; fi',
+        }.items():
+            path = stubs / name
+            path.write_text('#!/bin/sh\n' + code + '\n')
+            path.chmod(0o755)
+        environment = dict(os.environ, PATH=str(stubs) + ':' + os.environ['PATH'],
+                           DERIVED_DATA_PATH=str(alias), EXPECTED_BINARY=str(binary))
+        result = subprocess.run([str(entry), '--verify'], env=environment, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(str(output.resolve()), result.stdout)
 
 
 if __name__ == '__main__':
