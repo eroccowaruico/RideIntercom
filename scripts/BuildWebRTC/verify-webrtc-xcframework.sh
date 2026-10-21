@@ -51,6 +51,13 @@ try:
             if uuids(binary) != uuids(dwarf):
                 raise ValueError(f'dSYM UUID mismatch: {binary} and {dwarf}')
         found.setdefault(platform, set()).update(actual)
+        symbols = subprocess.check_output(['nm', '-g', str(binary)], text=True)
+        if re.search(r'AVCapture|RTCCamera', symbols):
+            raise ValueError(f'Camera capture API found: {binary}')
+        headers = framework / 'Headers'
+        for header in headers.glob('*.h'):
+            if re.search(r'AVCapture|RTCCamera', header.name):
+                raise ValueError(f'Camera capture header found: {header}')
     for platform, architectures in expected.items():
         if not architectures <= found.get(platform, set()):
             raise ValueError(f'Missing slice or architectures: {platform} {architectures}')
@@ -110,4 +117,4 @@ if [[ "${missing_count}" -ne 0 ]]; then
   exit 1
 fi
 
-echo "WebRTC.xcframework slice, dSYM UUID, and header verification passed: ${XCFRAMEWORK_PATH}"
+echo "WebRTC.xcframework slice, dSYM UUID, camera exclusion, and header verification passed: ${XCFRAMEWORK_PATH}"

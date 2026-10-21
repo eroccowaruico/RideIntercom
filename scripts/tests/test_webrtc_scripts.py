@@ -13,6 +13,33 @@ ARTIFACT = ROOT / 'RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcfra
 
 
 class WebRTCScriptTests(unittest.TestCase):
+    def test_camera_capture_symbol_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(['unzip', '-q', str(ARTIFACT), '-d', directory], check=True)
+            commands = root / 'bin'
+            commands.mkdir()
+            nm = commands / 'nm'
+            nm.write_text("#!/bin/sh\nprintf '%s\\n' '_OBJC_CLASS_$_AVCaptureSession'\n")
+            nm.chmod(0o755)
+            result = subprocess.run([str(SCRIPTS / 'verify-webrtc-xcframework.sh'),
+                                     str(root / 'WebRTC.xcframework')],
+                                    env=dict(os.environ, PATH=str(commands) + os.pathsep + os.environ['PATH']),
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Camera capture API found', result.stderr)
+
+    def test_packaged_frameworks_do_not_reference_camera_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(['unzip', '-q', str(ARTIFACT), '-d', directory], check=True)
+            root = Path(directory) / 'WebRTC.xcframework'
+            manifest = plistlib.loads((root / 'Info.plist').read_bytes())
+            for library in manifest['AvailableLibraries']:
+                binary = root / library['LibraryIdentifier'] / library['LibraryPath'] / 'WebRTC'
+                symbols = subprocess.check_output(['nm', '-g', str(binary)], text=True)
+                with self.subTest(slice=library['LibraryIdentifier']):
+                    self.assertNotRegex(symbols, r'AVCapture|RTCCamera')
+
     def test_cleanup_rejects_non_checkout_without_removing_files(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

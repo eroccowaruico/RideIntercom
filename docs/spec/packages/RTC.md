@@ -9,6 +9,7 @@
 | 音声I/O | `SessionManager` が所有。Local/InternetともApp compositionがAudioMixer・Codec・RTCへ接続 |
 | パッケージ境界 | RTCはAudioパッケージに依存しない。hardware 48kHz、RTC 16/24/48kHzなどの変換はAudioMixer/Codec側 |
 | products | `RTC`、`RTCNativeWebRTC`。後者のみ同梱WebRTC binaryへ依存 |
+| カメラ | 同梱WebRTCからカメラ撮影・プレビュー・撮影位置helperの実装と公開headerを除外。音声とDataChannel通信は維持し、カメラ利用を要求しない |
 | OS / Swift | iOS・macOS 26.4以上、Swift 6 |
 | plugin | `RTCCallRoute`、`CallSessionFactory`。中継の共通契約は認証済みpeerとapplication dataの配送 |
 

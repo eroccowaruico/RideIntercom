@@ -52,6 +52,12 @@ scripts/BuildWebRTC/update-webrtc-binary.sh
 
 通常の更新でsource checkoutや`out`全体を削除しない。tracked source変更があるcheckoutでは停止する。手動の `ASSEMBLE_ONLY` は残すが、更新処理の自動fallbackには使わない。異なるbranchの古い成果物を新branchとして採用することを避ける。
 
+### カメラAPIの除外
+
+音声通話用SDKに不要なカメラAPIを含めないため、`disable-camera-capture.patch`をsync後の`sdk/BUILD.gn`へ適用してから全sliceをビルドする。対象は`RTCCameraVideoCapturer`、`RTCCameraPreviewView`、`AVCaptureSession+DevicePosition`の実装と公開header。上流のソース本文や音声・DataChannel実装は変更しない。patchが適用できない更新では停止し、成功・失敗どちらでも終了時にpatchを戻す。
+
+増分ビルドで残る対象headerは組み立て時に除去する。検証では全sliceの実バイナリの外部シンボルに`AVCapture`・`RTCCamera`がないこと、対象headerがないこと、umbrella headerの全参照先が存在することを確認する。`ASSEMBLE_ONLY`でも同じ検査を行い、カメラAPIを含む旧出力の取り込みを拒否する。これはApple側の検証通過を保証するものではなく、最終Archiveの埋め込みframeworkとApp Store Connectで別途確認する。
+
 
 固定branchで再現する場合も、上位スクリプトに `WEBRTC_BRANCH` を渡す。
 

@@ -62,6 +62,13 @@ if [[ "${ASSEMBLE_ONLY}" != "true" ]]; then
   cd ..
   gclient sync --with_branch_heads --with_tags
   cd src
+  # The transport SDK must not link camera capture APIs into audio-only apps.
+  # Keep the upstream checkout clean, including when generation/build fails.
+  CAMERA_PATCH="${SCRIPT_DIR}/disable-camera-capture.patch"
+  WEBRTC_SOURCE_DIR="${PWD}"
+  git apply --check "${CAMERA_PATCH}"
+  git apply "${CAMERA_PATCH}"
+  trap 'git -C "${WEBRTC_SOURCE_DIR}" apply --reverse "${CAMERA_PATCH}"' EXIT
 else
   echo "Skipping checkout, gclient sync, gn, and ninja. Existing build outputs will be assembled."
 fi
@@ -204,6 +211,10 @@ if [[ "${MACOS}" == "true" ]]; then
   fi
   lipo -create -output "${XCFRAMEWORK_DIR}/${macos_identifier}/WebRTC.framework/Versions/A/WebRTC" "${OUTPUT_DIR}/macos-x64/WebRTC.framework/WebRTC" "${OUTPUT_DIR}/macos-arm64/WebRTC.framework/WebRTC"
 fi
+
+# Incremental GN builds can retain headers removed from the target manifest.
+# The regenerated umbrella header and binary are checked independently below.
+find "${XCFRAMEWORK_DIR}" -type f \( -name 'RTCCameraVideoCapturer.h' -o -name 'RTCCameraPreviewView.h' -o -name 'AVCaptureSession+DevicePosition.h' \) -delete
 
 "${REPOSITORY_ROOT}/scripts/BuildWebRTC/verify-webrtc-xcframework.sh" "${XCFRAMEWORK_DIR}"
 
