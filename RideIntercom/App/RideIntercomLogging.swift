@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Logging
 
@@ -36,6 +37,11 @@ enum AppLoggers {
 extension Logger.Metadata {
     static func event(_ event: String, _ values: Logger.Metadata = [:]) -> Logger.Metadata {
         var metadata = values
+        for key in ["peerID", "groupID"] {
+            guard let value = metadata.removeValue(forKey: key) else { continue }
+            let digest = SHA256.hash(data: Data(value.description.utf8))
+            metadata[key + "Hash"] = .string(digest.prefix(12).map { String(format: "%02x", $0) }.joined())
+        }
         metadata["event"] = "\(event)"
         return metadata
     }
