@@ -1,6 +1,8 @@
+import { TurnCredentials, stun } from './TurnCredentials'
 import { Env, Member, dataDescription, json, limit, readJSON, sfu } from './types'
 export class SignalingRoom {
-    constructor(private state: DurableObjectState, private env: Env) {}
+    private turn: TurnCredentials
+    constructor(private state: DurableObjectState, private env: Env) { this.turn = new TurnCredentials(state.storage, env) }
     private usage(path: string, body: unknown) {
         return this.env.USAGE_GUARD.get(this.env.USAGE_GUARD.idFromName('global')).fetch(new Request(`https://internal/${path}`, { method: 'POST', body: JSON.stringify(body) }))
     }
@@ -15,12 +17,43 @@ export class SignalingRoom {
     private async handle(request: Request): Promise<Response> {
         const url = new URL(request.url), owner = request.headers.get('X-Owner')!
         const members = await this.members()
+        const iceMatch = url.pathname.match(/\/ice\/([a-zA-Z0-9_-]{1,80})$/)
+        if (iceMatch) {
+            const peer = iceMatch[1], b = await readJSON(request)
+            if (typeof b.leaseID !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(b.leaseID)) return json({ error: 'Invalid ICE lease' }, 400)
+            const current = await this.turn.get(peer)
+            if (current && current.owner !== owner) return json({ error: 'Forbidden' }, 403)
+            if (current && current.leaseID !== b.leaseID) return json({ error: 'ICE lease changed' }, 409)
+            if (request.method === 'DELETE') {
+                if (members.some(m => m.id === peer)) return json({ error: 'Session owns ICE lease' }, 409)
+                if (current) {
+                    try { await this.turn.remove(current); await this.usage('release', { id: `${this.state.id}:${peer}` }) }
+                    finally { await this.scheduleExpiry() }
+                }
+                await this.scheduleExpiry(); return json({})
+            }
+            if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+            if (!this.turn.enabled) return json({ iceServers: stun })
+            if (!this.turn.configured) return json({ error: 'TURN is not configured' }, 503)
+            if (members.some(m => m.id === peer)) return json({ error: 'Participant already connected' }, 409)
+            const pending = await this.turn.all()
+            if (!current && new Set([...members.map(m => m.id), ...pending.map(m => m.peer)]).size >= limit(this.env.MAX_ROOM_PARTICIPANTS, 8, 8)) return json({ error: 'Room is full' }, 429)
+            const reservation = await this.usage('reserve', { id: `${this.state.id}:${peer}`, owner })
+            if (!reservation.ok) return reservation
+            const { expiresAt } = await reservation.json() as { expiresAt: number }
+            try { return json({ iceServers: await this.turn.issue(peer, owner, b.leaseID, expiresAt) }) }
+            finally { await this.scheduleExpiry() }
+        }
         if (url.pathname.endsWith('/join') && request.method === 'POST') {
             const b = await readJSON(request)
             if (!/^[a-zA-Z0-9_-]{1,80}$/.test(b.participantId ?? '') || typeof b.displayName !== 'string' || b.displayName.length > 80
                 || !dataDescription(b.offer, 'offer') || b.offer.sdp.split(/\r?\n/).filter((l: string) => l.startsWith('m=')).length !== 1) return json({ error: 'One SCTP application section is required' }, 400)
             if (members.some(m => m.id === b.participantId)) return json({ error: 'Participant already connected' }, 409)
             if (members.length >= limit(this.env.MAX_ROOM_PARTICIPANTS, 8, 8)) return json({ error: 'Room is full' }, 429)
+            if (this.turn.enabled) {
+                const ice = await this.turn.get(b.participantId)
+                if (!ice || ice.owner !== owner || ice.leaseID !== b.iceLeaseID || ice.expiresAt <= Date.now() || !ice.servers.length) return json({ error: 'Valid ICE lease required' }, 403)
+            }
             const leaseID = `${this.state.id}:${b.participantId}`
             const reservation = await this.usage('reserve', { id: leaseID, owner })
             if (!reservation.ok) return reservation
@@ -52,7 +85,12 @@ export class SignalingRoom {
         if (member.owner !== owner) return json({ error: 'Forbidden' }, 403)
         if (member.expiresAt <= Date.now()) return json({ error: 'Lease expired' }, 410)
         const action = match?.[2]
-        if (!action && request.method === 'DELETE') { await this.close(member); await this.broadcastPeers(); return json({}) }
+        if (!action && request.method === 'DELETE') {
+            member.expiresAt = 0
+            await this.state.storage.put(`member:${member.sessionId}`, member)
+            await this.state.storage.setAlarm(Date.now() + 1000)
+            await this.close(member); await this.broadcastPeers(); await this.scheduleExpiry(); return json({})
+        }
         if (action === 'signal' && request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
             if (this.state.getWebSockets(member.sessionId).length) return json({ error: 'Signaling already connected' }, 409)
             const pair = new WebSocketPair(); this.state.acceptWebSocket(pair[1], [member.sessionId])
@@ -63,7 +101,10 @@ export class SignalingRoom {
             const r = await this.usage('reserve', { id: `${this.state.id}:${member.id}`, owner })
             if (!r.ok) return r
             member.expiresAt = (await r.json() as { expiresAt: number }).expiresAt
-            await this.state.storage.put(`member:${member.sessionId}`, member); await this.scheduleExpiry(); return json(this.lease(member))
+            await this.state.storage.put(`member:${member.sessionId}`, member); await this.scheduleExpiry()
+            const ice = await this.turn.get(member.id)
+            const iceServers = ice ? await this.turn.issue(member.id, owner, ice.leaseID, member.expiresAt) : undefined
+            return json({ ...this.lease(member), ...(iceServers ? { iceServers } : {}) })
         }
         if (action === 'publish' && request.method === 'POST') {
             if (!member.publishers) {
@@ -139,6 +180,8 @@ export class SignalingRoom {
             // cleanup record until the provider confirms the session is gone.
             if (member.allocationPending) throw new Error('pending-allocation')
         } catch (e) { if (!(e instanceof Error && e.message === 'session-gone')) throw e }
+        const ice = await this.turn.get(member.id)
+        if (ice) await this.turn.remove(ice)
         await this.state.storage.delete(`member:${member.sessionId}`)
         await this.usage('release', { id: `${this.state.id}:${member.id}` })
         for (const ws of this.state.getWebSockets(member.sessionId)) { try { ws.close(1000, 'Session ended') } catch { /* closed */ } }
@@ -169,7 +212,9 @@ export class SignalingRoom {
     }
     private async scheduleExpiry() {
         const members = await this.members()
-        if (members.length) await this.state.storage.setAlarm(Math.max(Date.now() + 1000, Math.min(...members.map(m => m.expiresAt))))
+        const ice = await this.turn.all()
+        const deadlines = [...members.map(m => m.expiresAt), ...ice.map(m => m.expiresAt)]
+        if (deadlines.length) await this.state.storage.setAlarm(Math.max(Date.now() + 1000, Math.min(...deadlines)))
         else await this.state.storage.deleteAlarm()
     }
     async alarm(): Promise<void> {
@@ -180,9 +225,15 @@ export class SignalingRoom {
         await Promise.all(expired.map(async m => {
             try { await this.close(m) } catch { /* Keep cleanup record and retry. */ }
         }))
+        const active = new Set((await this.members()).map(m => m.id))
+        for (const ice of await this.turn.all()) {
+            if (!active.has(ice.peer) && (ice.expiresAt <= Date.now() || this.env.SERVICE_ENABLED !== 'true')) {
+                try { await this.turn.remove(ice); await this.usage('release', { id: `${this.state.id}:${ice.peer}` }) } catch { /* Retain for retry/TTL expiry. */ }
+            }
+        }
         await this.broadcastPeers()
         const remaining = await this.members()
-        if (remaining.some(m => m.expiresAt <= Date.now())) await this.state.storage.setAlarm(Date.now() + 30000)
+        if (remaining.some(m => m.expiresAt <= Date.now()) || (await this.turn.all()).some(m => m.expiresAt <= Date.now())) await this.state.storage.setAlarm(Date.now() + 30000)
         else await this.scheduleExpiry()
         })
     }

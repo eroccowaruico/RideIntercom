@@ -117,6 +117,9 @@ npx wrangler secret put CLIENT_TOKENS_JSON < .trial-credentials/client-tokens.js
 | MAX_ACTIVE_SESSIONS | 32 | 全部屋共通、maximum512 |
 | MONTHLY_PARTICIPANT_SECONDS | 1,000,000 | UTC月でリセット。失敗/早期切断の予約も返金しない |
 | LEASE_SECONDS | 600 | maximum3600。短すぎる値はHTTP回数と障害感度を増やす |
+| TURN_ENABLED | false | trueならSDP生成前にTURN資格を発行。未設定の長期秘密がある場合503で止め、STUNへの暗黙fallbackで成功を装わない |
+| CLOUDFLARE_TURN_KEY_ID | secret未設定 | Realtime TURNのkey ID。SFU App IDとは別 |
+| CLOUDFLARE_TURN_API_TOKEN | secret未設定 | TURN資格発行・失効用の長期token。端末へ渡さない |
 
 ```sh
 # server/ で設定をレビューした後だけ実行。
@@ -146,7 +149,7 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | 項目 | 状態 |
 |---|---|
 | SFU HTTP契約・所有者・quota・WS sender・expiry alarm | workerd内でproviderを代替した自動テスト。実Cloudflareで未確認 |
-| TURN credential | 今回のnative構成はSTUN + SFU直接接続。TURN発行・更新・失効は未接続。UDP制限環境の成功を保証しない |
+| TURN credential | 短期資格の発行・更新・失効を実装しローカル契約試験済み。TURN_ENABLEDとWorker秘密設定が必要。制限回線・実Cloudflareでの更新継続は未確認 |
 | 大量のpeer入退室 | SDPはSCTP 1 section。離脱peerのchannelをcloseして新しい購読を確保。10回の入替とSwiftクライアント再参加を自動検証。実SFUは未確認 |
 | 音声効果・peer個別音量 | Local/Internetとも共通Codec/Mixerを使う契約へ変更。App追従と実機の音質確認を分ける |
 | 公開identity | 個別端末registryは招待制試用向け（約4.5KiBまで）。公開登録/自動発行/失効を行うidentity backendは未実装。SFU transportとgroup招待形式を作り直さず入口認証を拡張する |
@@ -195,3 +198,29 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 | override除去条件 | 安定版Miniflareが修正版を宣言したら通常依存へ戻し、同じWorker/ペア試験を通す |
 
 例: [undici advisory](https://github.com/advisories/GHSA-w293-vg96-wgc3)、[sharp advisory](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)。これらはローカル開発・検証ツールの依存であり、Worker bundleへそのまま配布するものではない。
+
+## TURN資格の準備と運用
+
+アカウント用意後、Cloudflare RealtimeでTURN keyを作り、serverディレクトリで次を対話入力する。`TURN_ENABLED = "true"`へ変更して設定をレビュー後にdeployする。この作業では実サービスに接続・deployしていない。
+
+```sh
+npx wrangler secret put CLOUDFLARE_TURN_KEY_ID
+npx wrangler secret put CLOUDFLARE_TURN_API_TOKEN
+```
+
+[公式の資格生成・失効・setConfiguration更新](https://developers.cloudflare.com/realtime/turn/generate-credentials/)を使用する。SFU App SecretとTURN API tokenは別の秘密で、端末には短期iceServersだけ返す。
+
+| API / 条件 | 挙動 |
+|---|---|
+| POST R/ice/{participantId} | bodyのleaseIDは接続試行ID。端末認証・room capacity・全体利用枠を確認してから資格を発行。所有者と試行IDが同じ再試行は既存の有効資格を返す |
+| TURN無効 | STUNのみ返す。TURN用の追加予約・発行はしない |
+| POST R/join | TURN有効なら同じ所有者・participant・iceLeaseIDの有効な事前資格が必要。事前予約とSFU予約は同じ利用枠IDを使用 |
+| POST R/sessions/{id}/renew | 同じSFU sessionを延長し、更新したiceServersを返す。Appから手動再接続を要求しない |
+| DELETE R/ice/{participantId} | SFU未成立の試行だけ回収。leaseID不一致は409。古いcallbackが新資格を失効できない |
+| DELETE session / expiry | SFU channel回収と短期資格失効。失効が失敗すれば記録を保持してalarmで再試行 |
+| 途中離脱 | SFU未成立でもalarmで資格の期限を回収。既発行資格は自身のTTLでも制限される |
+| 更新時の旧資格 | 新資格が端末に届く前に旧資格を即失効しない。旧資格の期限まで保持し、切断時は未期限切れの全資格を失効 |
+| TTL | 利用枠の有効期限までを秒へ切り上げ、最大7200秒。最大3600秒のleaseの前倒し更新を含む。通常既定は初回600秒程度 |
+| 秘密の保存 | 短期資格をroom DOへ保存。no-store応答で返し、ログ・runtime reportへ含めない。取得・失効の長期秘密はWorkerのみ |
+
+TURN資格は受け取った端末から別用途へ持ち出され得る。参加者秒・発行制限は実wire byteの厳密な請求上限ではない。公開時のabuse監視・実請求監視と制限回線での長時間試験は引き続き必要。失効APIの成功から実際の転送停止までの時間も実サービスで確認する。

@@ -22,7 +22,7 @@ export default {
         if (url.pathname === '/api/status' && request.method === 'GET') {
             return env.USAGE_GUARD.get(env.USAGE_GUARD.idFromName('global')).fetch(new Request('https://internal/status'))
         }
-        const match = url.pathname.match(/^\/api\/rooms\/([a-f0-9]{64})\/(join|sessions\/[^/]+(?:\/(?:pull|publish|renew|signal))?)$/)
+        const match = url.pathname.match(/^\/api\/rooms\/([a-f0-9]{64})\/(ice\/[a-zA-Z0-9_-]{1,80}|join|sessions\/[^/]+(?:\/(?:pull|publish|renew|signal))?)$/)
         if (!match) return json({ error: 'Invalid route or room capability' }, 400)
         return env.SIGNALING_ROOM.get(env.SIGNALING_ROOM.idFromName(match[1])).fetch(new Request(request, { headers }))
     }

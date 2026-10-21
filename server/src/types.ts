@@ -3,6 +3,9 @@ export interface Env {
     USAGE_GUARD: DurableObjectNamespace
     CLOUDFLARE_SFU_APP_ID: string
     CLOUDFLARE_SFU_APP_SECRET: string
+    TURN_ENABLED?: string
+    CLOUDFLARE_TURN_KEY_ID?: string
+    CLOUDFLARE_TURN_API_TOKEN?: string
     CLIENT_TOKENS_JSON: string
     SERVICE_ENABLED: string
     MAX_ROOM_PARTICIPANTS: string

@@ -16,11 +16,17 @@ export async function makeRuntime(overrides = {}) {
         outboundService: async request => {
             const text = await request.text();
             provider.requests.push({ url: request.url, method: request.method, body: text ? JSON.parse(text) : undefined });
-            assert.equal(request.headers.get('Authorization'), 'Bearer test-secret');
+            const isTurn = request.url.includes('/turn/keys/')
+            assert.equal(request.headers.get('Authorization'), isTurn ? 'Bearer test-turn-secret' : 'Bearer test-secret');
             const url = new URL(request.url);
             assert.equal(url.hostname, 'rtc.live.cloudflare.com');
             if (provider.upstreamGone) return Response.json({}, { status: 410 });
             if (provider.upstreamFails) return Response.json({ errorCode: 'failure' }, { status: 503 });
+            if (url.pathname.endsWith('/generate-ice-servers')) return Response.json({ iceServers: [
+                { urls: ['stun:stun.cloudflare.com:3478'] },
+                { urls: ['turn:turn.cloudflare.com:3478?transport=udp', 'turns:turn.cloudflare.com:443?transport=tcp'], username: `turn-user-${++provider.serial}`, credential: 'ephemeral-credential' }
+            ] }, { status: 201 });
+            if (url.pathname.endsWith('/revoke')) return provider.revokeFails ? Response.json({}, { status: 503 }) : new Response(null, { status: 204 });
             if (url.pathname.endsWith('/sessions/new')) return Response.json({ sessionId: `sfu-${++provider.serial}` }, { status: 201 });
             if (url.pathname.endsWith('/datachannels/establish')) return Response.json({ sessionDescription: { type: 'answer', sdp: 'mock-sfu-sdp' }, dataChannel: { id: 0 } });
             if (url.pathname.endsWith('/datachannels/new')) return Response.json({ dataChannels: provider.requests.at(-1).body.dataChannels.map(c => ({ ...c, id: ++provider.serial })) });
