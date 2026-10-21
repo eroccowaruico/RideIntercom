@@ -108,7 +108,7 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | 状態 | 操作 / 表示 |
 |---|---|
 | Local / 停止中 | packageのcodec、VAD、effect、volumeを設定可能 |
-| Internet native | codec/VAD欄を経路説明へ置換。Session/Device欄は無効化。OS側のrouting/volumeを使う。保存したLocal設定は保持 |
+| Internet / 混在 | Localと同じCodec / VAD / effects / device設定を使う。Internet OFFでも近くの参加者が中継できることと電池・通信量を説明 |
 | Audio Check | 通話接続中・接続開始中は開始不可。録音/再生中は `stopAudioCheckButton` で停止可能 |
 | 通話への移行 | Connect開始時にAudio Checkを停止。古い完了処理は通話を停止しない |
 | 資格保存 | ViewModelが入力検証・Keychain保存・切断・RTC設定適用を担当。Viewは入力と表示だけ |

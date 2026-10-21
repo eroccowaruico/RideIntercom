@@ -177,7 +177,7 @@ AudioMixer package は UI 描画用の専用 DTO ではなく、現在の信号�
 | Check Internet Service | `checkInternetService` | RTCのcheckServiceを呼ぶ。資格がない場合と確認中はdisabled。SFU媒体を作らない |
 | 認証成功後 | active session数、予約参加者秒/月枠、対象月 | Workerの設定と端末認証の確認。SFU App Secretの正当性や音声成功とは別 |
 | Local packet音声 | 既存TX/RX pipeline | 実際のMixer/codecのruntime reportを表示 |
-| Internet native音声 | TX/RX packet pipelineを非表示 | Appのゼロpacket値を品質指標として表示しない。native levelの未提供を明記 |
+| 全経路の音声 | Shared packet audio / TX/RX pipeline | 実際のPCM・packet・effect reportを表示。Internet失敗詳細をNetworkへ表示し、未提供のRTT/lossは未測定とする |
 | Network | 測定値が全てnilならneutral | 不明をloss 0%や正常と扱わない |
 
 Audio CheckはSettingsに置く。端末内の録音再生、サービス認証、ペアの媒体、実機の音響品質を別の確認として扱う。

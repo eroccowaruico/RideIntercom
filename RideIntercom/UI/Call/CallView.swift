@@ -9,6 +9,25 @@ struct CallView: View {
             VStack(alignment: .leading, spacing: AppSpacing.screen) {
                 statusHeader
                 controls
+                if viewModel.selectedGroup?.id == viewModel.activeGroupID {
+                    if let notice = viewModel.connectivityNotice {
+                        Label(notice, systemImage: "network")
+                            .accessibilityIdentifier("connectivityNotice")
+                    }
+                    if let notice = viewModel.audioRouteNotice {
+                        Label(notice, systemImage: "headphones")
+                            .accessibilityIdentifier("audioRouteNotice")
+                    }
+                    if viewModel.isAudioPausedForDeviceChange {
+                        Button("Resume Audio", systemImage: "play.fill") {
+                            viewModel.resumeAudioAfterDeviceChange()
+                        }
+                        .controlSize(.large)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.authenticatedPeerIDs.isEmpty)
+                        .accessibilityIdentifier("resumeAudioButton")
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: AppSpacing.l) {
                     Text("Participants")

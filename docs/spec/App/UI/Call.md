@@ -95,13 +95,14 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 
 SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操作を表示する。通話開始時に実Mixerへノードを接続し、設定変更は実Audio Unitのbypassへ反映する。停止中は要求設定だけ保持し、稼働中とは表示しない。非対応環境では操作を表示せずsupport reportで区別する。
 
-## Internet nativeの表示
+## 混在通話・機器切断の表示
 
 | 項目 | 仕様 |
 |---|---|
-| 接続状態 | RTCの状態を保持し、mediaReady前はConnecting Audio/Audio Idle、mediaReady後はAudio Active |
-| マイク | Muted/Unmutedは操作状態。Unmutedを音声到達の証明にしない |
-| nativeメーター | 未提供と表示。Local packet meterの0を流用しない |
-| master音量 | native時はSystem volume。App gain sliderを表示しない。出力muteは有効 |
-| peer音量/Voice Isolation | native時は操作を表示せず、Local Networkで提供する旨を表示 |
-| 切断 | native所有権とRTC表示状態を初期化し、Local用設定操作へ戻す |
+| 経路 | availableRoutesからLocal / Internet / Local + Internetを表示。Localだけでも他者経由の中継が可能 |
+| 音声操作 | 全production routeで共通のmeter・effect・master/peer音量・muteを使用 |
+| Internet失敗 | `connectivityNotice`。到達可能な参加者との接続を維持して再試行する旨を表示 |
+| 機器消失 | `audioRouteNotice`とConnected / Audio Paused。理由と接続・中継の維持を明示 |
+| 再開 | `resumeAudioButton`。標準Button、文字ラベルとSF Symbolを併用。認証済みpeerなしでは無効 |
+| 別グループ閲覧 | activeGroup用の機器・経路通知を別groupの状態として表示しない |
+| 到達確認 | 接続状態・mute解除は相手に聞こえた証明ではない。実音声の受け入れを別途行う |

@@ -76,6 +76,7 @@ enum TransportEvent: Equatable {
     case audioOwnershipChanged
     case rtcStateChanged(RTC.CallConnectionState)
     case serviceError(String)
+    case routesChanged(RTC.ActiveRouteSnapshot)
 }
 
 protocol CallSession: AnyObject {
@@ -298,12 +299,9 @@ final class RideIntercomCallSessionAdapter: CallSession {
         case .stateChanged(let state):
             handleRTCStateChanged(state)
         case .routeChanged(let snapshot):
-            let nativeAudio = (snapshot.mediaRoute ?? snapshot.activeRoute) == .webRTC
-            if nativeAudio != usesRouteManagedAudio {
-                usesRouteManagedAudio = nativeAudio
-                onEvent?(.audioOwnershipChanged)
-            }
+            // All production routes carry the same App-owned encoded audio pipeline.
             activeRouteDebugTypeName = Self.routeDebugName(snapshot.activeRoute ?? snapshot.mediaRoute)
+            onEvent?(.routesChanged(snapshot))
         case .routeAvailabilityChanged:
             break
         case .membersChanged(let members):
@@ -465,9 +463,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
         return RTC.CallRouteConfiguration(
             enabledRoutes: enabledRoutes,
-            preferredRoute: preferredRoute,
-            keepsPreferredRouteInStandby: false,
-            keepsFallbackRouteWarm: false
+            preferredRoute: preferredRoute
         )
     }
 

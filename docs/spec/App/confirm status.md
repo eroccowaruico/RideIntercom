@@ -18,7 +18,7 @@
 
 ## 音声経路による違い
 
-DiagnosticsのAudio Pathを先に確認する。以下のPCM meter・effect chain・peer音量・TX/RX pipelineはLocal packet audio用。Internet native Opusでは未計測/未対応であることを表示し、正常値として扱わない。Internet Serviceのチェックは設定と認証だけを確認し、実媒体の成功を示さない。
+DiagnosticsのAudio Pathを先に確認する。PCM meter・effect chain・peer音量・TX/RX pipelineはLocal / Internet共通のpacket audioを対象とする。未提供のRTT/lossは正常値として扱わない。Internet Serviceのチェックは設定と認証だけを確認し、実媒体の成功を示さない。
 
 ## Call 画面で確認する状態
 

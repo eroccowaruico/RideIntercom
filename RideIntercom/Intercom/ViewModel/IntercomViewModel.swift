@@ -50,6 +50,11 @@ final class IntercomViewModel {
     var isVoiceActive = false
     var isAudioReady = false
     var audioErrorMessage: String?
+    var isAudioPausedForDeviceChange = false
+    var audioRouteNotice: String?
+    var connectivityNotice: String?
+    var internetFailureDetail: String?
+    var availableCallRoutes: Set<RTC.RouteKind> = []
     var selectedInputPort: AudioPortInfo = .systemDefault
     var selectedOutputPort: AudioPortInfo = .systemDefault
     var audioSessionProfile = IntercomViewModel.defaultAudioSessionProfile

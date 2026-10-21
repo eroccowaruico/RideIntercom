@@ -1089,7 +1089,7 @@ struct RideIntercomTests {
         harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
         harness.callSession.authenticate(["member-108"])
         await Self.waitUntil { harness.viewModel.isAudioReady }
-        harness.viewModel.refreshOutputRendererIfNeeded()
+        harness.viewModel.refreshAudioDevicesIfNeeded()
         #expect(harness.outputBackend.startCount == 0)
         #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
         harness.viewModel.disconnect()
@@ -1130,6 +1130,126 @@ struct RideIntercomTests {
         harness.viewModel.handleTransportEvent(.rtcStateChanged(.mediaReady))
         #expect(harness.viewModel.connectionLabel == "Internet / Audio Active")
         #expect(harness.viewModel.diagnosticsOverviewRows.first?.summary == "Internet native Opus")
+    }
+
+    @Test func deviceLossPausesOwnAudioButPreservesGroupAndDoesNotAutoResume() async {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        let disconnects = h.callSession.disconnectCallCount
+        h.viewModel.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(
+            reason: .routeChanged(.oldDeviceUnavailable), snapshot: h.audioSessionBackend.current)))
+        #expect(!h.viewModel.isAudioReady)
+        #expect(h.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        #expect(h.callSession.disconnectCallCount == disconnects)
+        #expect(h.viewModel.authenticatedPeerIDs == ["member-108"])
+        h.viewModel.handleTransportEvent(.authenticated(peerIDs: ["member-108"]))
+        #expect(!h.viewModel.isAudioReady)
+        h.viewModel.disconnect()
+    }
+
+    @Test func outputRestartFailureReleasesInputAndAllowsRetry() async {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        h.outputBackend.startError = AudioStreamError.engineOperationFailed("removed")
+        h.viewModel.refreshAudioDevicesIfNeeded()
+        #expect(!h.viewModel.isAudioReady)
+        #expect(h.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        #expect(h.inputBackend.stopCount > 0)
+        #expect(h.viewModel.audioErrorMessage != nil)
+        h.outputBackend.startError = nil
+        #expect(h.viewModel.startAudioPipelineIfNeeded())
+        h.viewModel.disconnect()
+    }
+
+    @Test func internetFailureDoesNotMisreportHealthyLocalAudio() async {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        h.viewModel.handleTransportEvent(.serviceError("quota"))
+        #expect(h.viewModel.isAudioReady)
+        #expect(h.viewModel.audioErrorMessage == nil)
+        h.viewModel.disconnect()
+    }
+
+    @Test func mixedRoutesKeepEffectsAndPacketAudioOwnership() async {
+        let rtc = FakeRTCCallSession()
+        let adapter = RideIntercomCallSessionAdapter(rtcSession: rtc)
+        await Self.waitUntil { rtc.hasSubscriber }
+        rtc.emit(.routeChanged(.init(activeRoute: .webRTC, mediaRoute: .webRTC,
+            availableRoutes: [.webRTC, .multipeer], isHandoverInProgress: false)))
+        await Self.waitUntil { adapter.activeRouteDebugTypeName.contains("WebRTC") }
+        #expect(!adapter.usesRouteManagedAudio)
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        let starts = h.inputBackend.startCount
+        h.viewModel.handleTransportEvent(.routesChanged(.init(activeRoute: .webRTC, mediaRoute: .webRTC,
+            availableRoutes: [.webRTC, .multipeer], isHandoverInProgress: false)))
+        #expect(h.viewModel.routeLabel == "Local + Internet / Relay")
+        #expect(h.viewModel.supportsPacketAudioControls)
+        #expect(h.inputBackend.startCount == starts)
+        h.viewModel.handleTransportEvent(.routesChanged(.init(activeRoute: .multipeer, mediaRoute: .multipeer,
+            availableRoutes: [.multipeer], isHandoverInProgress: false)))
+        #expect(h.viewModel.isAudioReady)
+        #expect(h.inputBackend.startCount == starts)
+        h.viewModel.handleTransportEvent(.routesChanged(.init(activeRoute: .webRTC, mediaRoute: .webRTC,
+            availableRoutes: [.webRTC], isHandoverInProgress: false)))
+        #expect(h.viewModel.connectionState == .internetConnected)
+        #expect(h.viewModel.callPresenceLabel == CallConnectionState.internetConnected.label)
+        #expect(h.viewModel.routeLabel == "Internet")
+        #expect(h.inputBackend.startCount == starts)
+        h.viewModel.disconnect()
+    }
+
+    @Test func deviceResumeRetriesFailureAndPreservesMuteIntent() async {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        h.viewModel.toggleMute()
+        h.viewModel.toggleOutputMute()
+        h.viewModel.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(
+            reason: .routeChanged(.oldDeviceUnavailable), snapshot: h.audioSessionBackend.current)))
+        #expect(h.viewModel.isAudioPausedForDeviceChange)
+        #expect(h.viewModel.callPresenceLabel == "Connected / Audio Paused")
+        h.inputBackend.startError = AudioStreamError.engineOperationFailed("missing")
+        h.viewModel.resumeAudioAfterDeviceChange()
+        #expect(h.viewModel.isAudioPausedForDeviceChange)
+        #expect(!h.viewModel.isAudioReady)
+        h.inputBackend.startError = nil
+        h.viewModel.resumeAudioAfterDeviceChange()
+        #expect(h.viewModel.isAudioReady)
+        #expect(!h.viewModel.isAudioPausedForDeviceChange)
+        #expect(h.viewModel.isMuted && h.viewModel.isOutputMuted)
+        #expect(h.viewModel.audioRouteNotice == nil)
+        h.viewModel.disconnect()
+        #expect(h.viewModel.availableCallRoutes.isEmpty)
+    }
+
+    @Test func actualDefaultDeviceChangeRestartsBothStreamsAndInterruptsAudioCheck() async {
+        let h = Self.makeHarness()
+        h.viewModel.startAudioCheck()
+        h.viewModel.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(
+            reason: .routeChanged(.oldDeviceUnavailable), snapshot: h.audioSessionBackend.current)))
+        #expect(h.viewModel.audioCheckPhase == .idle)
+        #expect(!h.viewModel.audioCheckOwnsAudioPipeline)
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        let starts = h.inputBackend.startCount
+        var snapshot = h.audioSessionBackend.current
+        snapshot.currentOutput = .builtInSpeaker
+        h.viewModel.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(
+            reason: .defaultOutputChanged, snapshot: snapshot)))
+        #expect(h.viewModel.isAudioReady)
+        #expect(h.inputBackend.startCount == starts + 1)
+        h.viewModel.disconnect()
     }
 
     private struct Harness {

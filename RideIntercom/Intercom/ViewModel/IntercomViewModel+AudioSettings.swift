@@ -60,10 +60,10 @@ extension IntercomViewModel {
         }
         saveAppSettings()
         guard configureAudioSession(active: isAudioReady) else { return }
-        if selectedOutputPort != previousOutputPort {
-            refreshOutputRendererIfNeeded()
-        }
         audioErrorMessage = nil
+        if selectedOutputPort != previousOutputPort {
+            refreshAudioDevicesIfNeeded()
+        }
         AppLoggers.settings.info(
             "settings.audio_session.changed",
             metadata: .event("settings.audio_session.changed", [
@@ -81,10 +81,10 @@ extension IntercomViewModel {
         selectedOutputPort = enabled ? .speaker : .systemDefault
         saveAppSettings()
         guard configureAudioSession(active: isAudioReady) else { return }
-        if selectedOutputPort != previousOutputPort {
-            refreshOutputRendererIfNeeded()
-        }
         audioErrorMessage = nil
+        if selectedOutputPort != previousOutputPort {
+            refreshAudioDevicesIfNeeded()
+        }
         AppLoggers.settings.info(
             "settings.audio_speaker.changed",
             metadata: .event("settings.audio_speaker.changed", [
@@ -327,9 +327,11 @@ extension IntercomViewModel {
     }
 
     func setInputPort(_ port: AudioPortInfo) {
+        let previousInputPort = selectedInputPort
         selectedInputPort = port
         guard configureAudioSession(active: isAudioReady) else { return }
         audioErrorMessage = nil
+        if selectedInputPort != previousInputPort { refreshAudioDevicesIfNeeded() }
         AppLoggers.settings.info(
             "settings.audio_device.changed",
             metadata: .event("settings.audio_device.changed", [
@@ -343,10 +345,10 @@ extension IntercomViewModel {
         let previousOutputPort = selectedOutputPort
         selectedOutputPort = port
         guard configureAudioSession(active: isAudioReady) else { return }
-        if selectedOutputPort != previousOutputPort {
-            refreshOutputRendererIfNeeded()
-        }
         audioErrorMessage = nil
+        if selectedOutputPort != previousOutputPort {
+            refreshAudioDevicesIfNeeded()
+        }
         AppLoggers.settings.info(
             "settings.audio_device.changed",
             metadata: .event("settings.audio_device.changed", [

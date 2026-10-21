@@ -49,8 +49,20 @@ extension IntercomViewModel {
         case .audioOwnershipChanged:
             if isAudioReady { stopAudioPipeline() }
             startActiveCallAfterAuthenticatedPeer()
+        case .routesChanged(let snapshot):
+            availableCallRoutes = snapshot.availableRoutes
+            if !isLocalStandbyOnly, !authenticatedPeerIDs.isEmpty {
+                connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
+            } else if connectionState == .localConnecting || connectionState == .internetConnecting {
+                connectionState = isInternetOnlyCall ? .internetConnecting : .localConnecting
+            }
+            if snapshot.availableRoutes.contains(.webRTC) {
+                connectivityNotice = nil
+                internetFailureDetail = nil
+            }
         case .serviceError(let reason):
-            audioErrorMessage = "Internet connection failed: \(reason)"
+            internetFailureDetail = reason
+            connectivityNotice = "Internet is unavailable. Retrying automatically; reachable riders stay connected."
         case .localNetworkStatus(let event):
             localNetworkStatus = event.status
             lastLocalNetworkPeerID = event.peerID
@@ -59,7 +71,7 @@ extension IntercomViewModel {
             AppLoggers.rtc.info(
                 "rtc.connection.started",
                 metadata: .event("rtc.connection.started", [
-                    "route": "local",
+                    "route": "\(routeLabel)",
                     "peerCount": "\(peerIDs.count)"
                 ])
             )
@@ -71,7 +83,7 @@ extension IntercomViewModel {
             if isLocalStandbyOnly {
                 connectionState = .idle
             } else {
-                connectionState = callSession.usesRouteManagedAudio
+                connectionState = isInternetOnlyCall
                     ? (peerIDs.isEmpty ? .internetConnecting : .internetConnected)
                     : (peerIDs.isEmpty ? .localConnecting : .localConnected)
             }
@@ -83,7 +95,7 @@ extension IntercomViewModel {
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()
             addDiscoveredMembersIfNeeded(peerIDs: authenticatedPeerIDs)
             if !isLocalStandbyOnly {
-                connectionState = callSession.usesRouteManagedAudio ? .internetConnected : .localConnected
+                connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
             }
             markConnectedMembers(peerIDs: connectedPeerIDs)
             startActiveCallAfterAuthenticatedPeer()

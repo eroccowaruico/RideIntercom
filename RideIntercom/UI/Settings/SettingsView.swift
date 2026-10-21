@@ -71,9 +71,8 @@ struct CommunicationPanel: View {
         } header: {
             Label("Communication", systemImage: "network")
         } footer: {
-            Text("At least one route stays enabled. Changing routes stops the active RTC connection.")
+            Text("Internet controls this device’s service connection. Nearby riders can relay calls for riders with Internet off. Relay uses battery and data. Changing these settings ends the current connection; connect again to apply them.")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
         }
         .accessibilityIdentifier("communicationPanel")
     }

@@ -14,7 +14,7 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 
 | 状態 | 内容 |
 |---|---|
-| RTC / native media | 音声level・RTT/loss等のruntime report、peer音量・effect用の入出力契約が不足。Appに別capture/renderを足して代用しない |
+| RTC / network diagnostics | DataChannelのRTT/loss/buffered amountとpeer別の直接/中継到達経路をruntime reportへ公開する。Appで推定した品質を正常値にしない |
 | RTC / Worker | 制限回線向けTURN資格の取得・更新・失効が不足。AppへCloudflare秘密を持たせない |
 
 ## 追記ルール
@@ -38,5 +38,4 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 
 | 領域 | 現在の境界 | 後続の要望 / 確認 |
 |---|---|---|
-| native media | RTCがcapture/render/Opusを所有しApp Mixerを通さない | native mediaへeffect・peer音量を適用する契約は未提供。App側の仮処理で適用済みにしない |
 | ネットワーク制約 | STUN + SFU直接接続 | TURN資格の取得・更新・失効をRTC/Workerの責務で扱い、制限回線を検証する |

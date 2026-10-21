@@ -21,8 +21,10 @@ extension IntercomViewModel {
         }
 
         isLocalStandbyOnly = false
-        connectionState = connectedPeerIDs.isEmpty ? .localConnecting : .localConnected
-        markMembers(connectionState == .localConnected ? .connected : .connecting)
+        connectionState = isInternetOnlyCall
+            ? (connectedPeerIDs.isEmpty ? .internetConnecting : .internetConnected)
+            : (connectedPeerIDs.isEmpty ? .localConnecting : .localConnected)
+        markMembers(connectedPeerIDs.isEmpty ? .connecting : .connected)
         let shouldStartOrPromoteLocalConnection =
             authenticatedPeerIDs.isEmpty &&
             connectedPeerIDs.isEmpty &&
@@ -44,10 +46,11 @@ extension IntercomViewModel {
 
     func startActiveCallAfterAuthenticatedPeer() {
         guard !isLocalStandbyOnly,
+              !isAudioPausedForDeviceChange,
               !authenticatedPeerIDs.isEmpty,
               startAudioPipelineIfNeeded() else { return }
 
-        connectionState = callSession.usesRouteManagedAudio ? .internetConnected : .localConnected
+        connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
         markConnectedMembers(peerIDs: connectedPeerIDs)
     }
 
@@ -144,6 +147,11 @@ extension IntercomViewModel {
         callSession.disconnect()
         uiEventRevision += 1
         rtcConnectionState = .idle
+        availableCallRoutes = []
+        connectivityNotice = nil
+        internetFailureDetail = nil
+        audioRouteNotice = nil
+        isAudioPausedForDeviceChange = false
         connectionState = .idle
         isVoiceActive = false
         remoteVoiceReceivedAt.removeAll()

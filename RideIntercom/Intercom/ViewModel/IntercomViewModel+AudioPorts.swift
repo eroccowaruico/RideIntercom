@@ -11,7 +11,28 @@ extension IntercomViewModel {
                 applyAudioSessionSnapshot(snapshot)
             }
         case .snapshotChanged(let change):
+            let previous = audioSessionSnapshot
             applyAudioSessionSnapshot(change.snapshot)
+            let lostInput = previous.availableInputs.contains(previous.currentInput)
+                && !change.snapshot.availableInputs.contains(previous.currentInput)
+            let lostOutput = previous.availableOutputs.contains(previous.currentOutput)
+                && !change.snapshot.availableOutputs.contains(previous.currentOutput)
+            let lostDevice = change.reason == .routeChanged(.oldDeviceUnavailable)
+                || change.reason == .routeChanged(.noSuitableRouteForCategory) || lostInput || lostOutput
+            if lostDevice {
+                if audioCheckPhase == .recording || audioCheckPhase == .playing {
+                    cancelAudioCheck()
+                    audioCheckStatusMessage = "Audio device disconnected. Choose a device and run Audio Check again."
+                }
+                if isAudioReady {
+                    stopAudioPipeline()
+                    isAudioPausedForDeviceChange = true
+                    audioRouteNotice = "Audio device disconnected. Your microphone and playback are paused; the group connection and relay continue. Check your audio device, then resume."
+                }
+            } else if previous.currentInput != change.snapshot.currentInput
+                        || previous.currentOutput != change.snapshot.currentOutput {
+                refreshAudioDevicesIfNeeded()
+            }
             AppLoggers.audio.notice(
                 "audio.session.route_changed",
                 metadata: .event("audio.session.route_changed")
@@ -22,23 +43,31 @@ extension IntercomViewModel {
     }
 
     func applyAudioSessionSnapshot(_ snapshot: SessionManager.AudioSessionSnapshot) {
-        let previousOutputPort = selectedOutputPort
         audioSessionSnapshot = snapshot
         selectedInputPort = normalizedInputPort(selectedInputPort, snapshot: snapshot)
         selectedOutputPort = normalizedOutputPort(selectedOutputPort, snapshot: snapshot)
-        if selectedOutputPort != previousOutputPort {
-            refreshOutputRendererIfNeeded()
+    }
+
+    func refreshAudioDevicesIfNeeded() {
+        guard !callSession.usesRouteManagedAudio else { return }
+        if audioCheckPhase == .recording || audioCheckPhase == .playing {
+            cancelAudioCheck()
+            audioCheckStatusMessage = "Audio device changed. Run Audio Check again."
+        }
+        guard isAudioReady else { return }
+        stopAudioPipeline()
+        if !startAudioPipelineIfNeeded() {
+            isAudioPausedForDeviceChange = true
+            audioRouteNotice = "Audio could not restart on the selected device. The group connection and relay continue. Check your device, then resume."
         }
     }
 
-    func refreshOutputRendererIfNeeded() {
-        guard !callSession.usesRouteManagedAudio else { return }
-        guard isAudioReady || audioCheckPhase == .playing else { return }
-        lastOutputStreamOperationReport = audioOutputRenderer.stop()
-        lastOutputStreamOperationReport = audioOutputRenderer.start()
-        if isAudioReady {
-            _ = rebuildAudioPipeline()
-            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+    func resumeAudioAfterDeviceChange() {
+        guard isAudioPausedForDeviceChange, activeGroupID != nil,
+              !authenticatedPeerIDs.isEmpty else { return }
+        if startAudioPipelineIfNeeded() {
+            isAudioPausedForDeviceChange = false
+            audioRouteNotice = nil
         }
     }
 
