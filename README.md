@@ -2,6 +2,8 @@
 
 ## 開発を始める
 
+継続開発の基準は`main`。常設の`dev`は使わず、[開発方針](docs/policies/開発方針.md)に従って変更と検証をmainへ集約する。
+
 | 開発環境 | このcheckoutで開くファイル | 実行 |
 |---|---|---|
 | Xcode | `RideIntercom.xcodeproj` | 共有scheme `RideIntercom`、My MacまたはiOS Simulator |
