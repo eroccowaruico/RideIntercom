@@ -13,6 +13,7 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
     private let eventStream: AsyncStream<WebRTCEngineEvent>
     private let eventContinuation: AsyncStream<WebRTCEngineEvent>.Continuation
     private var localAudioTrack: RTCAudioTrack?
+    private var outputMuted = false
     private var peerConnections: [PeerID: RTCPeerConnection] = [:]
     private var dataChannels: [PeerID: RTCDataChannel] = [:]
     private var peerIDsByConnection = [ObjectIdentifier: PeerID]()
@@ -22,6 +23,8 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         RTCInitializeSSL()
         self.factory = RTCPeerConnectionFactory()
         self.rtcConfiguration = RTCConfiguration()
+        self.rtcConfiguration.sdpSemantics = .unifiedPlan
+        self.rtcConfiguration.iceServers = [RTCIceServer(urlStrings: ["stun:stun.cloudflare.com:3478"])]
         var continuation: AsyncStream<WebRTCEngineEvent>.Continuation?
         self.eventStream = AsyncStream { continuation = $0 }
         self.eventContinuation = continuation!
@@ -32,6 +35,7 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         RTCInitializeSSL()
         self.factory = RTCPeerConnectionFactory()
         let configuration = RTCConfiguration()
+        configuration.sdpSemantics = .unifiedPlan
         configuration.iceServers = iceServers.map {
             RTCIceServer(urlStrings: $0.urls, username: $0.username, credential: $0.credential)
         }
@@ -62,26 +66,22 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         ) else { return }
 
         if let localAudioTrack {
-            _ = connection.add(localAudioTrack, streamIds: ["rideintercom-audio"])
+            if let sender = connection.add(localAudioTrack, streamIds: ["rideintercom-audio"]) {
+                let parameters = sender.parameters
+                for encoding in parameters.encodings { encoding.maxBitrateBps = 32_000 }
+                sender.parameters = parameters
+            }
         }
 
-        let channelConfiguration = RTCDataChannelConfiguration()
-        channelConfiguration.isOrdered = true
-        let channel = connection.dataChannel(forLabel: "rideintercom.application", configuration: channelConfiguration)
-        channel?.delegate = self
-
+        // Application messages use the authenticated Worker socket; only audio reaches SFU.
         peerConnections[peer.id] = connection
-        if let channel {
-            dataChannels[peer.id] = channel
-            peerIDsByDataChannel[ObjectIdentifier(channel)] = peer.id
-        }
         peerIDsByConnection[ObjectIdentifier(connection)] = peer.id
     }
 
     public override func makeOffer(for peerID: PeerID) async -> WebRTCSessionDescription? {
         guard let connection = peerConnections[peerID] else { return nil }
         guard let sdp = await connection.makeAndSetLocalOfferSDP() else { return nil }
-        return WebRTCSessionDescription(kind: .offer, sdp: sdp)
+        return WebRTCSessionDescription(kind: .offer, sdp: await connection.gatheredSDP(fallback: sdp))
     }
 
     public override func acceptOffer(_ offer: WebRTCSessionDescription, from peerID: PeerID) async -> WebRTCSessionDescription? {
@@ -89,7 +89,7 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
         let remoteDescription = RTCSessionDescription(type: .offer, sdp: offer.sdp)
         guard await connection.rtcSetRemoteDescription(remoteDescription) else { return nil }
         guard let sdp = await connection.makeAndSetLocalAnswerSDP() else { return nil }
-        return WebRTCSessionDescription(kind: .answer, sdp: sdp)
+        return WebRTCSessionDescription(kind: .answer, sdp: await connection.gatheredSDP(fallback: sdp))
     }
 
     public override func acceptAnswer(_ answer: WebRTCSessionDescription, from peerID: PeerID) async {
@@ -108,6 +108,13 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
 
     public override func setLocalAudioEnabled(_ enabled: Bool) async {
         localAudioTrack?.isEnabled = enabled
+    }
+
+    public override func setOutputMuted(_ muted: Bool) async {
+        outputMuted = muted
+        for connection in peerConnections.values {
+            for receiver in connection.receivers { receiver.track?.isEnabled = !muted }
+        }
     }
 
     public override func sendApplicationData(_ message: ApplicationDataMessage) async -> Bool {
@@ -144,11 +151,17 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine {
 
 extension WebRTCNativeEngine: RTCPeerConnectionDelegate {
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
-    public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
+        stream.audioTracks.forEach { $0.isEnabled = !outputMuted }
+    }
     public func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
+    public func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams: [RTCMediaStream]) {
+        rtpReceiver.track?.isEnabled = !outputMuted
+    }
     public func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
 
     public func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
+        guard peerIDsByConnection[ObjectIdentifier(peerConnection)] != nil else { return }
         eventContinuation.yield(.connectionStateChanged(newState.routeState))
     }
 
@@ -181,6 +194,14 @@ extension WebRTCNativeEngine: RTCDataChannelDelegate {
 }
 
 private extension RTCPeerConnection {
+    func gatheredSDP(fallback: String) async -> String {
+        for _ in 0..<100 {
+            if iceGatheringState == .complete || Task.isCancelled { break }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return localDescription?.sdp ?? fallback
+    }
+
     func makeAndSetLocalOfferSDP() async -> String? {
         await withCheckedContinuation { continuation in
             let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)

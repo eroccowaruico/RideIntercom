@@ -37,7 +37,7 @@ flowchart LR
 | 問題 | RTCの解決 | RTC以外の解決 |
 |---|---|---|
 | 近くの端末とinternetなしで接続したい | `MultipeerLocalRoute` がlocal discoveryと`MCSession`を使う | AppはLocal Network/Bonjour権限を用意する |
-| internet越しに接続したい | `WebRTCInternetRoute` がsignaling、SDP、ICE、native WebRTC engineをつなぐ | App/backendはCloudflare Realtime設定とproduction signalingを用意する |
+| internet越しに接続したい | `WebRTCInternetRoute` がsignaling、SDP、ICE、native WebRTC engineをつなぐ | AppはWorker URLと端末資格を設定し、backendはSFU Secretと利用枠を管理する |
 | routeが変わってもApp側の呼び出しを変えたくない | `CallSession` がroute実装を隠し、`CallSessionEvent`で状態を出す | Appはeventを必ず購読してUIと診断へ反映する |
 | sample rate、channel、bit rateが混在する | RTCはmetadataを保持し、format差だけではdropしない | `AudioMixer`がPCM source/sinkで正規化し、`Codec`がpayloadをdecodeする |
 | Appをpackage化したら接続できない | 仕様上の境界をevent、route capability、media ownershipで明示する | Appは旧RTC audio APIを捨て、package接続を作り直す |
@@ -282,90 +282,47 @@ sequenceDiagram
 | codec policy | 送信packet codecが`preferredCodecs`に含まれる | unsupported codec error/drop |
 | background復帰 | App側でconnection lifecycleを再開する | OSがadvertise/browseやsessionを止める場合がある |
 
-## WebRTCの背景
+## WebRTC / Cloudflare SFU契約
 
-| WebRTC概念 | RTCでの実装 | 利用者が知るべきこと |
-|---|---|---|
-| signaling | `WebRTCSignalingClient` | WebRTC仕様外なのでApp/backendが実装または注入する |
-| SDP offer/answer | `WebRTCSessionDescription` | remote peerとmedia/data能力を交換する |
-| ICE candidate | `WebRTCIceCandidate` | NAT/firewall越えの接続候補を交換する |
-| STUN/TURN | `WebRTCIceServer` / Cloudflare TURN | 直接接続できない環境でrelay候補になる |
-| peer connection | `NativeWebRTCEngine.createPeerConnection` | native WebRTC SDKが所有する |
-| local audio track | `NativeWebRTCEngine.prepareLocalAudio` | `startMedia()`までdisabled |
-| DataChannel | `NativeWebRTCEngine.sendApplicationData` | app dataの第一候補 |
-| SFU | Cloudflare Realtime | 複数参加や広域routeの中継基盤 |
+| 責務 | 現行実装 |
+|---|---|
+| 接続先 | `CloudflareRealtimeConfiguration(workerURL:accessToken:)`。WorkerのHTTPS URLと端末別の利用資格。Cloudflare App Secretは渡さない |
+| グループ | `CallStartRequest.credential.groupHash` を推測困難なroom capabilityとして使う。招待由来のcredential必須 |
+| 接続 | 端末ごとにSFU向けPeerConnection一本。音声を一回publishし、同じroomの最大7人をsubscribe |
+| シグナリング | `CloudflareRealtimeSignalingClient` がWorker HTTP/WebSocket契約を実装。参加者同士のoffer交換は行わない |
+| SDP / ICE | Opus音声のみ、Unified Plan、STUN、最大5秒ICE収集したSDPをHTTPで交換 |
+| メディア | native WebRTCがcapture/playbackを所有。`startMedia()`までlocal trackはdisabled。送信maxBitrateは32kbpsを指定 |
+| 制御情報 | 認証済みWebSocketでapplication dataを転送。メディアをWorkerへ流さない |
+| 継続 | Worker leaseの半分の間隔で更新。同じSFU session / PeerConnectionを保持。WebSocket単独の途切れは再接続 |
+| 予算・認証拒否 | 更新拒否でメディアを閉じてfailed。無制限のsession再発行はしない |
+| 停止 | WebSocket・更新task停止、WorkerへDELETE、native track/connection停止。Worker alarmでも期限切れを回収 |
+| package境界 | `RTC`はHTTP・制御とlifecycle、`RTCNativeWebRTC`はSDK / native media。Appは設定入力とlifecycleだけを担当 |
+| 実サービス | 自動検証は模擬SFUとlocal workerd。Cloudflareアカウント上の接続・音声は未確認 |
 
 ```mermaid
 sequenceDiagram
     participant App
-    participant RTC as WebRTCInternetRoute
-    participant Sig as WebRTCSignalingClient
-    participant Engine as NativeWebRTCEngine
-    participant CF as Cloudflare Realtime
-    App->>RTC: prepare(request)
-    RTC->>Engine: prepareLocalAudio(policy)
-    App->>RTC: startConnection()
-    RTC->>Sig: connect(CloudflareRealtimeConfiguration)
-    Sig->>CF: join room
-    Sig-->>RTC: remotePeerJoined(peer)
-    RTC->>Engine: createPeerConnection(peer)
-    RTC->>Engine: makeOffer(peer)
-    RTC->>Sig: sendOffer
-    Sig-->>RTC: answer / iceCandidate
-    RTC->>Engine: acceptAnswer / addCandidate
-    App->>RTC: startMedia()
-    RTC->>Engine: setLocalAudioEnabled(true)
+    participant RTC
+    participant Worker
+    participant SFU
+    App->>RTC: prepare / startConnection
+    RTC->>Worker: device Bearer + room capability + audio offer
+    Worker->>Worker: authorize / reserve lease
+    Worker->>SFU: sessions/new + local tracks/new
+    SFU-->>RTC: answer via Worker
+    RTC->>Worker: authenticated WebSocket
+    Worker-->>RTC: authorized room members
+    RTC->>Worker: pull peer audio
+    Worker->>SFU: remote tracks/new
+    SFU-->>RTC: offer via Worker
+    RTC->>Worker: renegotiation answer
+    Worker->>SFU: renegotiate
+    loop while connected
+        RTC->>Worker: renew existing session lease
+    end
 ```
 
-## WebRTC利用条件
-
-| 条件 | 必須設定 | 接続不能時の見え方 |
-|---|---|---|
-| WebRTC binary | `RTCNativeWebRTC` productと`WebRTC.xcframework` | `Native WebRTC SDK is unavailable` |
-| native engine | `engineFactory: { WebRTCNativeEngine(...) }` | base `NativeWebRTCEngine`は`isAvailable == false` |
-| signaling | production `WebRTCSignalingClient` | default clientは意図的にfailure eventを出す |
-| Cloudflare設定 | `CloudflareRealtimeConfiguration`をproviderで返す | `WebRTC route configuration is unavailable` |
-| room/participant | `roomID`, `participantToken` | signaling接続失敗、remote peerが現れない |
-| ICE server | 必要な`iceServers` / TURN設定 | peer connectionが`failed`または`disconnected` |
-| media開始 | `startMedia()`を呼ぶ | local audio trackが有効化されない |
-| app-managed packet audio | 使わない | `sendAudioPacket`はWebRTC routeでは送られない |
-
-## 必要な設定
-
-| 対象 | 要否 | 設定 | 設定する場所 | 欠けた場合 |
-|---|---|---|---|---|
-| 共通 | 必須 | `sessionID` | `CallStartRequest.sessionID` | packet envelope、runtime status、room紐付けが成立しない |
-| 共通 | 必須 | `localPeer` | `CallStartRequest.localPeer` | peer識別、handshake、member表示が成立しない |
-| 共通 | 推奨 | `expectedPeers` | `CallStartRequest.expectedPeers` | member診断や期待参加者の表示精度が落ちる |
-| 共通 | 必須、既定値可 | `configuration` | `CallStartRequest.configuration` | 明示しない場合はroute選択、fallback、handoverが既定値に従う |
-| 共通 | 必須、既定値可 | `audioPolicy` | `CallStartRequest.audioPolicy` | 明示しない場合は`pcm16`、48kHz、monoの通信希望になる |
-| Multipeer | 必須 | `localDisplayName` | `CallSessionFactoryConfiguration.localDisplayName` | `MCPeerID`の表示名が決まらずfactory設定が成立しない |
-| Multipeer | 条件付き必須 | `RTCCredential` | `CallStartRequest.credential` | 未指定なら認証なし接続になる。group分離が必要な通話では必ず指定する |
-| Multipeer | 必須 | `NSLocalNetworkUsageDescription` | App `Info.plist` | local network許可が出ずpeer探索できない |
-| Multipeer | 必須 | `NSBonjourServices` | App `Info.plist` | Bonjour service `ride-intercom`を探索できない |
-| WebRTC | 必須 | `CloudflareRealtimeConfiguration` | `WebRTCRouteFactoryConfiguration.cloudflareConfigurationProvider` | `WebRTC route configuration is unavailable` |
-| WebRTC | 必須 | production signaling | `WebRTCRouteFactoryConfiguration.signalingClientFactory` | default signalingがfailure eventを出す |
-| WebRTC | 必須 | native engine | `WebRTCRouteFactoryConfiguration.engineFactory` | base engineは`isAvailable == false` |
-| WebRTC | 必須 | `RTCNativeWebRTC` product | App package dependency | native WebRTC routeが実体化しない |
-| WebRTC | 必須 | `WebRTC.xcframework` | `RTCNativeWebRTC` binary target | `Native WebRTC SDK is unavailable` |
-
-## 必要なサーバー / Backend
-
-| route | 必要なサーバー | RTC packageが持つもの | App/backendが持つもの |
-|---|---|---|---|
-| Multipeer | 不要 | local discovery、invite、`MCSession`接続、packet envelope、AES-GCM | Local Network/Bonjour権限、group secret管理、App lifecycle再接続 |
-| WebRTC | 必須 | WebRTC route contract、Cloudflare設定型、signaling client protocol、native engine境界 | Cloudflare room作成、participant token発行、production signaling、TURN/ICE設定 |
-
-| WebRTC backend要素 | 要否 | 必須情報 | 役割 |
-|---|---|---|---|
-| SFU endpoint | 必須 | `CloudflareRealtimeConfiguration.sfuEndpoint` | room参加とmedia/data中継の接続先 |
-| TURN endpoint | 条件付き | `CloudflareRealtimeConfiguration.turnEndpoint` | NAT/firewallで直接接続できない場合のrelay候補 |
-| room | 必須 | `roomID` | 通話sessionとCloudflare側roomを結びつける |
-| participant credential | 必須 | `participantToken` | Cloudflare側participant権限 |
-| ICE servers | 条件付き、推奨 | `iceServers` | `RTCPeerConnection`へ渡すSTUN/TURN候補 |
-| signaling transport | 必須 | `WebRTCSignalingClient`実装 | join、presence、offer、answer、ICE candidate、app data fallbackを運ぶ |
-
-`CloudflareRealtimeSignalingClient`はproduction server clientではない。実運用では、App/backendが上表のsignaling transportを実装して注入する。
+Worker契約・上限・試用手順は `docs/spec/server/Worker.md` を参照。TURN資格の発行は現行経路に含めず、制限の強いネットワークの接続性はアカウント検証後に評価する。
 
 ## Control Plane / Media Plane
 
@@ -509,15 +466,12 @@ let audioPolicy = RTCAudioPolicy(preferredCodecs: [.routeManaged])
 let webRTC = WebRTCRouteFactoryConfiguration(
     cloudflareConfigurationProvider: { request in
         CloudflareRealtimeConfiguration(
-            sfuEndpoint: sfuEndpoint,
-            turnEndpoint: turnEndpoint,
-            roomID: request.sessionID,
-            participantToken: participantToken,
-            iceServers: iceServers
+            workerURL: workerURL,
+            accessToken: deviceAccessToken
         )
     },
-    signalingClientFactory: { ProductionWebRTCSignalingClient() },
-    engineFactory: { WebRTCNativeEngine(iceServers: iceServers) }
+    signalingClientFactory: { CloudflareRealtimeSignalingClient() },
+    engineFactory: { WebRTCNativeEngine() }
 )
 
 let session = CallSessionFactory.makeSession(
@@ -545,15 +499,15 @@ await session.startMedia()
 
 | 注意 | 理由 |
 |---|---|
-| `ProductionWebRTCSignalingClient`はApp/backend側で実装する | default `CloudflareRealtimeSignalingClient`は注入境界を示すplaceholderで、接続成功させない |
+| default clientを利用 | `CloudflareRealtimeSignalingClient`がWorkerのHTTP/WebSocket契約を実装 |
 | WebRTCでは`sendAudioPacket`を呼んでも送られない | route capabilityが`supportsAppManagedPacketAudio == false` |
 | WebRTCの受信音声は`receivedAudioPacket`として出ない | route-managed media streamとしてnative engineが所有する |
 
 | 修正者向け注意 | 現実装 |
 |---|---|
 | `NativeWebRTCEngine` base class | `RTC` target単体では`isAvailable == false`。WebRTC接続には`RTCNativeWebRTC.WebRTCNativeEngine`か同等実装が必要 |
-| `CloudflareRealtimeSignalingClient` | production transportではない。`connect`時にfailure eventを出す注入境界 |
-| WebRTC DataChannel | 現実装は`rideintercom.application`のordered channelを作る。delivery品質を厳密に分ける場合はengine側でchannel設定を分ける |
+| `CloudflareRealtimeSignalingClient` | 実HTTP/WebSocket client。アカウント接続は別途検証が必要 |
+| WebRTC application data | 認証済みWorker WebSocketへ送る。SFU DataChannelは作らない |
 | WebRTC output mute | `CallSession`からrouteへ要求は流れる。実際のmute可否はnative engine実装で保証する |
 
 ## App package化で接続不能になる典型原因
@@ -684,7 +638,7 @@ RTC statusは通信状態だけを確定情報として持つ。Mixer volume、C
 |---|---|---|---|
 | `noEnabledRoute` | enabled routeが空、または構築可能routeがない | `CallSessionEvent.error` | route設定とplatform import可否を確認する |
 | `routeUnavailable` | preferred routeが使えない | `CallSessionEvent.error` | preferredをenabled routeへ含めるかfallbackを有効にする |
-| `signalingUnavailable` | WebRTC signaling設定がない | `CallSessionEvent.error`, `RouteAvailability` | production `WebRTCSignalingClient`とCloudflare設定を渡す |
+| `signalingUnavailable` | WebRTC signaling設定がない | `CallSessionEvent.error`, `RouteAvailability` | Worker URL・端末資格とCloudflare設定を渡す |
 | `connectionFailed` | route接続が失敗した | `CallSessionEvent.error`, `stateChanged(.failed)` | error message、OS権限、backend状態を見る |
 | `unsupportedApplicationDataDelivery` | route capabilityとdelivery modeが一致しない | `CallSessionEvent.error` | reliable/unreliable指定をroute capabilityへ合わせる |
 | `unsupportedAudioCodec` | packet codecがroute policyにない | route error、packet drop | `RTCAudioPolicy.preferredCodecs`とCodec設定を合わせる |

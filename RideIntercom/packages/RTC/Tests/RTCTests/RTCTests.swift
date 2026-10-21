@@ -386,67 +386,33 @@ import Testing
     #expect(webRTC.sentAudioPackets.isEmpty)
 }
 
-@Test func webRTCRouteSendsOfferWhenRemotePeerJoins() async {
-    let signaling = FakeWebRTCSignalingClient()
-    let engine = FakeWebRTCEngine()
-    let route = WebRTCInternetRoute(
-        cloudflareConfiguration: makeCloudflareConfiguration(),
-        signalingClient: signaling,
-        engine: engine
-    )
-
-    await route.prepare(makeRequest())
-    await route.startConnection()
-    signaling.yield(.remotePeerJoined(PeerDescriptor(id: PeerID(rawValue: "remote"), displayName: "Remote")))
-    try? await Task.sleep(nanoseconds: 50_000_000)
-
-    #expect(engine.createdPeerIDs == [PeerID(rawValue: "remote")])
+@Test func webRTCRouteUsesOneSFUConnectionForAllMembers() async {
+    let signaling = FakeWebRTCSignalingClient(), engine = FakeWebRTCEngine()
+    let route = WebRTCInternetRoute(cloudflareConfiguration: makeCloudflareConfiguration(), signalingClient: signaling, engine: engine)
+    await route.prepare(makeRequest()); await route.startConnection()
+    try? await Task.sleep(for: .milliseconds(30))
+    signaling.yield(.members([PeerDescriptor(id: PeerID(rawValue: "a"), displayName: "A"), PeerDescriptor(id: PeerID(rawValue: "b"), displayName: "B")]))
+    try? await Task.sleep(for: .milliseconds(30))
+    #expect(engine.createdPeerIDs == [PeerID(rawValue: "cloudflare-sfu")])
     #expect(signaling.sentOffers.count == 1)
-    #expect(signaling.sentOffers.first?.0 == WebRTCSessionDescription(kind: .offer, sdp: "offer-remote"))
-    #expect(signaling.sentOffers.first?.1 == PeerID(rawValue: "remote"))
+    await route.stopConnection()
 }
 
-@Test func webRTCRouteForwardsLocalIceCandidatesToSignaling() async {
-    let signaling = FakeWebRTCSignalingClient()
-    let engine = FakeWebRTCEngine()
-    let route = WebRTCInternetRoute(
-        cloudflareConfiguration: makeCloudflareConfiguration(),
-        signalingClient: signaling,
-        engine: engine
-    )
-    _ = route
-
-    let candidate = WebRTCIceCandidate(sdp: "candidate", sdpMid: "0", sdpMLineIndex: 0)
-    engine.yield(.localIceCandidate(candidate, peerID: PeerID(rawValue: "remote")))
-    try? await Task.sleep(nanoseconds: 50_000_000)
-
-    #expect(signaling.sentCandidates.count == 1)
-    #expect(signaling.sentCandidates.first?.0 == candidate)
-    #expect(signaling.sentCandidates.first?.1 == PeerID(rawValue: "remote"))
-}
-
-@Test func webRTCRouteCreatesPeerConnectionAndAnswersIncomingOffer() async {
-    let signaling = FakeWebRTCSignalingClient()
-    let engine = FakeWebRTCEngine()
-    let route = WebRTCInternetRoute(
-        cloudflareConfiguration: makeCloudflareConfiguration(),
-        signalingClient: signaling,
-        engine: engine
-    )
-    _ = route
-
-    let peerID = PeerID(rawValue: "remote-offerer")
-    let offer = WebRTCSessionDescription(kind: .offer, sdp: "remote-offer")
-    signaling.yield(.offer(offer, from: peerID))
-    try? await Task.sleep(nanoseconds: 50_000_000)
-
-    #expect(engine.createdPeerIDs == [peerID])
-    #expect(engine.acceptedOffers.count == 1)
-    #expect(engine.acceptedOffers.first?.0 == offer)
-    #expect(engine.acceptedOffers.first?.1 == peerID)
-    #expect(signaling.sentAnswers.count == 1)
-    #expect(signaling.sentAnswers.first?.0 == WebRTCSessionDescription(kind: .answer, sdp: "answer-remote-offerer"))
-    #expect(signaling.sentAnswers.first?.1 == peerID)
+@Test func webRTCRouteAnswersSFURenegotiationAndStopsAfterFailure() async {
+    let signaling = FakeWebRTCSignalingClient(), engine = FakeWebRTCEngine()
+    let route = WebRTCInternetRoute(cloudflareConfiguration: makeCloudflareConfiguration(), signalingClient: signaling, engine: engine)
+    await route.prepare(makeRequest()); await route.startConnection()
+    let id = PeerID(rawValue: "cloudflare-sfu")
+    signaling.yield(.offer(WebRTCSessionDescription(kind: .offer, sdp: "sfu-offer"), from: id))
+    try? await Task.sleep(for: .milliseconds(30))
+    #expect(signaling.sentAnswers.first?.1 == id)
+    signaling.yield(.failed("Monthly budget reached"))
+    try? await Task.sleep(for: .milliseconds(30))
+    #expect(engine.closeCount > 0)
+    let count = signaling.sentAnswers.count
+    signaling.yield(.offer(WebRTCSessionDescription(kind: .offer, sdp: "late"), from: id))
+    try? await Task.sleep(for: .milliseconds(30))
+    #expect(signaling.sentAnswers.count == count)
 }
 
 private func makePacket(
@@ -617,9 +583,8 @@ private func makeRequest(
 
 private func makeCloudflareConfiguration() -> CloudflareRealtimeConfiguration {
     CloudflareRealtimeConfiguration(
-        sfuEndpoint: URL(string: "https://realtime.cloudflare.test")!,
-        roomID: "test-room",
-        participantToken: "test-token"
+        workerURL: URL(string: "https://realtime.cloudflare.test")!,
+        accessToken: "test-token"
     )
 }
 
@@ -699,6 +664,8 @@ private final class FakeWebRTCEngine: NativeWebRTCEngine {
 
     private let eventSource = EventSource<WebRTCEngineEvent>()
     private(set) var createdPeerIDs: [PeerID] = []
+    private(set) var closeCount = 0
+    override func close() async { closeCount += 1 }
     private(set) var acceptedOffers: [(WebRTCSessionDescription, PeerID)] = []
 
     override func createPeerConnection(for peer: PeerDescriptor) async {

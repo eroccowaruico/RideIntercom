@@ -1,24 +1,11 @@
 import Foundation
 
-public struct CloudflareRealtimeConfiguration: Codable, Equatable, Sendable {
-    public var sfuEndpoint: URL
-    public var turnEndpoint: URL?
-    public var roomID: String
-    public var participantToken: String
-    public var iceServers: [WebRTCIceServer]
-
-    public init(
-        sfuEndpoint: URL,
-        turnEndpoint: URL? = nil,
-        roomID: String,
-        participantToken: String,
-        iceServers: [WebRTCIceServer] = []
-    ) {
-        self.sfuEndpoint = sfuEndpoint
-        self.turnEndpoint = turnEndpoint
-        self.roomID = roomID
-        self.participantToken = participantToken
-        self.iceServers = iceServers
+public struct CloudflareRealtimeConfiguration: Equatable, Sendable {
+    public var workerURL: URL
+    public var accessToken: String
+    public init(workerURL: URL, accessToken: String) {
+        self.workerURL = workerURL
+        self.accessToken = accessToken
     }
 }
 
@@ -73,6 +60,7 @@ public struct WebRTCSignalingConnectRequest: Equatable, Sendable {
 
 public enum WebRTCSignalingEvent: Equatable, Sendable {
     case connected
+    case members([PeerDescriptor])
     case disconnected
     case remotePeerJoined(PeerDescriptor)
     case remotePeerLeft(PeerID)
@@ -92,24 +80,4 @@ public protocol WebRTCSignalingClient: AnyObject {
     func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async
     func sendCandidate(_ candidate: WebRTCIceCandidate, to peerID: PeerID) async
     func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async
-}
-
-public final class CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
-    public var events: AsyncStream<WebRTCSignalingEvent> { eventSource.stream }
-    private let eventSource = EventSource<WebRTCSignalingEvent>()
-
-    public init() {}
-
-    public func connect(_ request: WebRTCSignalingConnectRequest) async {
-        eventSource.yield(.failed("Cloudflare Realtime signaling transport is intentionally injectable; provide a production WebSocket/HTTP implementation for the selected backend contract."))
-    }
-
-    public func disconnect() async {
-        eventSource.yield(.disconnected)
-    }
-
-    public func sendOffer(_ offer: WebRTCSessionDescription, to peerID: PeerID) async {}
-    public func sendAnswer(_ answer: WebRTCSessionDescription, to peerID: PeerID) async {}
-    public func sendCandidate(_ candidate: WebRTCIceCandidate, to peerID: PeerID) async {}
-    public func sendApplicationData(_ message: ApplicationDataMessage, to peerID: PeerID?) async {}
 }

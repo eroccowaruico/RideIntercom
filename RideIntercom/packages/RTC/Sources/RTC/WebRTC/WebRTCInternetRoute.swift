@@ -24,6 +24,10 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     private var engineTask: Task<Void, Never>?
     private var request: CallStartRequest?
     private var remotePeers: [PeerID: PeerDescriptor] = [:]
+    private var connecting = false
+    private var mediaStarted = false
+    private var localMuted = false
+    private let sfuPeer = PeerDescriptor(id: .init(rawValue: "cloudflare-sfu"), displayName: "Cloudflare SFU")
 
     public init(
         cloudflareConfiguration: CloudflareRealtimeConfiguration,
@@ -92,11 +96,14 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
             eventSource.yield(.stateChanged(kind, .failed))
             return
         }
+        connecting = true
         eventSource.yield(.stateChanged(kind, .connecting))
         await signalingClient.connect(WebRTCSignalingConnectRequest(call: request, cloudflare: cloudflareConfiguration))
     }
 
     public func stopConnection() async {
+        connecting = false
+        mediaStarted = false
         await signalingClient.disconnect()
         await engine.close()
         remotePeers.removeAll()
@@ -104,11 +111,14 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     }
 
     public func startMedia() async {
-        await engine.setLocalAudioEnabled(true)
+        guard connecting else { return }
+        mediaStarted = true
+        await engine.setLocalAudioEnabled(!localMuted)
         eventSource.yield(.stateChanged(kind, .mediaReady))
     }
 
     public func stopMedia() async {
+        mediaStarted = false
         await engine.setLocalAudioEnabled(false)
     }
 
@@ -121,7 +131,8 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     }
 
     public func setLocalMute(_ muted: Bool) async {
-        await engine.setLocalAudioEnabled(!muted)
+        localMuted = muted
+        await engine.setLocalAudioEnabled(mediaStarted && !muted)
     }
 
     public func setOutputMute(_ muted: Bool) async {
@@ -141,37 +152,41 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     private func handleSignalingEvent(_ event: WebRTCSignalingEvent) async {
         switch event {
         case .connected:
-            eventSource.yield(.stateChanged(kind, .connected))
+            guard connecting else { return }
+            await engine.createPeerConnection(for: sfuPeer)
+            if let offer = await engine.makeOffer(for: sfuPeer.id), connecting {
+                await signalingClient.sendOffer(offer, to: sfuPeer.id)
+            } else if connecting {
+                await engine.close(); connecting = false
+                eventSource.yield(.stateChanged(kind, .failed))
+            }
+        case .members(let peers):
+            guard connecting else { return }
+            remotePeers = Dictionary(uniqueKeysWithValues: peers.map { ($0.id, $0) })
+            emitMembers()
         case .disconnected:
+            connecting = false
+            await engine.close()
+            remotePeers.removeAll(); emitMembers()
             eventSource.yield(.stateChanged(kind, .disconnected))
-        case .remotePeerJoined(let peer):
-            remotePeers[peer.id] = peer
-            await engine.createPeerConnection(for: peer)
-            if let offer = await engine.makeOffer(for: peer.id) {
-                await signalingClient.sendOffer(offer, to: peer.id)
-            }
-            emitMembers()
-        case .remotePeerLeft(let peerID):
-            remotePeers.removeValue(forKey: peerID)
-            await engine.closePeerConnection(peerID: peerID)
-            emitMembers()
+        case .remotePeerJoined, .remotePeerLeft:
+            break
         case .offer(let offer, let peerID):
-            if remotePeers[peerID] == nil {
-                let peer = PeerDescriptor(id: peerID, displayName: peerID.rawValue)
-                remotePeers[peerID] = peer
-                await engine.createPeerConnection(for: peer)
-                emitMembers()
-            }
-            if let answer = await engine.acceptOffer(offer, from: peerID) {
+            guard connecting, peerID == sfuPeer.id else { return }
+            if let answer = await engine.acceptOffer(offer, from: peerID), connecting {
                 await signalingClient.sendAnswer(answer, to: peerID)
             }
         case .answer(let answer, let peerID):
+            guard connecting, peerID == sfuPeer.id else { return }
             await engine.acceptAnswer(answer, from: peerID)
-        case .iceCandidate(let candidate, let peerID):
-            await engine.addCandidate(candidate, from: peerID)
+        case .iceCandidate:
+            break
         case .receivedApplicationData(let data):
             eventSource.yield(.receivedApplicationData(kind, data))
         case .failed(let message):
+            connecting = false
+            await engine.close()
+            remotePeers.removeAll(); emitMembers()
             eventSource.yield(.error(kind, .connectionFailed(kind, message)))
             eventSource.yield(.stateChanged(kind, .failed))
         }
@@ -188,6 +203,7 @@ public final class WebRTCInternetRoute: RTCCallRoute, @unchecked Sendable {
     }
 
     private func handleEngineEvent(_ event: WebRTCEngineEvent) async {
+        guard connecting else { return }
         switch event {
         case .localIceCandidate(let candidate, let peerID):
             await signalingClient.sendCandidate(candidate, to: peerID)
