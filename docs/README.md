@@ -5,7 +5,7 @@
 | 目的 | 最初に読む | 次に読む |
 |---|---|---|
 | 通話を使いたい | [使い方](manual/使い方.md) | [設定と音声効果](manual/設定と音声効果.md)、[困ったとき](manual/困ったとき.md) |
-| アプリの根本要求を把握したい | [製品要求](requirements/製品要求.md) | [要求の分類](requirements/README.md)、[未解決の改善要求](requirements/パッケージ改善要求.md)、[背景と候補](requirements/background/初期構想と対応経緯.md) |
+| アプリの根本要求を把握したい | [製品要求](requirements/製品要求.md) | [要求の分類](requirements/README.md)、[パッケージ要求と実装状況](requirements/パッケージ要求.md)、[背景と候補](requirements/background/初期構想と対応経緯.md) |
 | 開発・文書作成のルールを知りたい | [開発方針](policies/開発方針.md) | [文書作成規約](policies/文書作成規約.md)、[ログ記録規約](policies/ログ記録規約.md) |
 | 構造を理解・変更したい | [アーキテクチャ](spec/アーキテクチャ.md) | 対応するApp / package / server仕様 |
 | 設定を実装したい | [App設定値](spec/App/Configuration/設定値一覧.md) | 同階層Bindings、package契約、Settings画面仕様 |
@@ -16,7 +16,7 @@
 
 | 配置 | 正本にする情報 | 他の文書との関係 |
 |---|---|---|
-| requirements | 製品の根本要求、未解決のpackage改善要求、背景・候補 | 作り方のルールを混ぜず、実装済みという説明だけで要求を置き換えない |
+| requirements | 製品の根本要求、packageの恒久要求と実装状態、背景・候補 | 作り方のルールを混ぜず、実装済みという説明だけで要求を置き換えない |
 | policies | 開発方針、文書作成規約、共通ログ記録規約 | 製品が提供する機能とは別の制約。ツール入口はこの正本を参照 |
 | manual | 現在の画面操作、効果、反映、保存、切り分け | 内部API値はspecを参照。未実装操作を案内しない |
 | spec/App | UI、状態、group/transport、音声composition、ログ | Appの責務単位で実装と対応 |
@@ -41,7 +41,7 @@
 |---|---|
 | [requirements/README.md](<requirements/README.md>) | 要求の入口 |
 | [requirements/background/初期構想と対応経緯.md](<requirements/background/初期構想と対応経緯.md>) | 初期構想と対応経緯 |
-| [requirements/パッケージ改善要求.md](<requirements/パッケージ改善要求.md>) | パッケージ改善要求 |
+| [requirements/パッケージ要求.md](<requirements/パッケージ要求.md>) | パッケージ要求 |
 | [requirements/製品要求.md](<requirements/製品要求.md>) | 製品要求 |
 
 ### 開発・文書の規約
@@ -136,6 +136,7 @@
 | [validation/history/復旧検証記録.md](<validation/history/復旧検証記録.md>) | dev 復旧検証記録 |
 | [validation/history/混在通話検証.md](<validation/history/混在通話検証.md>) | 混在グループ通話・音声機器切断の検証 |
 | [validation/history/要求構造整理記録.md](<validation/history/要求構造整理記録.md>) | 要求と開発規約の構造整理記録 |
+| [validation/history/通信診断とTURN資格検証.md](<validation/history/通信診断とTURN資格検証.md>) | 通信診断とTURN資格の検証 |
 | [validation/history/音声エフェクト接続検証.md](<validation/history/音声エフェクト接続検証.md>) | 音声エフェクトのApp接続と自動検証 |
 | [validation/文書整理記録.md](<validation/文書整理記録.md>) | 文書構造と実装整合の点検記録 |
 

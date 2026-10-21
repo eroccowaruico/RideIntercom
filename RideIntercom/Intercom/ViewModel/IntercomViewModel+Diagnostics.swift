@@ -10,6 +10,27 @@ import SoundIsolation
 import VADGate
 
 extension IntercomViewModel {
+    var networkDiagnosticsSummary: String {
+        guard let report = networkDiagnostics else { return "Not measured. Connect to a group to collect network diagnostics." }
+        guard Date().timeIntervalSince1970 - report.generatedAt <= 15 else { return "Network report is stale. Waiting for a fresh measurement." }
+        var lines = ["Event drops — session: overflow \(report.eventDrops.overflow), expired \(report.eventDrops.expired)"]
+        for route in report.routes {
+            let label = route.route == .webRTC ? "Internet" : "Local"
+            let rtt = route.statistics.roundTripTime.map { String(format: "%.0f ms", $0 * 1000) } ?? "Not available"
+            let buffered = route.statistics.bufferedBytes.map { "\($0) B" } ?? "Not available"
+            lines.append("\(label): RTT \(rtt), send queue \(buffered)")
+            lines.append(route.statistics.unavailableReason)
+            for (name, drops) in route.eventDrops.sorted(by: { $0.key < $1.key }) {
+                lines.append("\(label) / \(name) drops: overflow \(drops.overflow), expired \(drops.expired)")
+            }
+        }
+        for peer in report.peers {
+            let hops = peer.path.map { String($0.rawValue.prefix(8)) }.joined(separator: " → ")
+            lines.append("\(peer.path.count > 2 ? "Relayed" : "Direct group path"): \(hops)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     var isInternetOnlyCall: Bool {
         if !availableCallRoutes.isEmpty { return availableCallRoutes == [.webRTC] }
         return enabledRTCTransportRoutes == [.webRTC]

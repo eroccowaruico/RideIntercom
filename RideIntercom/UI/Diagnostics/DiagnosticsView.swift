@@ -22,6 +22,15 @@ struct DiagnosticsView: View {
                                 .font(.footnote).foregroundStyle(.secondary)
                         }.frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    GroupBox("Network") {
+                        VStack(alignment: .leading, spacing: AppSpacing.m) {
+                            Text(viewModel.networkDiagnosticsSummary)
+                                .textSelection(.enabled)
+                                .accessibilityIdentifier("networkDiagnosticsSummary")
+                            Text("RTT measures this device's ICE connection, not audio delay. Event drops occur inside this device. Paths show the last authenticated reception, not guaranteed reachability.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     LiveTransmitPipelineView(viewModel: viewModel)
                     LiveReceivePipelineView(viewModel: viewModel)
                 }

@@ -181,3 +181,15 @@ AudioMixer package は UI 描画用の専用 DTO ではなく、現在の信号�
 | Network | 測定値が全てnilならneutral | 不明をloss 0%や正常と扱わない |
 
 Audio CheckはSettingsに置く。端末内の録音再生、サービス認証、ペアの媒体、実機の音響品質を別の確認として扱う。
+
+## Network診断
+
+| 表示 | identifier | 意味 |
+|---|---|---|
+| Network | `networkDiagnosticsSummary` | RTCNetworkDiagnosticsの表示。計測処理はRTC/native側が所有 |
+| RTT / send queue | 同上 | ICE transport RTTをms、DataChannel送信待ちをbyte表示。未取得をNot availableとする |
+| Event drops | 同上 | session / route / engine / transportのoverflowとexpired。ネットワーク損失率ではない |
+| Direct group path / Relayed | 同上 | 最後の認証済み受信経路。短縮peer IDを矢印で並べる。到達保証ではない |
+| Not measured / stale | 同上 | 未取得、または15秒を超えたreport。古い数値を正常値として表示しない |
+
+値は標準Textで折り返し・選択でき、色やアイコンだけに依存しない。切断・接続切替・世代変更時に旧reportを消去する。

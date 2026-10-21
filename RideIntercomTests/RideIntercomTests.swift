@@ -852,11 +852,13 @@ struct RideIntercomTests {
         harness.viewModel.connectLocal()
         oldHandler?(.authenticated(peerIDs: ["old-peer"]))
         oldHandler?(.routeMetrics(RTC.RouteMetrics(route: .multipeer, receivedAudioFrameCount: 999)))
+        oldHandler?(.networkDiagnostics(.init(generatedAt: 123)))
         try? await Task.sleep(for: .milliseconds(50))
         #expect(harness.viewModel.activeGroupID == b.id)
         #expect(harness.callSession.connectedGroup?.id == b.id)
         #expect(harness.viewModel.authenticatedPeerIDs.isEmpty)
         #expect(harness.viewModel.receivedVoicePacketCount == 0)
+        #expect(harness.viewModel.networkDiagnostics?.generatedAt != 123)
         #expect(!harness.viewModel.isAudioReady)
         harness.viewModel.disconnect()
     }
@@ -1319,6 +1321,22 @@ struct RideIntercomTests {
         #expect(h.viewModel.isAudioReady)
         #expect(h.inputBackend.startCount == starts + 1)
         h.viewModel.disconnect()
+    }
+
+    @Test func networkDiagnosticsDistinguishUnknownValuesAndClearOnDisconnect() {
+        let h = Self.makeHarness()
+        let model = h.viewModel
+        #expect(model.networkDiagnosticsSummary.contains("Not measured"))
+        let route = RTCRouteNetworkDiagnostics(route: .webRTC,
+            statistics: .init(roundTripTime: 0.025, bufferedBytes: 128, unavailableReason: "Loss unavailable"))
+        model.handleTransportEvent(.networkDiagnostics(.init(routes: [route])))
+        #expect(model.networkDiagnosticsSummary.contains("25 ms"))
+        #expect(model.networkDiagnosticsSummary.contains("128 B"))
+        #expect(model.networkDiagnosticsSummary.contains("Loss unavailable"))
+        model.handleTransportEvent(.networkDiagnostics(.init(generatedAt: 0, routes: [route])))
+        #expect(model.networkDiagnosticsSummary.contains("stale"))
+        model.disconnect()
+        #expect(model.networkDiagnosticsSummary.contains("Not measured"))
     }
 
     private struct Harness {

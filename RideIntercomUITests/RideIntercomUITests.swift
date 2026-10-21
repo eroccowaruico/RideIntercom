@@ -106,6 +106,10 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(status.exists)
         XCTAssertTrue(app.buttons["checkInternetService"].exists)
         XCTAssertFalse(app.buttons["checkInternetService"].isEnabled)
+        let network = app.staticTexts["networkDiagnosticsSummary"]
+        for _ in 0..<8 where !network.isHittable { app.swipeUp() }
+        XCTAssertTrue(network.isHittable)
+        XCTAssertTrue(network.label.contains("Not measured"))
         attachScreen("Diagnostics Large Text Dark")
         openSettingsTab()
         let configure = app.buttons["configureInternetConnection"]
@@ -265,6 +269,7 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     private func checkDiagnosticsShowRealDeviceSetupIdentifiers() throws {
         showEmptyDiagnostics()
+        XCTAssertTrue(app.staticTexts["networkDiagnosticsSummary"].waitForExistence(timeout: 3))
 
         XCTAssertTrue(app.descendants(matching: .any)["liveTransmitPipelineView"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["liveReceivePipelineView"].waitForExistence(timeout: 3))

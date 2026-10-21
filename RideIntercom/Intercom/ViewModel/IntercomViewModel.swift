@@ -168,6 +168,7 @@ final class IntercomViewModel {
     var lastInputStreamOperationReport: SessionManager.AudioStreamOperationReport?
     var lastOutputStreamOperationReport: SessionManager.AudioStreamOperationReport?
     var lastVoiceProcessingOperationReport: SessionManager.AudioStreamOperationReport?
+    var networkDiagnostics: RTCNetworkDiagnostics?
     var lastRouteMetrics: RTC.RouteMetrics?
     var audioMixerSnapshot: AudioMixerSnapshot = IntercomViewModel.emptyAudioMixerSnapshot()
     var codecRuntimeReport: CodecRuntimeReport = IntercomViewModel.makeCodecRuntimeReport(

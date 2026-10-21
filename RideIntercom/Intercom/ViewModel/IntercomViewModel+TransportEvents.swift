@@ -109,6 +109,7 @@ extension IntercomViewModel {
         case .receivedApplicationData:
             break
         case .disconnected:
+            networkDiagnostics = nil
             stopAudioPipeline()
             connectedPeerIDs = []
             authenticatedPeerIDs = []
@@ -118,6 +119,7 @@ extension IntercomViewModel {
             markMembers(.offline)
             publishRuntimePackageReports(force: true)
         case .linkFailed(let internetAvailable):
+            networkDiagnostics = nil
             _ = internetAvailable
             AppLoggers.rtc.error(
                 "rtc.connection.failed",
@@ -135,6 +137,8 @@ extension IntercomViewModel {
             publishRuntimePackageReports(force: true)
         case .receivedAudioPacket(let received):
             handleReceivedAudioPacket(received)
+        case .networkDiagnostics(let report):
+            networkDiagnostics = report
         case .routeMetrics(let metrics):
             handleRouteMetrics(metrics)
         }

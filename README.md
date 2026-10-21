@@ -13,7 +13,7 @@
 
 | 区分 | 正本 |
 |---|---|
-| アプリが満たすこと | [製品要求](docs/requirements/製品要求.md)、[未解決のパッケージ改善要求](docs/requirements/パッケージ改善要求.md) |
+| アプリが満たすこと | [製品要求](docs/requirements/製品要求.md)、[パッケージ要求と実装状況](docs/requirements/パッケージ要求.md) |
 | 開発の制約 | [開発方針](docs/policies/開発方針.md) |
 | 文書・計画の作り方 | [文書作成規約](docs/policies/文書作成規約.md) |
 | ログ実装の制約 | [ログ記録規約](docs/policies/ログ記録規約.md) |

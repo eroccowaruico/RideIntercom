@@ -160,6 +160,7 @@ extension IntercomViewModel {
         markMembers(.offline)
         activeGroupID = nil
         audioTransmissionController.applyVADSensitivity(vadSensitivity)
+        networkDiagnostics = nil
         lastRouteMetrics = nil
         publishRuntimePackageReports(force: true)
     }

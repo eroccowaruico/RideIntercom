@@ -73,6 +73,7 @@ enum TransportEvent: Equatable {
     case linkFailed(internetAvailable: Bool)
     case receivedAudioPacket(RTC.ReceivedAudioPacket)
     case routeMetrics(RTC.RouteMetrics)
+    case networkDiagnostics(RTCNetworkDiagnostics)
     case serviceError(String)
     case routesChanged(RTC.ActiveRouteSnapshot)
 }
@@ -335,6 +336,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
             onEvent?(.receivedAudioPacket(received))
         case .metricsChanged(let metrics):
             onEvent?(.routeMetrics(metrics))
+        case .networkDiagnosticsChanged(let report):
+            onEvent?(.networkDiagnostics(report))
         case .error(let error):
             handleRTCError(error)
         }
