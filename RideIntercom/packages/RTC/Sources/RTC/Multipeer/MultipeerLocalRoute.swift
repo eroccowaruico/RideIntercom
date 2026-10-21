@@ -27,6 +27,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
     private let packetAudioReceiveConfiguration: PacketAudioReceiveConfiguration
     private var generation = UUID()
     private var transportEventsTask: Task<Void, Never>?
+    private var transportSource: EventSource<MultipeerConnectionEvent>?
     private var transport: MultipeerConnectionTransport?
     private var mediaSession: MultipeerPacketMediaSession?
     private var packetAudioDrainTask: Task<Void, Never>?
@@ -48,7 +49,12 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         transport?.stop()
     }
 
+    public func networkDiagnostics() async -> RTCRouteNetworkDiagnostics {
+        .init(route: kind, statistics: .init(unavailableReason: "MultipeerConnectivity does not expose RTT, loss or buffered bytes"),
+              eventDrops: ["route": eventSource.report, "transport": transportSource?.report ?? .init()])
+    }
     public func prepare(_ request: CallStartRequest) async {
+        eventSource.resetDiagnostics()
         generation = UUID()
         transportEventsTask?.cancel()
         packetAudioDrainTask?.cancel()
@@ -76,6 +82,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
 
         let transport = MultipeerConnectionTransport(request: request, displayName: localDisplayName)
         let source = EventSource<MultipeerConnectionEvent>(isTransient: { $0.isTransient })
+        transportSource = source
         transport.onEvent = { source.yield($0) }
         let generation = generation
         let events = source.stream

@@ -24,6 +24,8 @@ import Testing
         await managers[0].sendAudioPacket(audio(1)); await managers[2].sendAudioPacket(audio(2))
         try await eventually { await records[2].audio.contains(where: { $0.peerID.rawValue == "a" && $0.packet.payload.first == 1 }) }
         try await eventually { await records[0].audio.contains(where: { $0.peerID.rawValue == "c" && $0.packet.payload.first == 2 }) }
+        let observed = await managers[0].networkDiagnostics()
+        #expect(observed.peers.contains { $0.peerID.rawValue == "c" && $0.path.count == 3 && $0.route == .multipeer })
         // Muting/stopping the gateway's own audio does not stop forwarding others.
         await managers[1].setLocalMute(true); await managers[1].stopMedia()
         await managers[3].stopConnection()
@@ -37,8 +39,15 @@ import Testing
         await managers[1].stopConnection()
         await managers[0].sendAudioPacket(audio(4))
         try await eventually { await records[2].audio.contains(where: { $0.packet.payload.first == 4 }) }
+        try await eventually {
+            let paths = await managers[2].networkDiagnostics().peers
+            return paths.contains { $0.peerID.rawValue == "a" && $0.path.map(\.rawValue) == ["a", "d", "c"] }
+        }
         #expect(await records[2].audio.filter { $0.packet.payload.first == 1 }.count == 1)
-        for manager in managers { await manager.stopConnection() }
+        for manager in managers {
+            await manager.stopConnection()
+            #expect(await manager.networkDiagnostics().peers.isEmpty)
+        }
     }
 }
 

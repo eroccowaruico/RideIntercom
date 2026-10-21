@@ -60,6 +60,7 @@ public struct WebRTCSignalingConnectRequest: Equatable, Sendable {
 
 public enum WebRTCSignalingEvent: Equatable, Sendable {
     case connected
+    case iceServers([WebRTCIceServer])
     case dataChannels([WebRTCDataChannel])
     case members([PeerDescriptor])
     case disconnected

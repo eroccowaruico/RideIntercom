@@ -24,6 +24,7 @@ public protocol RTCCallRoute: AnyObject, Sendable {
     var mediaOwnership: AudioMediaOwnership { get }
     var events: AsyncStream<RouteEvent> { get }
 
+    func networkDiagnostics() async -> RTCRouteNetworkDiagnostics
     func prepare(_ request: CallStartRequest) async
     func startConnection() async
     func stopConnection() async
@@ -47,4 +48,9 @@ public struct AnyRouteFactory: Sendable {
     public func make() -> RTCCallRoute {
         makeRoute()
     }
+}
+
+public extension RTCCallRoute {
+    /// Routes without a metrics backend explicitly report unavailability.
+    func networkDiagnostics() async -> RTCRouteNetworkDiagnostics { .init(route: kind) }
 }

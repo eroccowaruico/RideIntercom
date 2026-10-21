@@ -8,7 +8,7 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
     public override var isAvailable: Bool { true }
 
     private let factory: RTCPeerConnectionFactory
-    private let rtcConfiguration: RTCConfiguration
+    private var rtcConfiguration: RTCConfiguration
     private let lock = NSRecursiveLock()
     private var channels: [PeerID: [Int32: RTCDataChannel]] = [:]
     private var channelOrigins: [ObjectIdentifier: PeerID] = [:]
@@ -57,6 +57,38 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
         }
         peerConnections[peer.id] = connection
         peerIDsByConnection[ObjectIdentifier(connection)] = peer.id
+        }
+    }
+
+    public override func configureIceServers(_ servers: [WebRTCIceServer]) async -> Bool {
+        guard !servers.isEmpty, servers.allSatisfy({ !$0.urls.isEmpty }) else { return false }
+        let configuration = RTCConfiguration()
+        configuration.sdpSemantics = .unifiedPlan
+        configuration.iceServers = servers.map { RTCIceServer(urlStrings: $0.urls, username: $0.username, credential: $0.credential) }
+        let connections = lock.withLock {
+            rtcConfiguration = configuration
+            return Array(peerConnections.values)
+        }
+        // Refresh credentials on the existing connection without replacing its channels.
+        return connections.allSatisfy { $0.setConfiguration(configuration) }
+    }
+
+    public override func networkStatistics(for peerID: PeerID) async -> RTCNetworkStatistics {
+        guard let connection = lock.withLock({ peerConnections[peerID] }) else { return .init() }
+        let result: RTCNetworkStatistics = await withCheckedContinuation { continuation in
+            connection.statistics { report in
+                let selected = report.statistics.values.first { $0.type == "transport" }?.values["selectedCandidatePairId"] as? String
+                let pair = selected.flatMap { report.statistics[$0] }
+                let rtt = (pair?.values["currentRoundTripTime"] as? NSNumber)?.doubleValue
+                continuation.resume(returning: .init(roundTripTime: rtt,
+                    unavailableReason: "SCTP DataChannel packet loss is not exposed; RTT is ICE transport RTT"))
+            }
+        }
+        return lock.withLock {
+            guard peerConnections[peerID] === connection else { return .init() }
+            var current = result
+            current.bufferedBytes = channels[peerID]?.values.reduce(UInt64(0)) { $0 + $1.bufferedAmount }
+            return current
         }
     }
 

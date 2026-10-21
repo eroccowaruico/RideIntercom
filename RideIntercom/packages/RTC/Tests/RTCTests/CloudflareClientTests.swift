@@ -14,6 +14,20 @@ struct CloudflareClientTests {
                          credential: .derived(groupID: "group", secret: "invitation-secret")),
               cloudflare: .init(workerURL: URL(string: url)!, accessToken: "device-token"))
     }
+    @Test func iceCredentialsArriveBeforeOfferAndAreCleanedUpWithoutSession() async {
+        SFUHTTPStub.reset()
+        let client = makeClient()
+        var events = client.events.makeAsyncIterator()
+        await client.connect(request())
+        guard case .iceServers(let servers) = await events.next() else { Issue.record("Expected ICE before connect"); return }
+        #expect(servers.first?.urls == ["stun:stun.cloudflare.com:3478"])
+        #expect(await events.next() == .connected)
+        await client.disconnect()
+        #expect(SFUHTTPStub.requests.first?.url?.path.hasSuffix("/ice/device") == true)
+        #expect(SFUHTTPStub.requests.last?.httpMethod == "DELETE")
+        #expect(SFUHTTPStub.requests.last?.url?.path.hasSuffix("/ice/device") == true)
+    }
+
     @Test func renewsSameSFUSessionAndClosesOnQuotaWithoutExposingCloudflareSecret() async {
         SFUHTTPStub.reset()
         let client = makeClient(), request = request()
@@ -109,6 +123,9 @@ private final class SFUHTTPStub: URLProtocol, @unchecked Sendable {
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type":"application/json"])!
         let sid = Self.lock.withLock { Self.delayFirstDelete ? "session-\(Self.recorded.filter { $0.url!.path.hasSuffix("/join") }.count)" : "same-session" }
         var data = Data("{\"sessionId\":\"\(sid)\",\"expiresAt\":9999999999999,\"renewAfterSeconds\":1,\"sessionDescription\":{\"type\":\"answer\",\"sdp\":\"answer\"}}".utf8)
+        if request.url!.path.contains("/ice/") {
+            data = Data("{\"iceServers\":[{\"urls\":[\"stun:stun.cloudflare.com:3478\"]}]}".utf8)
+        }
         if request.url!.path == "/api/status" {
             data = Data("{\"month\":\"2026-10\",\"reservedParticipantSeconds\":0,\"monthlyParticipantSeconds\":1000000,\"activeSessions\":0}".utf8)
         }

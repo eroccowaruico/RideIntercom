@@ -14,6 +14,7 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
     private let session: URLSession
     private var request: WebRTCSignalingConnectRequest?
     private var sessionID: String?
+    private var iceLeaseID: String?
     private var generation = UUID()
     private var socket: URLSessionWebSocketTask?
     private var socketTask: Task<Void, Never>?
@@ -45,22 +46,37 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             source.yield(.failed("A secure Worker URL, device token and group invitation are required")); return
         }
         self.request = request
-        source.yield(.connected)
+        let generation = generation
+        let attempt = generation.uuidString
+        iceLeaseID = attempt
+        do {
+            let data = try await http(request, path: "ice/\(request.call.localPeer.id.rawValue)", body: ["leaseID": attempt])
+            let ice = try JSONDecoder().decode(IceConfiguration.self, from: data)
+            guard self.generation == generation else {
+                _ = try? await http(request, path: "ice/\(request.call.localPeer.id.rawValue)", method: "DELETE", body: ["leaseID": attempt])
+                return
+            }
+            source.yield(.iceServers(ice.iceServers))
+            source.yield(.connected)
+        } catch { await fail(error, generation: generation) }
     }
     public func disconnect() async {
         generation = UUID(); socketTask?.cancel(); renewalTask?.cancel()
         socketTask = nil; renewalTask = nil; socket?.cancel(with: .normalClosure, reason: nil); socket = nil
-        let oldID = sessionID, oldRequest = request
-        sessionID = nil; request = nil; peers = []; subscribed = [:]; peerSessions = [:]; awaitingAnswer = false; localChannels = []; publishing = false
+        let oldID = sessionID, oldRequest = request, oldIceLeaseID = iceLeaseID
+        sessionID = nil; iceLeaseID = nil; request = nil; peers = []; subscribed = [:]; peerSessions = [:]; awaitingAnswer = false; localChannels = []; publishing = false
         // Clear owned state before suspending. An old DELETE must never clear a new call.
-        if let oldID, let oldRequest { _ = try? await http(oldRequest, path: "sessions/\(oldID)", method: "DELETE") }
+        if let oldRequest {
+            let path = oldID.map { "sessions/\($0)" } ?? "ice/\(oldRequest.call.localPeer.id.rawValue)"
+            _ = try? await http(oldRequest, path: path, method: "DELETE", body: oldID == nil ? ["leaseID": oldIceLeaseID ?? ""] : nil)
+        }
     }
     public func sendOffer(_ offer: WebRTCSessionDescription, to peerID: PeerID) async {
         guard peerID == Self.sfuID, let request, sessionID == nil else { return }
         let generation = generation
         do {
             let response = try await http(request, path: "join", body: ["participantId": request.call.localPeer.id.rawValue,
-                "displayName": request.call.localPeer.displayName, "offer": ["type": "offer", "sdp": offer.sdp]])
+                "displayName": request.call.localPeer.displayName, "iceLeaseID": iceLeaseID ?? "", "offer": ["type": "offer", "sdp": offer.sdp]])
             let lease = try JSONDecoder().decode(Lease.self, from: response)
             guard self.generation == generation else {
                 _ = try? await http(request, path: "sessions/\(lease.sessionId)", method: "DELETE"); return
@@ -178,6 +194,7 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
                 guard self.generation == generation else { return nil }
                 let next = try JSONDecoder().decode(Lease.self, from: data)
                 guard next.sessionId == lease.sessionId else { throw Failure.invalidResponse }
+                if let servers = next.iceServers { source.yield(.iceServers(servers)) }
                 return next
             } catch {
                 guard self.generation == generation, !Task.isCancelled else { return nil }
@@ -215,8 +232,9 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         guard (200..<300).contains(response.statusCode) else { throw Failure.http(response.statusCode) }
         return data
     }
+    private struct IceConfiguration: Decodable { let iceServers: [WebRTCIceServer] }
     private struct Description: Decodable { let type: String; let sdp: String }
-    private struct Lease: Decodable { let sessionId: String; let expiresAt: Double; let renewAfterSeconds: Double; let sessionDescription: Description?; let channels: [WebRTCDataChannel]? }
+    private struct Lease: Decodable { let sessionId: String; let expiresAt: Double; let renewAfterSeconds: Double; let sessionDescription: Description?; let channels: [WebRTCDataChannel]?; let iceServers: [WebRTCIceServer]? }
     private struct Pull: Decodable { let channels: [WebRTCDataChannel] }
     private struct WireEvent: Decodable {
         struct Peer: Decodable { let id: String; let displayName: String; let sessionId: String }

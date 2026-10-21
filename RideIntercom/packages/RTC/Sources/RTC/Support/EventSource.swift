@@ -6,6 +6,9 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var subscriptions: [UUID: Subscription] = [:]
     private var isFinished = false
+    private let counters = Counters()
+    var report: RTCEventDropReport { counters.lock.withLock { counters.report } }
+    func resetDiagnostics() { counters.lock.withLock { counters.report = .init() } }
     private let isTransient: @Sendable (Event) -> Bool
 
     init(isTransient: @escaping @Sendable (Event) -> Bool = { _ in false }) {
@@ -14,7 +17,7 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
 
     var stream: AsyncStream<Event> {
         let id = UUID()
-        let subscription = Subscription(isTransient: isTransient)
+        let subscription = Subscription(isTransient: isTransient, counters: counters)
         lock.withLock {
             if isFinished { subscription.finish() }
             else { subscriptions[id] = subscription }
@@ -39,6 +42,11 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
         }
     }
 
+    private final class Counters: @unchecked Sendable {
+        let lock = NSLock()
+        var report = RTCEventDropReport()
+    }
+
     private final class Subscription: @unchecked Sendable {
         private struct Entry {
             var event: Event
@@ -46,21 +54,30 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
         }
         private let lock = NSLock()
         private let isTransient: @Sendable (Event) -> Bool
+        private let counters: Counters
         private let wakeup = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         private var entries: [Entry] = []
         private var isFinished = false
 
-        init(isTransient: @escaping @Sendable (Event) -> Bool) { self.isTransient = isTransient }
+        init(isTransient: @escaping @Sendable (Event) -> Bool, counters: Counters) {
+            self.isTransient = isTransient; self.counters = counters
+        }
+        private func expire(at now: ContinuousClock.Instant) {
+            let before = entries.count
+            entries.removeAll { $0.expiresAt.map { $0 <= now } ?? false }
+            counters.lock.withLock { counters.report.expired += before - entries.count }
+        }
 
         func yield(_ event: Event) {
             lock.withLock {
                 guard !isFinished else { return }
                 let now = ContinuousClock.now
-                entries.removeAll { $0.expiresAt.map { $0 <= now } ?? false }
+                expire(at: now)
                 let transient = isTransient(event)
                 if transient, entries.lazy.filter({ $0.expiresAt != nil }).count >= 64,
                    let oldest = entries.firstIndex(where: { $0.expiresAt != nil }) {
                     entries.remove(at: oldest)
+                    counters.lock.withLock { counters.report.overflow += 1 }
                 }
                 entries.append(Entry(event: event, expiresAt: transient ? now.advanced(by: .milliseconds(100)) : nil))
                 wakeup.continuation.yield(())
@@ -71,7 +88,7 @@ final class EventSource<Event: Sendable>: @unchecked Sendable {
             while !Task.isCancelled {
                 let (event, finished): (Event?, Bool) = lock.withLock {
                     let now = ContinuousClock.now
-                    entries.removeAll { $0.expiresAt.map { $0 <= now } ?? false }
+                    expire(at: now)
                     return (entries.isEmpty ? nil : entries.removeFirst().event, isFinished)
                 }
                 if let event { return event }

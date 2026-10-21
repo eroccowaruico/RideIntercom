@@ -38,3 +38,19 @@ import Testing
     for await value in stream { received.append(value) }
     #expect(received == [-1])
 }
+
+@Test func eventDropsDistinguishOverflowFromExpiryAndReset() async throws {
+    let source = EventSource<Int>(isTransient: { $0 >= 0 })
+    let stream = source.stream
+    for frame in 0..<70 { source.yield(frame) }
+    #expect(source.report.overflow == 6)
+    #expect(source.report.expired == 0)
+    try await Task.sleep(for: .milliseconds(150))
+    source.yield(-1)
+    #expect(source.report.expired == 64)
+    var iterator = stream.makeAsyncIterator()
+    #expect(await iterator.next() == -1)
+    source.resetDiagnostics()
+    #expect(source.report == RTCEventDropReport())
+    source.finish()
+}

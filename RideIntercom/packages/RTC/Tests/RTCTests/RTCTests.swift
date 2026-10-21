@@ -346,7 +346,8 @@ import Testing
         .compactMap { try RTCRuntimeStatusTransport.decode($0) }
     let status = try #require(statuses.last)
     #expect(status.reason == .packageReportsChanged)
-    #expect(status.packageReports == [report])
+    #expect(status.packageReports.contains(report))
+    #expect(status.packageReports.contains { $0.package == "RTC" && $0.kind == "network" })
 }
 
 @Test func routeManagerAutomaticallyFallsBackToWebRTC() async {

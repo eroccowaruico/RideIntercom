@@ -35,6 +35,7 @@ struct GroupRelay: Sendable {
         var body: RelayBody
         var forward: Data?
         var didRestart: Bool
+        var path: [PeerID]
     }
     private struct Member: Sendable {
         var peer: PeerDescriptor
@@ -107,7 +108,7 @@ struct GroupRelay: Sendable {
         peers[id] = member
         envelope.path.append(request.localPeer.id)
         let forwarded = envelope.path.count < 8 ? try? encode(envelope) : nil
-        return Reception(peer: envelope.origin, body: envelope.body, forward: forwarded, didRestart: didRestart)
+        return Reception(peer: envelope.origin, body: envelope.body, forward: forwarded, didRestart: didRestart, path: envelope.path)
     }
 
     func members(now: TimeInterval) -> [PeerDescriptor] {

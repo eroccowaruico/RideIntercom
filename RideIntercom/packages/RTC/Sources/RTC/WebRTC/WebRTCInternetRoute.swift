@@ -65,8 +65,14 @@ public actor WebRTCInternetRoute: RTCCallRoute {
         engineTask?.cancel()
     }
 
+    public func networkDiagnostics() async -> RTCRouteNetworkDiagnostics {
+        .init(route: kind, statistics: await engine.networkStatistics(for: sfuPeer.id),
+              eventDrops: ["route": eventSource.report, "engine": engine.eventDropReport])
+    }
+
     public func prepare(_ request: CallStartRequest) async {
         if self.request != nil { await stopConnection() }
+        eventSource.resetDiagnostics()
         self.request = request
         guard engine.isAvailable else {
             eventSource.yield(.availabilityChanged(RouteAvailability(route: kind, isAvailable: false, reason: "Native WebRTC SDK is unavailable")))
@@ -166,6 +172,9 @@ public actor WebRTCInternetRoute: RTCCallRoute {
     private func handleSignalingEvent(_ event: WebRTCSignalingEvent, generation: UUID) async {
         guard self.generation == generation, connecting else { return }
         switch event {
+        case .iceServers(let servers):
+            let accepted = await engine.configureIceServers(servers)
+            if !accepted { await fail("Could not apply ICE credentials", generation: generation) }
         case .connected:
             guard connecting else { return }
             await engine.createPeerConnection(for: sfuPeer)
@@ -262,13 +271,16 @@ public enum WebRTCEngineEvent: Equatable, Sendable {
 
 open class NativeWebRTCEngine: NSObject, @unchecked Sendable {
     private let eventSource = EventSource<WebRTCEngineEvent>(isTransient: { $0.isTransient })
+    public var eventDropReport: RTCEventDropReport { eventSource.report }
     public func emit(_ event: WebRTCEngineEvent) { eventSource.yield(event) }
     open var isAvailable: Bool { false }
     open var events: AsyncStream<WebRTCEngineEvent> { eventSource.stream }
 
     public override init() {}
 
-    open func prepareLocalAudio(peer: PeerDescriptor, policy: RTCAudioPolicy) async {}
+    open func prepareLocalAudio(peer: PeerDescriptor, policy: RTCAudioPolicy) async { eventSource.resetDiagnostics() }
+    open func configureIceServers(_ servers: [WebRTCIceServer]) async -> Bool { false }
+    open func networkStatistics(for peerID: PeerID) async -> RTCNetworkStatistics { .init() }
 
     open func createPeerConnection(for peer: PeerDescriptor) async {}
     open func makeOffer(for peerID: PeerID) async -> WebRTCSessionDescription? { nil }

@@ -61,5 +61,12 @@ private actor PacketRecorder {
     }
     let asText = await ar.states, bsText = await br.states
     #expect(await ar.messages.contains(message), "A states: \(asText)"); #expect(await br.messages.contains(message), "B states: \(bsText)")
+    #expect(await a.configureIceServers([.init(urls: ["stun:localhost:3478"])]))
+    await a.sendApplicationData(message, to: peer.id)
+    let metrics = await a.networkStatistics(for: peer.id)
+    #expect(metrics.bufferedBytes != nil)
+    #expect(metrics.roundTripTime != nil)
+    #expect(metrics.packetLoss == nil)
     await a.close(); await b.close()
+    #expect(await a.networkStatistics(for: peer.id).bufferedBytes == nil)
 }

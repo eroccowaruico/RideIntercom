@@ -28,6 +28,7 @@ public actor RouteManager: CallSession {
     private var relay: GroupRelay?
     private var receiveBuffer = PacketAudioReceiveBuffer()
     private var memberSnapshot: [CallMemberState] = []
+    private var observedPaths: [PeerID: RTCObservedPeerPath] = [:]
     private var memberRoutes: [PeerID: RouteKind] = [:]
     private var lastPresence: TimeInterval = 0
     private var lastRuntimeStatus: TimeInterval = 0
@@ -52,6 +53,7 @@ public actor RouteManager: CallSession {
         self.request = request
         configuration = request.configuration.normalized()
         relay = GroupRelay(request: request)
+        observedPaths = [:]; eventSource.resetDiagnostics()
         receiveBuffer.reset(); memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
         routeStates = [:]; routeAvailabilities = [:]; started = []; retries = [:]
         availableRoutes = []; activeRoute = nil; isMediaStarted = false
@@ -115,6 +117,7 @@ public actor RouteManager: CallSession {
         let token = generation
         timer?.cancel(); timer = nil; fallbackTask?.cancel(); fallbackTask = nil
         routeTasks.forEach { $0.cancel() }; routeTasks = []
+        observedPaths = [:]; eventSource.resetDiagnostics()
         request = nil; relay = nil; started = []; retries = [:]; availableRoutes = []
         activeRoute = nil; isMediaStarted = false; receiveBuffer.reset()
         memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
@@ -204,6 +207,7 @@ public actor RouteManager: CallSession {
                 memberSnapshot.removeAll { $0.peer.id == result.peer.id }
                 emit(.membersChanged(memberSnapshot))
             }
+            observedPaths[result.peer.id] = .init(peerID: result.peer.id, route: kind, path: result.path, observedAt: Date().timeIntervalSince1970)
             memberRoutes[result.peer.id] = kind
             updateMembers()
             switch result.body {
@@ -260,7 +264,7 @@ public actor RouteManager: CallSession {
         }
         guard next != memberSnapshot else { return }
         let departed = Set(memberSnapshot.map { $0.peer.id }).subtracting(next.map { $0.peer.id })
-        for peer in departed { receiveBuffer.removePeer(peer); memberRoutes[peer] = nil }
+        for peer in departed { receiveBuffer.removePeer(peer); memberRoutes[peer] = nil; observedPaths[peer] = nil }
         memberSnapshot = next
         emit(.membersChanged(next)); updateState()
     }
@@ -276,10 +280,34 @@ public actor RouteManager: CallSession {
                             isHandoverInProgress: !retries.isEmpty && availableRoutes.isEmpty)
     }
     private func sendRuntimeStatus(reason: RTCRuntimeStatusReason) async {
-        guard runtimeStatusPolicy.isAutomaticBroadcastEnabled,
-              let message = try? RTCRuntimeStatusTransport.makeMessage(makeRuntimeStatus(reason: reason), delivery: .unreliable) else { return }
+        let token = generation
+        let network = await networkDiagnostics()
+        guard token == generation else { return }
+        emit(.networkDiagnosticsChanged(network))
+        guard runtimeStatusPolicy.isAutomaticBroadcastEnabled else { return }
+        var status = makeRuntimeStatus(reason: reason)
+        if let report = try? RTCRuntimePackageReport.json(package: "RTC", kind: "network", payload: network) {
+            status.packageReports.append(report)
+        }
+        guard let message = try? RTCRuntimeStatusTransport.makeMessage(status, delivery: .unreliable) else { return }
         await sendApplicationData(message)
     }
+    public func networkDiagnostics() async -> RTCNetworkDiagnostics {
+        let token = generation
+        var diagnostics: [RTCRouteNetworkDiagnostics] = []
+        for kind in started.sorted(by: { $0.rawValue < $1.rawValue }) {
+            if let route = routes[kind] { diagnostics.append(await route.networkDiagnostics()) }
+            guard generation == token else { return .init(generatedAt: Date().timeIntervalSince1970, eventDrops: .init(), routes: [], peers: []) }
+        }
+        let now = Date().timeIntervalSince1970
+        let paths = observedPaths.values.filter { path in
+            now - path.observedAt < GroupRelay.presenceLifetime && availableRoutes.contains(path.route)
+                && path.path.dropLast().last.map { routeMembers[path.route, default: []].contains($0) } == true
+        }
+        return .init(generatedAt: now, eventDrops: eventSource.report, routes: diagnostics,
+                     peers: paths.sorted { $0.peerID.rawValue < $1.peerID.rawValue })
+    }
+
     private func makeRuntimeStatus(reason: RTCRuntimeStatusReason) -> RTCRuntimeStatus {
         let request = request ?? CallStartRequest(
             sessionID: "",

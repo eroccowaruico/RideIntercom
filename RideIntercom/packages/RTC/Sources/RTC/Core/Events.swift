@@ -94,7 +94,7 @@ public struct RouteMetrics: Codable, Equatable, Sendable {
 public enum CallSessionEvent: Equatable, Sendable {
     var isTransient: Bool {
         switch self {
-        case .receivedAudioPacket, .metricsChanged: return true
+        case .receivedAudioPacket, .metricsChanged, .networkDiagnosticsChanged: return true
         case .receivedApplicationData(let received): return received.message.delivery == .unreliable
         default: return false
         }
@@ -107,5 +107,6 @@ public enum CallSessionEvent: Equatable, Sendable {
     case receivedApplicationData(ReceivedApplicationData)
     case receivedAudioPacket(ReceivedAudioPacket)
     case metricsChanged(RouteMetrics)
+    case networkDiagnosticsChanged(RTCNetworkDiagnostics)
     case error(CallSessionError)
 }
