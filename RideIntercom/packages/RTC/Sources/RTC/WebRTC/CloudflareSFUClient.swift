@@ -41,7 +41,9 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             && (url.path.isEmpty || url.path == "/") && !configuration.accessToken.isEmpty
     }
     public func connect(_ request: WebRTCSignalingConnectRequest) async {
-        await disconnect()
+        let operation = UUID()
+        await disconnect(generation: operation)
+        guard generation == operation else { return }
         guard Self.valid(request.cloudflare), request.call.credential != nil else {
             source.yield(.failed("A secure Worker URL, device token and group invitation are required")); return
         }
@@ -60,8 +62,9 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             source.yield(.connected)
         } catch { await fail(error, generation: generation) }
     }
-    public func disconnect() async {
-        generation = UUID(); socketTask?.cancel(); renewalTask?.cancel()
+    public func disconnect() async { await disconnect(generation: UUID()) }
+    private func disconnect(generation: UUID) async {
+        self.generation = generation; socketTask?.cancel(); renewalTask?.cancel()
         socketTask = nil; renewalTask = nil; socket?.cancel(with: .normalClosure, reason: nil); socket = nil
         let oldID = sessionID, oldRequest = request, oldIceLeaseID = iceLeaseID
         sessionID = nil; iceLeaseID = nil; request = nil; peers = []; subscribed = [:]; peerSessions = [:]; awaitingAnswer = false; localChannels = []; publishing = false

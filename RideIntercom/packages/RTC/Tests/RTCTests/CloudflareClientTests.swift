@@ -58,6 +58,22 @@ struct CloudflareClientTests {
         await client.disconnect()
     }
 
+    @Test func cancelledReconnectCannotIssueCredentialsAfterOldCleanupFinishes() async {
+        SFUHTTPStub.reset(delayFirstDelete: true)
+        let client = makeClient()
+        await client.connect(request())
+        await client.sendOffer(.init(kind: .offer, sdp: "first"), to: .init(rawValue: "cloudflare-sfu"))
+        let next = request()
+        let reconnect = Task { await client.connect(next) }
+        for _ in 0..<100 {
+            if SFUHTTPStub.requests.contains(where: { $0.httpMethod == "DELETE" }) { break }
+            try? await Task.sleep(for: .milliseconds(2))
+        }
+        await client.disconnect()
+        await reconnect.value
+        #expect(SFUHTTPStub.requests.filter { $0.httpMethod == "POST" && $0.url!.path.contains("/ice/") }.count == 1)
+    }
+
     @Test func delayedOldDisconnectCannotClearTheNewConnection() async {
         SFUHTTPStub.reset(delayFirstDelete: true)
         let client = makeClient()
