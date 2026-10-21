@@ -120,3 +120,12 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 イベント待ちでの破棄数は現状のroute受信drop counterに含まれない。受信bufferでの破棄は既存counterへ反映する。制御イベントは音声と一緒に追い出さないが、永続保存・相手の処理完了保証は持たない。
 
 根拠: [W3C DataChannelInit](https://www.w3.org/TR/webrtc/#dom-rtcdatachannelinit)、[Cloudflare message delivery](https://developers.cloudflare.com/realtime/sfu/features/datachannels/#configure-message-delivery)。
+
+## Local探索のOS所有境界
+
+| 操作 | 契約 |
+|---|---|
+| Multipeer browser / advertiser生成・開始・停止・解放 | main run loopへ直列化。main上からの同期再入は直接実行してdeadlockを避ける |
+| 停止 | delegateを外して探索・sessionを停止。停止済み・別sessionの遅延callbackを拒否 |
+| 理由 | SimulatorのDisconnect UIでBonjour `_MonitorCancel` / `_netServiceMonitorCallBack` がEXC_BAD_ACCESSとなった。探索の寿命をcallback側run loopと揃える |
+| 検証 | 実Multipeer探索の反復start/stopとSimulatorの接続・切断UI。端末間の無線通信・実機相互通話は別途 |

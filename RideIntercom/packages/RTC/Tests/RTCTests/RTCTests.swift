@@ -790,3 +790,16 @@ private func relayBodies(_ messages: [ApplicationDataMessage]) -> [RelayBody] {
 private func relayMessages(_ messages: [ApplicationDataMessage]) -> [ApplicationDataMessage] {
     relayBodies(messages).compactMap { if case .application(let message) = $0 { message } else { nil } }
 }
+
+#if canImport(MultipeerConnectivity)
+@Test @MainActor func localDiscoveryCanCancelAndRestartWithPendingRunLoopCallbacks() async {
+    let transport = MultipeerConnectionTransport(request: makeRequest(credential: nil), displayName: "lifecycle-test")
+    for _ in 0..<12 {
+        transport.start()
+        await Task.yield()
+        transport.stop()
+        transport.stop()
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+}
+#endif

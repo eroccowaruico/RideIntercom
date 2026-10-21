@@ -243,7 +243,9 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     private let credential: RTCCredential?
     private let localPeerID: MCPeerID
     private var session: MCSession
-    private let queue = DispatchQueue(label: "RideIntercom.MultipeerConnection")
+    // Bonjour's browser/monitor lifecycle belongs to the main run loop. Starting
+    // and destroying it on another queue races its pending cancellation callback.
+    private let queue = DispatchQueue.main
     private var isStopped = false
     private var connectedPeerIDs: Set<PeerID> = []
     private let logger = Logger(subsystem: "com.yowamushi-inc.RideIntercom", category: "rtc-multipeer")
@@ -261,9 +263,15 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
         session.delegate = self
     }
 
+    private func onQueue<T>(_ operation: () -> T) -> T {
+        if Thread.isMainThread { return operation() }
+        return queue.sync(execute: operation)
+    }
+
     func start() {
-        queue.sync { [self] in
+        onQueue { [self] in
             stopDiscovery()
+            session.delegate = nil
             session.disconnect()
             session = MCSession(peer: localPeerID, securityIdentity: nil, encryptionPreference: .required)
             session.delegate = self
@@ -290,10 +298,11 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     }
 
     func stop() {
-        queue.sync { [self] in
+        onQueue { [self] in
             isStopped = true
             connectedPeerIDs.removeAll()
             stopDiscovery()
+            session.delegate = nil
             session.disconnect()
             authenticatedPeers.removeAll()
             onEvent?(.state(.disconnected))
@@ -302,7 +311,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     }
 
     func send(_ payload: TransportPayload) {
-        queue.sync { [self] in
+        onQueue { [self] in
             guard !isStopped else { return }
             let peers = session.connectedPeers.filter { authenticatedPeers.contains(PeerID(rawValue: $0.displayName)) }
             guard !peers.isEmpty else { return }
@@ -316,7 +325,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     }
 
     func accept(_ handshake: RouteHandshakeMessage, from peerID: PeerID) -> Bool {
-        return queue.sync { [self] in
+        return onQueue { [self] in
             guard !isStopped, connectedPeerIDs.contains(peerID) else { return false }
             guard let credential else {
                 authenticatedPeers.insert(peerID)
@@ -332,6 +341,8 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     }
 
     private func stopDiscovery() {
+        advertiser?.delegate = nil
+        browser?.delegate = nil
         advertiser?.stopAdvertisingPeer()
         browser?.stopBrowsingForPeers()
         advertiser = nil
@@ -398,7 +409,7 @@ extension MultipeerConnectionTransport: MCNearbyServiceAdvertiserDelegate {
         withContext context: Data?,
         invitationHandler: @escaping (Bool, MCSession?) -> Void
     ) {
-        let acceptedSession: MCSession? = queue.sync {
+        let acceptedSession: MCSession? = onQueue {
             guard !isStopped, self.advertiser === advertiser else { return nil }
             if let credential, LocalInvitationContext.decode(context)?.groupHash != credential.groupHash { return nil }
             return session
