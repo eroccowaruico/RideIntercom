@@ -314,20 +314,23 @@ public final class MixerPCMSource {
 		do {
 			let normalized = try MixerPCMNormalizer.normalize(frame, to: mixerFormat, operation: .normalizeSource)
 			let buffer = try normalized.frame.makePCMBuffer()
+			var shouldResumePlayback = false
 			if let limit = maximumBufferedDuration {
 				let duration = Double(buffer.frameLength) / mixerFormat.sampleRate
 				guard limit.isFinite, limit > 0, duration <= limit else {
 					throw AudioMixerError.pcmSourceScheduleFailed("Frame exceeds live playback budget")
 				}
 				if bufferedDuration + duration > limit {
-					let wasPlaying = playerNode.isPlaying
+					shouldResumePlayback = playerNode.isPlaying
 					stop()
 					playbackResetCount += 1
-					if wasPlaying { start() }
 				}
 			}
 			scheduledEndSample = max(scheduledEndSample, renderedSample) + AVAudioFramePosition(buffer.frameLength)
 			playerNode.scheduleBuffer(buffer, completionHandler: nil)
+			// Resume only after the replacement buffer is queued; an empty
+			// running player can otherwise render silence after a backlog reset.
+			if shouldResumePlayback { start() }
 			recordSchedule(frame, normalized.report, nil)
 			return normalized.report
 		} catch let failure as AudioProcessingFailure {

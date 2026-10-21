@@ -384,3 +384,5 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ。tap由来のsink診断更新はlockで保護し、利用者callbackはlockを外して呼ぶ。sink登録時は有効なformatと正のbuffer frame数を要求する。
 
 `removeBus(id)`は対象busのsource/player/fader/effect/tapを停止・detachし、関連routeを除く。対象へ入力していた別bus自体は残し、再route可能にする。削除したbus/sourceへの参照は破棄し再利用しない。他のbusは継続する。参加者の入れ替わりに伴うノード蓄積を防げる。
+
+再生予約上限を超えて旧bufferを破棄するときは、停止前の再生状態を保持し、新bufferをscheduleしてから再生を再開する。空のplayerを先にplayして最初のrenderが無音になる順序を避ける。停止中のsourceはscheduleだけで自動再生しない。offline AVAudioEngineの20並行fixtureで、破棄後の最初のblockに最新音声が含まれることを確認する。

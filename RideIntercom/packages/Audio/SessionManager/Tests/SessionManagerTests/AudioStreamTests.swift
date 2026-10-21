@@ -410,7 +410,7 @@ private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
 #endif
 
 #if canImport(AVFAudio)
-@Test func outputBackendDropsStalledPlaybackAndRetainsNewestAudio() throws {
+@Test(arguments: 0..<20) func outputBackendDropsStalledPlaybackAndRetainsNewestAudio(_ iteration: Int) throws {
     let engine = AVAudioEngine()
     let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
     try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
@@ -424,7 +424,7 @@ private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
     let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
     #expect(try engine.renderOffline(1024, to: buffer) == .success)
     let peak = (0..<Int(buffer.frameLength)).map { abs(buffer.floatChannelData![0][$0]) }.max() ?? 0
-    #expect(peak > 0.79 && peak < 0.81)
+    #expect(peak > 0.79 && peak < 0.81, "First render after overflow, iteration \(iteration): \(peak)")
     #expect(backend.playbackResetCount == 1)
     #expect(backend.bufferedOutputDuration == 0)
     #expect(throws: (any Error).self) {

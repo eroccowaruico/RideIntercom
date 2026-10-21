@@ -392,7 +392,7 @@ import AVFAudio
     #expect(snapshot.sinks.first?.targetFormat == AudioFormat(sampleRate: 16_000, channelCount: 1))
 }
 
-@Test func liveSourceDiscardsBacklogAndPlaysNewestBuffer() throws {
+@Test(arguments: 0..<20) func liveSourceDiscardsBacklogAndPlaysNewestBuffer(_ iteration: Int) throws {
     let engine = AVAudioEngine()
     let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
     try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
@@ -409,7 +409,7 @@ import AVFAudio
     let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
     #expect(try engine.renderOffline(1024, to: output) == .success)
     let peak = (0..<Int(output.frameLength)).map { abs(output.floatChannelData![0][$0]) }.max() ?? 0
-    #expect(peak > 0.79 && peak < 0.81)
+    #expect(peak > 0.79 && peak < 0.81, "First render after overflow, iteration \(iteration): \(peak)")
     #expect(source.playbackResetCount == 1)
     #expect(source.bufferedDuration == 0)
     #expect(bus.snapshot().sources.first?.playbackResetCount == 1)
