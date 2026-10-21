@@ -24,5 +24,15 @@ struct CallEntryView: View {
                     }
             }
         }
+        .safeAreaInset(edge: .top) {
+            if let message = viewModel.groupErrorMessage {
+                Label(message, systemImage: "key.horizontal")
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(.regularMaterial)
+                    .accessibilityIdentifier("groupErrorLabel")
+            }
+        }
     }
 }

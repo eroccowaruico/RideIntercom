@@ -22,7 +22,6 @@ enum AppColorPalette {
     static let cardBorder: Color = Color.secondary.opacity(0.35)
 
     static let meterTrack: Color = Color.secondary.opacity(0.16)
-    static let connectorNeutral: Color = Color.secondary.opacity(0.5)
 
     static let buttonProminentBackground: Color = .accentColor
     static let buttonProminentForeground: Color = .white
@@ -54,8 +53,6 @@ enum AppSize {
     static let buttonMacMinHeight: CGFloat = 28
     static let iconS: CGFloat = 24
     static let iconM: CGFloat = 28
-    static let iconL: CGFloat = 32
-    static let connector = CGSize(width: 10, height: 48)
     static let meterPeakWidth: CGFloat = 2
     static let meterHeight: CGFloat = 16
 }
@@ -72,8 +69,6 @@ enum AppTypography {
     static let captionStrongMono: Font = .caption.weight(.semibold).monospacedDigit()
     static let caption2: Font = .caption2
     static let caption2Mono: Font = .caption2.monospacedDigit()
-    static let bodyMono: Font = .body.monospacedDigit()
-    static let footnoteMono: Font = .footnote.monospacedDigit()
     static let footnoteStrong: Font = .footnote.weight(.semibold)
     static let footnote: Font = .footnote
 }

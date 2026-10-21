@@ -246,7 +246,6 @@ extension IntercomViewModel {
     func setVADSensitivity(_ sensitivity: VoiceActivitySensitivity) {
         vadSensitivity = sensitivity
         audioTransmissionController.applyVADSensitivity(sensitivity)
-        latestVADAnalysis = nil
         refreshPackageRuntimeSnapshots()
         saveAppSettings()
         AppLoggers.settings.info(

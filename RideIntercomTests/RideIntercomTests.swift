@@ -151,8 +151,7 @@ struct RideIntercomTests {
     @Test func currentProcessUsesPackageBackedRTCRouteManager() {
         let viewModel = IntercomViewModel.makeForCurrentProcess()
 
-        #expect(viewModel.callSessionDebugTypeName == "RTC RouteManager")
-        #expect(viewModel.transportDebugSummary == "TRANSPORT RTC RouteManager")
+        #expect(viewModel.callSession.activeRouteDebugTypeName == "RTC RouteManager")
     }
 
     @Test func callSessionAdapterIgnoresFallbackRouteFailureUntilSessionFails() async {
@@ -783,14 +782,8 @@ struct RideIntercomTests {
         #expect(harness.callSession.enabledRouteValues.last == [.multipeer])
     }
 
-    @Test func diagnosticsSnapshotSummarizesCurrentAppState() {
+    @Test func diagnosticsRowsSummarizeCurrentAppState() {
         let harness = Self.makeHarness()
-        let snapshot = harness.viewModel.diagnosticsSnapshot
-
-        #expect(snapshot.transportSummary == "TRANSPORT RecordingCallSession")
-        #expect(snapshot.audio.summary.contains("TX 0"))
-        #expect(snapshot.connectionSummary == "PEERS 0")
-
         let overviewRows = harness.viewModel.diagnosticsOverviewRows
         #expect(overviewRows.map(\.id) == ["media", "call", "network", "invite"])
         #expect(overviewRows.map(\.title) == ["Audio Path", "Call", "Network Quality", "Invite"])
@@ -1339,6 +1332,62 @@ struct RideIntercomTests {
         #expect(model.networkDiagnosticsSummary.contains("Not measured"))
     }
 
+    @Test func createdGroupUsesSamePersistedRandomKeyForInviteAndConnection() throws {
+        let credentials = InMemoryGroupCredentialStore()
+        let h = Self.makeHarness(groups: [], credentialStore: credentials)
+        h.viewModel.createTalkGroup()
+        let group = try #require(h.viewModel.selectedGroup)
+        let saved = try #require(credentials.credential(for: group.id))
+        #expect(Data(base64Encoded: saved.secret)?.count == 32)
+        #expect(!saved.secret.contains(group.id.uuidString))
+        #expect(h.callSession.connectedGroup?.accessSecret == saved.secret)
+        let url = try #require(h.viewModel.selectedGroupInviteURL)
+        let token = try GroupInviteTokenCodec.decodeJoinURL(url)
+        #expect(token.groupSecret == saved.secret)
+        h.viewModel.disconnect()
+        h.viewModel.connectLocal()
+        #expect(h.callSession.connectedGroup?.accessSecret == token.groupSecret)
+        let other = Self.makeHarness(groups: [])
+        try other.viewModel.acceptInviteURL(url)
+        #expect(other.callSession.connectedGroup?.accessSecret == saved.secret)
+    }
+
+    @Test func missingGroupKeyCannotStartPlaintextCallOrInventInvite() throws {
+        let credentials = InMemoryGroupCredentialStore()
+        let group = try IntercomGroup(name: "Missing key", members: [.init(id: "local", displayName: "You")])
+        let h = Self.makeHarness(groups: [group], credentialStore: credentials)
+        h.viewModel.selectGroup(group)
+        #expect(h.callSession.connectedGroup == nil)
+        #expect(h.viewModel.selectedGroupInviteURL == nil)
+        #expect(h.viewModel.activeGroupID == nil)
+        #expect(h.viewModel.groupErrorMessage?.contains("key") == true)
+    }
+
+    @Test func credentialPersistenceFailureDoesNotCreateOrJoinGroup() throws {
+        let h = Self.makeHarness(groups: [], credentialStore: RejectingGroupCredentialStore())
+        h.viewModel.createTalkGroup()
+        #expect(h.viewModel.groups.isEmpty)
+        #expect(h.callSession.connectedGroup == nil)
+        let token = try GroupInviteToken.make(groupID: UUID(), groupName: "Invite", groupSecret: "shared", inviterMemberID: "remote")
+        let url = try GroupInviteTokenCodec.joinURL(for: token)
+        #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(url) }
+        #expect(h.viewModel.groups.isEmpty)
+        #expect(h.callSession.connectedGroup == nil)
+    }
+
+    @Test func emptyInviteCannotReplaceAnExistingGroupKey() throws {
+        let credentials = InMemoryGroupCredentialStore()
+        let h = Self.makeHarness(groups: [], credentialStore: credentials)
+        h.viewModel.createTalkGroup()
+        let group = try #require(h.viewModel.selectedGroup)
+        let saved = try #require(credentials.credential(for: group.id))
+        let token = try GroupInviteToken.make(groupID: group.id, groupName: group.name, groupSecret: "", inviterMemberID: "remote")
+        let url = try GroupInviteTokenCodec.joinURL(for: token)
+        #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(url) }
+        #expect(credentials.credential(for: group.id) == saved)
+        #expect(h.callSession.disconnectCallCount == 0)
+    }
+
     private struct Harness {
         let viewModel: IntercomViewModel
         let callSession: RecordingCallSession
@@ -1371,7 +1420,7 @@ struct RideIntercomTests {
             callSession: callSession,
             credentialStore: credentialStore,
             groupStore: groupStore,
-            appSettingsStore: appSettingsStore,
+            appSettingsStore: appSettingsStore ?? InMemoryAppSettingsStore(),
             internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: InternetTestKeychain()),
             localMemberIdentityStore: identityStore,
             audioSessionManager: AudioSessionManager(backend: audioSessionBackend),
@@ -1761,4 +1810,9 @@ private final class InternetTestKeychain: KeychainSecretStoring {
     var value: String?
     func saveSecret(_ secret: String, service: String, account: String) throws { value = secret }
     func secret(service: String, account: String) throws -> String? { value }
+}
+
+private final class RejectingGroupCredentialStore: GroupCredentialStoring {
+    func save(_ credential: GroupAccessCredential) {}
+    func credential(for groupID: UUID) -> GroupAccessCredential? { nil }
 }

@@ -1,12 +1,4 @@
-import CryptoKit
-import AVFoundation
-import Codec
 import Foundation
-import Observation
-import OSLog
-import RTC
-import SessionManager
-import VADGate
 
 struct GroupMember: Identifiable, Equatable, Hashable, Codable {
     let id: String
@@ -63,9 +55,6 @@ struct GroupMember: Identifiable, Equatable, Hashable, Codable {
         return .idle
     }
 
-    var audioPipelineSummary: String {
-        "RX \(receivedAudioPacketCount) / PLAY \(playedAudioFrameCount) / JIT \(queuedAudioFrameCount)"
-    }
 }
 
 enum AudioPipelineState: String, Equatable, Hashable, Codable {
@@ -203,12 +192,6 @@ struct GroupAccessCredential: Equatable {
     let groupID: UUID
     let secret: String
 
-    nonisolated var groupHash: String {
-        var input = Data(groupID.uuidString.utf8)
-        input.append(0)
-        input.append(contentsOf: secret.utf8)
-        return SHA256.hash(data: input).map { String(format: "%02x", $0) }.joined()
-    }
 
 }
 
@@ -216,29 +199,3 @@ protocol GroupCredentialStoring: AnyObject {
     func save(_ credential: GroupAccessCredential)
     func credential(for groupID: UUID) -> GroupAccessCredential?
 }
-
-protocol GroupCredentialProviding {
-    func credential(for group: IntercomGroup, store: GroupCredentialStoring?) -> GroupAccessCredential
-}
-
-struct DefaultGroupCredentialProvider: GroupCredentialProviding {
-    func credential(for group: IntercomGroup, store: GroupCredentialStoring?) -> GroupAccessCredential {
-        if let stored = store?.credential(for: group.id) {
-            return stored
-        }
-        return GroupAccessCredential(groupID: group.id, secret: group.accessSecret ?? "local-dev-\(group.id.uuidString)")
-    }
-}
-
-final class InMemoryGroupCredentialStore: GroupCredentialStoring {
-    private var credentialsByGroupID: [UUID: GroupAccessCredential] = [:]
-
-    func save(_ credential: GroupAccessCredential) {
-        credentialsByGroupID[credential.groupID] = credential
-    }
-
-    func credential(for groupID: UUID) -> GroupAccessCredential? {
-        credentialsByGroupID[groupID]
-    }
-}
-

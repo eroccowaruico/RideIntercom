@@ -171,7 +171,9 @@ extension IntercomViewModel {
         memberID.hasPrefix(Self.pendingInviteMemberPrefix)
     }
 
-    func credential(for group: IntercomGroup) -> GroupAccessCredential {
-        credentialProvider.credential(for: group, store: credentialStore)
+    func credential(for group: IntercomGroup) -> GroupAccessCredential? {
+        let secret = credentialStore.credential(for: group.id)?.secret ?? group.accessSecret
+        guard let secret, !secret.isEmpty else { return nil }
+        return GroupAccessCredential(groupID: group.id, secret: secret)
     }
 }

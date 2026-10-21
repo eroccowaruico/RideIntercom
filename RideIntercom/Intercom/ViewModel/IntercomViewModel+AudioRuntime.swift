@@ -150,7 +150,6 @@ extension IntercomViewModel {
 
         setLocalVoiceLevel(level)
         let packets = audioTransmissionController.process(frame: frame, level: level)
-        latestVADAnalysis = audioTransmissionController.lastAnalysis
         vadGateRuntimeSnapshot = audioTransmissionController.runtimeSnapshot
         for packet in packets {
             send(packet)

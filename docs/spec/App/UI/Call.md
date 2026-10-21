@@ -114,3 +114,12 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | マスター・参加者音量 / effect / meter | Local / Internet / 中継で共通。経路変更で操作を隠さない |
 | callStatusHeader | 独立したaccessibility container。子の`masterOutputSlider`、`masterOutputMuteButton`などの識別子を上書きしない |
 | 話者設定 | origin peer IDごとに保持。中継gatewayの音量ではない |
+
+## グループ資格の案内
+
+| 状態 | 表示・動作 |
+|---|---|
+| 鍵不足・保存失敗・不正招待 | Call入口の `groupErrorLabel`。標準Labelをsafe area内に配置し、理由と再招待/再試行を表示する。新しい接続は開始しない |
+| 新規グループ作成・有効な選択/接続 | 以前のgroupエラーを解除。通話中に別groupの招待が失敗しても旧通話は維持 |
+
+情報は色だけに依存せずテキストとアイコンで伝え、操作を妨げる確認ダイアログは追加しない。[Apple HIG Alerts](https://developer.apple.com/design/human-interface-guidelines/alerts)の文脈内表示の方針に従う。

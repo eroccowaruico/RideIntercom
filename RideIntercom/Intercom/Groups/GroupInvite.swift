@@ -1,12 +1,5 @@
 import CryptoKit
-import AVFoundation
-import Codec
 import Foundation
-import Observation
-import OSLog
-import RTC
-import SessionManager
-import VADGate
 
 struct GroupInviteToken: Codable, Equatable {
     static let currentVersion = 1
@@ -119,6 +112,7 @@ enum GroupInviteTokenError: Error, Equatable {
     case invalidTokenEncoding
     case invalidSignature
     case expired
+    case credentialStorageFailed
 }
 
 enum GroupInviteTokenCodec {

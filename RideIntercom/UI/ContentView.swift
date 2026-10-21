@@ -31,9 +31,12 @@ struct ContentView: View {
             .accessibilityIdentifier("settingsTab")
         }
         .onOpenURL { url in
-            if (try? viewModel.acceptInviteURL(url)) != nil {
-                selectedTab = .call
+            do {
+                try viewModel.acceptInviteURL(url)
+            } catch {
+                viewModel.groupErrorMessage = "This invitation could not be opened or saved. Ask for a valid invite and try again."
             }
+            selectedTab = .call
         }
     }
 }

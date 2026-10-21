@@ -28,7 +28,6 @@ final class IntercomViewModel {
     nonisolated static let defaultEnabledRTCTransportRoutes: Set<RTC.RouteKind> = supportedRTCTransportRoutes
     nonisolated static let defaultMasterOutputVolume: Float = 1
     nonisolated static let defaultRemoteOutputVolume: Float = 1
-    nonisolated static let receiveMasterPeakLimiterCeiling: Float = 1
     nonisolated static let otherAudioDuckingHoldDuration: TimeInterval = 1.0
     nonisolated static let audibleOutputLevelThreshold: Float = 0.00025
     nonisolated static let runtimePackageReportPublishInterval: TimeInterval = 0.5
@@ -58,7 +57,6 @@ final class IntercomViewModel {
     var audioSessionProfile = IntercomViewModel.defaultAudioSessionProfile
     var isDuckOthersEnabled = IntercomViewModel.defaultDuckOthersEnabled
     var vadSensitivity = IntercomViewModel.defaultVADSensitivity
-    var latestVADAnalysis: VADGateAnalysis?
     var isSoundIsolationEnabled = IntercomViewModel.defaultSoundIsolationEnabled
     var preferredTransmitCodec: AudioCodecIdentifier = IntercomViewModel.defaultTransmitCodec
     var rtcAudioFormatPreset: RTCAudioFormatPreset = IntercomViewModel.defaultRTCAudioFormatPreset
@@ -80,7 +78,6 @@ final class IntercomViewModel {
     var availableOutputPorts: [AudioPortInfo] {
         deduplicatedPorts(audioSessionSnapshot.availableOutputs.map(AudioPortInfo.init(device:)))
     }
-    var isAudioDeviceSelectionLive: Bool { isAudioReady || audioSessionSnapshot.isActive }
     var supportsAdvancedMixingOptions: Bool { true }
     var isOtherAudioDuckingActive: Bool { isOtherAudioDuckingActiveInternal }
     var diagnosticsInputLevel: Float {
@@ -131,6 +128,7 @@ final class IntercomViewModel {
     var lastAudibleReceivedAudioAt: TimeInterval?
     var droppedAudioPacketCount = 0
     var jitterQueuedFrameCount = 0
+    var groupErrorMessage: String?
     var inviteStatusMessage: String?
     let callSession: CallSession
     let audioSessionManager: SessionManager.AudioSessionManager
@@ -138,7 +136,6 @@ final class IntercomViewModel {
     let audioOutputRenderer: SessionManager.AudioOutputStreamRenderer
     let callTicker: CallTicking
     let credentialStore: GroupCredentialStoring
-    let credentialProvider: any GroupCredentialProviding
     let groupStore: GroupStoring
     let appSettingsStore: AppSettingsStoring
     let localMemberIdentity: LocalMemberIdentity
@@ -184,11 +181,11 @@ final class IntercomViewModel {
     init(
         groups: [IntercomGroup]? = nil,
         callSession: CallSession? = nil,
-        credentialStore: GroupCredentialStoring? = nil,
-        groupStore: GroupStoring? = nil,
-        appSettingsStore: AppSettingsStoring? = nil,
+        credentialStore: GroupCredentialStoring,
+        groupStore: GroupStoring,
+        appSettingsStore: AppSettingsStoring,
         internetSettingsStore: InternetConnectionSettingsStore? = nil,
-        localMemberIdentityStore: LocalMemberIdentityStoring? = nil,
+        localMemberIdentityStore: LocalMemberIdentityStoring,
         audioSessionManager: SessionManager.AudioSessionManager? = nil,
         audioInputCapture: SessionManager.AudioInputStreamCapture? = nil,
         audioOutputRenderer: SessionManager.AudioOutputStreamRenderer? = nil,
@@ -198,10 +195,7 @@ final class IntercomViewModel {
         remoteTalkerTimeout: TimeInterval = 0.6
     ) {
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
-        let localMemberIdentityStore = localMemberIdentityStore ?? InMemoryLocalMemberIdentityStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
-        let groupStore = groupStore ?? InMemoryGroupStore()
-        let appSettingsStore = appSettingsStore ?? InMemoryAppSettingsStore()
         let appSettings = appSettingsStore.load()
         let storedGroups = groupStore.loadGroups()
         self.groups = groups ?? storedGroups
@@ -213,8 +207,7 @@ final class IntercomViewModel {
         self.audioPipeline = audioPipeline ?? AppAudioPipeline()
         self.audioTransmissionController = audioTransmissionController ?? AudioTransmissionController()
         self.callTicker = callTicker ?? RepeatingCallTicker()
-        self.credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
-        self.credentialProvider = DefaultGroupCredentialProvider()
+        self.credentialStore = credentialStore
         self.groupStore = groupStore
         self.appSettingsStore = appSettingsStore
         self.internetSettingsStore = internetSettingsStore

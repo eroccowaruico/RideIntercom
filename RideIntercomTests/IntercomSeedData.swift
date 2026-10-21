@@ -10,7 +10,8 @@ enum IntercomSeedData {
                 GroupMember(id: "member-001", displayName: "You"),
                 GroupMember(id: "member-108", displayName: "Aki"),
                 GroupMember(id: "member-215", displayName: "Mina")
-            ]
+            ],
+            accessSecret: "fixture-ridge-team-secret"
         ),
         try! IntercomGroup(
             id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
@@ -18,8 +19,8 @@ enum IntercomSeedData {
             members: [
                 GroupMember(id: "member-010", displayName: "You"),
                 GroupMember(id: "member-400", displayName: "Ken")
-            ]
+            ],
+            accessSecret: "fixture-morning-hike-secret"
         )
     ]
 }
-

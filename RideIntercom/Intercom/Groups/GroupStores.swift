@@ -1,12 +1,4 @@
-import CryptoKit
-import AVFoundation
-import Codec
 import Foundation
-import Observation
-import OSLog
-import RTC
-import SessionManager
-import VADGate
 
 struct LocalMemberIdentity: Equatable {
     let memberID: String
@@ -17,31 +9,6 @@ protocol LocalMemberIdentityStoring: AnyObject {
     func loadOrCreate() -> LocalMemberIdentity
 }
 
-final class InMemoryLocalMemberIdentityStore: LocalMemberIdentityStoring {
-    private var identity: LocalMemberIdentity?
-    private let makeID: () -> String
-    private let defaultDisplayName: () -> String
-
-    init(
-        identity: LocalMemberIdentity? = nil,
-        makeID: @escaping () -> String = { "member-\(UUID().uuidString.prefix(8).lowercased())" },
-        defaultDisplayName: @escaping () -> String = { "You" }
-    ) {
-        self.identity = identity
-        self.makeID = makeID
-        self.defaultDisplayName = defaultDisplayName
-    }
-
-    func loadOrCreate() -> LocalMemberIdentity {
-        if let identity {
-            return identity
-        }
-
-        let identity = LocalMemberIdentity(memberID: makeID(), displayName: defaultDisplayName())
-        self.identity = identity
-        return identity
-    }
-}
 
 final class UserDefaultsLocalMemberIdentityStore: LocalMemberIdentityStoring {
     private let defaults: UserDefaults
@@ -82,29 +49,6 @@ protocol GroupStoring: AnyObject {
     func saveGroups(_ groups: [IntercomGroup])
 }
 
-final class InMemoryGroupStore: GroupStoring {
-    private var groups: [IntercomGroup]
-
-    init(groups: [IntercomGroup] = []) {
-        self.groups = groups.map { group in
-            var group = group
-            group.accessSecret = nil
-            return group
-        }
-    }
-
-    func loadGroups() -> [IntercomGroup] {
-        groups
-    }
-
-    func saveGroups(_ groups: [IntercomGroup]) {
-        self.groups = groups.map { group in
-            var group = group
-            group.accessSecret = nil
-            return group
-        }
-    }
-}
 
 final class UserDefaultsGroupStore: GroupStoring {
     private let defaults: UserDefaults
@@ -166,4 +110,3 @@ enum KeychainSecretStoreError: Error, Equatable {
     case unexpectedStatus(Int32)
     case invalidData
 }
-

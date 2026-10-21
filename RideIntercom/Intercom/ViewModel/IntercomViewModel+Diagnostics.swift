@@ -47,40 +47,6 @@ extension IntercomViewModel {
         presentedConnectionState
     }
 
-    var diagnosticsSnapshot: DiagnosticsSnapshot {
-        DiagnosticsSnapshot(
-            audio: AudioDebugSnapshot(
-                transmittedVoicePacketCount: sentVoicePacketCount,
-                receivedVoicePacketCount: receivedVoicePacketCount,
-                playedAudioFrameCount: playedAudioFrameCount
-            ),
-            playback: PlaybackDebugSnapshot(
-                lastScheduledOutputRMS: lastScheduledOutputRMS,
-                scheduledOutputBatchCount: scheduledOutputBatchCount,
-                scheduledOutputFrameCount: scheduledOutputFrameCount
-            ),
-            connectedPeerCount: connectedPeerCount,
-            authenticatedPeerCount: authenticatedPeerCount,
-            localMemberID: localMemberIdentity.memberID,
-            transportTypeName: callSession.activeRouteDebugTypeName,
-            selectedGroupID: selectedGroup?.id,
-            selectedGroupMemberCount: selectedGroup?.members.count ?? 0,
-            groupHashPrefix: selectedGroup.map { String(credential(for: $0).groupHash.prefix(8)) },
-            inviteStatusMessage: inviteStatusMessage,
-            hasInviteURL: selectedGroupInviteURL != nil,
-            localNetwork: LocalNetworkDebugSnapshot(
-                status: localNetworkStatus,
-                peerID: lastLocalNetworkPeerID,
-                occurredAt: lastLocalNetworkEventAt
-            ),
-            reception: ReceptionDebugSnapshot(
-                lastReceivedAudioAt: lastReceivedAudioAt,
-                droppedAudioPacketCount: droppedAudioPacketCount,
-                jitterQueuedFrameCount: jitterQueuedFrameCount
-            )
-        )
-    }
-
     var callPresenceLabel: String {
         if selectedGroup?.id == activeGroupID, isAudioPausedForDeviceChange { return "Connected / Audio Paused" }
         let connectionState = presentedConnectionState
@@ -134,17 +100,13 @@ extension IntercomViewModel {
         AudioCodecIdentifier(rawValue: codecRuntimeReport.selectedCodec.rawValue)
     }
 
-    var vadAnalysisSummary: String {
-        guard let latestVADAnalysis = vadGateRuntimeSnapshot.lastAnalysis else {
-            return "Analysis waiting"
-        }
-        return String(
-            format: "%@ / NF %.1f dBFS / TH %.1f dBFS / G %.2f",
-            latestVADAnalysis.state == .speech ? "Speech" : "Silence",
-            latestVADAnalysis.noiseFloorDBFS,
-            latestVADAnalysis.speechThresholdDBFS,
-            latestVADAnalysis.gain
-        )
+    private var selectedGroupSummary: String {
+        guard let selectedGroup else { return "GROUP -- / MEMBERS 0" }
+        return "GROUP \(selectedGroup.id.uuidString.prefix(8)) / MEMBERS \(selectedGroup.members.count)"
+    }
+
+    private var inviteSummary: String {
+        groupErrorMessage ?? inviteStatusMessage ?? (selectedGroupInviteURL != nil ? "INVITE READY" : "INVITE NONE")
     }
 
     var diagnosticsOverviewRows: [DiagnosticsOverviewRow] {
@@ -163,7 +125,7 @@ extension IntercomViewModel {
                 title: "Call",
                 icon: "checklist",
                 summary: "CALL \(connectionLabel)",
-                detail: diagnosticsSnapshot.selectedGroupSummary,
+                detail: selectedGroupSummary,
                 severity: canDisconnectCall ? .ok : .neutral,
                 accessibilityIdentifier: "realDeviceCallDebugSummaryLabel"
             ),
@@ -180,8 +142,8 @@ extension IntercomViewModel {
                 id: "invite",
                 title: "Invite",
                 icon: "square.and.arrow.up",
-                summary: diagnosticsSnapshot.inviteSummary,
-                detail: diagnosticsSnapshot.selectedGroupSummary,
+                summary: inviteSummary,
+                detail: selectedGroupSummary,
                 severity: selectedGroupInviteURL != nil ? .ok : .neutral,
                 accessibilityIdentifier: "inviteDebugSummaryLabel"
             )
@@ -218,48 +180,8 @@ extension IntercomViewModel {
         connectedPeerIDs.count
     }
 
-    var connectionDebugSummary: String {
-        diagnosticsSnapshot.connectionSummary
-    }
-
-    var audioDebugSummary: String {
-        diagnosticsSnapshot.audio.summary
-    }
-
-    var callSessionDebugTypeName: String {
-        callSession.activeRouteDebugTypeName
-    }
-
-    var transportDebugSummary: String {
-        diagnosticsSnapshot.transportSummary
-    }
-
     var authenticatedPeerCount: Int {
         authenticatedPeerIDs.count
-    }
-
-    var authenticationDebugSummary: String {
-        diagnosticsSnapshot.authenticationSummary
-    }
-
-    var localMemberDebugSummary: String {
-        diagnosticsSnapshot.localMemberSummary
-    }
-
-    var selectedGroupDebugSummary: String {
-        diagnosticsSnapshot.selectedGroupSummary
-    }
-
-    var groupHashDebugSummary: String {
-        diagnosticsSnapshot.groupHashSummary
-    }
-
-    var inviteDebugSummary: String {
-        diagnosticsSnapshot.inviteSummary
-    }
-
-    var localNetworkDebugSummary: String {
-        diagnosticsSnapshot.localNetwork.summary(now: Date().timeIntervalSince1970)
     }
 
     var selectedGroupInviteURL: URL? {
@@ -273,7 +195,7 @@ extension IntercomViewModel {
             return nil
         }
 
-        let credential = credential(for: selectedGroup)
+        guard let credential = credential(for: selectedGroup) else { return nil }
         let token = try? GroupInviteToken.make(
             groupID: selectedGroup.id,
             groupName: selectedGroup.name,

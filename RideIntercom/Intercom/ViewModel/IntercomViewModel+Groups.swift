@@ -9,6 +9,7 @@ import VADGate
 
 extension IntercomViewModel {
     func selectGroup(_ group: IntercomGroup) {
+        groupErrorMessage = nil
         if selectedGroup?.id == group.id {
             return
         }
@@ -40,13 +41,11 @@ extension IntercomViewModel {
     }
 
     func showGroupSelection() {
+        groupErrorMessage = nil
         selectedGroup = nil
         inviteStatusMessage = nil
     }
 
-    var hasActiveConversationConnection: Bool {
-        isAudioReady || connectionState == .localConnected || connectionState == .internetConnected || !authenticatedPeerIDs.isEmpty
-    }
 
     var hasAnyActiveGroupConnection: Bool {
         guard activeGroupID != nil else { return false }
@@ -136,6 +135,7 @@ extension IntercomViewModel {
     }
 
     func createTalkGroup() {
+        groupErrorMessage = nil
         let groupID = UUID()
         let newGroup = try? IntercomGroup(
             id: groupID,
@@ -146,6 +146,12 @@ extension IntercomViewModel {
         )
 
         guard let newGroup else { return }
+        let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
+        credentialStore.save(GroupAccessCredential(groupID: groupID, secret: secret))
+        guard credentialStore.credential(for: groupID)?.secret == secret else {
+            groupErrorMessage = "Could not save the group key. Try again."
+            return
+        }
         groups.insert(newGroup, at: 0)
         persistGroups()
         selectGroup(newGroup)
@@ -176,7 +182,12 @@ extension IntercomViewModel {
             throw GroupInviteTokenError.expired
         }
 
+        guard !token.groupSecret.isEmpty else { throw GroupInviteTokenError.invalidTokenEncoding }
         credentialStore.save(GroupAccessCredential(groupID: token.groupID, secret: token.groupSecret))
+        guard credentialStore.credential(for: token.groupID)?.secret == token.groupSecret else {
+            groupErrorMessage = "Could not save the group key. Try the invitation again."
+            throw GroupInviteTokenError.credentialStorageFailed
+        }
 
         let group = try IntercomGroup(
             id: token.groupID,

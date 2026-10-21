@@ -75,6 +75,10 @@ final class RideIntercomUITests: XCTestCase {
 
     @MainActor
     func testInternetCredentialValidationKeepsTabsUsable() {
+        #if os(iOS)
+        app.open(URL(string: "rideintercom://join?token=invalid")!)
+        XCTAssertTrue(app.descendants(matching: .any)["groupErrorLabel"].firstMatch.waitForExistence(timeout: 5))
+        #endif
         checkInternetSettingsRejectUnsecuredURL()
         openGroupsTab()
         openSettingsTab()

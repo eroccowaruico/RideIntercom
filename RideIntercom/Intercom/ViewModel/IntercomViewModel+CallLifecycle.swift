@@ -6,6 +6,11 @@ import SessionManager
 extension IntercomViewModel {
     func connectLocal() {
         guard let selectedGroup else { return }
+        guard let credential = credential(for: selectedGroup) else {
+            groupErrorMessage = "Group key is missing. Open a valid invite or create a new group."
+            return
+        }
+        groupErrorMessage = nil
         cancelAudioCheck()
 
         if let activeGroupID,
@@ -31,9 +36,7 @@ extension IntercomViewModel {
 
         if shouldStartOrPromoteLocalConnection {
             var group = selectedGroup
-            if let credential = credentialStore.credential(for: selectedGroup.id) {
-                group.accessSecret = credential.secret
-            }
+            group.accessSecret = credential.secret
             callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
             publishRuntimePackageReports(force: true)
             callSession.connect(group: group)

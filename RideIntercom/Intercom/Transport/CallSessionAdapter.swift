@@ -135,7 +135,6 @@ final class RideIntercomCallSessionAdapter: CallSession {
         self.ownsRTCSession = true
         self.internetConfiguration = InternetConnectionSettingsStore().load()
         self.rtcSession = Self.makeRTCSession(
-            memberID: memberID,
             audioPolicy: .intercomDefault,
             enabledRoutes: AppRTCTransportRoutePolicy.supportedRoutes,
             internetConfiguration: internetConfiguration
@@ -387,7 +386,6 @@ final class RideIntercomCallSessionAdapter: CallSession {
         invalidateEvents()
         enqueue { await oldSession.stopConnection() }
         rtcSession = Self.makeRTCSession(
-            memberID: memberID,
             audioPolicy: audioPolicy,
             enabledRoutes: enabledRoutes,
             internetConfiguration: internetConfiguration
@@ -451,7 +449,6 @@ final class RideIntercomCallSessionAdapter: CallSession {
     }
 
     private static func makeRTCSession(
-        memberID: String,
         audioPolicy: RTC.RTCAudioPolicy,
         enabledRoutes: Set<RTC.RouteKind>,
         internetConfiguration: RTC.CloudflareRealtimeConfiguration?

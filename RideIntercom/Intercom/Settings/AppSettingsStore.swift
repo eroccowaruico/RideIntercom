@@ -35,21 +35,6 @@ protocol AppSettingsStoring: AnyObject {
     func save(_ settings: AppSettings)
 }
 
-final class InMemoryAppSettingsStore: AppSettingsStoring {
-    private var settings: AppSettings
-
-    init(settings: AppSettings = AppSettings()) {
-        self.settings = settings
-    }
-
-    func load() -> AppSettings {
-        settings
-    }
-
-    func save(_ settings: AppSettings) {
-        self.settings = settings
-    }
-}
 
 final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     private let defaults: UserDefaults
