@@ -33,6 +33,21 @@ def check(root):
     if not has_live_repository(project):
         errors.append('Xcode needs a live Repository folder (path = .), visible in mainGroup and absent from all build targets.')
     objects = project['objects']
+    for obj in objects.values():
+        if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and obj.get('path') == '.':
+            if obj.get('explicitFileTypes', {}).get('RideIntercom.xcodeproj') != 'folder':
+                errors.append('Repository must override RideIntercom.xcodeproj to folder to avoid self-project discovery.')
+            if 'RideIntercom/packages' not in obj.get('explicitFolders', []):
+                errors.append('Repository must treat RideIntercom/packages as a folder reference to avoid nested project discovery.')
+    project_object = objects[project['rootObject']]
+    for reference in project_object.get('projectReferences', []):
+        obj = objects[reference['ProjectRef']]
+        # Xcode retains folder-typed entries here when saving a synchronized root.
+        # An explicit folder type overrides both extension and lastKnownFileType.
+        if obj.get('explicitFileType') == 'folder':
+            continue
+        if obj.get('sourceTree') in ('<group>', 'SOURCE_ROOT', '<absolute>') and (root / obj.get('path', '')).resolve() == (root / 'RideIntercom.xcodeproj').resolve():
+            errors.append('RideIntercom must not reference itself as a child project.')
     for folder in ['RideIntercom', 'RideIntercomTests', 'RideIntercomUITests']:
         if not any(obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and obj.get('path') == folder
                    for obj in objects.values()):

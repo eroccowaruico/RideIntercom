@@ -147,7 +147,8 @@ struct ArchitectureTests {
         )
         let backgroundModes = try #require(plist["UIBackgroundModes"] as? [String])
         let bonjourServices = try #require(plist["NSBonjourServices"] as? [String])
-        let localNetworkUsage = try #require(plist["NSLocalNetworkUsageDescription"] as? String)
+        // Xcode generates this value from INFOPLIST_KEY_NSLocalNetworkUsageDescription.
+        let localNetworkUsage = try #require(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription") as? String)
 
         #expect(backgroundModes.contains("audio"))
         #expect(bonjourServices.contains("_ride-intercom._tcp"))

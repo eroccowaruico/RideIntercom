@@ -3,6 +3,7 @@ import copy
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location('development_setup', ROOT / 'scripts/check_development_setup.py')
@@ -37,6 +38,44 @@ class DevelopmentSetupTests(unittest.TestCase):
         main = project['objects'][project['objects'][project['rootObject']]['mainGroup']]
         main['children'] = [k for k in main['children'] if project['objects'][k].get('path') != '.']
         self.assertFalse(self.setup.has_live_repository(project))
+
+    def test_repository_container_discovery_is_rejected(self):
+        for path in ['RideIntercom.xcodeproj', 'RideIntercom/packages']:
+            with self.subTest(path=path):
+                project = copy.deepcopy(self.project)
+                repository = next(obj for obj in project['objects'].values()
+                                  if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup'
+                                  and obj.get('path') == '.')
+                repository['explicitFolders'] = [p for p in repository.get('explicitFolders', [])
+                                                 if p != path]
+                repository.get('explicitFileTypes', {}).pop(path, None)
+                with patch.object(self.setup, 'load_project', return_value=project):
+                    self.assertTrue(any(path in error for error in self.setup.check(ROOT)))
+
+    def test_self_project_reference_is_rejected(self):
+        project = copy.deepcopy(self.project)
+        project['objects']['SELF_PROJECT'] = {
+            'isa': 'PBXFileReference', 'path': './RideIntercom.xcodeproj',
+            'sourceTree': '<group>', 'lastKnownFileType': 'wrapper.pb-project',
+        }
+        project['objects'][project['rootObject']]['projectReferences'] = [
+            {'ProjectRef': 'SELF_PROJECT'},
+        ]
+        with patch.object(self.setup, 'load_project', return_value=project):
+            self.assertTrue(any('itself' in error for error in self.setup.check(ROOT)))
+
+    def test_xcode_folder_reference_is_allowed(self):
+        project = copy.deepcopy(self.project)
+        project['objects']['SELF_FOLDER'] = {
+            'isa': 'PBXFileReference', 'path': 'RideIntercom.xcodeproj',
+            'sourceTree': '<group>', 'explicitFileType': 'folder',
+            'lastKnownFileType': 'wrapper.pb-project',
+        }
+        project['objects'][project['rootObject']]['projectReferences'] = [
+            {'ProjectRef': 'SELF_FOLDER'},
+        ]
+        with patch.object(self.setup, 'load_project', return_value=project):
+            self.assertEqual(self.setup.check(ROOT), [])
 
 
 if __name__ == '__main__':

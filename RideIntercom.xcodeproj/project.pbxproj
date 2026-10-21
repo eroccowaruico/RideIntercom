@@ -46,11 +46,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		9306F0272FA8DFBA0030B045 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		9306F0292FA8DFD30030B045 /* AVFAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFAudio.framework; path = System/Library/Frameworks/AVFAudio.framework; sourceTree = SDKROOT; };
 		9374C4C92FA3657700D259B2 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		9374C4D72FA3670400D259B2 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = SDKROOT; };
+		9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
+		9391C7143088EDA000FDB74A /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		93BD72B32FACCD4900CBA553 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
 		93BD72B42FACCD4900CBA553 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		93C60CE32FA3B45100841E64 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -59,6 +60,7 @@
 		93F300C82F93829C0046716D /* RideIntercom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300D92F93829D0046716D /* RideIntercomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300E32F93829D0046716D /* RideIntercomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -73,22 +75,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		D70000000000000000000001 /* Repository */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			name = Repository;
-			path = .;
-			sourceTree = "<group>";
-		};
-		D70000000000000000000002 /* .vscode */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = .vscode;
-			sourceTree = "<group>";
-		};
-		D70000000000000000000003 /* .codex */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = .codex;
-			sourceTree = "<group>";
-		};
 		934630812F9B2B73001548C3 /* .github */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = .github;
@@ -128,6 +114,28 @@
 		93F300E62F93829D0046716D /* RideIntercomUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RideIntercomUITests;
+			sourceTree = "<group>";
+		};
+		D70000000000000000000001 /* Repository */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+				RideIntercom.xcodeproj = folder;
+			};
+			explicitFolders = (
+				RideIntercom/packages,
+			);
+			name = Repository;
+			path = .;
+			sourceTree = "<group>";
+		};
+		D70000000000000000000002 /* .vscode */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = .vscode;
+			sourceTree = "<group>";
+		};
+		D70000000000000000000003 /* .codex */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = .codex;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -184,6 +192,28 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		9391AC8E3088ED4400FDB74A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9391B9533088EDA000FDB74A /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
+		9391C7153088EDA000FDB74A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		93F300BF2F93829C0046716D = {
 			isa = PBXGroup;
 			children = (
@@ -202,6 +232,7 @@
 				93BD72B42FACCD4900CBA553 /* CLAUDE.md */,
 				93BD7A642FACCD5600CBA553 /* server */,
 				93BD7A6E2FACCD5C00CBA553 /* scripts */,
+				9391B9533088EDA000FDB74A /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -306,7 +337,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2640;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					93F300C72F93829C0046716D = {
 						CreatedOnToolsVersion = 26.4.1;
@@ -331,20 +362,30 @@
 			mainGroup = 93F300BF2F93829C0046716D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				A10000000000000000000001 /* XCLocalSwiftPackageReference "AudioCore" */,
-				A10000000000000000000002 /* XCLocalSwiftPackageReference "AudioMixer" */,
-				A10000000000000000000003 /* XCLocalSwiftPackageReference "Codec" */,
-				A10000000000000000000004 /* XCLocalSwiftPackageReference "SessionManager" */,
-				A10000000000000000000005 /* XCLocalSwiftPackageReference "DynamicsProcessor" */,
-				A10000000000000000000006 /* XCLocalSwiftPackageReference "PeakLimiter" */,
-				A10000000000000000000007 /* XCLocalSwiftPackageReference "SoundIsolation" */,
-				A10000000000000000000008 /* XCLocalSwiftPackageReference "VADGate" */,
-				934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */,
+				A10000000000000000000001 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/AudioCore" */,
+				A10000000000000000000002 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/AudioMixer" */,
+				A10000000000000000000003 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Codec" */,
+				A10000000000000000000004 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/SessionManager" */,
+				A10000000000000000000005 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/DynamicsProcessor" */,
+				A10000000000000000000006 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/PeakLimiter" */,
+				A10000000000000000000007 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/SoundIsolation" */,
+				A10000000000000000000008 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/VADGate" */,
+				934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RideIntercom/packages/RTC" */,
 				9374C4B62FA364F000D259B2 /* XCRemoteSwiftPackageReference "swift-log" */,
 			);
 			preferredProjectObjectVersion = 100;
 			productRefGroup = 93F300C92F93829C0046716D /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 9391C7153088EDA000FDB74A /* Products */;
+					ProjectRef = 9391C7143088EDA000FDB74A /* RideIntercom.xcodeproj */;
+				},
+				{
+					ProductGroup = 9391AC8E3088ED4400FDB74A /* Products */;
+					ProjectRef = 9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				93F300C72F93829C0046716D /* RideIntercom */,
@@ -376,8 +417,6 @@
 		D70000000000000000000005 /* Check Development Setup */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
 			inputPaths = (
 				"$(SRCROOT)/scripts/check_development_setup.py",
 				"$(SRCROOT)/RideIntercom.xcodeproj/project.pbxproj",
@@ -386,10 +425,11 @@
 				"$(SRCROOT)/RideIntercom.code-workspace",
 			);
 			name = "Check Development Setup";
-			outputPaths = ();
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 \"$SRCROOT/scripts/check_development_setup.py\"\n";
+			shellScript = (
+				"PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 \"$SRCROOT/scripts/check_development_setup.py\"",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -428,6 +468,7 @@
 		93F300ED2F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
@@ -450,11 +491,10 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideIntercom/Info.plist;
-				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover nearby riders for intercom calls.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone for hands-free group intercom voice chat.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover and connect nearby riders in your group.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone so riders in your group can hear your voice.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -475,6 +515,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
@@ -491,6 +532,7 @@
 		93F300EE2F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
@@ -513,11 +555,10 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideIntercom/Info.plist;
-				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover nearby riders for intercom calls.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone for hands-free group intercom voice chat.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover and connect nearby riders in your group.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone so riders in your group can hear your voice.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -538,6 +579,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
@@ -554,6 +596,8 @@
 		93F300EF2F93829D0046716D /* Debug configuration for PBXProject "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -616,6 +660,8 @@
 		93F300F02F93829D0046716D /* Release configuration for PBXProject "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -670,6 +716,7 @@
 		93F300F22F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercomTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -696,6 +743,7 @@
 		93F300F32F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercomTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -722,6 +770,7 @@
 		93F300F52F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercomUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -747,6 +796,7 @@
 		93F300F62F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercomUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -807,39 +857,39 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */ = {
+		934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RideIntercom/packages/RTC" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/RTC;
 		};
-		A10000000000000000000001 /* XCLocalSwiftPackageReference "AudioCore" */ = {
+		A10000000000000000000001 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/AudioCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/AudioCore;
 		};
-		A10000000000000000000002 /* XCLocalSwiftPackageReference "AudioMixer" */ = {
+		A10000000000000000000002 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/AudioMixer" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/AudioMixer;
 		};
-		A10000000000000000000003 /* XCLocalSwiftPackageReference "Codec" */ = {
+		A10000000000000000000003 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Codec" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/Codec;
 		};
-		A10000000000000000000004 /* XCLocalSwiftPackageReference "SessionManager" */ = {
+		A10000000000000000000004 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/SessionManager" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/SessionManager;
 		};
-		A10000000000000000000005 /* XCLocalSwiftPackageReference "DynamicsProcessor" */ = {
+		A10000000000000000000005 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/DynamicsProcessor" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/Effectors/DynamicsProcessor;
 		};
-		A10000000000000000000006 /* XCLocalSwiftPackageReference "PeakLimiter" */ = {
+		A10000000000000000000006 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/PeakLimiter" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/Effectors/PeakLimiter;
 		};
-		A10000000000000000000007 /* XCLocalSwiftPackageReference "SoundIsolation" */ = {
+		A10000000000000000000007 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/SoundIsolation" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/Effectors/SoundIsolation;
 		};
-		A10000000000000000000008 /* XCLocalSwiftPackageReference "VADGate" */ = {
+		A10000000000000000000008 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/VADGate" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RideIntercom/packages/Audio/Effectors/VADGate;
 		};
@@ -859,27 +909,27 @@
 /* Begin XCSwiftPackageProductDependency section */
 		9306F0922FA8E0D40030B045 /* Codec */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000003 /* XCLocalSwiftPackageReference "Codec" */;
+			package = A10000000000000000000003 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Codec" */;
 			productName = Codec;
 		};
 		9306F0952FA8E5000030B045 /* SessionManager */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000004 /* XCLocalSwiftPackageReference "SessionManager" */;
+			package = A10000000000000000000004 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/SessionManager" */;
 			productName = SessionManager;
 		};
 		934630842F9C0001001548C3 /* RTC */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */;
+			package = 934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RideIntercom/packages/RTC" */;
 			productName = RTC;
 		};
 		934630882F9C0001001548C3 /* RTCNativeWebRTC */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RTC" */;
+			package = 934630862F9C0001001548C3 /* XCLocalSwiftPackageReference "RideIntercom/packages/RTC" */;
 			productName = RTCNativeWebRTC;
 		};
 		934E4A8A2FAD040600A1EDFC /* AudioCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000001 /* XCLocalSwiftPackageReference "AudioCore" */;
+			package = A10000000000000000000001 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/AudioCore" */;
 			productName = AudioCore;
 		};
 		9374C4B72FA364F000D259B2 /* InMemoryLogging */ = {
@@ -899,27 +949,27 @@
 		};
 		9374C4BE2FA3657600D259B2 /* AudioMixer */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000002 /* XCLocalSwiftPackageReference "AudioMixer" */;
+			package = A10000000000000000000002 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/AudioMixer" */;
 			productName = AudioMixer;
 		};
 		9374C4C02FA3657600D259B2 /* DynamicsProcessor */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000005 /* XCLocalSwiftPackageReference "DynamicsProcessor" */;
+			package = A10000000000000000000005 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/DynamicsProcessor" */;
 			productName = DynamicsProcessor;
 		};
 		9374C4C22FA3657600D259B2 /* PeakLimiter */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000006 /* XCLocalSwiftPackageReference "PeakLimiter" */;
+			package = A10000000000000000000006 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/PeakLimiter" */;
 			productName = PeakLimiter;
 		};
 		9374C4C42FA3657600D259B2 /* SoundIsolation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000007 /* XCLocalSwiftPackageReference "SoundIsolation" */;
+			package = A10000000000000000000007 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/SoundIsolation" */;
 			productName = SoundIsolation;
 		};
 		9374C4C62FA3657600D259B2 /* VADGate */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000008 /* XCLocalSwiftPackageReference "VADGate" */;
+			package = A10000000000000000000008 /* XCLocalSwiftPackageReference "RideIntercom/packages/Audio/Effectors/VADGate" */;
 			productName = VADGate;
 		};
 /* End XCSwiftPackageProductDependency section */
