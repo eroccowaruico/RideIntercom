@@ -4,7 +4,7 @@
 
 本書は Settings タブの UI 項目を定義する。
 
-Settings は通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/setting parameters/App/設定値一覧.md` を正とする。
+Settings は通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
 
 ## 親セクション
 
@@ -12,6 +12,7 @@ Settings は通信経路、Audio Session、入出力、Audio Check、送信 code
 |---|---|---|---|---|---|
 | 設定画面 | `settingsScrollView` | 通話前後の調整、確認、自己診断を行う | `SettingsView` | 常時 | `Form` |
 | 通信設定 | `communicationPanel` | RTC package に渡す有効 route を選択する | `CommunicationPanel` | 常時 | `Communication` section |
+| Internet接続設定 | なし（子IDを使用） | サービスURLと端末資格の保存 | `InternetConnectionPanel` | 常時 | `Internet Connection` section |
 | Audio Session設定 | `audioSessionPanel` | SessionManager の mode、speaker、echo cancellation、Duck Other Audio の組み合わせを選択する | `AudioSessionPanel` | 常時 | `Audio Session` section |
 | 音声I/O設定 | `audioIOPanel` | 入出力ポートと effect chain の有効/無効を選択する | `AudioIOPanel` | 常時 | `Audio I/O` section |
 | オーディオチェック設定 | `audioCheckPanel` | 自己録音/再生で経路確認する | `AudioCheckPanel` | 常時 | `Audio Check` section |
@@ -64,7 +65,7 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | マイク入力確認 | `audioCheckPanel` | `audioCheckInputMeter` | `Microphone Input` | `diagnosticsInputLevel`, `diagnosticsInputPeakLevel` | 常時 | 入力メーター | 権限未許可時は上がらない |
 | スピーカー出力確認 | `audioCheckPanel` | `audioCheckOutputMeter` | `Speaker Output` | `diagnosticsOutputLevel`, `diagnosticsOutputPeakLevel` | 常時 | 出力メーター | 最終出力へ回した音声を示す |
 | チェック状態メッセージ | `audioCheckPanel` | `audioCheckStatusLabel` | 状態文言 | `String` | 常時 | footnote | 実行中、完了、失敗 |
-| チェック実行ボタン | `audioCheckPanel` | `audioCheckButton` | `Record 5s and Play` | Action | 常時 | 録音/再生中は disabled | 二重起動を防ぐ |
+| チェック実行ボタン | `audioCheckPanel` | `audioCheckButton` | `Record 5s and Play` | Action | 常時 | 録音/再生中は disabled | 二重起動と通話中の競合を防ぐ。録音・再生中はStop Audio Checkを表示 |
 
 ## Transmit Codec
 
@@ -73,6 +74,8 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | 送信コーデック選択 | `transmitCodecPanel` | `transmitCodecPicker` | `Codec` | `preferredTransmitCodec`。既定は `AAC-ELD v2` | 常時 | `Picker(.segmented)`。`PCM 16-bit`、`AAC-ELD v2`、`Opus` | ユーザーが要求する codec |
 | AAC-ELD v2 bitrate | `transmitCodecPanel` | `aacELDv2BitRateStepper` | `AAC-ELD v2 Bitrate` | `Int`, `12_000...128_000`。既定 32 kbps | `preferredTransmitCodec == .mpeg4AACELDv2` | `Stepper`、kbps 表示 | Codec package の正規化後の値を表示 |
 | Opus bitrate | `transmitCodecPanel` | `opusBitRateStepper` | `Opus Bitrate` | `Int`, `6_000...128_000`。既定 32 kbps | `preferredTransmitCodec == .opus` | `Stepper`、kbps 表示 | Codec package の正規化後の値を表示 |
+
+| RTC Audio選択 | `transmitCodecPanel` | `rtcAudioFormatPicker` | `RTC Audio` | `.mono48k` / `.mono24k` / `.mono16k`、既定48kHz mono | 常時 | segmented Picker | 稼働中は共通音声pipelineを再構築。hardware sample rateとは別 |
 
 ## Voice Activity
 
@@ -84,7 +87,7 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 異常系の考え方 |
 |---|---|---|---|---|---|---|---|
-| 設定リセットボタン | `resetSettingsPanel` | `resetAllSettingsButton` | `Reset All Settings` | Action | 常時 | destructive button | グループ、参加者、credential は変更しない |
+| 設定リセットボタン | `resetSettingsPanel` | `resetAllSettingsButton` | `Reset All Settings` | Action | 常時 | destructive button | グループ、参加者、Internet資格、入力muteは維持。routeが既定へ変わる場合は切断する |
 | 設定リセット補足文 | `resetSettingsPanel` | `resetSettingsPanel` | 補足文 | 固定文字列 | 常時 | footer | データ削除と混同させない |
 
 ## Voice Isolationの現在の提供状態

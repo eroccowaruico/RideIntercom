@@ -46,6 +46,7 @@ CHECK
 MODE="${1:-all}"
 case "$MODE" in all|headless|packages|worker|pair|macos|ios|ios-ui|scripts) ;; *) echo 'usage: scripts/validate.sh [all|headless|packages|worker|pair|macos|ios|ios-ui|scripts]' >&2; exit 2;; esac
 run development-setup python3 scripts/check_development_setup.py
+run documentation python3 scripts/check_documentation.py
 if [ "$STATUS" -ne 0 ]; then exit "$STATUS"; fi
 if [ "$MODE" = all ] || [ "$MODE" = headless ] || [ "$MODE" = packages ]; then
   for package in AudioCore AudioMixer Codec SessionManager; do
@@ -66,6 +67,7 @@ if [ "$MODE" = all ] || [ "$MODE" = headless ] || [ "$MODE" = pair ]; then
   run swift-worker-pair npm --prefix server run test:pair
 fi
 if [ "$MODE" = all ] || [ "$MODE" = headless ] || [ "$MODE" = scripts ]; then
+  run documentation-tests python3 -m unittest discover -s scripts/tests -p test_documentation.py
   run development-setup-tests python3 -m unittest discover -s scripts/tests -p test_development_setup.py
   run webrtc-scripts python3 -m unittest discover -s scripts/tests -p test_webrtc_scripts.py
   run cloudflare-scripts node --test scripts/Cloudflare/estimate-cost.test.mjs scripts/Cloudflare/issue-device.test.mjs

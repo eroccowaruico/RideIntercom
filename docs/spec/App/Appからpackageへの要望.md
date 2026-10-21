@@ -31,7 +31,7 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 | 項目 | 方針 |
 |---|---|
 | App 側暫定実装 | 作り直し前の都合として扱い、本書には残さない |
-| package に既にある責務 | `docs/spec/packages` と `docs/spec/App/setting parameters/packages` を参照し、App 仕様へ重複定義しない |
+| package に既にある責務 | `docs/spec/packages` と `docs/spec/App/Configuration/Bindings` を参照し、App 仕様へ重複定義しない |
 | 新しい不足の判断 | App が OS 差分、継続可能な準異常系、runtime report/event、設定受け取りを自前で補う必要が出た場合だけ追記する |
 
 ## Cloudflare SFU 試用で残る確認

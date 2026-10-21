@@ -51,7 +51,7 @@ effect chain は AudioMixer package の `MixerBusSnapshot.effectChain` を正と
 | stage | accessibilityIdentifier | package | 表示する状態 |
 |---|---|---|---|
 | SoundIsolation | `pipeline-effect-stage-sound-isolation` | SoundIsolation | enabled / bypassed / unavailable |
-| VADGate | `pipeline-effect-stage-vad-gate` | VADGate | speech / silent / muted、感度 preset、noise floor、threshold、gate gain |
+| VADGate（Mixer前段） | TX effect stage IDは持たない | VADGate | speech / silent / muted、感度preset、noise floor、threshold、gainはruntime reportに保持するが、現行画面に専用詳細行はない。tx-busのFX chipには含めない |
 | DynamicsProcessor | `pipeline-effect-stage-dynamics-processor` | DynamicsProcessor | leveling ready / idle |
 | PeakLimiter | `pipeline-effect-stage-peak-limiter` | PeakLimiter | peak guard ready / idle |
 

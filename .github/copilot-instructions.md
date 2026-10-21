@@ -99,7 +99,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 ### デザインシステムの利用
 - AppleのHIGに準拠したUIを構築するだけでなく統一感を持たせるため、デザインシステムのアイコン、色、テキストスタイルの規約を遵守する。
-- デザインシステム: docs/design system
+- デザインシステム: docs/design
 
 ## UIテスト方針
 - UIテストは毎回アプリを再起動せず、1回起動で複数ケースを実行できる構成を基本とする。

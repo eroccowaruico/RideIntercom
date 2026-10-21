@@ -17,6 +17,21 @@
       "problemMatcher": []
     },
     {
+      "label": "RideIntercom: Check documentation",
+      "type": "process",
+      "command": "/usr/bin/python3",
+      "args": [
+        "${workspaceFolder}/scripts/check_documentation.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "RideIntercom: Build and run macOS",
       "type": "process",
       "command": "${workspaceFolder}/scripts/build_and_run.sh",

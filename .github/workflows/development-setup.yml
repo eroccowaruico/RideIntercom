@@ -1,4 +1,4 @@
-name: Development setup
+name: Development and documentation
 on: [push, pull_request]
 permissions:
   contents: read
@@ -11,3 +11,7 @@ jobs:
         run: python3 scripts/check_development_setup.py
       - name: Protect development setup invariants
         run: python3 -m unittest discover -s scripts/tests -p test_development_setup.py
+      - name: Check documentation links and Settings coverage
+        run: python3 scripts/check_documentation.py
+      - name: Protect documentation validation
+        run: python3 -m unittest discover -s scripts/tests -p test_documentation.py
