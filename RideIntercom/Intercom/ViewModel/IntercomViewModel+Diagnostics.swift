@@ -94,7 +94,7 @@ extension IntercomViewModel {
     }
 
     var supportsSoundIsolation: Bool {
-        VoiceIsolationSupport.isAvailable
+        !callSession.usesRouteManagedAudio && VoiceIsolationSupport.isAvailable
     }
 
     var selectedTransmitCodec: AudioCodecIdentifier {

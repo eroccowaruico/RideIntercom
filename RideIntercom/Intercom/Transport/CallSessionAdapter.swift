@@ -73,11 +73,15 @@ enum TransportEvent: Equatable {
     case linkFailed(internetAvailable: Bool)
     case receivedAudioPacket(RTC.ReceivedAudioPacket)
     case routeMetrics(RTC.RouteMetrics)
+    case audioOwnershipChanged
+    case serviceError(String)
 }
 
 protocol CallSession: AnyObject {
     var onEvent: ((TransportEvent) -> Void)? { get set }
     var activeRouteDebugTypeName: String { get }
+    var usesRouteManagedAudio: Bool { get }
+    func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration)
 
     func startStandby(group: IntercomGroup)
     func connect(group: IntercomGroup)
@@ -94,6 +98,11 @@ protocol CallSession: AnyObject {
     func sendApplicationData(_ message: ApplicationDataMessage)
 }
 
+extension CallSession {
+    var usesRouteManagedAudio: Bool { false }
+    func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration) {}
+}
+
 private struct PeerMuteStateApplicationPayload: Codable, Equatable {
     let isMuted: Bool
 }
@@ -108,6 +117,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     private nonisolated static let keepaliveNamespace = "rideintercom.keepalive"
     private nonisolated static let peerMuteStateNamespace = "rideintercom.peerMuteState"
+    private(set) var usesRouteManagedAudio = false
+    private var internetConfiguration: RTC.CloudflareRealtimeConfiguration?
     private let memberID: String
     private var rtcSession: RTC.CallSession
     private let ownsRTCSession: Bool
@@ -122,10 +133,12 @@ final class RideIntercomCallSessionAdapter: CallSession {
     init(memberID: String) {
         self.memberID = memberID
         self.ownsRTCSession = true
+        self.internetConfiguration = InternetConnectionSettingsStore().load()
         self.rtcSession = Self.makeRTCSession(
             memberID: memberID,
             audioPolicy: .intercomDefault,
-            enabledRoutes: AppRTCTransportRoutePolicy.supportedRoutes
+            enabledRoutes: AppRTCTransportRoutePolicy.supportedRoutes,
+            internetConfiguration: internetConfiguration
         )
         bindEvents()
     }
@@ -139,6 +152,11 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     deinit {
         eventTask?.cancel()
+    }
+
+    func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration) {
+        internetConfiguration = configuration
+        if ownsRTCSession { rebuildOwnedRTCSession() }
     }
 
     func startStandby(group: IntercomGroup) {
@@ -277,6 +295,11 @@ final class RideIntercomCallSessionAdapter: CallSession {
         case .stateChanged(let state):
             handleRTCStateChanged(state)
         case .routeChanged(let snapshot):
+            let nativeAudio = (snapshot.mediaRoute ?? snapshot.activeRoute) == .webRTC
+            if nativeAudio != usesRouteManagedAudio {
+                usesRouteManagedAudio = nativeAudio
+                onEvent?(.audioOwnershipChanged)
+            }
             activeRouteDebugTypeName = Self.routeDebugName(snapshot.activeRoute ?? snapshot.mediaRoute)
         case .routeAvailabilityChanged:
             break
@@ -299,9 +322,10 @@ final class RideIntercomCallSessionAdapter: CallSession {
         switch error {
         case .noEnabledRoute:
             onEvent?(.linkFailed(internetAvailable: false))
+        case .connectionFailed(let route, let reason):
+            if route == .webRTC { onEvent?(.serviceError(reason)) }
         case .routeUnavailable,
              .signalingUnavailable,
-             .connectionFailed,
              .unsupportedApplicationDataDelivery,
              .unsupportedAudioCodec:
             break
@@ -345,7 +369,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
         rtcSession = Self.makeRTCSession(
             memberID: memberID,
             audioPolicy: audioPolicy,
-            enabledRoutes: enabledRoutes
+            enabledRoutes: enabledRoutes,
+            internetConfiguration: internetConfiguration
         )
         activeRouteDebugTypeName = "RTC RouteManager"
         if var request = connectionRequest {
@@ -408,7 +433,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
     private static func makeRTCSession(
         memberID: String,
         audioPolicy: RTC.RTCAudioPolicy,
-        enabledRoutes: Set<RTC.RouteKind>
+        enabledRoutes: Set<RTC.RouteKind>,
+        internetConfiguration: RTC.CloudflareRealtimeConfiguration?
     ) -> RTC.CallSession {
         RTC.CallSessionFactory.makeSession(
             RTC.CallSessionFactoryConfiguration(
@@ -416,6 +442,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
                 routeConfiguration: makeRouteConfiguration(enabledRoutes: enabledRoutes),
                 audioPolicy: audioPolicy,
                 webRTC: RTC.WebRTCRouteFactoryConfiguration(
+                    cloudflareConfigurationProvider: { _ in internetConfiguration },
                     engineFactory: { WebRTCNativeEngine() }
                 )
             )
@@ -434,7 +461,9 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
         return RTC.CallRouteConfiguration(
             enabledRoutes: enabledRoutes,
-            preferredRoute: preferredRoute
+            preferredRoute: preferredRoute,
+            keepsPreferredRouteInStandby: false,
+            keepsFallbackRouteWarm: false
         )
     }
 

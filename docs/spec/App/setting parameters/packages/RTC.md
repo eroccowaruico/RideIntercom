@@ -16,7 +16,7 @@
 | `fallbackDelay` | package default | package default | runtime status の route configuration |
 | `restoreProbeDuration` | package default | package default | runtime status の route configuration |
 | `handoverFadeDuration` | package default | package default | runtime status の route configuration |
-| `keepsPreferredRouteInStandby` | package default の `true` | package default | standby route state |
+| `keepsPreferredRouteInStandby` | `false`。未使用SFUを先行作成しない | adapter policy | standby route state |
 | `keepsFallbackRouteWarm` | package default の `false` | package default | handover / fallback state |
 
 App は実体 route を直接構築しない。`CallSessionFactoryConfiguration` に display name、`CallRouteConfiguration`、`RTCAudioPolicy`、WebRTC native engine factory を渡し、RTC package の `CallSessionFactory` が `.multipeer` と `.webRTC` の route set を構築する。route 設定変更時は active RTC connection を止め、次回 `prepare` / `startConnection` では更新後の `enabledRoutes` と RTC package の fallback / restore policy を正とする。App は `enabledRoutes == []` を RTC package へ渡さず、旧 UserDefaults や不正値は既定 route へ修復する。App は package が返す route availability、failure reason、media ownership を Diagnostics または runtime status の入力として扱う。

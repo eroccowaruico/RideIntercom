@@ -7,6 +7,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             CommunicationPanel(viewModel: viewModel)
+            InternetConnectionPanel(viewModel: viewModel)
             AudioSessionPanel(viewModel: viewModel)
             AudioIOPanel(viewModel: viewModel)
             AudioCheckPanel(viewModel: viewModel)
@@ -361,5 +362,57 @@ struct ResetSettingsPanel: View {
             Text("Resets audio and call settings to their default values. Saved groups and members are not changed.")
         }
         .accessibilityIdentifier("resetSettingsPanel")
+    }
+}
+
+struct InternetConnectionPanel: View {
+    @Bindable var viewModel: IntercomViewModel
+    @State private var workerURL = ""
+    @State private var token = ""
+    @State private var status = ""
+    @FocusState private var credentialFocused: Bool
+    var body: some View {
+        Section {
+            TextField("Worker URL", text: $workerURL)
+                .focused($credentialFocused)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("internetWorkerURL")
+                #if os(iOS)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                #endif
+            SecureField("Device access token", text: $token)
+                .focused($credentialFocused)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("internetDeviceToken")
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
+            Button("Save Internet Connection") {
+                credentialFocused = false
+                do {
+                    let store = InternetConnectionSettingsStore()
+                    try store.save(url: workerURL, token: token)
+                    if let configuration = store.load() {
+                        viewModel.disconnect()
+                        viewModel.callSession.updateInternetConfiguration(configuration)
+                        token = ""
+                        status = "Saved. Connect to a group to try Internet calling."
+                    }
+                } catch {
+                    status = "Could not save. Check the HTTPS URL, device token, and Keychain access."
+                }
+            }
+            .disabled(workerURL.isEmpty || token.isEmpty)
+            .accessibilityIdentifier("saveInternetConnection")
+            if !status.isEmpty { Text(status).font(.footnote) }
+        } header: { Label("Internet Connection", systemImage: "globe") }
+        footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
+        .onAppear {
+            if let saved = InternetConnectionSettingsStore().load() {
+                workerURL = saved.workerURL.absoluteString
+                status = "Device token is saved in Keychain."
+            }
+        }
     }
 }

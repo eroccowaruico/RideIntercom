@@ -86,6 +86,7 @@ extension IntercomViewModel {
     }
 
     func rebuildAudioPipelineIfRunning() {
+        guard !callSession.usesRouteManagedAudio else { return }
         guard isAudioReady else {
             callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
             return

@@ -90,3 +90,13 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 ## Voice Isolationの現在の提供状態
 
 SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操作を表示する。通話開始時に実Mixerへノードを接続し、設定変更は実Audio Unitのbypassへ反映する。停止中は要求設定だけ保持し、稼働中とは表示しない。非対応環境では操作を表示せずsupport reportで区別する。
+
+## Internet Connection
+
+| 項目 | ID | 入力と動作 |
+|---|---|---|
+| Worker URL | `internetWorkerURL` | HTTPS origin のみ。path・query・fragment・URL内資格を拒否 |
+| 端末資格 | `internetDeviceToken` | SecureField。保存先 Keychain。招待 URL / UserDefaults / ログへ含めない |
+| 保存 | `saveInternetConnection` | 入力検証後に保存、通話終了、RTC configuration 更新。保存失敗は画面内テキストで表示 |
+
+保存済み資格は入力欄へ再表示しない。試用時は同一 Worker の個別端末資格を入力し、Local Network を OFF にして Internet のみで接続を確認できる。

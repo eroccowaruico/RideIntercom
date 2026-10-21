@@ -1043,6 +1043,46 @@ struct RideIntercomTests {
         harness.viewModel.disconnect()
     }
 
+    @Test func internetConfigurationUsesKeychainAndRejectsUnsecuredEndpoint() throws {
+        let keychain = InternetTestKeychain()
+        let store = InternetConnectionSettingsStore(keychain: keychain)
+        #expect(store.load() == nil)
+        #expect(throws: (any Error).self) { try store.save(url: "http://example.com", token: "device-token") }
+        try store.save(url: "https://ride.example.com", token: "device-token")
+        #expect(store.load()?.workerURL.absoluteString == "https://ride.example.com")
+        #expect(store.load()?.accessToken == "device-token")
+        #expect(!keychain.value!.contains("invitation-secret"))
+    }
+
+    @Test func routeManagedAudioDoesNotStartPacketAudioCaptureOrMixer() async {
+        let harness = Self.makeHarness()
+        harness.callSession.usesRouteManagedAudio = true
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        #expect(harness.viewModel.isAudioReady)
+        #expect(harness.audioDriver.createdEngineCount == 0)
+        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        harness.viewModel.disconnect()
+    }
+
+    @Test func audioOwnershipTransitionStopsLocalPipelineAndStartsNativeAudio() async {
+        let harness = Self.makeHarness()
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await Self.waitUntil { harness.viewModel.isAudioReady }
+        #expect(!harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        harness.callSession.usesRouteManagedAudio = true
+        harness.callSession.onEvent?(.audioOwnershipChanged)
+        await Self.waitUntil { harness.viewModel.connectionState == .internetConnected }
+        #expect(harness.viewModel.isAudioReady)
+        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        #expect(harness.viewModel.connectionState == .internetConnected)
+        harness.viewModel.rebuildAudioPipelineIfRunning()
+        #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
+        harness.viewModel.disconnect()
+    }
+
     private struct Harness {
         let viewModel: IntercomViewModel
         let callSession: RecordingCallSession
@@ -1149,6 +1189,7 @@ struct RideIntercomTests {
 }
 
 private final class RecordingCallSession: RideIntercom.CallSession {
+    var usesRouteManagedAudio = false
     var onEvent: ((TransportEvent) -> Void)?
     private(set) var activeRouteDebugTypeName = "RecordingCallSession"
     private(set) var connectedGroup: IntercomGroup?
@@ -1461,4 +1502,10 @@ private final class FailingEffectGraphEngine: AVAudioEngine, @unchecked Sendable
     override func start() throws {
         throw NSError(domain: "EffectGraphTest", code: 1)
     }
+}
+
+private final class InternetTestKeychain: KeychainSecretStoring {
+    var value: String?
+    func saveSecret(_ secret: String, service: String, account: String) throws { value = secret }
+    func secret(service: String, account: String) throws -> String? { value }
 }

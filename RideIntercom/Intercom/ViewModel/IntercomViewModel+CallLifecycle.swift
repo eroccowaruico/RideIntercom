@@ -46,7 +46,7 @@ extension IntercomViewModel {
               !authenticatedPeerIDs.isEmpty,
               startAudioPipelineIfNeeded() else { return }
 
-        connectionState = .localConnected
+        connectionState = callSession.usesRouteManagedAudio ? .internetConnected : .localConnected
         markConnectedMembers(peerIDs: connectedPeerIDs)
     }
 
@@ -57,6 +57,17 @@ extension IntercomViewModel {
 
         cancelAudioCheck()
         bindAudioEvents()
+        if callSession.usesRouteManagedAudio {
+            guard configureAudioSession(active: true) else { return false }
+            callSession.setLocalMute(isMuted)
+            callSession.setOutputMute(isOutputMuted)
+            callSession.startMedia()
+            isAudioReady = true
+            callTicker.start()
+            audioErrorMessage = nil
+            publishRuntimePackageReports(force: true)
+            return true
+        }
         callSession.startMedia()
         guard configureAudioSession(active: true),
               applyCurrentVoiceProcessingConfiguration(),

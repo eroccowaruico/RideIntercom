@@ -44,6 +44,11 @@ extension IntercomViewModel {
     func handleTransportEvent(_ event: TransportEvent) {
         uiEventRevision += 1
         switch event {
+        case .audioOwnershipChanged:
+            if isAudioReady { stopAudioPipeline() }
+            startActiveCallAfterAuthenticatedPeer()
+        case .serviceError(let reason):
+            audioErrorMessage = "Internet connection failed: \(reason)"
         case .localNetworkStatus(let event):
             localNetworkStatus = event.status
             lastLocalNetworkPeerID = event.peerID
@@ -64,7 +69,9 @@ extension IntercomViewModel {
             if isLocalStandbyOnly {
                 connectionState = .idle
             } else {
-                connectionState = peerIDs.isEmpty ? .localConnecting : .localConnected
+                connectionState = callSession.usesRouteManagedAudio
+                    ? (peerIDs.isEmpty ? .internetConnecting : .internetConnected)
+                    : (peerIDs.isEmpty ? .localConnecting : .localConnected)
             }
             markConnectedMembers(peerIDs: peerIDs)
             publishRuntimePackageReports(force: true)
@@ -74,7 +81,7 @@ extension IntercomViewModel {
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()
             addDiscoveredMembersIfNeeded(peerIDs: authenticatedPeerIDs)
             if !isLocalStandbyOnly {
-                connectionState = .localConnected
+                connectionState = callSession.usesRouteManagedAudio ? .internetConnected : .localConnected
             }
             markConnectedMembers(peerIDs: connectedPeerIDs)
             startActiveCallAfterAuthenticatedPeer()

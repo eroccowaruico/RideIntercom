@@ -32,3 +32,11 @@ App を作り直す前提では、App 側の暫定実装や既存コードの棚
 | App 側暫定実装 | 作り直し前の都合として扱い、本書には残さない |
 | package に既にある責務 | `docs/spec/packages` と `docs/spec/App/setting parameters/packages` を参照し、App 仕様へ重複定義しない |
 | 新しい不足の判断 | App が OS 差分、継続可能な準異常系、runtime report/event、設定受け取りを自前で補う必要が出た場合だけ追記する |
+
+## Cloudflare SFU 試用で残る確認
+
+| 領域 | 現在の境界 | 後続の要望 / 確認 |
+|---|---|---|
+| native media | RTCがcapture/render/Opusを所有しApp Mixerを通さない | native mediaへeffect・peer音量を適用する契約は未提供。App側の仮処理で適用済みにしない |
+| ネットワーク制約 | STUN + SFU直接接続 | TURN資格の取得・更新・失効をRTC/Workerの責務で扱い、制限回線を検証する |
+| 継続利用 | leaseは同一sessionを更新 | 多数のpeer入替に伴うSDP m-line再利用と実通話の長時間確認を行う |
