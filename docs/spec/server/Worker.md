@@ -133,7 +133,7 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 
 | 操作 | 確認すること |
 |---|---|
-| Settings → Internet Connection | 同じWorker origin、端末ごとのaccess tokenを保存 |
+| Settings → Internet Connection → Configure | 同じWorker origin、端末ごとのaccess tokenを保存 |
 | Settings → Local Network OFF | Internetを明示選択。近距離経路の成功をSFU成功と誤認しない |
 | groupを作成し既存招待URLを共有 | 両端末が同じgroup secretを持つ |
 | Connect、双方向発話、mute | SFU APIの成功だけで音声成功と判定しない |

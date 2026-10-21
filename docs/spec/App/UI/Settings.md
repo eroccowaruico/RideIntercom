@@ -93,6 +93,8 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 
 ## Internet Connection
 
+`Configure Internet Connection` (`configureInternetConnection`) から標準sheetを開く。presenterはSettings画面のFormに置き、入力欄を通話設定一覧から分離する。`Close` (`closeInternetConnection`) で入力状態を解放して一覧へ戻る。Macでは内容を操作できる最小サイズを持つsheet、iOSではNavigationStack付きsheetを使用する。
+
 | 項目 | ID | 入力と動作 |
 |---|---|---|
 | Worker URL | `internetWorkerURL` | HTTPS origin のみ。path・query・fragment・URL内資格を拒否 |

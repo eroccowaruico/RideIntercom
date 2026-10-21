@@ -3,11 +3,12 @@ import RTC
 
 struct SettingsView: View {
     @Bindable var viewModel: IntercomViewModel
+    @State private var isEditingInternet = false
 
     var body: some View {
         Form {
             CommunicationPanel(viewModel: viewModel)
-            InternetConnectionPanel(viewModel: viewModel)
+            InternetConnectionPanel(isEditing: $isEditingInternet)
             AudioSessionPanel(viewModel: viewModel)
             AudioIOPanel(viewModel: viewModel)
             AudioCheckPanel(viewModel: viewModel)
@@ -17,6 +18,21 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .accessibilityIdentifier("settingsScrollView")
+        .sheet(isPresented: $isEditingInternet) {
+            NavigationStack {
+                InternetConnectionEditor(viewModel: viewModel)
+                    .navigationTitle("Internet Connection")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { isEditingInternet = false }
+                                .accessibilityIdentifier("closeInternetConnection")
+                        }
+                    }
+            }
+            #if os(macOS)
+            .frame(minWidth: 480, minHeight: 320)
+            #endif
+        }
     }
 }
 
@@ -366,52 +382,66 @@ struct ResetSettingsPanel: View {
 }
 
 struct InternetConnectionPanel: View {
+    @Binding var isEditing: Bool
+    var body: some View {
+        Section {
+            Button("Configure Internet Connection") { isEditing = true }
+                .accessibilityIdentifier("configureInternetConnection")
+        } header: { Label("Internet Connection", systemImage: "globe") }
+        footer: { Text("Set the service URL and this device's access token before trying Internet calling.") }
+    }
+}
+
+private struct InternetConnectionEditor: View {
     @Bindable var viewModel: IntercomViewModel
     @State private var workerURL = ""
     @State private var token = ""
     @State private var status = ""
-    @FocusState private var credentialFocused: Bool
+    private enum Field: Hashable { case url, token }
+    @FocusState private var focusedField: Field?
     var body: some View {
-        Section {
-            TextField("Worker URL", text: $workerURL)
-                .focused($credentialFocused)
-                .autocorrectionDisabled()
-                .accessibilityIdentifier("internetWorkerURL")
-                #if os(iOS)
-                .keyboardType(.URL)
-                .textInputAutocapitalization(.never)
-                #endif
-            SecureField("Device access token", text: $token)
-                .focused($credentialFocused)
-                .autocorrectionDisabled()
-                .accessibilityIdentifier("internetDeviceToken")
-                #if os(iOS)
-                .textInputAutocapitalization(.never)
-                #endif
-            Button("Save Internet Connection") {
-                credentialFocused = false
-                do {
-                    let store = InternetConnectionSettingsStore()
-                    try store.save(url: workerURL, token: token)
-                    if let configuration = store.load() {
-                        viewModel.disconnect()
-                        viewModel.callSession.updateInternetConfiguration(configuration)
-                        token = ""
-                        status = "Saved. Connect to a group to try Internet calling."
+        Form {
+            Section {
+                TextField("Worker URL", text: $workerURL)
+                    .focused($focusedField, equals: .url)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("internetWorkerURL")
+                    #if os(iOS)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                SecureField("Device access token", text: $token)
+                    .focused($focusedField, equals: .token)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("internetDeviceToken")
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                Button("Save Internet Connection") {
+                    focusedField = nil
+                    do {
+                        let store = InternetConnectionSettingsStore()
+                        try store.save(url: workerURL, token: token)
+                        if let configuration = store.load() {
+                            viewModel.disconnect()
+                            viewModel.callSession.updateInternetConfiguration(configuration)
+                            token = ""
+                            status = "Saved. Connect to a group to try Internet calling."
+                        }
+                    } catch {
+                        status = "Could not save. Check the HTTPS URL, device token, and Keychain access."
                     }
-                } catch {
-                    status = "Could not save. Check the HTTPS URL, device token, and Keychain access."
                 }
-            }
-            .disabled(workerURL.isEmpty || token.isEmpty)
-            .accessibilityIdentifier("saveInternetConnection")
-            if !status.isEmpty { Text(status).font(.footnote) }
-        } header: { Label("Internet Connection", systemImage: "globe") }
-        footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
-        .onAppear {
-            if let saved = InternetConnectionSettingsStore().load() {
-                workerURL = saved.workerURL.absoluteString
-                status = "Device token is saved in Keychain."
+                .disabled(workerURL.isEmpty || token.isEmpty)
+                .accessibilityIdentifier("saveInternetConnection")
+                if !status.isEmpty { Text(status).font(.footnote) }
+            } header: { Label("Internet Connection", systemImage: "globe") }
+            footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
+            .onAppear {
+                if let saved = InternetConnectionSettingsStore().load() {
+                    workerURL = saved.workerURL.absoluteString
+                    status = "Device token is saved in Keychain."
+                }
             }
         }
     }

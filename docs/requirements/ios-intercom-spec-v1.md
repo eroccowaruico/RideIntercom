@@ -12,8 +12,8 @@
 | 音楽を聴きながら通話できる | 実装済み。通話セッションは `mixWithOthers` を使用 |
 | 2〜8 名の同時通話 | 実装済み。`maximumMemberCount == 8` |
 | 近距離は MultipeerConnectivity を利用 | 実装済み |
-| Local 切断時は WebRTC へ移行 | 実装済み |
-| WebRTC から Local へ自動復帰する | 実装済み。probe/handover あり |
+| Local 切断時は WebRTC へ移行 | RTC経路切替は自動テスト済み。Cloudflare実サービスを跨ぐ通話の継続品質は未確認 |
+| WebRTC から Local へ自動復帰する | RTCにprobe/handoverあり。Appは未使用SFUの先行接続を無効化。実サービスでの復帰は未確認 |
 | 起動後にグループ選択または新規作成できる | 実装済み |
 | 同一グループだけ接続できる | 実装済み。groupHash と handshake で制御 |
 | 招待 URL を共有して参加できる | 実装済み |
@@ -47,7 +47,7 @@
 | 項目 | 現行仕様 |
 |---|---|
 | Local | MultipeerConnectivity |
-| Internet | 現行は未実装。将来 WebRTCInternetRoute として追加予定 |
+| Internet | Cloudflare SFU用RTC/WorkerとApp設定を実装。招待制の自動検証済み経路。実アカウント接続・TURN・公開identityは未確認/未対応 |
 | 認証 | group secret ベースの HMAC |
 | 暗号化 | Local 音声 payload は AES-GCM |
 
@@ -80,3 +80,12 @@
 | 通信 | `docs/spec/App/通信仕様.md` |
 | 音声 | `docs/spec/App/音声処理仕様.md` |
 | 設定 | `docs/spec/App/setting parameters/App/設定値一覧.md` |
+
+## Cloudflare 試用から公開への要求
+
+| 要求 | 実装 / 残件 |
+|---|---|
+| 少人数で費用を抑える | SFU容量課金、SQLite DO Hibernation、個別端末資格、参加者秒の前払い枠。全課金項目は `docs/spec/server/Cost.md` |
+| 手動再接続を減らす | 同一SFU sessionのlease自動更新。WS一時切断はmediaとは別に復帰 |
+| 公開できる構成へ進む | SFUとWorker契約を固定し、公開登録/資格発行/失効・abuse対策を追加する。招待制registryを公開登録完成と呼ばない |
+| 検証区分 | 自動検証、実Cloudflare未確認、実機未確認を分ける。実測料金で試算条件を更新 |

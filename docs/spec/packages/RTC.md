@@ -51,7 +51,7 @@ flowchart LR
 | `RTC` target依存 | 外部package依存なし |
 | `RTCNativeWebRTC` target依存 | `RTC`, local binary target `WebRTC` |
 | 近距離route | `MultipeerConnectivity` |
-| 広域route | native WebRTC SDK、Cloudflare Realtime SFU/TURN前提 |
+| 広域route | native WebRTC SDK、Cloudflare Realtime SFU。TURN資格は未接続 |
 | 対応プラットフォーム | iOS `26.4`以降、macOS `26.4`以降 |
 | Swift | Swift `6` |
 | テスト | `RTC` targetはSDK非依存でSwiftPMテスト可能に保つ |
@@ -65,8 +65,7 @@ flowchart LR
 | `MCNearbyServiceAdvertiser` | https://developer.apple.com/documentation/MultipeerConnectivity/MCNearbyServiceAdvertiser | service type `ride-intercom` のadvertiseとinvitation受理 |
 | `MCSession` | https://developer.apple.com/documentation/multipeerconnectivity/mcsession | peer connection、暗号化必須session、data送受信 |
 | WebRTC peer connection | https://webrtc.org/getting-started/peer-connections | SDP offer/answer、ICE candidate、STUN/TURN、connection stateの考え方 |
-| WebRTC data channel | https://webrtc.org/getting-started/data-channels | `ApplicationDataMessage`のWebRTC DataChannel搬送 |
-| Cloudflare Realtime | https://developers.cloudflare.com/realtime/ | SFU/TURNを使ったinternet routeのbackend前提 |
+| Cloudflare Realtime | https://developers.cloudflare.com/realtime/ | SFUを使ったinternet routeのbackend |
 | Cloudflare TURN | https://developers.cloudflare.com/realtime/turn/ | NAT/firewall越えのrelay候補 |
 
 ## Package Structure
@@ -103,8 +102,8 @@ flowchart TB
 | 外部基盤 | Apple `MultipeerConnectivity` | Cloudflare Realtime + native WebRTC SDK |
 | discovery | `MCNearbyServiceBrowser` / `MCNearbyServiceAdvertiser` | Cloudflare room / participant signaling |
 | connection | `MCSession` | `RTCPeerConnection` |
-| signaling | 不要 | 必須。SDP offer/answerとICE candidateを交換する |
-| app data | `MCSession.send` | DataChannel優先、失敗時signaling fallback |
+| signaling | 不要 | 必須。ICE収集済みSDP offer/answerをWorker経由でSFUと交換 |
+| app data | `MCSession.send` | 認証済みWorker WebSocket |
 | audio media | App管理の`RTCAudioPacket` | WebRTC engine管理のmedia stream |
 | `supportsAppManagedPacketAudio` | `true` | `false` |
 | `supportsRouteManagedMedia` | `false` | `true` |
@@ -329,9 +328,9 @@ Worker契約・上限・試用手順は `docs/spec/server/Worker.md` を参照�
 | 種別 | Multipeer | WebRTC |
 |---|---|---|
 | discovery | Bonjour service `ride-intercom` | Cloudflare room / participant |
-| auth | group hash と HMAC handshake | Cloudflare participant token と app-level credential |
-| route control | `MultipeerWireMessage.control` | signaling またはDataChannel |
-| app data | `MultipeerWireMessage.applicationData` | DataChannel、失敗時はsignaling fallback |
+| auth | group hash と HMAC handshake | 端末Bearer + group由来room capability |
+| route control | `MultipeerWireMessage.control` | Worker HTTP / WebSocket |
+| app data | `MultipeerWireMessage.applicationData` | 認証済みWorker WebSocket |
 | audio media | encrypted packet audio | native WebRTC media stream |
 | codec payload | opaque `RTCAudioPacket.payload` | native WebRTC codec selection |
 | error output | `CallSessionEvent.error`, `RouteAvailability.reason`, metrics | `CallSessionEvent.error`, `RouteAvailability.reason`, route state |
@@ -557,21 +556,22 @@ flowchart LR
 | flow | 経路 | RTCの責務 |
 |---|---|---|
 | connection | `CallSession -> WebRTCInternetRoute -> WebRTCSignalingClient -> Cloudflare` | signaling接続を開始する |
-| peer setup | `remotePeerJoined -> NativeWebRTCEngine.createPeerConnection` | peer connection生成を指示する |
+| peer setup | `signaling connected -> SFU向けcreatePeerConnection` | peer connection生成を指示する |
 | offer/answer | `NativeWebRTCEngine <-> WebRTCSignalingClient` | SDPを運ぶ |
-| ICE | `NativeWebRTCEngine <-> WebRTCSignalingClient` | candidateを運ぶ |
+| ICE | `NativeWebRTCEngine` の収集結果をSDPへ含める | peer間trickle中継を行わない |
 | media | `NativeWebRTCEngine local/remote audio track` | lifecycleを開始/停止する |
-| app data | `DataChannel -> signaling fallback` | delivery差異を吸収する |
+| app data | `Worker WebSocket` | SFU媒体と分離する。障害中の保存配送は行わない |
 
 ```mermaid
 flowchart TB
     Call[CallSession] --> WebRoute[WebRTCInternetRoute]
     WebRoute --> Signaling[WebRTCSignalingClient]
     WebRoute --> Engine[NativeWebRTCEngine]
-    Signaling --> Cloudflare[Cloudflare Realtime\nSFU/TURN]
+    Signaling --> Worker[Authenticated Worker HTTP / WS]
+    Worker --> Cloudflare[Cloudflare Realtime SFU]
     Engine --> PeerConnection[RTCPeerConnection]
     PeerConnection --> Media[WebRTC media stream]
-    PeerConnection --> DataChannel[RTCDataChannel]
+    Media --> Cloudflare
 ```
 
 ## Route Ownership

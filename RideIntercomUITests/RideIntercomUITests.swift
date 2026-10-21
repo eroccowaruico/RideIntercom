@@ -29,6 +29,13 @@ final class RideIntercomUITests: XCTestCase {
 
     @MainActor
     func testRecoveryWorkflowInOneLaunch() throws {
+        // Restore the required route through UI even if a previous run stopped
+        // halfway through changing settings. Do not erase application data.
+        openSettingsTab()
+        let localRoute = app.switches["Local Network"].firstMatch
+        XCTAssertTrue(localRoute.waitForExistence(timeout: 3))
+        if localRoute.value as? String == "0" { localRoute.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+        openGroupsTab()
         createTalkGroupAndOpenCall()
         try checkGroupSelectionOpensCallScreen()
         try checkManualAddRiderButtonIsNotShownInCallUI()
@@ -38,9 +45,9 @@ final class RideIntercomUITests: XCTestCase {
         let isolation = app.switches["Master Output Voice Isolation Effect"].firstMatch
         XCTAssertTrue(isolation.waitForExistence(timeout: 3))
         let originalIsolation = isolation.value as? String
-        isolation.switches.firstMatch.tap()
+        isolation.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertNotEqual(isolation.value as? String, originalIsolation)
-        isolation.switches.firstMatch.tap()
+        isolation.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertEqual(isolation.value as? String, originalIsolation)
         try checkVoiceActivityAndHandoverCanBeExercisedFromUI()
         try checkDisconnectAndReconnectButtonsTransitionInCall()
@@ -58,6 +65,36 @@ final class RideIntercomUITests: XCTestCase {
         attachScreen("Settings")
     }
 
+    @MainActor
+    func testInternetCredentialValidationKeepsTabsUsable() {
+        checkInternetSettingsRejectUnsecuredURL()
+        openGroupsTab()
+        openSettingsTab()
+        XCTAssertTrue(app.buttons["configureInternetConnection"].exists)
+        let local = app.switches["Local Network"].firstMatch
+        let original = local.value as? String
+        local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertNotEqual(local.value as? String, original)
+        local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertEqual(local.value as? String, original)
+    }
+
+    private func checkInternetSettingsRejectUnsecuredURL() {
+        openSettingsTab()
+        let configure = app.buttons["configureInternetConnection"]
+        for _ in 0..<4 where !configure.isHittable { app.swipeUp() }
+        configure.tap()
+        let url = app.textFields["internetWorkerURL"]
+        XCTAssertTrue(url.waitForExistence(timeout: 3))
+        url.tap(); url.typeText("http://example.com")
+        let token = app.secureTextFields["internetDeviceToken"]
+        token.tap(); token.typeText("invalid-test-token")
+        let save = app.buttons["saveInternetConnection"]
+        save.tap()
+        XCTAssertTrue(app.staticTexts["Could not save. Check the HTTPS URL, device token, and Keychain access."].waitForExistence(timeout: 3))
+        app.buttons["closeInternetConnection"].tap()
+    }
+
     private func checkSettingsChangesPersistAcrossTabs() {
         openSettingsTab()
         attachScreen("Settings before edits")
@@ -65,27 +102,30 @@ final class RideIntercomUITests: XCTestCase {
         let internet = app.switches["Internet"].firstMatch
         XCTAssertTrue(local.waitForExistence(timeout: 3))
         let original = local.value as? String
-        local.switches.firstMatch.tap()
+        local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertNotEqual(local.value as? String, original)
         XCTAssertFalse(internet.isEnabled) // The remaining route cannot be disabled.
         openGroupsTab()
         openSettingsTab()
         XCTAssertNotEqual(local.value as? String, original)
-        local.switches.firstMatch.tap()
+        local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertEqual(local.value as? String, original)
         let isolation = revealTransmitIsolationToggle()
         XCTAssertTrue(isolation.waitForExistence(timeout: 3))
         let originalIsolation = isolation.value as? String
-        isolation.switches.firstMatch.tap()
+        isolation.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertNotEqual(isolation.value as? String, originalIsolation)
         openGroupsTab()
         openSettingsTab()
         let retainedIsolation = revealTransmitIsolationToggle()
         XCTAssertNotEqual(retainedIsolation.value as? String, originalIsolation)
-        retainedIsolation.switches.firstMatch.tap()
+        retainedIsolation.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertEqual(retainedIsolation.value as? String, originalIsolation)
         revealSettingsPanelIfNeeded(identifier: "transmitCodecPanel")
         let codec = app.segmentedControls.containing(.button, identifier: "PCM 16-bit").firstMatch
+        for _ in 0..<6 where !codec.buttons["Opus"].isHittable {
+            app.descendants(matching: .any)["settingsScrollView"].firstMatch.swipeUp()
+        }
         codec.buttons["Opus"].tap()
         XCTAssertTrue(codec.buttons["Opus"].isSelected)
         codec.buttons["PCM 16-bit"].tap()
@@ -181,6 +221,7 @@ final class RideIntercomUITests: XCTestCase {
     private func checkAudioCheckControlsAreAvailableFromSettings() throws {
         openSettingsTab()
 
+        revealSettingsPanelIfNeeded(identifier: "audioIOPanel")
         XCTAssertTrue(app.descendants(matching: .any)["audioIOPanel"].firstMatch.waitForExistence(timeout: 3))
 
         revealAudioCheckControlsIfNeeded()
@@ -284,6 +325,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "mode uses")).firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioSessionProfileStatus"].firstMatch.exists)
+        revealSettingsPanelIfNeeded(identifier: "audioIOPanel")
         XCTAssertTrue(app.descendants(matching: .any)["audioIOPanel"].firstMatch.waitForExistence(timeout: 3))
         revealAudioCheckControlsIfNeeded()
         XCTAssertTrue(app.descendants(matching: .any)["audioCheckPanel"].firstMatch.waitForExistence(timeout: 3))
@@ -389,34 +431,27 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func openSettingsTab() {
-        defer {
-            let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
-            for _ in 0..<6 {
-                let toggle = app.switches["Local Network"].firstMatch
-                if toggle.exists && toggle.isHittable { break }
-                scroll.swipeDown()
+        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        if !scroll.exists {
+            let radio = app.radioButtons["settingsTab"].firstMatch
+            if radio.exists { radio.tap() }
+            else {
+                let identified = app.buttons["settingsTab"].firstMatch
+                let button = identified.exists ? identified : app.tabBars.buttons["Settings"].firstMatch
+                XCTAssertTrue(button.waitForExistence(timeout: 3))
+                // The floating iOS tab bar sometimes reports an invalid automatic
+                // hit point during animation. Tap the observed button's center.
+                button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
         }
-        if app.descendants(matching: .any)["settingsScrollView"].firstMatch.exists {
-            return
+        guard scroll.waitForExistence(timeout: 5) else {
+            XCTFail("Settings tab did not open"); return
         }
-        if app.tabBars.buttons["Settings"].firstMatch.exists {
-            app.tabBars.buttons["Settings"].firstMatch.tap()
-            return
+        for _ in 0..<6 {
+            let toggle = app.switches["Local Network"].firstMatch
+            if toggle.exists && toggle.isHittable { break }
+            scroll.swipeDown()
         }
-        if app.radioButtons["settingsTab"].firstMatch.exists {
-            app.radioButtons["settingsTab"].firstMatch.tap()
-            return
-        }
-        if app.buttons["settingsTab"].firstMatch.exists {
-            app.buttons["settingsTab"].firstMatch.tap()
-            return
-        }
-        if app.buttons["Settings"].firstMatch.exists {
-            app.buttons["Settings"].firstMatch.tap()
-        }
-
-        XCTAssertTrue(app.descendants(matching: .any)["settingsScrollView"].firstMatch.waitForExistence(timeout: 3))
     }
 
     private func revealDiagnosticOverview() {
