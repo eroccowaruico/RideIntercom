@@ -84,3 +84,20 @@
 | 証跡 | `/tmp/rideintercom-distribution-ready-archive.log`、`/tmp/rideintercom-distribution-ready-export.log`、`/tmp/rideintercom-distribution-ready-app-tests.log`、`/tmp/rideintercom-distribution-script-tests.log`、`/tmp/rideintercom-webrtc-symbol-update.log`。一時領域のため永続保存ではない |
 | 残るwarning | WebRTC vendor sourceの`tracksWithMediaType:`非推奨、AppIntents未使用によるXcode metadata抽出省略。今回の配布エラーとは別に残る |
 | 未確認 | App Store ConnectへのアップロードとApple側の受理は未実行。macOS/SimulatorのdSYM同梱は今回のiOS配布修復対象外。旧Archiveを再送せず、上記の新Archiveまたは修正後に作成したArchiveを使う |
+
+## カメラ不要の配布バイナリ修復（2026-10-22）
+
+対象は`d201c80`上の作業ツリー。App Store ConnectからVersion 1.0 / Build 1に`ITMS-90683`が通知された。利用者の「カメラは不要」という指示に従い、利用していないカメラの目的文字列を追加せず、WebRTCのカメラAPIを除去した。
+
+| 確認 | 結果・境界 |
+|---|---|
+| 原因の証拠 | 旧Archive内WebRTCに`AVCaptureSession`、`AVCaptureDeviceDiscoverySession`、`AVCaptureVideoDataOutput`、`AVCaptureVideoPreviewLayer`等の参照が存在。Appにカメラ機能はなく、SDK内の未使用実装が検出要因と考えられる |
+| 修正 | 同じWebRTC revision `2a990ce0cc`の全5構成を再ビルド。撮影・プレビュー・撮影位置helperをGN入力から除去し、成果物検証でカメラAPI・headerの混入を拒否。上流checkoutの変更は終了時に復元。package検証・取り込み後にAppのbuild番号のみ2へ更新 |
+| 回帰 | 全sliceのカメラAPI不在テストは修正前に失敗、修正後に成功。scripts全38件成功。隔離RTCテスト51件と実WebRTCによるSDP・双方向packet転送2件成功 |
+| Appテスト | macOSの`RideIntercomTests`全109件成功（パラメータ展開後112件）。失敗・skip 0件。専用storage namespace `CameraFreeValidation`を使用 |
+| ArchiveとIPA | Version 1.0 / Build 2でArchive・App Store向けIPA書き出し成功。アプリ本体とWebRTCの外部シンボルに`AVCapture`・`RTCCamera`なし。`NSCameraUsageDescription`なし。IPAの`codesign --verify --deep --strict`成功 |
+| dSYM | Archive内WebRTCとdSYMのarm64 UUIDが`4C4C445B-5555-3144-A1A3-0ADBD6A1CAA0`で一致 |
+| 成果物 | `/tmp/RideIntercom-CameraFree-Build2.xcarchive`、`/tmp/RideIntercom-CameraFree-Build2-Export/RideIntercom.ipa`。採用zipのSHA-256は隣接metadataが正本 |
+| 証跡 | `/tmp/rideintercom-camera-red.log`、`/tmp/rideintercom-camera-free-rebuild.log`、`/tmp/rideintercom-camera-free-import.log`、`/tmp/rideintercom-camera-script-tests.log`、`/tmp/rideintercom-camera-free-app-tests.log`、`/tmp/rideintercom-camera-free-archive.log`、`/tmp/rideintercom-camera-free-export.log`、`/tmp/rideintercom-camera-free-upload.log`。一時領域のため永続保存ではない |
+| 検証境界 | 最初のsandbox内実行はXcode cacheへの書き込み・既存テストのprocess確認が拒否され、必要なアクセスを許可して再実行。AppIntents未使用によるmetadata抽出省略warningは残る。実機通話品質・Apple側の処理完了はローカル成功から判断しない |
+| App Store Connect | 2026-10-22 00:04 JSTに`Upload succeeded`・`EXPORT SUCCEEDED`を確認。Version 1.0 / Build 2は`Uploaded package is processing`。アップロード成功であり、Apple側の処理完了・審査承認を意味しない |
