@@ -46,7 +46,9 @@ export class SignalingRoom {
         }
         if (url.pathname.endsWith('/join') && request.method === 'POST') {
             const b = await readJSON(request)
-            if (!/^[a-zA-Z0-9_-]{1,80}$/.test(b.participantId ?? '') || typeof b.displayName !== 'string' || b.displayName.length > 80
+            if (typeof b.participantId !== 'string' || !/^[a-zA-Z0-9_-]{1,63}$/.test(b.participantId)
+                || typeof b.displayName !== 'string' || !b.displayName.trim()
+                || new TextEncoder().encode(b.displayName).byteLength > 320 || /[\p{Cc}\p{Cf}]/u.test(b.displayName)
                 || !dataDescription(b.offer, 'offer') || b.offer.sdp.split(/\r?\n/).filter((l: string) => l.startsWith('m=')).length !== 1) return json({ error: 'One SCTP application section is required' }, 400)
             if (members.some(m => m.id === b.participantId)) return json({ error: 'Participant already connected' }, 409)
             if (members.length >= limit(this.env.MAX_ROOM_PARTICIPANTS, 8, 8)) return json({ error: 'Room is full' }, 429)
@@ -161,7 +163,7 @@ export class SignalingRoom {
         if (typeof message !== 'string' || new TextEncoder().encode(message).length > 32768 || rate.count > 600) { ws.close(1008, 'Message limit'); return }
         let d: any
         try { d = JSON.parse(message) } catch { ws.close(1008, 'Invalid message'); return }
-        if (d.type !== 'appData' || typeof d.namespace !== 'string' || d.namespace.length > 128 || typeof d.payload !== 'string') { ws.close(1008, 'Invalid message'); return }
+        if (!d || Array.isArray(d) || typeof d !== 'object' || d.type !== 'appData' || typeof d.namespace !== 'string' || d.namespace.length > 128 || typeof d.payload !== 'string') { ws.close(1008, 'Invalid message'); return }
         const result = JSON.stringify({ type: 'appData', from: member.id, namespace: d.namespace, payload: d.payload })
         for (const socket of this.state.getWebSockets()) if (socket !== ws) { try { socket.send(result) } catch { /* closed */ } }
     }
@@ -219,19 +221,19 @@ export class SignalingRoom {
     }
     async alarm(): Promise<void> {
         await this.state.blockConcurrencyWhile(async () => {
-        const expired = (await this.members()).filter(m => m.expiresAt <= Date.now() || this.env.SERVICE_ENABLED !== 'true')
-        // A room has at most eight members. Parallel cleanup keeps two 8s upstream
-        // deadlines within blockConcurrencyWhile's 30s limit, even during an outage.
-        await Promise.all(expired.map(async m => {
-            try { await this.close(m) } catch { /* Keep cleanup record and retry. */ }
-        }))
-        const active = new Set((await this.members()).map(m => m.id))
+        const members = await this.members()
+        const expired = members.filter(m => m.expiresAt <= Date.now() || this.env.SERVICE_ENABLED !== 'true')
+        const active = new Set(members.map(m => m.id))
         const orphans = (await this.turn.all()).filter(ice => !active.has(ice.peer)
             && (ice.expiresAt <= Date.now() || this.env.SERVICE_ENABLED !== 'true'))
-        // Room capacity bounds this batch. Avoid up to eight sequential upstream timeouts.
-        await Promise.all(orphans.map(async ice => {
+        // Member cleanup can take status + channel close + TURN revoke (3 x 8s).
+        // Start orphan revocations concurrently so they do not add another 8s.
+        // The snapshot excludes member-owned keys; no credential is revoked twice.
+        await Promise.all([...expired.map(async m => {
+            try { await this.close(m) } catch { /* Keep cleanup record and retry. */ }
+        }), ...orphans.map(async ice => {
             try { await this.turn.remove(ice); await this.usage('release', { id: `${this.state.id}:${ice.peer}` }) } catch { /* Retain for retry/TTL expiry. */ }
-        }))
+        })])
         await this.broadcastPeers()
         const remaining = await this.members()
         if (remaining.some(m => m.expiresAt <= Date.now()) || (await this.turn.all()).some(m => m.expiresAt <= Date.now())) await this.state.storage.setAlarm(Date.now() + 30000)

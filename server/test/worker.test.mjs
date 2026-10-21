@@ -9,6 +9,67 @@ const call = (path, body, method = 'POST', instance = runtime, credential = toke
     method, headers: { Authorization: `Bearer ${credential}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 const join = (id, target = room, instance = runtime) => call(`/api/rooms/${target}/join`, { participantId: id, displayName: id, offer }, 'POST', instance);
 
+test('join rejects coerced identities and partial SCTP attribute matches before allocation', async () => {
+    const instance = await makeRuntime();
+    try {
+        for (const body of [
+            { participantId: 123, displayName: 'Number', offer },
+            { participantId: 'bad-port', displayName: 'Port', offer: { ...offer, sdp: offer.sdp.replace('5000', '50000') } },
+            { participantId: 'empty-name', displayName: '', offer },
+            { participantId: 'control-name', displayName: 'A\u0000B', offer },
+            { participantId: 'long-name', displayName: 'x'.repeat(321), offer },
+        ]) {
+            assert.equal((await call(`/api/rooms/${room}/join`, body, 'POST', instance)).status, 400);
+        }
+        assert.equal((await call(`/api/rooms/${room}/join`,
+            { participantId: 'unicode-name', displayName: '乗'.repeat(100), offer }, 'POST', instance)).status, 200);
+    } finally { await instance.dispose(); }
+});
+
+test('WebSocket null is rejected with a policy close instead of an uncaught exception', async () => {
+    const instance = await makeRuntime();
+    try {
+        const member = await (await join('null-message', room, instance)).json();
+        const response = await instance.dispatchFetch(`https://worker.test/api/rooms/${room}/sessions/${member.sessionId}/signal`, {
+            headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' }
+        });
+        assert.equal(response.status, 101);
+        const ws = response.webSocket; ws.accept();
+        const closed = new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('Invalid message was not closed')), 3000);
+            ws.addEventListener('close', e => { clearTimeout(timer); resolve(e.code); }, { once: true });
+        });
+        ws.send('null');
+        assert.equal(await closed, 1008);
+    } finally { await instance.dispose(); }
+});
+
+test('eight participants join and publish while the ninth is refused', async () => {
+    const instance = await makeRuntime({ MAX_ROOM_PARTICIPANTS: '8' });
+    try {
+        for (let i = 0; i < 8; i++) {
+            const response = await join(`rider-${i}`, room, instance);
+            assert.equal(response.status, 200);
+            const member = await response.json();
+            assert.equal((await call(`/api/rooms/${room}/sessions/${member.sessionId}/publish`, {}, 'POST', instance)).status, 200);
+        }
+        assert.equal((await join('ninth', room, instance)).status, 429);
+    } finally { await instance.dispose(); }
+});
+
+test('a stalled request body expires and does not keep the room locked', async () => {
+    const instance = await makeRuntime();
+    const body = new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('{')); } });
+    try {
+        const response = await instance.dispatchFetch(`https://worker.test/api/rooms/${room}/join`, {
+            method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body, duplex: 'half', signal: AbortSignal.timeout(6000)
+        });
+        assert.equal(response.status, 400);
+        assert.equal((await join('after-stall', room, instance)).status, 200);
+    } finally { await instance.dispose(); }
+});
+
 test('unauthenticated and malformed provider.requests never contact the provider', async () => {
     provider.requests = [];
     assert.equal((await runtime.dispatchFetch('https://worker.test/health')).status, 200);
