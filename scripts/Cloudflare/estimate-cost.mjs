@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
 // USD, decimal GB; official rates checked 2026-10-21. No taxes/FX or negotiated pricing.
-export function estimate({ users = 1000, hours = 20, roomSize = 4, wireKbps = 64, speakingFraction = 1,
+export function estimate({ users = 1000, hours = 20, roomSize = 4, wireKbps = 512, speakingFraction = 1, relayCopies = 1,
     paid = true, wsInterval = 0.25, activeMsPerEvent = 5, httpActiveMs = 200, workerCpuMs = 2,
     storedGB = 0.1, kitFreeMinutes = 0 } = {}) {
-    for (const value of [users, hours, roomSize, wireKbps, speakingFraction, wsInterval, activeMsPerEvent, httpActiveMs, workerCpuMs, storedGB, kitFreeMinutes]) {
+    for (const value of [users, hours, roomSize, wireKbps, speakingFraction, relayCopies, wsInterval, activeMsPerEvent, httpActiveMs, workerCpuMs, storedGB, kitFreeMinutes]) {
         if (!Number.isFinite(value) || value < 0) throw new Error('Inputs must be finite and nonnegative');
     }
-    if (roomSize < 2 || wsInterval === 0 || speakingFraction > 1) throw new Error('Invalid scenario');
+    if (roomSize < 2 || relayCopies < 1 || wsInterval === 0 || speakingFraction > 1) throw new Error('Invalid scenario');
     const minutes = users * hours * 60;
-    const gb = minutes * 60 * wireKbps * 1000 / 8 * (roomSize - 1) * speakingFraction / 1e9;
-    // One-hour calls; five-minute renewal requests, setup/pull/answer/socket/close, and room expiry alarms.
+    const gb = minutes * 60 * wireKbps * 1000 / 8 * (roomSize - 1) * speakingFraction * relayCopies / 1e9;
+    // One-hour calls; five-minute renewal requests, setup/publish/pull/socket/close, and room expiry alarms.
     const calls = users * hours;
     const workerRequests = minutes / 5 + calls * 6;
     const messages = minutes * 60 / wsInterval;
@@ -37,11 +37,11 @@ export function estimate({ users = 1000, hours = 20, roomSize = 4, wireKbps = 64
         storageWrites: paid ? over(writes, 50e6, 1e6, 1) : 0,
         storageGB: paid ? Math.max(0, storedGB - 5) * .20 : 0,
     };
-    return { users, hours, roomSize, wireKbps, speakingFraction, minutes, gb, workerRequests, doRequests, doGBs, reads, writes,
+    return { users, hours, roomSize, wireKbps, speakingFraction, relayCopies, minutes, gb, workerRequests, doRequests, doGBs, reads, writes,
         costs, total: Object.values(costs).reduce((a,b) => a+b, 0),
         realtimeKitAudio: Math.max(0, minutes - kitFreeMinutes) * .0005,
         freeDailyAverageFits: workerRequests / 30 <= 100000 && doRequests / 30 <= 100000 && doGBs / 30 <= 13000 && reads / 30 <= 5e6 && writes / 30 <= 100000 && storedGB <= 5,
-        marginalBreakEvenRoomSize: 1 + .0005 / (60 * wireKbps * 1000 / 8 / 1e9 * .05 * speakingFraction) };
+        marginalBreakEvenRoomSize: 1 + .0005 / (60 * wireKbps * 1000 / 8 / 1e9 * .05 * speakingFraction * relayCopies) };
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     if (process.argv[2]) console.log(JSON.stringify(estimate(JSON.parse(process.argv[2])), null, 2));
