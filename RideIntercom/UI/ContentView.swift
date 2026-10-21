@@ -34,7 +34,9 @@ struct ContentView: View {
             do {
                 try viewModel.acceptInviteURL(url)
             } catch {
-                viewModel.groupErrorMessage = "This invitation could not be opened or saved. Ask for a valid invite and try again."
+                if viewModel.groupErrorMessage == nil {
+                    viewModel.groupErrorMessage = "This invitation could not be opened or saved. Ask for a valid invite and try again."
+                }
             }
             selectedTab = .call
         }

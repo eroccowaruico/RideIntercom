@@ -14,6 +14,21 @@ import PeakLimiter
 @Suite(.serialized)
 @MainActor
 struct RideIntercomTests {
+    @Test func appDecodeRejectsUnknownCodecAndInvalidFormatBeforeConversion() throws {
+        let valid = RTCAudioPacket(sequenceNumber: 0, codec: .pcm16, capturedAt: 0,
+                                   sampleCount: 1, payload: Data([0, 0]))
+        var unknown = valid
+        unknown.codec = "unknown-codec"
+        #expect(throws: (any Error).self) { try AppAudioCodecBridge.decode(unknown) }
+        for format in [RTCAudioFormat(sampleRate: 0), RTCAudioFormat(channelCount: 0),
+                       RTCAudioFormat(sampleRate: .infinity), RTCAudioFormat(channelCount: 3)] {
+            var invalid = valid
+            invalid.format = format
+            #expect(throws: (any Error).self) { try AppAudioCodecBridge.decode(invalid) }
+        }
+        #expect(try AppAudioCodecBridge.decode(valid).samples == [0])
+    }
+
     @Test func appTargetSupportsIOSAndMacOSWithoutAudioUnitLinkage() throws {
         let project = try Self.source("RideIntercom.xcodeproj/project.pbxproj")
 
@@ -225,7 +240,7 @@ struct RideIntercomTests {
                 sequenceNumber: sequenceNumber,
                 format: .intercomPacketAudio,
                 capturedAt: TimeInterval(sequenceNumber),
-                samples: [sample]
+                samples: Array(repeating: sample, count: 960)
             )
         }
 
@@ -1066,11 +1081,11 @@ struct RideIntercomTests {
     @Test func internetConfigurationUsesKeychainAndRejectsUnsecuredEndpoint() throws {
         let keychain = InternetTestKeychain()
         let store = InternetConnectionSettingsStore(keychain: keychain)
-        #expect(store.load() == nil)
+        #expect(try store.load() == nil)
         #expect(throws: (any Error).self) { try store.save(url: "http://example.com", token: "device-token") }
         try store.save(url: "https://ride.example.com", token: "device-token")
-        #expect(store.load()?.workerURL.absoluteString == "https://ride.example.com")
-        #expect(store.load()?.accessToken == "device-token")
+        #expect(try store.load()?.workerURL.absoluteString == "https://ride.example.com")
+        #expect(try store.load()?.accessToken == "device-token")
         #expect(!keychain.value!.contains("invitation-secret"))
     }
 
@@ -1386,6 +1401,103 @@ struct RideIntercomTests {
         #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(url) }
         #expect(credentials.credential(for: group.id) == saved)
         #expect(h.callSession.disconnectCallCount == 0)
+    }
+
+    @Test func runtimeUpdatesDoNotWriteGroupStorage() throws {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(h.viewModel.groups[0])
+        let count = h.groupStore.saveCount
+        for _ in 0..<200 {
+            h.viewModel.setLocalVoiceLevel(0.2)
+            h.viewModel.setVoiceActive(true)
+            h.viewModel.setRemotePeer("member-108", isTalking: true, voiceLevel: 0.3)
+            h.viewModel.markPlayedAudioFrame(peerID: "member-108")
+        }
+        #expect(h.groupStore.saveCount == count)
+        h.viewModel.addDiscoveredMembersIfNeeded(peerIDs: ["new-rider"])
+        #expect(h.groupStore.saveCount == count + 1)
+        h.viewModel.addDiscoveredMembersIfNeeded(peerIDs: ["new-rider"])
+        #expect(h.groupStore.saveCount == count + 1)
+    }
+
+    @Test func removingMemberFromInactiveGroupPreservesActiveCall() {
+        let h = Self.makeHarness()
+        let first = h.viewModel.groups[0]
+        h.viewModel.selectGroup(first)
+        h.viewModel.connectedPeerIDs = ["member-400"]
+        h.viewModel.authenticatedPeerIDs = ["member-400"]
+        h.viewModel.removeMember("member-400", from: h.viewModel.groups[1].id)
+        #expect(h.viewModel.activeGroupID == first.id)
+        #expect(h.viewModel.connectedPeerIDs == ["member-400"])
+        #expect(h.viewModel.authenticatedPeerIDs == ["member-400"])
+    }
+
+    @Test func failedMetadataSaveDoesNotPublishGroupOrLosePreviousKey() throws {
+        let keys = InMemoryGroupCredentialStore()
+        let h = Self.makeHarness(groups: [], credentialStore: keys)
+        h.groupStore.failSaving = true
+        h.viewModel.createTalkGroup()
+        #expect(h.viewModel.groups.isEmpty)
+        #expect(h.callSession.connectedGroup == nil)
+        let id = UUID()
+        keys.save(.init(groupID: id, secret: "old"))
+        let token = try GroupInviteToken.make(groupID: id, groupName: "Invite", groupSecret: "new", inviterMemberID: "remote")
+        #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token)) }
+        #expect(keys.credential(for: id)?.secret == "old")
+        #expect(h.viewModel.groups.isEmpty)
+    }
+
+    @Test func deletionRemovesKeyAndActiveInviteCannotReplaceKey() throws {
+        let keys = InMemoryGroupCredentialStore()
+        let h = Self.makeHarness(groups: [], credentialStore: keys)
+        h.viewModel.createTalkGroup()
+        let group = try #require(h.viewModel.selectedGroup)
+        let saved = keys.credential(for: group.id)
+        let token = try GroupInviteToken.make(groupID: group.id, groupName: "Changed", groupSecret: "other", inviterMemberID: "remote")
+        #expect(throws: GroupInviteTokenError.activeGroupKeyChanged) { try h.viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token)) }
+        #expect(keys.credential(for: group.id) == saved)
+        h.viewModel.deleteGroup(group.id)
+        #expect(keys.credential(for: group.id) == nil)
+        #expect(h.viewModel.groups.isEmpty)
+    }
+
+    @Test func departedPeerReleasesAudioGraphAndRemoteClockCannotHoldTalkingState() async throws {
+        let h = Self.makeHarness()
+        h.viewModel.selectGroup(h.viewModel.groups[0])
+        h.callSession.authenticate(["member-108", "member-215"])
+        await Self.waitUntil { h.viewModel.isAudioReady }
+        let format = AudioFormat.intercomPacketAudio
+        let future = Date().timeIntervalSince1970 + 86400
+        let frame = PCMFrame(sequenceNumber: 1, format: format, capturedAt: future, samples: Array(repeating: 0.1, count: 480))
+        h.callSession.receive(try Self.receivedAudioPacket(peerID: "member-108", frame: frame, codec: .pcm16))
+        #expect(h.viewModel.remoteVoiceReceivedAt["member-108"]! < future - 1000)
+        h.viewModel.removeDisconnectedAuthenticatedPeers(connectedPeerIDs: ["member-215"])
+        #expect(!h.viewModel.audioPipeline.snapshot.busIDs.contains("rx-peer-member-108"))
+        #expect(h.viewModel.audioPipeline.snapshot.busIDs.contains("rx-peer-member-215"))
+    }
+
+    @Test func vadUsesCapturedDurationAndDoesNotReplayOldPreroll() {
+        var controller = AudioTransmissionController(vadGate: VADGate(configuration: .init(attackDuration: 0.08, releaseDuration: 0.05, speechThresholdOffsetDB: 6, initialNoiseFloorDBFS: -60)), preRollLimit: 2)
+        func frame(_ id: UInt64, sample: Float, count: Int) -> PCMFrame {
+            .init(sequenceNumber: id, format: .intercomPacketAudio, capturedAt: 0, samples: Array(repeating: sample, count: count))
+        }
+        for id in 0..<10 { #expect(controller.process(frame: frame(UInt64(id), sample: 0.5, count: 128), level: 0.5).isEmpty) }
+        let speech = controller.process(frame: frame(10, sample: 0.5, count: 4800), level: 0.5)
+        #expect(!speech.isEmpty)
+        _ = controller.process(frame: frame(11, sample: 0, count: 4800), level: 0)
+        let next = controller.process(frame: frame(12, sample: 0.5, count: 4800), level: 0.5)
+        #expect(next == [.voice(frame(11, sample: 0, count: 4800)), .voice(frame(12, sample: 0.5, count: 4800))])
+    }
+
+    @Test func fullGroupReplacesDepartedRiderForNewAuthenticatedMember() throws {
+        let group = try IntercomGroup(name: "Eight", members: (0..<8).map { .init(id: "rider-\($0)", displayName: "Rider") }, accessSecret: "fixture")
+        let h = Self.makeHarness(groups: [group])
+        h.viewModel.selectGroup(group)
+        h.viewModel.connectedPeerIDs = (2..<8).map { "rider-\($0)" } + ["replacement"]
+        h.viewModel.addDiscoveredMembersIfNeeded(peerIDs: ["replacement"])
+        #expect(h.viewModel.groups[0].members.count == 8)
+        #expect(h.viewModel.groups[0].members.contains { $0.id == "replacement" })
+        #expect(!h.viewModel.groups[0].members.contains { $0.id == "rider-1" })
     }
 
     private struct Harness {
@@ -1810,9 +1922,11 @@ private final class InternetTestKeychain: KeychainSecretStoring {
     var value: String?
     func saveSecret(_ secret: String, service: String, account: String) throws { value = secret }
     func secret(service: String, account: String) throws -> String? { value }
+    func deleteSecret(service: String, account: String) throws { value = nil }
 }
 
 private final class RejectingGroupCredentialStore: GroupCredentialStoring {
     func save(_ credential: GroupAccessCredential) {}
     func credential(for groupID: UUID) -> GroupAccessCredential? { nil }
+    func delete(for groupID: UUID) {}
 }

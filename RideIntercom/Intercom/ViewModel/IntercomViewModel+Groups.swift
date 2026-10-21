@@ -104,14 +104,15 @@ extension IntercomViewModel {
         if selectedGroup?.id == group.id {
             selectedGroup = group
         }
-        persistGroups()
     }
 
     func deleteGroup(_ groupID: UUID) {
+        let remaining = groups.filter { $0.id != groupID }
+        do { try groupRepository.delete(groupID, remaining: remaining) }
+        catch { groupErrorMessage = "Could not delete the group and its key. Try again."; return }
         if activeGroupID == groupID { disconnect() }
         if selectedGroup?.id == groupID { selectedGroup = nil }
-        groups.removeAll { $0.id == groupID }
-        persistGroups()
+        groups = remaining
     }
 
     func canRemoveMember(_ memberID: String) -> Bool {
@@ -122,16 +123,21 @@ extension IntercomViewModel {
         guard canRemoveMember(memberID),
               let groupIndex = groups.firstIndex(where: { $0.id == groupID }) else { return }
 
-        groups[groupIndex].members.removeAll { $0.id == memberID }
-        connectedPeerIDs.removeAll { $0 == memberID }
-        authenticatedPeerIDs.removeAll { $0 == memberID }
-        remoteVoiceReceivedAt.removeValue(forKey: memberID)
-        remoteVoicePeakWindows.removeValue(forKey: memberID)
+        var updated = groups
+        updated[groupIndex].members.removeAll { $0.id == memberID }
+        guard commitGroups(updated) else { return }
+        if activeGroupID == groupID {
+            connectedPeerIDs.removeAll { $0 == memberID }
+            authenticatedPeerIDs.removeAll { $0 == memberID }
+            remoteVoiceReceivedAt.removeValue(forKey: memberID)
+            remoteVoicePeakWindows.removeValue(forKey: memberID)
+            do { try audioPipeline.stopReceivePeer(memberID) }
+            catch { audioErrorMessage = "Could not release the rider's audio. Reconnect to reset audio." }
+        }
 
         if selectedGroup?.id == groupID {
             selectedGroup = groups[groupIndex]
         }
-        persistGroups()
     }
 
     func createTalkGroup() {
@@ -147,13 +153,12 @@ extension IntercomViewModel {
 
         guard let newGroup else { return }
         let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
-        credentialStore.save(GroupAccessCredential(groupID: groupID, secret: secret))
-        guard credentialStore.credential(for: groupID)?.secret == secret else {
-            groupErrorMessage = "Could not save the group key. Try again."
+        do { try groupRepository.save([newGroup] + groups, credential: .init(groupID: groupID, secret: secret)) }
+        catch {
+            groupErrorMessage = "Could not save the group and its key. Try again."
             return
         }
         groups.insert(newGroup, at: 0)
-        persistGroups()
         selectGroup(newGroup)
     }
 
@@ -172,39 +177,48 @@ extension IntercomViewModel {
                 connectionState: .connecting
             )
         )
-        selectedGroup = group
         replaceSelectedGroup(group)
     }
 
     func acceptInviteURL(_ url: URL, now: TimeInterval = Date().timeIntervalSince1970) throws {
+        groupErrorMessage = nil
         let token = try GroupInviteTokenCodec.decodeJoinURL(url)
         guard !token.isExpired(now: now) else {
             throw GroupInviteTokenError.expired
         }
 
-        guard !token.groupSecret.isEmpty else { throw GroupInviteTokenError.invalidTokenEncoding }
-        credentialStore.save(GroupAccessCredential(groupID: token.groupID, secret: token.groupSecret))
-        guard credentialStore.credential(for: token.groupID)?.secret == token.groupSecret else {
-            groupErrorMessage = "Could not save the group key. Try the invitation again."
-            throw GroupInviteTokenError.credentialStorageFailed
+        let previous = try groupRepository.credential(for: token.groupID)
+        if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
+            selectGroup(existing)
+            inviteStatusMessage = "JOINED \(existing.name)"
+            return
         }
-
+        guard activeGroupID != token.groupID else {
+            groupErrorMessage = "This invitation changes the active group key. Disconnect before opening it again."
+            throw GroupInviteTokenError.activeGroupKeyChanged
+        }
+        var members = [GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)]
+        if token.inviterMemberID != localMemberIdentity.memberID {
+            members.append(GroupMember(id: token.inviterMemberID, displayName: "Inviter"))
+        }
         let group = try IntercomGroup(
             id: token.groupID,
             name: token.groupName,
-            members: [
-                GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName),
-                GroupMember(id: token.inviterMemberID, displayName: "Inviter")
-            ]
+            members: members
         )
-
-        if let existingIndex = groups.firstIndex(where: { $0.id == group.id }) {
-            groups[existingIndex] = group
+        var updated = groups
+        if let existingIndex = updated.firstIndex(where: { $0.id == group.id }) {
+            updated[existingIndex] = group
         } else {
-            groups.insert(group, at: 0)
+            updated.insert(group, at: 0)
         }
-
-        persistGroups()
+        do { try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret)) }
+        catch {
+            groupErrorMessage = "Could not save the group and its key. Try the invitation again."
+            throw error
+        }
+        groups = updated
+        if selectedGroup?.id == group.id { selectedGroup = nil }
         selectGroup(group)
         inviteStatusMessage = "JOINED \(token.groupName)"
     }

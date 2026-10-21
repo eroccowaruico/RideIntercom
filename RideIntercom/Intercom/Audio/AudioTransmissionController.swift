@@ -27,17 +27,18 @@ struct AudioTransmissionController {
         keepaliveIntervalFrames: Int = 50
     ) {
         self.vadGate = vadGate
-        self.preRollLimit = preRollLimit
-        self.keepaliveIntervalFrames = keepaliveIntervalFrames
+        self.preRollLimit = max(0, min(100, preRollLimit))
+        self.keepaliveIntervalFrames = max(1, keepaliveIntervalFrames)
     }
 
     mutating func process(frame: PCMFrame, level: Float) -> [OutboundAudioPacket] {
-        let analysis = analyze(level: level, samples: frame.samples)
+        let analysis = analyze(level: level, frame: frame)
         var packets: [OutboundAudioPacket] = []
 
         if analysis.state == .speech {
             if !wasSendingVoice {
                 packets.append(contentsOf: preRoll.map { .voice($0.frame) })
+                preRoll.removeAll(keepingCapacity: true)
             }
             packets.append(.voice(frame))
             framesSinceKeepalive = 0
@@ -72,14 +73,14 @@ struct AudioTransmissionController {
         }
     }
 
-    private mutating func analyze(level: Float, samples: [Float]) -> VADGateAnalysis {
+    private mutating func analyze(level: Float, frame: PCMFrame) -> VADGateAnalysis {
         let analysis: VADGateAnalysis
-        if samples.isEmpty {
+        if frame.samples.isEmpty {
             let rms = min(1, max(0, level))
             let rmsDBFS = 20 * log10(max(rms, 0.000_001))
             analysis = vadGate.process(rmsDBFS: rmsDBFS)
         } else {
-            analysis = vadGate.process(samples: samples)
+            analysis = vadGate.process(samples: frame.samples, duration: Double(frame.frameCount) / frame.format.sampleRate)
         }
         lastAnalysis = analysis
         return analysis

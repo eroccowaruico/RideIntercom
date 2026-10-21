@@ -135,8 +135,7 @@ final class IntercomViewModel {
     let audioInputCapture: SessionManager.AudioInputStreamCapture
     let audioOutputRenderer: SessionManager.AudioOutputStreamRenderer
     let callTicker: CallTicking
-    let credentialStore: GroupCredentialStoring
-    let groupStore: GroupStoring
+    let groupRepository: GroupRepository
     let appSettingsStore: AppSettingsStoring
     let localMemberIdentity: LocalMemberIdentity
     let remoteTalkerTimeout: TimeInterval
@@ -197,9 +196,20 @@ final class IntercomViewModel {
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()
-        let storedGroups = groupStore.loadGroups()
-        self.groups = groups ?? storedGroups
-        self.callSession = callSession ?? RideIntercomCallSessionAdapter(memberID: localMemberIdentity.memberID)
+        let repository = GroupRepository(store: groupStore, credentials: credentialStore)
+        self.groupRepository = repository
+        do { self.groups = try groups ?? repository.load(localMemberID: localMemberIdentity.memberID) }
+        catch {
+            self.groups = []
+            self.groupErrorMessage = "Could not read saved groups. Stored data has been preserved; restart to retry."
+        }
+        let internetConfiguration: RTC.CloudflareRealtimeConfiguration?
+        do { internetConfiguration = try internetSettingsStore.load() }
+        catch {
+            internetConfiguration = nil
+            self.internetCheckMessage = "Could not read saved Internet credentials. Saved data has been preserved."
+        }
+        self.callSession = callSession ?? RideIntercomCallSessionAdapter(memberID: localMemberIdentity.memberID, internetConfiguration: internetConfiguration)
         let sessionManager = audioSessionManager ?? SessionManager.AudioSessionManager()
         self.audioSessionManager = sessionManager
         self.audioInputCapture = audioInputCapture ?? Self.makeDefaultAudioInputCapture()
@@ -207,11 +217,9 @@ final class IntercomViewModel {
         self.audioPipeline = audioPipeline ?? AppAudioPipeline()
         self.audioTransmissionController = audioTransmissionController ?? AudioTransmissionController()
         self.callTicker = callTicker ?? RepeatingCallTicker()
-        self.credentialStore = credentialStore
-        self.groupStore = groupStore
         self.appSettingsStore = appSettingsStore
         self.internetSettingsStore = internetSettingsStore
-        if let saved = internetSettingsStore.load() {
+        if let saved = internetConfiguration {
             self.internetWorkerURL = saved.workerURL.absoluteString
             self.hasInternetCredentials = true
             self.internetCheckMessage = "Device token saved. Service not checked."

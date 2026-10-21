@@ -12,16 +12,11 @@ extension IntercomViewModel {
     static func makeForCurrentProcess() -> IntercomViewModel {
         let localMemberIdentityStore = UserDefaultsLocalMemberIdentityStore()
         return IntercomViewModel(
-            callSession: makeDefaultCallSession(localMemberIdentityStore: localMemberIdentityStore),
             credentialStore: KeychainGroupCredentialStore(),
             groupStore: UserDefaultsGroupStore(),
             appSettingsStore: UserDefaultsAppSettingsStore(),
             localMemberIdentityStore: localMemberIdentityStore
         )
-    }
-
-    static func makeDefaultCallSession(localMemberIdentityStore: any LocalMemberIdentityStoring) -> CallSession {
-        RideIntercomCallSessionAdapter(memberID: localMemberIdentityStore.loadOrCreate().memberID)
     }
 
     static func makeDefaultAudioInputCapture() -> SessionManager.AudioInputStreamCapture {

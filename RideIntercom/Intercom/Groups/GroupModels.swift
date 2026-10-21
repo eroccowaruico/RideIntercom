@@ -163,8 +163,8 @@ enum PeerConnectionState: String, Equatable, Codable {
     case offline = "Offline"
 }
 
-struct IntercomGroup: Identifiable, Equatable, Codable {
-    static let maximumMemberCount = 6
+struct IntercomGroup: Identifiable, Equatable {
+    static let maximumMemberCount = 8
 
     let id: UUID
     var name: String
@@ -175,6 +175,10 @@ struct IntercomGroup: Identifiable, Equatable, Codable {
         guard (1...Self.maximumMemberCount).contains(members.count) else {
             throw IntercomGroupError.invalidMemberCount
         }
+        guard Self.isValidName(name), Set(members.map(\.id)).count == members.count,
+              members.allSatisfy({ Self.isValidMemberID($0.id) && Self.isValidName($0.displayName) }) else {
+            throw IntercomGroupError.invalidIdentity
+        }
 
         self.id = id
         self.name = name
@@ -182,10 +186,26 @@ struct IntercomGroup: Identifiable, Equatable, Codable {
         self.accessSecret = accessSecret
     }
 
+    static func isValidMemberID(_ value: String) -> Bool {
+        (1...63).contains(value.utf8.count) && value.utf8.allSatisfy {
+            (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95
+        }
+    }
+
+    static func isValidName(_ value: String) -> Bool {
+        !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && value.utf8.count <= 320
+            && !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+    }
+
 }
 
 enum IntercomGroupError: Error, Equatable {
     case invalidMemberCount
+    case invalidIdentity
+    case invalidStoredGroups
+    case storageUnavailable
+    case credentialVerificationFailed
+    case rollbackFailed
 }
 
 struct GroupAccessCredential: Equatable {
@@ -196,6 +216,7 @@ struct GroupAccessCredential: Equatable {
 }
 
 protocol GroupCredentialStoring: AnyObject {
-    func save(_ credential: GroupAccessCredential)
-    func credential(for groupID: UUID) -> GroupAccessCredential?
+    func save(_ credential: GroupAccessCredential) throws
+    func credential(for groupID: UUID) throws -> GroupAccessCredential?
+    func delete(for groupID: UUID) throws
 }

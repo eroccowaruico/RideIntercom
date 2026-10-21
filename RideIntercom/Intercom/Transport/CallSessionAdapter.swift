@@ -130,10 +130,10 @@ final class RideIntercomCallSessionAdapter: CallSession {
     private var audioPolicy: RTC.RTCAudioPolicy = .intercomDefault
     private var enabledRoutes: Set<RTC.RouteKind> = AppRTCTransportRoutePolicy.supportedRoutes
 
-    init(memberID: String) {
+    init(memberID: String, internetConfiguration: RTC.CloudflareRealtimeConfiguration? = nil) {
         self.memberID = memberID
         self.ownsRTCSession = true
-        self.internetConfiguration = InternetConnectionSettingsStore().load()
+        self.internetConfiguration = internetConfiguration
         self.rtcSession = Self.makeRTCSession(
             audioPolicy: .intercomDefault,
             enabledRoutes: AppRTCTransportRoutePolicy.supportedRoutes,

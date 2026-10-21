@@ -53,9 +53,6 @@ extension IntercomViewModel {
         let level = AudioLevelMeter.rmsLevel(samples: frame.samples)
         lastScheduledOutputRMS = level
         lastScheduledOutputPeakRMS = playbackOutputPeakWindow.record(level)
-        scheduledOutputBatchCount += 1
-        scheduledOutputFrameCount += 1
-        playedAudioFrameCount += 1
         let report = audioOutputRenderer.schedule(PCMFrame(
             sequenceNumber: frame.sequenceNumber,
             format: frame.format,
@@ -73,6 +70,10 @@ extension IntercomViewModel {
                 ])
             )
         }
+        guard case .applied = report.result else { return }
+        scheduledOutputBatchCount += 1
+        scheduledOutputFrameCount += 1
+        playedAudioFrameCount += 1
         if level > Self.audibleOutputLevelThreshold {
             lastAudibleReceivedAudioAt = receivedAt
         }

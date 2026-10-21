@@ -195,7 +195,7 @@ extension IntercomViewModel {
             return nil
         }
 
-        guard let credential = credential(for: selectedGroup) else { return nil }
+        guard let credential = try? credential(for: selectedGroup) else { return nil }
         let token = try? GroupInviteToken.make(
             groupID: selectedGroup.id,
             groupName: selectedGroup.name,

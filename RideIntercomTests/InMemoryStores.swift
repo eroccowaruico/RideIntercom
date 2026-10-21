@@ -29,6 +29,8 @@ final class InMemoryLocalMemberIdentityStore: LocalMemberIdentityStoring {
 
 final class InMemoryGroupStore: GroupStoring {
     private var groups: [IntercomGroup]
+    private(set) var saveCount = 0
+    var failSaving = false
 
     init(groups: [IntercomGroup] = []) {
         self.groups = groups.map { group in
@@ -42,7 +44,9 @@ final class InMemoryGroupStore: GroupStoring {
         groups
     }
 
-    func saveGroups(_ groups: [IntercomGroup]) {
+    func saveGroups(_ groups: [IntercomGroup]) throws {
+        if failSaving { throw IntercomGroupError.storageUnavailable }
+        saveCount += 1
         self.groups = groups.map { group in
             var group = group
             group.accessSecret = nil
@@ -61,6 +65,8 @@ final class InMemoryGroupCredentialStore: GroupCredentialStoring {
     func credential(for groupID: UUID) -> GroupAccessCredential? {
         credentialsByGroupID[groupID]
     }
+
+    func delete(for groupID: UUID) { credentialsByGroupID[groupID] = nil }
 }
 
 final class InMemoryAppSettingsStore: AppSettingsStoring {

@@ -6,7 +6,10 @@ import SessionManager
 extension IntercomViewModel {
     func connectLocal() {
         guard let selectedGroup else { return }
-        guard let credential = credential(for: selectedGroup) else {
+        let storedCredential: GroupAccessCredential?
+        do { storedCredential = try credential(for: selectedGroup) }
+        catch { groupErrorMessage = "Could not read the group key. Try again."; return }
+        guard let credential = storedCredential else {
             groupErrorMessage = "Group key is missing. Open a valid invite or create a new group."
             return
         }

@@ -45,8 +45,8 @@ final class UserDefaultsLocalMemberIdentityStore: LocalMemberIdentityStoring {
 }
 
 protocol GroupStoring: AnyObject {
-    func loadGroups() -> [IntercomGroup]
-    func saveGroups(_ groups: [IntercomGroup])
+    func loadGroups() throws -> [IntercomGroup]
+    func saveGroups(_ groups: [IntercomGroup]) throws
 }
 
 
@@ -58,28 +58,41 @@ final class UserDefaultsGroupStore: GroupStoring {
         self.defaults = defaults
     }
 
-    func loadGroups() -> [IntercomGroup] {
-        guard let data = defaults.data(forKey: groupsKey),
-              let groups = try? JSONDecoder().decode([IntercomGroup].self, from: data) else {
-            return []
+    private struct MemberRecord: Codable { let id: String; let displayName: String }
+    private struct GroupRecord: Codable { let id: UUID; let name: String; let members: [MemberRecord] }
+
+    func loadGroups() throws -> [IntercomGroup] {
+        guard let value = defaults.object(forKey: groupsKey) else { return [] }
+        guard let data = value as? Data, data.count <= 1_048_576 else { throw IntercomGroupError.invalidStoredGroups }
+        let records = try JSONDecoder().decode([GroupRecord].self, from: data)
+        let groups = try records.map { record in
+            try IntercomGroup(id: record.id, name: record.name,
+                members: record.members.map { GroupMember(id: $0.id, displayName: $0.displayName) })
         }
+        try validate(groups)
         return groups
     }
 
-    func saveGroups(_ groups: [IntercomGroup]) {
-        let persistableGroups = groups.map { group in
-            var group = group
-            group.accessSecret = nil
-            return group
+    func saveGroups(_ groups: [IntercomGroup]) throws {
+        try validate(groups)
+        let records = groups.map { group in
+            GroupRecord(id: group.id, name: group.name, members: group.members.map { MemberRecord(id: $0.id, displayName: $0.displayName) })
         }
-        guard let data = try? JSONEncoder().encode(persistableGroups) else { return }
+        let data = try JSONEncoder().encode(records)
+        guard data.count <= 1_048_576 else { throw IntercomGroupError.invalidStoredGroups }
         defaults.set(data, forKey: groupsKey)
+    }
+
+    private func validate(_ groups: [IntercomGroup]) throws {
+        guard groups.count <= 256, Set(groups.map(\.id)).count == groups.count else { throw IntercomGroupError.invalidStoredGroups }
+        for group in groups { _ = try IntercomGroup(id: group.id, name: group.name, members: group.members) }
     }
 }
 
 protocol KeychainSecretStoring: AnyObject {
     func saveSecret(_ secret: String, service: String, account: String) throws
     func secret(service: String, account: String) throws -> String?
+    func deleteSecret(service: String, account: String) throws
 }
 
 final class KeychainGroupCredentialStore: GroupCredentialStoring {
@@ -94,15 +107,19 @@ final class KeychainGroupCredentialStore: GroupCredentialStoring {
         self.service = service
     }
 
-    func save(_ credential: GroupAccessCredential) {
-        try? keychain.saveSecret(credential.secret, service: service, account: credential.groupID.uuidString)
+    func save(_ credential: GroupAccessCredential) throws {
+        try keychain.saveSecret(credential.secret, service: service, account: credential.groupID.uuidString)
     }
 
-    func credential(for groupID: UUID) -> GroupAccessCredential? {
-        guard let secret = (try? keychain.secret(service: service, account: groupID.uuidString)) ?? nil else {
+    func credential(for groupID: UUID) throws -> GroupAccessCredential? {
+        guard let secret = try keychain.secret(service: service, account: groupID.uuidString) else {
             return nil
         }
         return GroupAccessCredential(groupID: groupID, secret: secret)
+    }
+
+    func delete(for groupID: UUID) throws {
+        try keychain.deleteSecret(service: service, account: groupID.uuidString)
     }
 }
 

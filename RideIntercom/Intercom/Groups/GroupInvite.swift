@@ -76,6 +76,17 @@ struct GroupInviteToken: Codable, Equatable {
         )
     }
 
+    func validate() throws {
+        guard version == Self.currentVersion else { throw GroupInviteTokenError.unsupportedVersion }
+        guard IntercomGroup.isValidName(groupName), !groupName.contains("|"),
+              IntercomGroup.isValidMemberID(inviterMemberID),
+              !groupSecret.isEmpty, groupSecret.utf8.count <= 256, !groupSecret.contains("|"),
+              issuedAt.isFinite, issuedAt >= 0,
+              expiresAt.map({ $0.isFinite && $0 >= issuedAt }) ?? true else {
+            throw GroupInviteTokenError.invalidTokenEncoding
+        }
+    }
+
     func isExpired(now: TimeInterval = Date().timeIntervalSince1970) -> Bool {
         guard let expiresAt else { return false }
         return now >= expiresAt
@@ -113,6 +124,7 @@ enum GroupInviteTokenError: Error, Equatable {
     case invalidSignature
     case expired
     case credentialStorageFailed
+    case activeGroupKeyChanged
 }
 
 enum GroupInviteTokenCodec {
@@ -126,8 +138,10 @@ enum GroupInviteTokenCodec {
     }
 
     static func decodeJoinURL(_ url: URL) throws -> GroupInviteToken {
-        guard url.scheme == "rideintercom",
+        guard url.absoluteString.utf8.count <= 8192, url.scheme == "rideintercom",
               url.host == "join",
+              url.user == nil, url.password == nil, url.port == nil, url.fragment == nil, url.path.isEmpty,
+              URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.count == 1,
               let encodedToken = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?
                 .first(where: { $0.name == "token" })?
@@ -137,6 +151,7 @@ enum GroupInviteTokenCodec {
         }
 
         let token = try JSONDecoder().decode(GroupInviteToken.self, from: data)
+        try token.validate()
         guard token.verifySignature() else {
             throw GroupInviteTokenError.invalidSignature
         }

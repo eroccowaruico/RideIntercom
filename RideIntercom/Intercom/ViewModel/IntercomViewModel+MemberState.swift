@@ -113,20 +113,30 @@ extension IntercomViewModel {
     }
 
     func addDiscoveredMembersIfNeeded(peerIDs: [String]) {
+        var didChange = false
         withActiveGroup { group in
             for peerID in peerIDs {
+                guard IntercomGroup.isValidMemberID(peerID) else { continue }
                 guard !group.members.contains(where: { $0.id == peerID }) else { continue }
 
                 if let pendingInviteIndex = group.members.firstIndex(where: { isPendingInviteMemberID($0.id) }) {
                     let reservedName = group.members[pendingInviteIndex].displayName
                     group.members[pendingInviteIndex] = GroupMember(id: peerID, displayName: reservedName)
+                    didChange = true
                     continue
                 }
 
-                guard group.members.count < IntercomGroup.maximumMemberCount else { continue }
+                if group.members.count >= IntercomGroup.maximumMemberCount {
+                    guard let departed = group.members.firstIndex(where: {
+                        $0.id != localMemberIdentity.memberID && !connectedPeerIDs.contains($0.id) && !authenticatedPeerIDs.contains($0.id)
+                    }) else { continue }
+                    group.members.remove(at: departed)
+                }
                 group.members.append(GroupMember(id: peerID, displayName: peerID))
+                didChange = true
             }
         }
+        if didChange { persistGroups() }
     }
 
     func markMembers(_ state: PeerConnectionState) {
@@ -159,20 +169,33 @@ extension IntercomViewModel {
 
     func replaceSelectedGroup(_ group: IntercomGroup) {
         guard let index = groups.firstIndex(where: { $0.id == group.id }) else { return }
-        groups[index] = group
-        persistGroups()
+        var updated = groups
+        updated[index] = group
+        if commitGroups(updated) { selectedGroup = group }
     }
 
     func persistGroups() {
-        groupStore.saveGroups(groups)
+        _ = commitGroups(groups)
+    }
+
+    @discardableResult
+    func commitGroups(_ updated: [IntercomGroup]) -> Bool {
+        do {
+            try groupRepository.save(updated)
+            groups = updated
+            return true
+        } catch {
+            groupErrorMessage = "Could not save groups. Saved data has been preserved."
+            return false
+        }
     }
 
     func isPendingInviteMemberID(_ memberID: String) -> Bool {
         memberID.hasPrefix(Self.pendingInviteMemberPrefix)
     }
 
-    func credential(for group: IntercomGroup) -> GroupAccessCredential? {
-        let secret = credentialStore.credential(for: group.id)?.secret ?? group.accessSecret
+    func credential(for group: IntercomGroup) throws -> GroupAccessCredential? {
+        let secret = try groupRepository.credential(for: group.id)?.secret ?? group.accessSecret
         guard let secret, !secret.isEmpty else { return nil }
         return GroupAccessCredential(groupID: group.id, secret: secret)
     }

@@ -23,9 +23,9 @@ extension IntercomViewModel {
             )
             return
         }
-        let receivedAt = frame.capturedAt < 1_000_000
-            ? Date().timeIntervalSince1970
-            : frame.capturedAt
+        // A remote clock is untrusted and is not comparable with this device's
+        // local activity/ducking timers. Arrival time owns local UI activity.
+        let receivedAt = Date().timeIntervalSince1970
         receivedVoicePacketCount += 1
         lastReceivedAudioAt = receivedAt
         remoteVoiceReceivedAt[peerID] = receivedAt
@@ -73,8 +73,10 @@ extension IntercomViewModel {
         authenticatedPeerIDs.removeAll { !connectedPeerIDSet.contains($0) }
 
         for peerID in disconnectedPeerIDs {
-            audioPipeline.stopReceivePeer(peerID)
+            do { try audioPipeline.stopReceivePeer(peerID) }
+            catch { audioErrorMessage = "Could not release the rider's audio. Reconnect to reset audio." }
             remoteVoiceReceivedAt.removeValue(forKey: peerID)
+            remoteRuntimeStatuses.removeValue(forKey: peerID)
             setRemotePeer(peerID, isTalking: false)
         }
     }

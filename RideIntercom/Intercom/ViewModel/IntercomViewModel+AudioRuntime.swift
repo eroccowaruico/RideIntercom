@@ -167,10 +167,6 @@ extension IntercomViewModel {
     private func receivePeerIDsForAudioPipeline() -> [String] {
         var peerIDs = Set(authenticatedPeerIDs)
         peerIDs.formUnion(connectedPeerIDs)
-        peerIDs.formUnion(remoteOutputVolumes.keys)
-        if let selectedGroup {
-            peerIDs.formUnion(selectedGroup.members.map(\.id))
-        }
         peerIDs.remove(localMemberIdentity.memberID)
         return peerIDs.sorted()
     }

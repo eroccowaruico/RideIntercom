@@ -2,6 +2,15 @@ import Foundation
 import Security
 
 final class SystemKeychainSecretStore: KeychainSecretStoring {
+    func deleteSecret(service: String, account: String) throws {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service, kSecAttrAccount as String: account]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainSecretStoreError.unexpectedStatus(status)
+        }
+    }
+
     func saveSecret(_ secret: String, service: String, account: String) throws {
         let data = Data(secret.utf8)
         let query: [String: Any] = [

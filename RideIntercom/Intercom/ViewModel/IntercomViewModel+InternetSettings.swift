@@ -4,7 +4,7 @@ import RTC
 extension IntercomViewModel {
     func saveInternetConnection(url: String, token: String) throws {
         try internetSettingsStore.save(url: url, token: token)
-        guard let configuration = internetSettingsStore.load() else { throw InternetConnectionSettingsStore.ValidationError.missingToken }
+        guard let configuration = try internetSettingsStore.load() else { throw InternetConnectionSettingsStore.ValidationError.missingToken }
         internetCheckGeneration = UUID()
         isCheckingInternet = false
         disconnect()
@@ -16,7 +16,10 @@ extension IntercomViewModel {
 
     func checkInternetService(session: URLSession = .shared) async {
         guard !isCheckingInternet else { return }
-        guard let configuration = internetSettingsStore.load() else {
+        let stored: CloudflareRealtimeConfiguration?
+        do { stored = try internetSettingsStore.load() }
+        catch { internetCheckMessage = "Could not read saved Internet credentials. Try again."; return }
+        guard let configuration = stored else {
             internetCheckMessage = "Configure Internet Connection in Settings first."
             return
         }

@@ -102,6 +102,7 @@ struct AppAudioCodecOptions: Sendable {
 }
 
 enum AppAudioCodecBridge {
+    enum DecodingError: Error { case unsupportedCodec, invalidFormat }
     static func makeRTCAudioPolicy(
         preferred codec: AudioCodecIdentifier,
         format: AudioFormat = .intercomPacketAudio,
@@ -174,9 +175,17 @@ enum AppAudioCodecBridge {
     }
 
     static func decode(_ packet: RTC.RTCAudioPacket) throws -> PCMFrame {
-        try Codec.CodecDecoder().decode(Codec.EncodedCodecFrame(
+        guard let codec = Codec.CodecIdentifier(rawValue: packet.codec.rawValue) else {
+            throw DecodingError.unsupportedCodec
+        }
+        guard packet.format.sampleRate.isFinite,
+              (8_000...96_000).contains(packet.format.sampleRate),
+              (1...2).contains(packet.format.channelCount) else {
+            throw DecodingError.invalidFormat
+        }
+        return try Codec.CodecDecoder().decode(Codec.EncodedCodecFrame(
             sequenceNumber: packet.sequenceNumber,
-            codec: packet.codec.codecIdentifier,
+            codec: codec,
             format: AudioFormat(rtcFormat: packet.format),
             capturedAt: packet.capturedAt,
             sampleCount: packet.sampleCount ?? 0,

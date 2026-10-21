@@ -236,9 +236,10 @@ final class AppAudioPipeline {
         if !source.playerNode.isPlaying { source.start() }
     }
 
-    func stopReceivePeer(_ peerID: String) {
-        rxSourcesByPeerID[peerID]?.stop()
-        isolationEffects["rx-peer-\(peerID)"]?.avAudioUnitEffect.reset()
+    func stopReceivePeer(_ peerID: String) throws {
+        guard rxSourcesByPeerID.removeValue(forKey: peerID) != nil else { return }
+        try mixer?.removeBus("rx-peer-\(peerID)")
+        isolationEffects.removeValue(forKey: "rx-peer-\(peerID)")
     }
 
     private func ensureReceivePeer(_ peerID: String) throws -> MixerPCMSource {
