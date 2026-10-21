@@ -1,0 +1,13 @@
+name: Development setup
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check live folders and editor tasks
+        run: python3 scripts/check_development_setup.py
+      - name: Protect development setup invariants
+        run: python3 -m unittest discover -s scripts/tests -p test_development_setup.py

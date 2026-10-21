@@ -1,0 +1,212 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "RideIntercom: Check development setup",
+      "type": "process",
+      "command": "/usr/bin/python3",
+      "args": [
+        "${workspaceFolder}/scripts/check_development_setup.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "RideIntercom: Build and run macOS",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/build_and_run.sh",
+      "args": [
+        "--verify"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "RideIntercom: Debug macOS (LLDB)",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/build_and_run.sh",
+      "args": [
+        "--debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "RideIntercom: macOS logs",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/build_and_run.sh",
+      "args": [
+        "--logs"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "RideIntercom: Test headless",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "headless"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Test packages",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "packages"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Test macos",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "macos"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Test ios",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "ios"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Test ios-ui",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "ios-ui"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Test pair",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "pair"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Test worker",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "worker"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Test scripts",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/validate.sh",
+      "args": [
+        "scripts"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "RideIntercom: Open Xcode",
+      "type": "process",
+      "command": "/usr/bin/open",
+      "args": [
+        "${workspaceFolder}/RideIntercom.xcodeproj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+        }
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -46,6 +46,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		9306F0272FA8DFBA0030B045 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		9306F0292FA8DFD30030B045 /* AVFAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFAudio.framework; path = System/Library/Frameworks/AVFAudio.framework; sourceTree = SDKROOT; };
 		9374C4C92FA3657700D259B2 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
@@ -72,6 +73,22 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		D70000000000000000000001 /* Repository */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = Repository;
+			path = .;
+			sourceTree = "<group>";
+		};
+		D70000000000000000000002 /* .vscode */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = .vscode;
+			sourceTree = "<group>";
+		};
+		D70000000000000000000003 /* .codex */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = .codex;
+			sourceTree = "<group>";
+		};
 		934630812F9B2B73001548C3 /* .github */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = .github;
@@ -170,6 +187,10 @@
 		93F300BF2F93829C0046716D = {
 			isa = PBXGroup;
 			children = (
+				D70000000000000000000001 /* Repository */,
+				D70000000000000000000002 /* .vscode */,
+				D70000000000000000000003 /* .codex */,
+				D70000000000000000000004 /* .gitignore */,
 				93F300CA2F93829C0046716D /* RideIntercom */,
 				934630812F9B2B73001548C3 /* .github */,
 				93F300DC2F93829D0046716D /* RideIntercomTests */,
@@ -201,6 +222,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 93F300EC2F93829D0046716D /* Build configuration list for PBXNativeTarget "RideIntercom" */;
 			buildPhases = (
+				D70000000000000000000005 /* Check Development Setup */,
 				93F300C42F93829C0046716D /* Sources */,
 				93F300C52F93829C0046716D /* Frameworks */,
 				93F300C62F93829C0046716D /* Resources */,
@@ -349,6 +371,27 @@
 			);
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D70000000000000000000005 /* Check Development Setup */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(SRCROOT)/scripts/check_development_setup.py",
+				"$(SRCROOT)/RideIntercom.xcodeproj/project.pbxproj",
+				"$(SRCROOT)/.vscode/settings.json",
+				"$(SRCROOT)/.vscode/tasks.json",
+				"$(SRCROOT)/RideIntercom.code-workspace",
+			);
+			name = "Check Development Setup";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 \"$SRCROOT/scripts/check_development_setup.py\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		93F300C42F93829C0046716D /* Sources */ = {

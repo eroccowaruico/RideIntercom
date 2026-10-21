@@ -1,0 +1,67 @@
+{
+  "folders": [
+    {
+      "name": "RideIntercom",
+      "path": "."
+    },
+    {
+      "name": "AudioCore",
+      "path": "RideIntercom/packages/Audio/AudioCore"
+    },
+    {
+      "name": "AudioMixer",
+      "path": "RideIntercom/packages/Audio/AudioMixer"
+    },
+    {
+      "name": "Codec",
+      "path": "RideIntercom/packages/Audio/Codec"
+    },
+    {
+      "name": "SessionManager",
+      "path": "RideIntercom/packages/Audio/SessionManager"
+    },
+    {
+      "name": "DynamicsProcessor",
+      "path": "RideIntercom/packages/Audio/Effectors/DynamicsProcessor"
+    },
+    {
+      "name": "PeakLimiter",
+      "path": "RideIntercom/packages/Audio/Effectors/PeakLimiter"
+    },
+    {
+      "name": "SoundIsolation",
+      "path": "RideIntercom/packages/Audio/Effectors/SoundIsolation"
+    },
+    {
+      "name": "VADGate",
+      "path": "RideIntercom/packages/Audio/Effectors/VADGate"
+    },
+    {
+      "name": "RTC",
+      "path": "RideIntercom/packages/RTC"
+    }
+  ],
+  "settings": {
+    "explorer.excludeGitIgnore": false,
+    "explorer.fileNesting.enabled": false,
+    "files.exclude": {
+      "**/.git": false,
+      "**/.svn": false,
+      "**/.hg": false,
+      "**/CVS": false,
+      "**/.DS_Store": false,
+      "**/Thumbs.db": false,
+      "**/.build": false,
+      "**/node_modules": false,
+      "**/.validation": false
+    },
+    "swift.path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "swift.swiftEnvironmentVariables": {
+      "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+    },
+    "swift.autoGenerateLaunchConfigurations": false,
+    "terminal.integrated.env.osx": {
+      "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer"
+    }
+  }
+}
