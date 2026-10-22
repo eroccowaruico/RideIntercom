@@ -50,23 +50,22 @@ public final class MixerPCMSource {
 		do {
 			let normalized = try MixerPCMNormalizer.normalize(frame, to: mixerFormat, operation: .normalizeSource)
 			let buffer = try normalized.frame.makePCMBuffer()
-			var shouldResumePlayback = false
+			var options: AVAudioPlayerNodeBufferOptions = []
 			if let limit = maximumBufferedDuration {
 				let duration = Double(buffer.frameLength) / mixerFormat.sampleRate
 				guard limit.isFinite, limit > 0, duration <= limit else {
 					throw AudioMixerError.pcmSourceScheduleFailed("Frame exceeds live playback budget")
 				}
 				if bufferedDuration + duration > limit {
-					shouldResumePlayback = playerNode.isPlaying
-					stop()
+					options = .interrupts
+					scheduledEndSample = renderedSample
 					playbackResetCount += 1
 				}
 			}
 			scheduledEndSample = max(scheduledEndSample, renderedSample) + AVAudioFramePosition(buffer.frameLength)
-			playerNode.scheduleBuffer(buffer, completionHandler: nil)
-			// Resume only after the replacement buffer is queued; an empty
-			// running player can otherwise render silence after a backlog reset.
-			if shouldResumePlayback { start() }
+			// Replace stale buffers at the next render boundary. stop()/play()
+			// resets the player clock and synchronously queries hardware latency.
+			playerNode.scheduleBuffer(buffer, at: nil, options: options)
 			recordSchedule(frame, normalized.report, nil)
 			return normalized.report
 		} catch let failure as AudioProcessingFailure {
@@ -95,23 +94,46 @@ public final class MixerPCMSink {
 
 	private let onFrame: (PCMFrame, AudioProcessingReport) -> Void
 	private let recordEmit: (AudioProcessingReport?, String?) -> Void
+	private let maximumFrameDuration: TimeInterval?
+	private var nextSequenceNumber: UInt64 = 0
 
 	init(
 		id: String,
 		mixerFormat: AudioFormat,
 		targetFormat: AudioFormat,
+		maximumFrameDuration: TimeInterval?,
 		onFrame: @escaping (PCMFrame, AudioProcessingReport) -> Void,
 		recordEmit: @escaping (AudioProcessingReport?, String?) -> Void
 	) {
 		self.id = id
 		self.mixerFormat = mixerFormat
 		self.targetFormat = targetFormat
+		self.maximumFrameDuration = maximumFrameDuration
 		self.onFrame = onFrame
 		self.recordEmit = recordEmit
 	}
 
 	@discardableResult
 	func receive(_ mixerFrame: PCMFrame) throws -> AudioProcessingReport {
+		guard let duration = maximumFrameDuration, !mixerFrame.samples.isEmpty else {
+			return try emit(mixerFrame)
+		}
+		_ = try mixerFrame.validated()
+		let count = max(1, Int((mixerFrame.format.sampleRate * duration).rounded(.down)))
+		var report: AudioProcessingReport?
+		for offset in stride(from: 0, to: mixerFrame.frameCount, by: count) {
+			let end = min(mixerFrame.frameCount, offset + count)
+			let channels = mixerFrame.format.channelCount
+			let part = PCMFrame(sequenceNumber: nextSequenceNumber, format: mixerFrame.format,
+				capturedAt: mixerFrame.capturedAt + Double(offset) / mixerFrame.format.sampleRate,
+				samples: Array(mixerFrame.samples[(offset * channels)..<(end * channels)]))
+			nextSequenceNumber &+= 1
+			report = try emit(part)
+		}
+		return report!
+	}
+
+	private func emit(_ mixerFrame: PCMFrame) throws -> AudioProcessingReport {
 		do {
 			let normalized = try MixerPCMNormalizer.normalize(mixerFrame, to: targetFormat, operation: .normalizeSink)
 			recordEmit(normalized.report, nil)

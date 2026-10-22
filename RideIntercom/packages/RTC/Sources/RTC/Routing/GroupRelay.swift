@@ -55,12 +55,16 @@ struct GroupRelay: Sendable {
             return true
         }
     }
-    private let request: CallStartRequest
+    private var request: CallStartRequest
     var internetReady = false
     private let epoch = UUID()
     private var sequence: UInt64 = 0
     private var peers: [PeerID: Member] = [:]
     init(request: CallStartRequest) { self.request = request }
+
+    mutating func updateAudioPolicy(_ policy: RTCAudioPolicy) {
+        request.audioPolicy = policy
+    }
 
     mutating func make(_ body: RelayBody, now: TimeInterval) throws -> Data {
         sequence &+= 1

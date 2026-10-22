@@ -163,6 +163,12 @@ final class FakeRTCCallSession: RTC.CallSession {
         lock.withLock { recordedAudioSequences.append(packet.sequenceNumber) }
     }
     func sendApplicationData(_ message: RTC.ApplicationDataMessage) async {}
+    private var recordedPolicies: [RTC.RTCAudioPolicy] = []
+    var audioPolicies: [RTC.RTCAudioPolicy] { lock.withLock { recordedPolicies } }
+    func updateAudioPolicy(_ policy: RTC.RTCAudioPolicy) async {
+        lock.withLock { recordedPolicies.append(policy) }
+        record("audioPolicy")
+    }
     func updateRuntimePackageReports(_ reports: [RTC.RTCRuntimePackageReport]) async {}
     func setLocalMute(_ muted: Bool) async { lock.withLock { recordedMutes.append(muted) } }
     func setOutputMute(_ muted: Bool) async {}

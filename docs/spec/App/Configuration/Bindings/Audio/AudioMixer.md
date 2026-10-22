@@ -46,3 +46,5 @@ RX masterの表示用effect chainは、実snapshotの `rx-master.effectChain` �
 | soft clip / limiter の内部値 | Effectors 側の設定に寄せる |
 
 詳細な bus、format、routing の仕様は `docs/spec/packages/Audio/AudioMixer.md` を正とする。
+
+通話の送信・再生sinkは`maximumFrameDuration: 0.02`を指定する。OSがtapへ100 ms以上のbufferを渡しても、通信payloadと再生予約は20 ms以下のPCMを単位に処理する。

@@ -11,24 +11,19 @@ public actor MultipeerLocalRoute: RTCCallRoute {
             supportsReliableApplicationData: true,
             supportsUnreliableApplicationData: true,
             requiresSignaling: false,
-            supportedAudioCodecs: audioPolicy.preferredCodecs,
+            supportedAudioCodecs: [.pcm16, .opus, .mpeg4AACELDv2],
             backendName: "MultipeerConnectivity"
         )
     }
     nonisolated public var events: AsyncStream<RouteEvent> { eventSource.stream }
 
     private let eventSource = EventSource<RouteEvent>(isTransient: { $0.isTransient }, overflowEvent: .stateChanged(.multipeer, .failed))
-    private let audioPolicy: RTCAudioPolicy
     private var generation = UUID()
     private var transportEventsTask: Task<Void, Never>?
     private var transportSource: EventSource<MultipeerConnectionEvent>?
     private var transport: MultipeerConnectionTransport?
 
-    public init(
-        audioPolicy: RTCAudioPolicy = RTCAudioPolicy()
-    ) {
-        self.audioPolicy = audioPolicy
-    }
+    public init() {}
 
     deinit {
         transportEventsTask?.cancel()
@@ -278,6 +273,9 @@ extension MultipeerConnectionTransport: MCNearbyServiceBrowserDelegate {
             guard !isStopped, self.browser === browser else { return }
             guard peerID != localPeerID else { return }
             if let credential, info?[LocalDiscoveryInfo.groupHashKey] != credential.groupHash { return }
+            // Both endpoints advertise and browse. Elect one initiator so two
+            // simultaneous invitations cannot tear down each other's session.
+            guard localPeerID.displayName < peerID.displayName else { return }
             guard !pendingInvites.contains(peerID.displayName), !session.connectedPeers.contains(peerID) else { return }
             pendingInvites.insert(peerID.displayName)
             browser.invitePeer(

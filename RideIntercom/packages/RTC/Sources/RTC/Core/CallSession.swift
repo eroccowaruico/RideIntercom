@@ -35,6 +35,8 @@ public protocol CallSession: AnyObject {
     func stopMedia() async
     func sendAudioPacket(_ packet: RTCAudioPacket) async
     func sendApplicationData(_ message: ApplicationDataMessage) async
+    /// Changes packet policy without restarting transports or group authentication.
+    func updateAudioPolicy(_ policy: RTCAudioPolicy) async
     func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport]) async
     func setLocalMute(_ muted: Bool) async
     func setOutputMute(_ muted: Bool) async

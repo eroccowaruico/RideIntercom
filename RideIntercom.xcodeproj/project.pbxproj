@@ -36,6 +36,13 @@
 			remoteGlobalIDString = 93F300C72F93829C0046716D;
 			remoteInfo = RideIntercom;
 		};
+		E2E000000000000000000008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 93F300C02F93829C0046716D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 93F300C72F93829C0046716D;
+			remoteInfo = RideIntercom;
+		};
 		93F300E42F93829D0046716D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 93F300C02F93829C0046716D /* Project object */;
@@ -61,6 +68,7 @@
 		93DCB0822FA3864000B921FA /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		93F300C82F93829C0046716D /* RideIntercom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300D92F93829D0046716D /* RideIntercomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomAudioE2ETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300E32F93829D0046716D /* RideIntercomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -111,6 +119,11 @@
 		93F300DC2F93829D0046716D /* RideIntercomTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RideIntercomTests;
+			sourceTree = "<group>";
+		};
+		E2E000000000000000000003 /* RideIntercomAudioE2ETests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RideIntercomAudioE2ETests;
 			sourceTree = "<group>";
 		};
 		93F300E62F93829D0046716D /* RideIntercomUITests */ = {
@@ -169,6 +182,11 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				9374C4B82FA364F000D259B2 /* InMemoryLogging in Frameworks */,
+			);
+		};
+		E2E000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
 			);
 		};
 		93F300E02F93829D0046716D /* Frameworks */ = {
@@ -242,6 +260,7 @@
 				93F300CA2F93829C0046716D /* RideIntercom */,
 				934630812F9B2B73001548C3 /* .github */,
 				93F300DC2F93829D0046716D /* RideIntercomTests */,
+				E2E000000000000000000003 /* RideIntercomAudioE2ETests */,
 				93F300E62F93829D0046716D /* RideIntercomUITests */,
 				93F300C92F93829C0046716D /* Products */,
 				938A8CA12F93890D009F40A4 /* docs */,
@@ -259,6 +278,7 @@
 			children = (
 				93F300C82F93829C0046716D /* RideIntercom.app */,
 				93F300D92F93829D0046716D /* RideIntercomTests.xctest */,
+				E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */,
 				93F300E32F93829D0046716D /* RideIntercomUITests.xctest */,
 			);
 			name = Products;
@@ -321,6 +341,29 @@
 			);
 			productName = RideIntercomTests;
 			productReference = 93F300D92F93829D0046716D /* RideIntercomTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		E2E000000000000000000001 /* RideIntercomAudioE2ETests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E2E000000000000000000009 /* Build configuration list for PBXNativeTarget "RideIntercomAudioE2ETests" */;
+			buildPhases = (
+				E2E000000000000000000004 /* Sources */,
+				E2E000000000000000000005 /* Frameworks */,
+				E2E000000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E2E000000000000000000007 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E2E000000000000000000003 /* RideIntercomAudioE2ETests */,
+			);
+			name = RideIntercomAudioE2ETests;
+			packageProductDependencies = (
+			);
+			productName = RideIntercomAudioE2ETests;
+			productReference = E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		93F300E22F93829D0046716D /* RideIntercomUITests */ = {
@@ -416,6 +459,7 @@
 			targets = (
 				93F300C72F93829C0046716D /* RideIntercom */,
 				93F300D82F93829D0046716D /* RideIntercomTests */,
+				E2E000000000000000000001 /* RideIntercomAudioE2ETests */,
 				93F300E22F93829D0046716D /* RideIntercomUITests */,
 			);
 		};
@@ -428,6 +472,11 @@
 			);
 		};
 		93F300D72F93829D0046716D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		E2E000000000000000000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -470,6 +519,11 @@
 			files = (
 			);
 		};
+		E2E000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		93F300DF2F93829D0046716D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -482,6 +536,11 @@
 			isa = PBXTargetDependency;
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
 			targetProxy = 93F300DA2F93829D0046716D /* PBXContainerItemProxy */;
+		};
+		E2E000000000000000000007 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 93F300C72F93829C0046716D /* RideIntercom */;
+			targetProxy = E2E000000000000000000008 /* PBXContainerItemProxy */;
 		};
 		93F300E52F93829D0046716D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -768,6 +827,33 @@
 			};
 			name = Debug;
 		};
+		E2E00000000000000000000A /* Debug configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomAudioE2ETests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RideIntercom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RideIntercom";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
 		93F300F32F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercomTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -790,6 +876,33 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RideIntercom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RideIntercom";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		E2E00000000000000000000B /* Release configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomAudioE2ETests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RideIntercom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RideIntercom";
 				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
@@ -871,6 +984,14 @@
 			buildConfigurations = (
 				93F300F22F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercomTests" */,
 				93F300F32F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercomTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		E2E000000000000000000009 /* Build configuration list for PBXNativeTarget "RideIntercomAudioE2ETests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E2E00000000000000000000A /* Debug configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */,
+				E2E00000000000000000000B /* Release configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */,
 			);
 			defaultConfigurationName = Release;
 		};

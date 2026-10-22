@@ -14,6 +14,8 @@ import time
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from scripts.test_lifecycle import stop_executable
 
 
 def swift_supported(output):
@@ -156,7 +158,17 @@ class Runner:
             command.append(f'-only-testing:{only}')
         if skip:
             command.append(f'-skip-testing:{skip}')
-        self.run(name, command, needs=needs)
+        try:
+            self.run(name, command, needs=needs)
+        finally:
+            if destination.startswith('platform=macOS'):
+                started = time.monotonic()
+                executable = derived / 'Build/Products/Debug/RideIntercom.app/Contents/MacOS/RideIntercom'
+                try:
+                    stopped = stop_executable(executable)
+                    self.record(name + '-host-cleanup', [], 'passed', 0, started, f'Terminated owned PIDs: {stopped}')
+                except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                    self.record(name + '-host-cleanup', [], 'failed', 1, started, str(error))
         summary_name = name + '-summary'
         self.run(summary_name, ['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)], needs=[name], timeout=60)
         started = time.monotonic()
@@ -266,7 +278,10 @@ def main():
             runner.record('simulator-availability', [], 'blocked', None, time.monotonic(), str(error))
         finally:
             if sim:
-                runner.run('simulator-shutdown', ['xcrun', 'simctl', 'shutdown', sim], timeout=60)
+                try:
+                    runner.run('simulator-shutdown', ['xcrun', 'simctl', 'shutdown', sim], timeout=60)
+                finally:
+                    runner.run('simulator-delete', ['xcrun', 'simctl', 'delete', sim], timeout=60)
     # A concurrent edit invalidates evidence rather than silently passing.
     before = (runner.out / 'inputs.json').read_text()
     snapshot(runner.out)

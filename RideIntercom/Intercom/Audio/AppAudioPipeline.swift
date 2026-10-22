@@ -153,7 +153,8 @@ final class AppAudioPipeline {
         frameDeliveries.append(transmitDelivery)
         _ = try txBus.installPCMSink(
             id: "rtc-send",
-            targetFormat: configuration.rtcSendFormat
+            targetFormat: configuration.rtcSendFormat,
+            maximumFrameDuration: 0.02
         ) { frame, _ in transmitDelivery.yield(frame) }
 
         let rxMasterBus = try mixer.createBus("rx-master")
@@ -170,7 +171,8 @@ final class AppAudioPipeline {
         frameDeliveries.append(outputDelivery)
         _ = try rxOutputBus.installPCMSink(
             id: "speaker-output",
-            targetFormat: configuration.outputHardwareFormat
+            targetFormat: configuration.outputHardwareFormat,
+            maximumFrameDuration: 0.02
         ) { frame, _ in outputDelivery.yield(frame) }
         let engineOutputBus = try mixer.createBus("engine-output")
         engineOutputBus.volume = 0

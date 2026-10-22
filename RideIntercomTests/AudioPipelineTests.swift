@@ -14,6 +14,24 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct AudioPipelineTests {
+    @Test func receivingSpeechChangesDuckingLevelWithoutChangingInputIOMode() {
+        let harness = AppTestSupport.makeHarness()
+        let viewModel = harness.viewModel
+        let idle = viewModel.currentVoiceProcessingConfiguration()
+        viewModel.setOtherAudioDuckingActive(true)
+        let speaking = viewModel.currentVoiceProcessingConfiguration()
+        viewModel.setOtherAudioDuckingActive(false)
+        let quiet = viewModel.currentVoiceProcessingConfiguration()
+        #expect(idle.voiceProcessingEnabled)
+        #expect(speaking.voiceProcessingEnabled == idle.voiceProcessingEnabled)
+        #expect(quiet.voiceProcessingEnabled == idle.voiceProcessingEnabled)
+        #expect(idle.duckingLevel == .minimum)
+        #expect(speaking.duckingLevel == .medium)
+        #expect(quiet.duckingLevel == .minimum)
+        viewModel.setDuckOthersEnabled(false)
+        #expect(!viewModel.currentVoiceProcessingConfiguration().voiceProcessingEnabled)
+    }
+
     @Test func appDecodeRejectsUnknownCodecAndInvalidFormatBeforeConversion() throws {
         let valid = RTCAudioPacket(sequenceNumber: 0, codec: .pcm16, capturedAt: 0,
                                    sampleCount: 1, payload: Data([0, 0]))
@@ -119,17 +137,20 @@ struct AudioPipelineTests {
         harness.callSession.authenticate(["member-108"])
         await AppTestSupport.waitUntil { harness.viewModel.isAudioReady }
         harness.callSession.receive(try AppTestSupport.receivedAudioPacket(peerID: "member-108", frame: frame, codec: .pcm16))
-        await AppTestSupport.waitUntil(timeout: .seconds(5)) { !harness.outputBackend.scheduledFrames.isEmpty }
+        await AppTestSupport.waitUntil(timeout: .seconds(5)) {
+            harness.outputBackend.scheduledFrames.flatMap(\.samples).contains { abs($0 + 0.2) < 0.001 }
+        }
 
         let remoteMember = try #require(harness.viewModel.selectedGroup?.members.first { $0.id == "member-108" })
-        let scheduledFrame = try #require(harness.outputBackend.scheduledFrames.first)
+        let scheduledFrames = harness.outputBackend.scheduledFrames
+        #expect(!scheduledFrames.isEmpty)
         #expect(remoteMember.isTalking)
         #expect(remoteMember.receivedAudioPacketCount == 1)
         #expect(remoteMember.playedAudioFrameCount == 1)
-        #expect(harness.viewModel.playedAudioFrameCount == 1)
-        #expect(scheduledFrame.format == .intercomHardwarePreferred)
-        #expect(scheduledFrame.samples.contains { abs($0 - 0.2) < 0.001 })
-        #expect(scheduledFrame.samples.contains { abs($0 + 0.2) < 0.001 })
+        #expect(harness.viewModel.playedAudioFrameCount == scheduledFrames.count)
+        #expect(scheduledFrames.allSatisfy { $0.format == .intercomHardwarePreferred && $0.frameCount <= 960 })
+        #expect(scheduledFrames.flatMap(\.samples).contains { abs($0 - 0.2) < 0.001 })
+        #expect(scheduledFrames.flatMap(\.samples).contains { abs($0 + 0.2) < 0.001 })
     }
 
     @Test func viewModelBroadcastsMuteStateAndUpdatesPackageVoiceProcessing() async throws {

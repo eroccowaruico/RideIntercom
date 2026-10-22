@@ -1,7 +1,7 @@
 import Testing
 @testable import SessionManager
 
-@Test func defaultConfigurationResolvesLatestIOSOptions() throws {
+@Test func defaultConfigurationResolvesRealtimeCallOptions() throws {
     let resolved = try AudioSessionConfiguration().resolved()
 
     #expect(resolved.category == .playAndRecord)
@@ -9,13 +9,20 @@ import Testing
     #expect(resolved.options == [
         .allowBluetoothA2DP,
         .allowBluetoothHFP,
-        .bluetoothHighQualityRecording,
         .duckOthers,
-        .farFieldInput,
         .mixWithOthers,
         .overrideMutedMicrophoneInterruption,
     ])
     #expect(resolved.prefersEchoCancelledInput == false)
+}
+
+@Test func callModesDoNotRequireSpecializedBluetoothCapture() throws {
+    for mode in [AudioSessionMode.default, .voiceChat] {
+        let resolved = try AudioSessionConfiguration(mode: mode).resolved()
+        #expect(!resolved.options.contains(.bluetoothHighQualityRecording))
+        #expect(!resolved.options.contains(.farFieldInput))
+        #expect(resolved.options.contains(.allowBluetoothHFP))
+    }
 }
 
 @Test func defaultToSpeakerIsOptIn() throws {

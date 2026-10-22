@@ -368,6 +368,54 @@ private actor ReceivedPackets {
     }
 }
 
+@Test func liveAudioPolicyUpdatePreservesTransportAndAcceptsNewCodec() async throws {
+    let route = FakeRoute(kind: .multipeer)
+    let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer, selectionMode: .singleRoute)
+    let manager = RouteManager(routes: [route], configuration: configuration)
+    let request = makeRequest(configuration: configuration)
+    await manager.prepare(request); await manager.startConnection(); await manager.startMedia()
+    let recorded = ReceivedPackets()
+    let listener = Task { for await event in manager.events { await recorded.record(event) } }
+    defer { listener.cancel() }
+    var remote = request
+    remote.localPeer = .init(id: .init(rawValue: "remote"), displayName: "Remote")
+    var relay = GroupRelay(request: remote)
+    route.yield(.membersChanged(.multipeer, [.init(peer: remote.localPeer, route: .multipeer, isConnected: true)]))
+    let changed = RTCAudioPolicy(preferredSendFormat: .init(sampleRate: 24_000), preferredCodecs: [.opus, .pcm16])
+    await manager.updateAudioPolicy(changed)
+    for body in [RelayBody.presence, .audio(makePacket(sequenceNumber: 77, codec: .opus))] {
+        route.yield(.receivedApplicationData(.multipeer, .init(peerID: remote.localPeer.id,
+            message: .init(namespace: GroupRelay.namespace, payload: try relay.make(body, now: 0)))))
+    }
+    let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+    while await recorded.sequences.isEmpty, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    // The relay owns sequence ordering independently of the encoder counter.
+    #expect(await recorded.sequences == [2])
+    #expect(route.prepareCount == 1)
+    #expect(route.startConnectionCount == 1)
+    await manager.stopConnection()
+}
+
+@Test func pendingRouteRetryIsNotTornDownEveryRetryInterval() async throws {
+    let route = FakeRoute(kind: .multipeer)
+    let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer, selectionMode: .singleRoute)
+    let manager = RouteManager(routes: [route], configuration: configuration)
+    await manager.prepare(makeRequest(configuration: configuration))
+    await manager.startConnection()
+    route.yield(.stateChanged(.multipeer, .failed))
+    let deadline = ContinuousClock.now.advanced(by: .seconds(4))
+    while route.prepareCount < 2 && ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(route.prepareCount == 2)
+    // Native Multipeer may need up to its invitation timeout (10 seconds).
+    // An in-flight attempt must survive the previous two-second retry interval.
+    try await Task.sleep(for: .milliseconds(2300))
+    #expect(route.prepareCount == 2)
+    #expect(route.startConnectionCount == 2)
+    await manager.stopConnection()
+}
+
 @Test func routeManagerReceivesAfterReconnectAndRejectsStoppedEvents() async throws {
     let route = FakeRoute(kind: .multipeer)
     let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer, selectionMode: .singleRoute)

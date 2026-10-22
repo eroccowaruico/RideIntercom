@@ -158,6 +158,12 @@ public actor RouteManager: CallSession {
         runtimePackageReports = reports.sorted { ($0.package, $0.kind) < ($1.package, $1.kind) }
         await sendRuntimeStatus(reason: .packageReportsChanged)
     }
+    public func updateAudioPolicy(_ policy: RTCAudioPolicy) async {
+        guard request != nil else { return }
+        request?.audioPolicy = policy
+        relay?.updateAudioPolicy(policy)
+        await sendRuntimeStatus(reason: .localControlsChanged)
+    }
     private func broadcast(_ body: RelayBody) async {
         guard let data = try? relay?.make(body, now: ProcessInfo.processInfo.systemUptime), data.count <= 32768 else { return }
         let skipInternet: Bool
@@ -244,7 +250,10 @@ public actor RouteManager: CallSession {
             updateMembers()
         }
         for (kind, retry) in retries where now >= retry.deadline {
-            retries[kind]?.deadline = now + retry.delay
+            // The next attempt owns its connection timeout. Re-arming this
+            // timer here repeatedly destroys a still-connecting native route.
+            // A subsequent failure schedules the next backoff; success clears it.
+            retries[kind]?.deadline = .infinity
             started.remove(kind)
             await routes[kind]?.prepare(request)
             guard generation == token else { return }

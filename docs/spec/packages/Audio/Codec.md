@@ -63,7 +63,7 @@ PCM の共通型は `AudioCore.AudioFormat` と `AudioCore.PCMFrame` だけを�
 | `CodecEncodingConfiguration` | `CodecRuntimeReport` | なし | requested と active codec を分けて返す |
 | `CodecEncoder.encode(PCMFrame)` | `EncodedCodecFrame` | `CodecError` | metadata と payload を生成する |
 | `CodecDecoder.decode(EncodedCodecFrame)` | `PCMFrame` | `CodecError` | encoded metadata の format で PCM を復元する |
-| `CodecSupport.isEncodingAvailable` | `Bool` | なし | 現在環境で encoder生成可能かを返す |
+| `CodecSupport.isEncodingAvailable` | `Bool` | なし | 現在環境の指定format / bit rateで20msのPCMを実際にencodeできるかを返す |
 | `CodecSupport.isDecodingAvailable` | `Bool` | なし | 現在環境で decoder生成可能かを返す |
 
 ```text
@@ -88,7 +88,7 @@ PCMFrame(format A)
 | `mpeg4AACELDv2` | Apple環境での低遅延音声候補 | availability は OS / SDK / 実行環境の AudioConverter 実装に依存する |
 | `opus` | 低bitrate packet audio候補 | availability は OS / SDK / 実行環境の AudioConverter 実装に依存する |
 
-`CodecSupport` は `AVAudioConverter` を生成できるかで availability を判定する。PCM16 は外部依存がないため常に available とする。
+`CodecSupport.isEncodingAvailable` は変換器の生成に加え、指定format / bit rateで20msのPCMを実際にencodeする。`isDecodingAvailable` はdecoderの生成可否を表す。`CodecRuntimeReport.availableCodecs` はさらに実encode/decode後のsample数・有限値・非無音を確認する。変換器の生成だけ成功し、実変換が失敗する組合せを使用可能として広告しない。PCM16 は外部依存がないため常に available とする。
 
 ## Configuration
 
@@ -138,6 +138,8 @@ PCMFrame(format A)
 | maximum packet size | compressed bufferを復元する |
 | packet count | compressed packet数を復元する |
 | packet descriptions | `AVAudioCompressedBuffer` の packet description を復元する |
+| magic cookie | encoderが返すcodec固有情報をdecoderへ渡す |
+| priming frame count | encoderの初期遅延を復号PCMから除き、元の語尾を残す |
 | data | compressed bytes |
 
 AAC / Opus の payload は raw compressed bytes ではない。Codec package 専用 envelope として transport し、外部decoderへ直接渡さない。
@@ -232,8 +234,14 @@ RideIntercomのLocal / Internet / 中継は同じ符号化済みpacket経路を�
 | compressed payload | Codec envelope ではない payload を拒否する |
 | runtime report | requested / active / fallback / availability を保持する |
 
-実 AudioConverter による AAC / Opus の音質、遅延、availability は環境差があるため、単体テストでは固定しない。利用環境ごとの品質と遅延は統合経路または実機検証で確認する。
+16 / 24 / 48kHzの20ms実変換を試験し、広告したcodecでの非無音往復、非対応codecの明示的なPCM fallback、Opusのpacket末尾の保持を確認する。availabilityはOS実装に依存するため、非対応のAACを成功やskipとして扱わず、選択結果と代替経路を検証する。利用環境ごとの発話・受話は独立した音声E2Eで確認する。
 
 ## 復号時の資源上限
 
 外部payloadは最大1 MiB、復号frame数は最大96,000。format・timestamp・sample数・packet数・最大packet byte数・各packetのoffsetと終端をAudioConverterやbuffer確保より前に検証する。sample数はframe数×channel数と一致させ、加算・乗算のoverflowを許さない。不正データはdecode失敗として呼出側へ返す。PCM16の低水準変換は非有限sampleを0にするが、通常のCodecEncoder入口はAudioCoreの検証で拒否する。
+
+## 圧縮処理の実行条件
+
+bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverterのbitRateへ設定する。圧縮bufferは対応codecの最小packet時間とflush分から容量を決め、PCM sample数と同数の最大packetを確保しない。非空PCMに対して圧縮packetが返らない場合は変換失敗とする。
+
+[Appleのcodec変換例](https://developer.apple.com/documentation/AudioToolbox/encoding-and-decoding-audio)に従い、encoderのmagic cookieを復号器へ引き渡す。decoderの出力bufferには元frame数に初期遅延を加えた容量を用意し、先頭の初期遅延を除去してから元sample数を取り出す。毎packetの先頭に初期無音を残し、末尾を切り落とすことを防ぐ。primingは8,192 frames、magic cookieは16 KiBを上限としてallocation前に検証する。compressed envelopeのpriming frame countは必須であり、この情報を持たない旧payloadは拒否する。

@@ -398,3 +398,14 @@ Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ
 `removeBus(id)`は対象busのsource/player/fader/effect/tapを停止・detachし、関連routeを除く。対象へ入力していた別bus自体は残し、再route可能にする。削除したbus/sourceへの参照は破棄し再利用しない。他のbusは継続する。参加者の入れ替わりに伴うノード蓄積を防げる。
 
 再生予約上限を超えて旧bufferを破棄するときは、停止前の再生状態を保持し、新bufferをscheduleしてから再生を再開する。空のplayerを先にplayして最初のrenderが無音になる順序を避ける。停止中のsourceはscheduleだけで自動再生しない。offline AVAudioEngineの20並行fixtureで、破棄後の最初のblockに最新音声が含まれることを確認する。
+
+## 実時間sinkのフレーム上限
+
+| 項目 | 契約 |
+|---|---|
+| `installPCMSink(maximumFrameDuration:)` | nilは従来どおりtap単位。有限の0超〜1秒を指定すると、その時間以下のPCMへ分割して通知する |
+| `bufferFrameCount` | OSへのtapサイズ希望。OSが大きいbufferを返す場合も最大時間はpackage側で守る |
+| 分割 | sampleを欠落・重複させず、sample位置に応じたtimestampと単調増加sequenceを付ける。各片をtarget formatへ変換する |
+| report | 各片の正規化結果を通知し、emittedFrameCountは分割後の通知数を示す |
+
+100 msのtapをそのまま48 kHz PCM16として送ると9,600 byteになり、RTCの音声payload上限を超える。低遅延の送信側は20 msなどの上限を明示する。OSのtapサイズ指定だけを通信packetサイズの保証として扱わない。

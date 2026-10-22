@@ -38,7 +38,7 @@ extension IntercomViewModel {
     static func defaultVoiceProcessingConfiguration() -> SessionManager.AudioInputVoiceProcessingConfiguration {
         SessionManager.AudioInputVoiceProcessingConfiguration(
             soundIsolationEnabled: false,
-            otherAudioDuckingEnabled: false,
+            otherAudioDuckingEnabled: defaultDuckOthersEnabled,
             duckingLevel: .minimum,
             inputMuted: false
         )

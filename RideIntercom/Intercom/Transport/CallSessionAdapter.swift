@@ -37,7 +37,9 @@ final class RideIntercomCallSessionAdapter: CallSession {
     var pendingCommandCount: Int { commands.count }
     private var audioSendTask: Task<Void, Never>?
     private var audioSendGeneration = UUID()
-    private var pendingAudio: (packet: RTC.RTCAudioPacket, queuedAt: ContinuousClock.Instant)?
+    // One OS tap may deliver five 20 ms packets together. Preserve that burst
+    // while bounding pending audio to 100 ms; a single-slot mailbox loses speech.
+    private var pendingAudio: [(packet: RTC.RTCAudioPacket, queuedAt: ContinuousClock.Instant)] = []
     private var eventGeneration = UUID()
     private var connectionRequest: RTC.CallStartRequest?
     private var mediaRequested = false
@@ -101,8 +103,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
     func setAudioPolicy(_ policy: RTC.RTCAudioPolicy) {
         guard policy != audioPolicy else { return }
         audioPolicy = policy
-        guard ownsRTCSession else { return }
-        rebuildOwnedRTCSession()
+        connectionRequest?.audioPolicy = policy
+        enqueue(.audioPolicy(policy))
     }
 
     func setEnabledRoutes(_ routes: Set<RTC.RouteKind>) {
@@ -131,7 +133,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     func sendAudioPacket(_ packet: RTC.RTCAudioPacket) {
         guard mediaRequested, !requestedLocalMute, !commandQueueFailed else { return }
-        pendingAudio = (packet, .now)
+        if pendingAudio.count == 5 { pendingAudio.removeFirst() }
+        pendingAudio.append((packet, .now))
         drainPendingAudio()
     }
 
@@ -141,8 +144,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
         audioSendTask = Task { [weak self, rtcSession] in
             while !Task.isCancelled, let self, self.audioSendGeneration == generation,
                   self.mediaActive, !self.requestedLocalMute, !self.appliedLocalMute {
-                guard let next = self.pendingAudio else { break }
-                self.pendingAudio = nil
+                guard !self.pendingAudio.isEmpty else { break }
+                let next = self.pendingAudio.removeFirst()
                 if next.queuedAt.duration(to: .now) < .milliseconds(100) {
                     await rtcSession.sendAudioPacket(next.packet)
                 }
@@ -151,14 +154,14 @@ final class RideIntercomCallSessionAdapter: CallSession {
                 self.audioSendTask = nil
                 // A cancelled backend call may finish after a new generation
                 // queued audio. Start its one worker only after this one exits.
-                if self.pendingAudio != nil { self.drainPendingAudio() }
+                if !self.pendingAudio.isEmpty { self.drainPendingAudio() }
             }
         }
     }
 
     private func clearPendingAudio() {
         audioSendGeneration = UUID()
-        pendingAudio = nil
+        pendingAudio.removeAll(keepingCapacity: true)
         audioSendTask?.cancel()
     }
 
@@ -233,6 +236,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
         case .reports(let reports):
             appliedReports = reports
             await rtcSession.updateRuntimePackageReports(reports)
+        case .audioPolicy(let policy):
+            await rtcSession.updateAudioPolicy(policy)
         case .application(let message), .stateMessage(_, let message):
             await rtcSession.sendApplicationData(message)
         case .configure(let change):

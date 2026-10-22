@@ -189,12 +189,13 @@ public struct AudioSessionConfiguration: Codable, Equatable, Sendable {
         var options: Set<AudioSessionCategoryOption> = [
             .allowBluetoothA2DP,
             .allowBluetoothHFP,
-            .bluetoothHighQualityRecording,
             .duckOthers,
-            .farFieldInput,
             .mixWithOthers,
             .overrideMutedMicrophoneInterruption,
         ]
+        // Specialized Bluetooth capture is not a universal call capability.
+        // Far-field input can reject the whole category on unsupported routes;
+        // high-quality recording is default-mode only and increases latency.
 
         if defaultToSpeaker {
             options.insert(.defaultToSpeaker)

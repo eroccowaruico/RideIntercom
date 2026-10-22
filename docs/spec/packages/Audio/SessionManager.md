@@ -72,7 +72,7 @@ sequenceDiagram
 
 | 実装箇所 | 実装している仕様 | 利用者への意味 | 改修者への意味 |
 |---|---|---|---|
-| `AudioSessionConfiguration.resolved()` の標準options | `.allowBluetoothA2DP`, `.allowBluetoothHFP`, `.bluetoothHighQualityRecording`, `.duckOthers`, `.farFieldInput`, `.mixWithOthers`, `.overrideMutedMicrophoneInterruption` を入れる | Bluetooth、他アプリ音声共存、duck、hardware mute準異常系を標準で扱う | optionを消す変更は体験変更。仕様表とテスト更新が必要 |
+| `AudioSessionConfiguration.resolved()` の標準options | `.allowBluetoothA2DP`, `.allowBluetoothHFP`, `.duckOthers`, `.mixWithOthers`, `.overrideMutedMicrophoneInterruption` を入れる | Bluetooth、他アプリ音声共存、duck、hardware mute準異常系を標準で扱う | optionを消す変更は体験変更。仕様表とテスト更新が必要 |
 | `defaultToSpeaker` 分岐 | 明示時だけ `.defaultToSpeaker` を追加する | speaker出力に寄せたいときだけroute希望を強める | 常時ONにすると receiver / accessory route 体験が変わる |
 | `resolvedPrefersEchoCancelledInput` | default mode では `prefersEchoCancelledInput || defaultToSpeaker` | speaker利用時にecho-cancelled input希望を自動補完する | `voiceChat` では `nil` にして session preference 操作を出さない |
 | `AudioInputVoiceProcessingConfiguration.duckingLevel` | advanced ducking level を4段階で保持する | 通話音声優先度を利用場面ごとに調整できる | `otherAudioDuckingEnabled == false` では `.systemDefault` として無効化する |
@@ -282,9 +282,9 @@ stateDiagram-v2
 |---|---:|---|---|---|
 | `.allowBluetoothA2DP` | ON | なし | A2DP出力routeを候補にする | helmet / headset / speaker 出力候補を広く取る |
 | `.allowBluetoothHFP` | ON | なし | HFP入力routeを候補にする | 通話系Bluetooth入力を許可する。`voiceChat` が暗黙に寄せるrouteも明示的に許可する |
-| `.bluetoothHighQualityRecording` | ON | なし | 対応routeで高品質録音を許可する | OSが対応する場合だけ有効になる |
+| `.bluetoothHighQualityRecording` | OFF | なし | 通話の既定値に含めない | default mode限定で遅延も増える録音向けoption。voiceChatでは指定しない |
 | `.duckOthers` | ON | なし | active中に他アプリ音声をduck対象にする | 他アプリ音声を止めず、通話音声の優先度を確保する |
-| `.farFieldInput` | ON | なし | far-field input routeを候補にする | device差分を設定で吸収する |
+| `.farFieldInput` | OFF | なし | 通話の既定値に含めない | 非対応環境でcategory全体が拒否されるため、汎用通話の前提にしない |
 | `.mixWithOthers` | ON | なし | 他アプリ音声との共存を許可する | Music / Podcast / Navigation 等を止めない体験を標準にする |
 | `.overrideMutedMicrophoneInterruption` | ON | なし | muted microphone interruption の影響を抑える | hardware mute の準異常系を継続可能にする |
 | `.defaultToSpeaker` | OFF | `defaultToSpeaker == true` | built-in speakerを既定出力に寄せる | user gestureやaccessory routeへの影響が強いため、speaker出力が必要な設定だけで使う |
@@ -585,7 +585,7 @@ SimulatorのApp初期表示でAURemoteIOのRPC timeoutによるabortが観測さ
 |---|---|
 | 停止中の `updateVoiceProcessing` | 希望設定を保存し、reportは `.ignored(.alreadyStopped)`。backendを開かない |
 | 次の `start` | 保存した最新設定をbackendへ適用してからcapture開始 |
-| 実行中の設定変更 | backendへ即時反映し、再起動しない |
+| 実行中の設定変更 | 同じvoice processing I/Oモードでは即時反映。I/Oモードが変わる場合はcaptureを停止し、最新設定を適用してtapとhardware formatを取り直して再開する |
 
 Simulator UIの待受中ミュート操作でAURemoteIO初期化がRPC timeoutによりabortする事象を確認した。停止中の設定変更による不要なI/O初期化を排除し、実際の録音開始と分離する。
 
@@ -594,7 +594,7 @@ Simulator UIの待受中ミュート操作でAURemoteIO初期化がRPC timeout�
 | 項目 | 契約 |
 |---|---|
 | `AudioOutputStreamConfiguration.maximumBufferedDuration` | nilは予約量制限なし。正の秒数でlive出力の予約上限を指定 |
-| System backend | 有効なplayer再生時刻と予約末尾で予約量を計測。上限超過時は旧予約を解放し最新bufferから再開。engine/sessionは維持 |
+| System backend | 有効なplayer再生時刻と予約末尾で予約量を計測。上限超過時は`.interrupts`で旧予約を最新bufferへ置換。playerの再生時計とengine/sessionは維持 |
 | 長過ぎる単一frame | `invalidFrame`として報告 |
 | stop | playerと予約末尾を初期化。再開後に旧出力を出さない |
 | runtime snapshot | `bufferedOutputDuration` / `playbackResetCount`。未提供backendはnilであり正常値の0に置換しない |
@@ -608,4 +608,4 @@ SessionManagerは受け取ったhardware formatのPCMを予約するだけで、
 
 入力voice processingの結果がfailedならcaptureを開始せずbackendを停止する。unsupportedのignoredは従来通りcaptureを継続する。hardware PCMは有限の8–96 kHz・1–2 channelを要求し、対応外channelを丸めて偽ったmetadataで配送しない。interleaved/noninterleaved Float bufferを同じPCM sample順へ読み出す。利用者callbackは内部状態lockの外で呼び、開始・停止は単一の直列ownerが管理する。
 
-再生予約上限を超えて旧bufferを破棄するときは、停止前の再生状態を保持し、新bufferをscheduleしてから再生を再開する。空のplayerを先にplayして最初のrenderが無音になる順序を避ける。停止中のsourceはscheduleだけで自動再生しない。offline AVAudioEngineの20並行fixtureで、破棄後の最初のblockに最新音声が含まれることを確認する。
+再生予約上限を超えた場合は`.interrupts`で新bufferを予約する。stop/playを繰り返すとplayer時計がリセットされ、実I/Oの遅延照会が入力配送を長く待たせるため、予約置換では停止しない。停止中のsourceはscheduleだけで自動再生しない。offline fixtureで置換後の最新音声と、再生時計の継続を確認し、実I/Oの安定性はAudio E2Eで検証する。

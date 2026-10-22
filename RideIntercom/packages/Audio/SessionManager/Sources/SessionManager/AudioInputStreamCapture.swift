@@ -92,11 +92,22 @@ public final class AudioInputStreamCapture {
     public func updateVoiceProcessing(
         _ voiceProcessing: AudioInputVoiceProcessingConfiguration
     ) -> AudioStreamOperationReport {
+        let changesIOMode = configuration.voiceProcessing.voiceProcessingEnabled != voiceProcessing.voiceProcessingEnabled
         stateLock.withLock { configuration.voiceProcessing = voiceProcessing }
         guard stateLock.withLock({ isRunning }) else {
             // Keep desired settings, but do not open I/O while capture is stopped.
             // start() applies the latest configuration before starting the backend.
             return emitReport(.updateInputVoiceProcessing(voiceProcessing), .ignored(.alreadyStopped))
+        }
+        if changesIOMode {
+            // AVAudioIONode cannot switch between RemoteIO and VoiceProcessingIO
+            // while running. Reopen the tap too: this can change hardware format.
+            let stopped = stop()
+            if case .failed = stopped.result {
+                return emitReport(.updateInputVoiceProcessing(voiceProcessing), stopped.result)
+            }
+            let restarted = start()
+            return emitReport(.updateInputVoiceProcessing(voiceProcessing), restarted.result)
         }
         return applyVoiceProcessing(voiceProcessing)
     }

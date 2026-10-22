@@ -134,6 +134,7 @@
 | [development/history/旧HE-AAC-v2追加計画.md](<development/history/旧HE-AAC-v2追加計画.md>) | 旧HE-AAC-v2追加計画 |
 | [development/history/旧アーキテクチャ再編計画.md](<development/history/旧アーキテクチャ再編計画.md>) | 旧アーキテクチャ再編計画 |
 | [development/history/旧音声入出力と画面改修計画.md](<development/history/旧音声入出力と画面改修計画.md>) | 旧音声入出力と画面改修計画 |
+| [development/音声E2Eテスト.md](<development/音声E2Eテスト.md>) | MacとiPhone Simulatorの双方向発話、設定マトリクス、資源の再利用 |
 | [development/自動検証.md](<development/自動検証.md>) | ビルド・起動と自動検証 |
 | [development/開発環境.md](<development/開発環境.md>) | Xcode / VS Codeの開発環境 |
 

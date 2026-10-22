@@ -3,6 +3,27 @@ import AVFAudio
 import AudioCore
 import Testing
 
+@Test(arguments: [16_000.0, 24_000.0, 48_000.0])
+func sinkBoundsHardwareTapFramesWithoutLosingDuration(_ rate: Double) throws {
+    let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 48_000, channelCount: 1))
+    let bus = try mixer.createBus("live")
+    var emitted: [PCMFrame] = []
+    _ = try bus.installPCMSink(id: "packets", targetFormat: .init(sampleRate: rate, channelCount: 1),
+        maximumFrameDuration: 0.02) { frame, _ in emitted.append(frame) }
+    for number in 0..<2 {
+        try bus.deliverToSinks(.init(sequenceNumber: UInt64(number), format: mixer.audioFormat,
+            capturedAt: 10 + Double(number) * 0.1, samples: Array(repeating: Float(number + 1) / 4, count: 4800)))
+    }
+    #expect(emitted.count == 10)
+    #expect(emitted.map(\.sequenceNumber) == Array(UInt64(0)..<10))
+    #expect(emitted.reduce(0) { $0 + $1.frameCount } == Int(rate * 0.2))
+    for (index, frame) in emitted.enumerated() {
+        #expect(frame.frameCount == Int(rate * 0.02))
+        #expect(abs(frame.capturedAt - (10 + Double(index) * 0.02)) < 0.000001)
+        #expect(frame.samples.allSatisfy { $0 == (index < 5 ? 0.25 : 0.5) })
+    }
+}
+
 @Test func pcmSourceNormalizesMixedFormatFramesBeforeBusInput() throws {
     let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 48_000, channelCount: 1))
     let bus = try mixer.createBus("remote")
@@ -124,9 +145,17 @@ import Testing
             samples: Array(repeating: sequence == 5 ? Float(0.8) : Float(0.1), count: 960)))
     }
     let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
-    #expect(try engine.renderOffline(1024, to: output) == .success)
-    let peak = (0..<Int(output.frameLength)).map { abs(output.floatChannelData![0][$0]) }.max() ?? 0
-    #expect(peak > 0.79 && peak < 0.81, "First render after overflow, iteration \(iteration): \(peak)")
+    // AVAudioPlayerNode applies interrupts asynchronously at a render boundary.
+    // Require fresh audio within 64 ms, and no old backlog after it arrives.
+    var rendered: [Float] = []
+    for _ in 0..<3 {
+        #expect(try engine.renderOffline(1024, to: output) == .success)
+        rendered += (0..<Int(output.frameLength)).map { abs(output.floatChannelData![0][$0]) }
+    }
+    let fresh = try #require(rendered.firstIndex { $0 > 0.79 && $0 < 0.81 },
+        "Replacement must arrive within 64 ms, iteration \(iteration)")
+    #expect(!rendered[fresh...].contains { abs($0 - 0.1) < 0.001 },
+        "Old backlog must never resume after fresh audio")
     #expect(source.playbackResetCount == 1)
     #expect(source.bufferedDuration == 0)
     #expect(bus.snapshot().sources.first?.playbackResetCount == 1)
@@ -150,4 +179,28 @@ import Testing
         try bus.installPCMSink(id: "invalid", targetFormat: invalid) { _, _ in }
     }
     #expect(bus.snapshot().sinkCount == 0)
+}
+
+@Test func overflowReplacesBuffersWithoutResettingTheLivePlayerClock() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("live-clock")
+    let source = try bus.addPCMSource(id: "mic", maximumBufferedDuration: 0.1)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
+    var positions: [AVAudioFramePosition] = []
+    for _ in 0..<2 {
+        for index in 0..<6 {
+            try source.schedule(.init(sequenceNumber: UInt64(index), format: mixer.audioFormat,
+                samples: Array(repeating: 0.2, count: 960)))
+        }
+        #expect(try engine.renderOffline(1024, to: output) == .success)
+        let time = try #require(source.playerNode.lastRenderTime)
+        positions.append(try #require(source.playerNode.playerTime(forNodeTime: time)).sampleTime)
+    }
+    #expect(positions[1] > positions[0], "Overflow must not stop/restart the player clock")
 }

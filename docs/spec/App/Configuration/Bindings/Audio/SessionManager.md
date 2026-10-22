@@ -43,8 +43,8 @@
 | package 設定 | App から渡す値 | 種別 | Diagnostics で確認する値 |
 |---|---|---|---|
 | `soundIsolationEnabled` | `false` | 固定 | requested / applied / ignored |
-| `otherAudioDuckingEnabled` | `isDuckOthersEnabled && isOtherAudioDuckingActive` | 画面設定と出力状態から導出 | requested / effective |
-| `duckingLevel` | `isOtherAudioDuckingActive ? .normal : .minimum` | 導出 | requested level |
+| `otherAudioDuckingEnabled` | `isDuckOthersEnabled` | 画面設定。発話の有無ではI/O modeを変えない | requested / effective |
+| `duckingLevel` | `isOtherAudioDuckingActive ? .medium : .minimum` | 導出 | requested level |
 | `inputMuted` | `isMuted` | 画面設定から導出 | requested mute |
 
 Voice Isolation Effect の画面設定は `SoundIsolation` effect の有効/無効であり、SessionManager の `AudioInputVoiceProcessingConfiguration.soundIsolationEnabled` へは渡さない。SessionManager の voice processing は Duck Other Audio とローカルマイクミュートの適用先として使う。
@@ -96,3 +96,5 @@ Voice Isolation Effect の画面設定は `SoundIsolation` effect の有効/無�
 詳細な OS 差分と内部既定値は `docs/spec/packages/Audio/SessionManager.md` を正とする。
 
 入力・出力の希望formatと実hardware formatは同一と仮定しない。Mixerのsource/sink境界で明示的に変換する。Audio Checkの5秒録音はMixer sourceで保持し、hardware出力にはengineの進行に合わせて渡す。
+
+受話の有無ではvoice processingのI/Oモードを変えず、Duck Other AudioがONの間は入力開始前から有効にする。受話時はducking levelだけをmediumへ、無受話時はminimumへ切り替える。機能のON/OFFでI/Oモードが変わる場合の安全な停止・再開はSessionManagerが担当する。

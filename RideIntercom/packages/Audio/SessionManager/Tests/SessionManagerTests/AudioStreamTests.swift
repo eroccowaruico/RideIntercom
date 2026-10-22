@@ -126,6 +126,23 @@ import AVFAudio
     #expect(reports.first?.snapshot.inputVoiceProcessing == voiceProcessing)
 }
 
+@Test(arguments: [false, true])
+func inputCaptureRestartsWhenVoiceProcessingIOModeChanges(_ initiallyEnabled: Bool) {
+    let backend = FakeInputStreamBackend()
+    let initial = AudioInputVoiceProcessingConfiguration(soundIsolationEnabled: false,
+        otherAudioDuckingEnabled: initiallyEnabled)
+    let updated = AudioInputVoiceProcessingConfiguration(soundIsolationEnabled: false,
+        otherAudioDuckingEnabled: !initiallyEnabled)
+    let capture = AudioInputStreamCapture(configuration: .init(voiceProcessing: initial), backend: backend)
+    #expect(capture.start().result == .applied)
+    let report = capture.updateVoiceProcessing(updated)
+    #expect(report.result == .applied)
+    #expect(report.operation == .updateInputVoiceProcessing(updated))
+    #expect(report.snapshot.isRunning)
+    #expect(backend.events == [.updateVoiceProcessing(initial), .startCapture, .stopCapture,
+        .updateVoiceProcessing(updated), .startCapture])
+}
+
 @Test func inputCaptureUpdatesVoiceProcessingWhileRunningWithoutRestarting() {
     let backend = FakeInputStreamBackend()
     let initial = AudioInputVoiceProcessingConfiguration(soundIsolationEnabled: true)
@@ -422,9 +439,17 @@ private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
             samples: Array(repeating: sequence == 5 ? Float(0.8) : Float(0.1), count: 960)))
     }
     let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
-    #expect(try engine.renderOffline(1024, to: buffer) == .success)
-    let peak = (0..<Int(buffer.frameLength)).map { abs(buffer.floatChannelData![0][$0]) }.max() ?? 0
-    #expect(peak > 0.79 && peak < 0.81, "First render after overflow, iteration \(iteration): \(peak)")
+    // AVAudioPlayerNode applies interrupts asynchronously at a render boundary.
+    // Require fresh audio within 64 ms, and no old backlog after it arrives.
+    var rendered: [Float] = []
+    for _ in 0..<3 {
+        #expect(try engine.renderOffline(1024, to: buffer) == .success)
+        rendered += (0..<Int(buffer.frameLength)).map { abs(buffer.floatChannelData![0][$0]) }
+    }
+    let fresh = try #require(rendered.firstIndex { $0 > 0.79 && $0 < 0.81 },
+        "Replacement must arrive within 64 ms, iteration \(iteration)")
+    #expect(!rendered[fresh...].contains { abs($0 - 0.1) < 0.001 },
+        "Old backlog must never resume after fresh audio")
     #expect(backend.playbackResetCount == 1)
     #expect(backend.bufferedOutputDuration == 0)
     #expect(throws: (any Error).self) {

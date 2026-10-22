@@ -36,11 +36,13 @@ App は RTC package の route manager、route state、runtime status を置き�
 | `PeerDescriptor` | local member ID と display name から生成する | App 状態から導出 | peer ID hash / display name |
 | `expectedPeers` | selected group の保存 member から生成する | App 状態から導出 | expected / connected / authenticated count |
 | `RTCAudioPolicy.preferredSendFormat` | `rtcAudioFormatPreset.audioFormat` を `RTCAudioFormat` へ変換する。既定は 48kHz mono | 画面設定から導出 | audio format |
-| `RTCAudioPolicy.preferredCodecs` | `CodecRuntimeReport.resolving` で選ばれた codec を先頭に置き、必要なら `.pcm16` fallback を続ける | 画面設定 + package runtime から導出 | requested / selected codec |
+| `RTCAudioPolicy.preferredCodecs` | `CodecRuntimeReport.resolving`で選ばれたcodecを先頭に置き、実encode/decode検査で利用可能なcodecを重複なく続ける。相手の送信codec設定が違っても受理できるようにする | 画面設定 + package runtime から導出 | requested / selected codec |
 | `RTCAudioPolicy.maximumBitRate` | 選択 codec の active bitrate を渡す。bitrate を持たない codec は `nil` | 画面設定 + package runtime から導出 | active bitrate |
 | `PacketAudioReceiveConfiguration` | package default | 固定 | playout delay / queue / drop metrics |
 
 group secret は group list へ保存せず、Keychain から取得して credential 生成にだけ使う。ログと Diagnostics には secret、token、認証 MAC、鍵材料を出さない。
+
+codec / format / bitrateだけの変更は、順序付きcommand queueから`updateAudioPolicy`を呼ぶ。同じ待機区間の連続変更は最後のpolicyへ集約し、RTC session、接続、認証、event購読を維持する。経路やInternet接続先の変更とは異なり、通信sessionを作り直さない。
 
 ## ApplicationDataMessage
 
@@ -98,7 +100,7 @@ App 側の report 更新間隔は 0.5 秒を下限とする。RTC は package re
 
 | 境界 | 値・所有 |
 |---|---|
-| adapter送信待ち | 最新1件、100ms。接続操作列へ音声を連結しない |
+| adapter送信待ち | 20 ms音声を最大5件、待機時間100 ms以内。OSの100 ms tapから連続生成される5件を保持する。接続操作列へ音声を連結しない |
 | RTC EventSource | package既定の64件・100ms。一時的な音声/telemetryに限定 |
 | RTC再生待ち | package既定の15ms playout、100ms lifetime、256件上限 |
 | Internet配送 | package/Workerで音声unreliable・unordered・再送0。利用者へTCP/UDP選択を要求しない |

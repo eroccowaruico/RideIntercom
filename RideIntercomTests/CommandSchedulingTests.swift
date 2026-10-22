@@ -5,6 +5,27 @@ import Testing
 
 @MainActor
 struct CommandSchedulingTests {
+    @Test func liveAudioSettingsKeepTheConnectionAndApplyOnlyTheFinalPolicy() async {
+        let rtc = FakeRTCCallSession(); let gate = ManualAsyncGate(); rtc.prepareGate = gate
+        var creations = 0
+        let adapter = RideIntercomCallSessionAdapter(memberID: "member-001", sessionFactory: { _, _, _ in
+            creations += 1
+            return rtc
+        })
+        adapter.connect(group: IntercomSeedData.recentGroups[0])
+        await gate.waitForEntry()
+        for rate in [16_000.0, 48_000, 24_000] {
+            adapter.setAudioPolicy(.init(preferredSendFormat: .init(sampleRate: rate), preferredCodecs: [.opus, .pcm16]))
+        }
+        #expect(adapter.pendingCommandCount == 1)
+        adapter.startMedia()
+        await gate.release()
+        await AppTestSupport.waitUntil { rtc.operations.contains("startMedia") }
+        #expect(creations == 1)
+        #expect(rtc.operations == ["prepare", "startConnection", "audioPolicy", "startMedia"])
+        #expect(rtc.audioPolicies.map(\.preferredSendFormat.sampleRate) == [24_000])
+        adapter.disconnect()
+    }
     @Test func reconnectAfterOverflowAppliesSettingsRequestedDuringFailure() async {
         let old = FakeRTCCallSession(); let next = FakeRTCCallSession()
         let gate = ManualAsyncGate(); old.prepareGate = gate

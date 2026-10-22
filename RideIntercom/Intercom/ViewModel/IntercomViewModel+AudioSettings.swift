@@ -360,6 +360,7 @@ extension IntercomViewModel {
     func setDuckOthersEnabled(_ enabled: Bool) {
         isDuckOthersEnabled = enabled
         refreshOtherAudioDuckingState()
+        applyCurrentVoiceProcessingConfiguration()
         publishRuntimePackageReports(force: true)
         audioErrorMessage = nil
         AppLoggers.settings.info(

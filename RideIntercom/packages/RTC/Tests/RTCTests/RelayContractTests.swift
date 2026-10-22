@@ -8,6 +8,18 @@ import Testing
         GroupRelay(request: .init(sessionID: "group", localPeer: .init(id: .init(rawValue: id), displayName: id),
                                  credential: credential ?? self.credential, audioPolicy: .init(preferredCodecs: codecs)))
     }
+    @Test func audioPolicyChangeKeepsPeerIdentityAndReplayProtection() throws {
+        var sender = relay("a"), receiver = relay("b", codecs: [.pcm16])
+        let peer = PeerID(rawValue: "a")
+        let presence = try sender.make(.presence, now: 0)
+        #expect(receiver.receive(presence, from: peer, now: 0) != nil)
+        receiver.updateAudioPolicy(.init(preferredCodecs: [.opus]))
+        #expect(receiver.receive(presence, from: peer, now: 1) == nil)
+        let packet = RTCAudioPacket(sequenceNumber: 8, codec: .opus, payload: Data([1]))
+        let received = try #require(receiver.receive(try sender.make(.audio(packet), now: 1), from: peer, now: 1))
+        #expect(received.didRestart == false)
+        #expect(receiver.members(now: 1).map(\.id) == [peer])
+    }
     @Test func codecAndFormatMetadataSurviveCommonEncryptedPath() throws {
         var a = relay("a"), b = relay("b", codecs: [.opus])
         let peer = PeerID(rawValue: "a")

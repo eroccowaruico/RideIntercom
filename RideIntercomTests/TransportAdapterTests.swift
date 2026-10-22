@@ -14,6 +14,21 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct TransportAdapterTests {
+    @Test func adapterPreservesACompleteHardwareTapBurst() async {
+        let rtc = FakeRTCCallSession()
+        let adapter = RideIntercomCallSessionAdapter(rtcSession: rtc)
+        adapter.connect(group: IntercomSeedData.recentGroups[0])
+        adapter.startMedia()
+        await rtc.waitForOperation("startMedia")
+        // One actual 100 ms tap becomes five 20 ms packets in the same turn.
+        for sequence in 0..<5 {
+            adapter.sendAudioPacket(.init(sequenceNumber: UInt64(sequence), codec: .pcm16,
+                sampleCount: 960, payload: Data(repeating: 0, count: 1920)))
+        }
+        await AppTestSupport.waitUntil { rtc.sentAudioSequences.last == 4 }
+        #expect(rtc.sentAudioSequences == [0, 1, 2, 3, 4])
+        adapter.disconnect()
+    }
     @Test func currentProcessUsesPackageBackedRTCRouteManager() {
         let adapter = RideIntercomCallSessionAdapter(memberID: "fixture-local")
         #expect(adapter.activeRouteDebugTypeName == "RTC RouteManager")
@@ -62,8 +77,8 @@ struct TransportAdapterTests {
         for sequence in 0..<100 {
             adapter.sendAudioPacket(.init(sequenceNumber: UInt64(sequence), codec: .pcm16, payload: Data([0, 0])))
         }
-        await AppTestSupport.waitUntil { !rtc.sentAudioSequences.isEmpty }
-        #expect(rtc.sentAudioSequences == [99])
+        await AppTestSupport.waitUntil { rtc.sentAudioSequences.last == 99 }
+        #expect(rtc.sentAudioSequences == [95, 96, 97, 98, 99])
         adapter.disconnect()
 
         let stalled = FakeRTCCallSession()

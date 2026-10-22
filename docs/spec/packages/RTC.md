@@ -37,6 +37,7 @@ flowchart LR
 | 中継離脱・接続障害 | 残る経路を停止しない。membership/presence更新で中継候補を再評価し、失敗した経路だけ2〜30秒間隔で再試行 |
 | 接続経路がなくなる | 接続を作れるまで音声は届かない。無音や探索中を接続成功とみなさない。presence失効は8秒 |
 | `stopMedia`、中継端末自身のmute | 自分の収録・再生要求を停止。他人の中継は継続。`stopConnection`が明示的な離脱 |
+| `updateAudioPolicy` | 通話中のcodec / format方針を更新する。transport・認証済みpeer・relay epoch・replay windowを維持し、音声設定だけの変更で再接続しない |
 | `stopConnection` / group変更 | leave通知、世代無効化、購読・タイマー・受信バッファ・認証状態を終了 |
 | active/media route | UI用の代表経路。実際に使う経路が1本だけであることを表さない。availableRoutesとmembersのrouteも確認する |
 
@@ -65,6 +66,7 @@ flowchart LR
 | 上限 | リモート7人、path最大8、envelope 32KiB、音声payload 8KiB、受信待ち256件。過剰分は古い受信待ちから破棄 |
 | 再生時刻 | 端末間時計の同期を前提にしない。最終受信端末で15ms待ち、100msを過ぎた受信待ちは破棄。enqueue時とdrain時にpeerごとの再生済みsequenceを検査し、待機中に古くなったフレームも破棄 |
 | codec / format | policyで許可されたcodec、8〜48kHz、1〜2ch。対応範囲内のformat差は保持し、PCM変換しない |
+| route capabilities | Local / Internetとも符号化済みPCM16・Opus・AAC-ELD v2を転送可能。初期codec設定に固定しない。OSの実encode/decode能力と受理codecのpolicyは別に判定する |
 | パケットsequence | 中継epoch内のsequenceで再生順を管理。収録再起動によるApp側counterのリセットと分離 |
 
 ## Cloudflareの媒体契約
@@ -153,3 +155,13 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 再試行・presence・診断の間隔はmonotonic clockで測り、prepare/stopで基準を初期化する。重複startは同じ試行でtimerを増殖させない。fallback delayは有限の0–60秒へ正規化し、非有限値は3秒へ戻す。重複route kindは先の登録を採用する。
 
 Local識別子は[MCPeerIDの制約](https://developer.apple.com/documentation/multipeerconnectivity/mcpeerid/init(displayname:))に従いUTF-8で1–63 byteを生成前に検証する。Local受信は64 KiB以下、WebSocket signaling messageも64 KiB以下。Local送信失敗はイベントで通知し、生ID・payload・OS error全文を直接ログへ出さない。nativeのmediaReady判定はchannel IDだけでなく現行channelオブジェクトの同一性を確認する。
+
+## 近距離接続試行の競合回避
+
+| 場面 | 動作 |
+|---|---|
+| 両端が同時にadvertise / browse | peer IDの辞書順で小さい側だけが招待を送る。同時招待によるsession競合を防ぐ |
+| 失敗後の再試行開始 | 次の試行が成功または失敗を通知するまで同じretry timerで再prepareしない。招待timeoutより短い周期で接続途中のsessionを壊さない |
+| 再試行の失敗通知 | 既存backoffで次の試行を予約する。接続成功時はretry状態を破棄する |
+
+招待側の決定とretry中のsession維持を単体テストで確認し、実際の両端接続・音声は独立したAudio E2E targetで検証する。

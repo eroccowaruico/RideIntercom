@@ -133,10 +133,15 @@ public final class MixerBus {
 		id sinkID: String,
 		targetFormat: AudioFormat,
 		bufferFrameCount: UInt32 = 128,
+		maximumFrameDuration: TimeInterval? = nil,
 		onFrame: @escaping (PCMFrame, AudioProcessingReport) -> Void
 	) throws -> MixerPCMSink {
 		guard targetFormat.isValid, bufferFrameCount > 0 else {
 			throw AudioMixerError.pcmSinkInstallFailed("Invalid sink format or buffer size")
+		}
+		if let duration = maximumFrameDuration,
+		   !duration.isFinite || duration <= 0 || duration > 1 {
+			throw AudioMixerError.pcmSinkInstallFailed("Invalid maximum frame duration")
 		}
 		metadataLock.lock()
 		defer { metadataLock.unlock() }
@@ -150,6 +155,7 @@ public final class MixerBus {
 			id: resolvedID,
 			mixerFormat: audioFormat,
 			targetFormat: targetFormat,
+			maximumFrameDuration: maximumFrameDuration,
 			onFrame: onFrame,
 			recordEmit: { [weak self] report, failure in
 				self?.recordPCMSinkEmit(id: resolvedID, report: report, failure: failure)

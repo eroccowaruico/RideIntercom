@@ -156,7 +156,35 @@ public enum CodecSupport {
                   ) else {
                 return false
             }
-            return AVAudioConverter(from: pcmFormat, to: compressedFormat) != nil
+            guard AVAudioConverter(from: pcmFormat, to: compressedFormat) != nil else { return false }
+            // Constructing a converter does not prove that this format/bit rate
+            // can encode. In particular, ELD v2 can instantiate for mono and
+            // then fail every conversion with kAudioCodecBadDataError.
+            return (try? AudioConverterBridge.encode(samples: probeSamples(configuration.format),
+                codec: configuration.codec, format: configuration.format,
+                bitRate: configuration.activeBitRate)) != nil
+        }
+    }
+
+    private static func probeSamples(_ format: AudioFormat) -> [Float] {
+        let frames = max(1, Int(format.sampleRate * 0.02))
+        return (0..<(frames * format.channelCount)).map { index in
+            Float(sin(Double(index / format.channelCount) * 2 * .pi * 440 / format.sampleRate) * 0.25)
+        }
+    }
+
+    static func isRoundTripAvailable(for configuration: CodecEncodingConfiguration) -> Bool {
+        guard configuration.format.isValid else { return false }
+        if configuration.codec == .pcm16 { return true }
+        let input = probeSamples(configuration.format)
+        do {
+            let payload = try AudioConverterBridge.encode(samples: input, codec: configuration.codec,
+                format: configuration.format, bitRate: configuration.activeBitRate)
+            let output = try AudioConverterBridge.decode(payload: payload, codec: configuration.codec, format: configuration.format)
+            return output.count == input.count && output.allSatisfy { $0.isFinite }
+                && output.contains { abs($0) > 0.01 }
+        } catch {
+            return false
         }
     }
 
@@ -210,8 +238,7 @@ public struct CodecRuntimeReport: Codable, Equatable, Sendable {
                 aacELDv2Options: requestedConfiguration.aacELDv2Options,
                 opusOptions: requestedConfiguration.opusOptions
             )
-            return CodecSupport.isEncodingAvailable(for: configuration)
-                && CodecSupport.isDecodingAvailable(for: $0, format: requestedConfiguration.format)
+            return CodecSupport.isRoundTripAvailable(for: configuration)
         }
 
         let selectedCodec: CodecIdentifier
@@ -388,8 +415,12 @@ private enum AudioConverterBridge {
             throw CodecError.encoderUnavailable(codec)
         }
 
+        if let bitRate { converter.bitRate = bitRate }
+        guard converter.maximumOutputPacketSize > 0 else { throw CodecError.encoderUnavailable(codec) }
         let inputBuffer = try makePCMBuffer(samples: samples, format: format, avFormat: pcmFormat, frameCount: frameCount)
-        let packetCapacity = max(1, AVAudioPacketCount(frameCount))
+        // The supported codecs use packets of at least 2.5 ms. Include flush
+        // packets without allocating one maximum-size packet per PCM sample.
+        let packetCapacity = AVAudioPacketCount(ceil(Double(frameCount) / max(1, format.sampleRate * 0.0025))) + 4
         let outputBuffer = AVAudioCompressedBuffer(
             format: compressedFormat,
             packetCapacity: packetCapacity,
@@ -406,6 +437,9 @@ private enum AudioConverterBridge {
             throw CodecError.conversionFailed(codec, conversionError?.localizedDescription ?? "Unknown AudioConverter encode error")
         }
 
+        guard outputBuffer.packetCount > 0, outputBuffer.byteLength > 0 else {
+            throw CodecError.conversionFailed(codec, "Encoder returned no audio for a nonempty PCM frame")
+        }
         return try CompressedPayloadEnvelope(
             codec: codec,
             sourceSampleCount: samples.count,
@@ -413,6 +447,8 @@ private enum AudioConverterBridge {
             maximumPacketSize: max(1, converter.maximumOutputPacketSize),
             packetCount: outputBuffer.packetCount,
             packetDescriptions: packetDescriptions(from: outputBuffer),
+            magicCookie: converter.magicCookie,
+            primingFrameCount: converter.primeInfo.leadingFrames,
             data: Data(bytes: outputBuffer.data, count: Int(outputBuffer.byteLength))
         ).encoded()
     }
@@ -432,10 +468,13 @@ private enum AudioConverterBridge {
         guard let compressedFormat = makeCompressedFormat(codec: codec, format: format, bitRate: nil) else {
             throw CodecError.audioFormatCreationFailed(codec)
         }
+        compressedFormat.magicCookie = envelope.magicCookie
         guard let converter = AVAudioConverter(from: compressedFormat, to: pcmFormat) else {
             throw CodecError.decoderUnavailable(codec)
         }
 
+        // AAC decoders need the encoder's actual stream configuration.
+        converter.magicCookie = envelope.magicCookie
         let inputBuffer = AVAudioCompressedBuffer(
             format: compressedFormat,
             packetCapacity: max(1, envelope.packetCount),
@@ -456,7 +495,7 @@ private enum AudioConverterBridge {
 
         guard let outputBuffer = AVAudioPCMBuffer(
             pcmFormat: pcmFormat,
-            frameCapacity: max(1, AVAudioFrameCount(envelope.sourceFrameCount))
+            frameCapacity: max(1, envelope.sourceFrameCount + envelope.primingFrameCount)
         ) else {
             throw CodecError.audioFormatCreationFailed(codec)
         }
@@ -471,7 +510,13 @@ private enum AudioConverterBridge {
             throw CodecError.conversionFailed(codec, conversionError?.localizedDescription ?? "Unknown AudioConverter decode error")
         }
 
-        return try samples(from: outputBuffer, format: format, sampleLimit: envelope.sourceSampleCount)
+        let primingSamples = Int(envelope.primingFrameCount) * format.channelCount
+        let decoded = try samples(from: outputBuffer, format: format,
+            sampleLimit: envelope.sourceSampleCount + primingSamples)
+        guard decoded.count >= envelope.sourceSampleCount + primingSamples else {
+            throw CodecError.conversionFailed(codec, "Decoder returned fewer samples than the source and priming frames")
+        }
+        return Array(decoded.dropFirst(primingSamples).prefix(envelope.sourceSampleCount))
     }
 
     static func makePCMFormat(_ format: AudioFormat) -> AVAudioFormat? {
@@ -604,6 +649,8 @@ private struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
     var maximumPacketSize: Int
     var packetCount: UInt32
     var packetDescriptions: [PacketDescription]
+    var magicCookie: Data? = nil
+    var primingFrameCount: UInt32
     var data: Data
 
     static func empty(codec: CodecIdentifier) -> CompressedPayloadEnvelope {
@@ -614,6 +661,7 @@ private struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
             maximumPacketSize: 1,
             packetCount: 0,
             packetDescriptions: [],
+            primingFrameCount: 0,
             data: Data()
         )
     }
@@ -634,6 +682,8 @@ private struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
             // Validate every size before AVAudioCompressedBuffer allocation and memcpy.
             let count = Int(envelope.packetCount)
             guard envelope.sourceFrameCount <= CodecDecoder.maximumDecodedFrameCount,
+                  envelope.primingFrameCount <= 8_192,
+                  (envelope.magicCookie?.count ?? 0) <= 16_384,
                   envelope.sourceSampleCount >= 0,
                   envelope.maximumPacketSize > 0,
                   envelope.maximumPacketSize <= CodecDecoder.maximumPayloadBytes,

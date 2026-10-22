@@ -12,6 +12,7 @@ struct CallConfigurationChange {
 enum CallCommand {
     case connect(RTC.CallStartRequest), startMedia, stopMedia, disconnect
     case configure(CallConfigurationChange)
+    case audioPolicy(RTC.RTCAudioPolicy)
     case localMute(Bool), outputMute(Bool), reports([RTCRuntimePackageReport])
     case application(RTC.ApplicationDataMessage)
     case stateMessage(String, RTC.ApplicationDataMessage)
@@ -19,6 +20,7 @@ enum CallCommand {
     var coalescingKey: String? {
         switch self {
         case .configure: "configuration"
+        case .audioPolicy: "audioPolicy"
         case .localMute: "localMute"
         case .outputMute: "outputMute"
         case .reports: "reports"

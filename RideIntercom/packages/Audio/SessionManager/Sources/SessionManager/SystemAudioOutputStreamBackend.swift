@@ -78,22 +78,18 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
 
     public func schedule(_ frame: PCMFrame) throws {
         let buffer = try frame.makePCMBuffer()
-        var shouldResumePlayback = false
+        var options: AVAudioPlayerNodeBufferOptions = []
         if let limit = maximumBufferedDuration {
             let duration = Double(buffer.frameLength) / frame.format.sampleRate
             guard duration <= limit else { throw AudioStreamError.invalidFrame("Frame exceeds live playback budget") }
             if (bufferedOutputDuration ?? 0) + duration > limit {
-                shouldResumePlayback = playerNode.isPlaying
-                playerNode.stop()
-                scheduledEndSample = 0
+                options = .interrupts
+                scheduledEndSample = renderedSample
                 resetCount += 1
             }
         }
         scheduledEndSample = max(scheduledEndSample, renderedSample) + AVAudioFramePosition(buffer.frameLength)
-        playerNode.scheduleBuffer(buffer, at: nil, options: [])
-        // Starting an empty player advances its timeline before the replacement
-        // buffer is available. Queue first so the next render begins with it.
-        if shouldResumePlayback { playerNode.play() }
+        playerNode.scheduleBuffer(buffer, at: nil, options: options)
     }
 }
 

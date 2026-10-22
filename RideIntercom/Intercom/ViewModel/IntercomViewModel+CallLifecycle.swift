@@ -276,7 +276,9 @@ extension IntercomViewModel {
     func currentVoiceProcessingConfiguration() -> SessionManager.AudioInputVoiceProcessingConfiguration {
         SessionManager.AudioInputVoiceProcessingConfiguration(
             soundIsolationEnabled: false,
-            otherAudioDuckingEnabled: isOtherAudioDuckingActiveInternal,
+            // Keep the I/O mode fixed while the ducking feature is enabled.
+            // Incoming speech changes the ducking level, not RemoteIO/VoiceIO.
+            otherAudioDuckingEnabled: isDuckOthersEnabled,
             duckingLevel: isOtherAudioDuckingActiveInternal ? .medium : .minimum,
             inputMuted: isMuted
         )

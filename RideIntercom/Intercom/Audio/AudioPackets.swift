@@ -103,6 +103,9 @@ struct AppAudioCodecOptions: Sendable {
 
 enum AppAudioCodecBridge {
     enum DecodingError: Error { case unsupportedCodec, invalidFormat }
+    // Converter capability is stable for an OS process and PCM configuration.
+    // Probing allocates converters; never repeat it on every live audio frame.
+    private static var capabilityReports: [CodecRuntimeReport] = []
     static func makeRTCAudioPolicy(
         preferred codec: AudioCodecIdentifier,
         format: AudioFormat = .intercomPacketAudio,
@@ -148,12 +151,19 @@ enum AppAudioCodecBridge {
         format: AudioFormat = .intercomPacketAudio,
         options: AppAudioCodecOptions = AppAudioCodecOptions()
     ) -> CodecRuntimeReport {
-        CodecRuntimeReport.resolving(Codec.CodecEncodingConfiguration(
+        let configuration = Codec.CodecEncodingConfiguration(
             codec: preferred.codecIdentifier,
             format: format,
             aacELDv2Options: options.aacELDv2Options,
             opusOptions: options.opusOptions
-        ))
+        )
+        if let report = capabilityReports.first(where: { $0.requestedConfiguration == configuration }) {
+            return report
+        }
+        let report = CodecRuntimeReport.resolving(configuration)
+        if capabilityReports.count == 32 { capabilityReports.removeFirst() }
+        capabilityReports.append(report)
+        return report
     }
 
     static func encode(

@@ -38,6 +38,24 @@ import Testing
     #expect(OpusOptions(bitRate: 256_000).bitRate == 128_000)
 }
 
+@Test(arguments: [16_000.0, 24_000.0, 48_000.0])
+func opusBitRateChangesEncodedAudioRatherThanOnlyPacketMetadata(rate: Double) throws {
+    let format = AudioFormat(sampleRate: rate, channelCount: 1)
+    let samples = (0..<Int(rate * 0.02)).map { index in
+        Float(0.3 * sin(Double(index) * 2 * .pi * 440 / rate)
+            + 0.2 * sin(Double(index) * 2 * .pi * 1730 / rate))
+    }
+    let pcm = PCMFrame(sequenceNumber: 0, format: format, capturedAt: 0, samples: samples)
+    func encode(_ bitRate: Int) throws -> EncodedCodecFrame {
+        try CodecEncoder(configuration: .init(codec: .opus, format: format,
+            opusOptions: .init(bitRate: bitRate))).encode(pcm)
+    }
+    let low = try encode(6_000), high = try encode(128_000)
+    #expect(high.payload.count > low.payload.count)
+    #expect(try CodecDecoder().decode(low).samples.count == samples.count)
+    #expect(try CodecDecoder().decode(high).samples.count == samples.count)
+}
+
 @Test func pcm16EncodingUsesSignedLittleEndianSamples() throws {
     let data = PCM16Codec.encode([-1, -0.5, 0, 0.5, 1])
 
@@ -155,12 +173,14 @@ import Testing
 
 @Test func compressedEnvelopeRejectsInvalidAllocationAndPacketRanges() throws {
     let valid: [String: Any] = ["codec": "opus", "sourceSampleCount": 960, "sourceFrameCount": 960,
+        "primingFrameCount": 0,
         "maximumPacketSize": 8, "packetCount": 1,
         "packetDescriptions": [["startOffset": 0, "variableFramesInPacket": 960, "dataByteSize": 8]],
         "data": Data(repeating: 0, count: 8).base64EncodedString()]
     let mutations: [[String: Any]] = [
         ["maximumPacketSize": 0], ["maximumPacketSize": Int.max], ["packetCount": 0],
         ["packetCount": UInt32.max], ["sourceFrameCount": UInt32.max], ["sourceSampleCount": -1],
+        ["primingFrameCount": UInt32.max], ["magicCookie": Data(repeating: 0, count: 16_385).base64EncodedString()],
         ["packetDescriptions": [["startOffset": -1, "variableFramesInPacket": 960, "dataByteSize": 8]]],
         ["packetDescriptions": [["startOffset": 4, "variableFramesInPacket": 960, "dataByteSize": 8]]],
         ["data": Data(repeating: 0, count: 16).base64EncodedString()]
@@ -176,4 +196,50 @@ import Testing
     let bytes = Data([99, 99, 0, 0, 255, 127]).dropFirst(2)
     #expect(try PCM16Codec.decode(bytes) == [0, 1])
     #expect(try PCM16Codec.decode(PCM16Codec.encode([.nan, .infinity])) == [0, 0])
+}
+
+@Test(arguments: CodecIdentifier.allCases, [16_000.0, 24_000.0, 48_000.0])
+func advertisedCodecsMustCarryRealTimeAudio(codec: CodecIdentifier, sampleRate: Double) throws {
+    let format = AudioFormat(sampleRate: sampleRate, channelCount: 1)
+    let count = Int(sampleRate * 0.02)
+    let signal = (0..<count).map { Float(sin(Double($0) * 2 * .pi * 440 / sampleRate) * 0.3) }
+    let configuration = CodecEncodingConfiguration(codec: codec, format: format)
+    let report = CodecRuntimeReport.resolving(configuration)
+    // No skipping unsupported codecs: verify the selected fallback also carries
+    // actual audio, and never advertise a converter that only instantiates.
+    if report.availableCodecs.contains(codec) {
+        #expect(report.selectedCodec == codec)
+        #expect(CodecSupport.isEncodingAvailable(for: configuration))
+    } else {
+        #expect(report.selectedCodec == .pcm16)
+        #expect(report.isFallback)
+        #expect(!CodecSupport.isRoundTripAvailable(for: configuration))
+    }
+    if codec != .mpeg4AACELDv2 { #expect(report.selectedCodec == codec) }
+    let encoded = try CodecEncoder(configuration: report.activeConfiguration).encode(
+        PCMFrame(sequenceNumber: 7, format: format, capturedAt: 10, samples: signal))
+    #expect(encoded.codec == report.selectedCodec)
+    #expect(!encoded.payload.isEmpty)
+    #expect(encoded.payload.count < 8_192)
+    let decoded = try CodecDecoder().decode(encoded)
+    #expect(decoded.samples.count == signal.count)
+    #expect(decoded.samples.allSatisfy { $0.isFinite })
+    let energy = decoded.samples.reduce(Float(0)) { $0 + $1 * $1 } / Float(count)
+    #expect(energy > 0.005, "A successful codec conversion must not return priming silence")
+}
+
+@Test(arguments: [16_000.0, 24_000.0, 48_000.0])
+func opusRoundTripPreservesSpeechAtTheEndOfEachPacket(sampleRate: Double) throws {
+    let format = AudioFormat(sampleRate: sampleRate, channelCount: 1)
+    let count = Int(sampleRate * 0.02)
+    let tail = Int(sampleRate * 0.003)
+    let input = (0..<count).map { index in
+        index < count - tail ? Float(0) : Float(sin(Double(index) * 2 * .pi * 1000 / sampleRate) * 0.6)
+    }
+    let encoded = try CodecEncoder(configuration: .init(codec: .opus, format: format)).encode(
+        PCMFrame(sequenceNumber: 0, format: format, samples: input))
+    let output = try CodecDecoder().decode(encoded).samples
+    #expect(output.count == count)
+    #expect(output.suffix(tail).contains { abs($0) > 0.1 },
+        "Encoder priming must not replace the end of every speech packet")
 }
