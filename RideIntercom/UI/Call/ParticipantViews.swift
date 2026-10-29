@@ -226,7 +226,7 @@ struct RemoteParticipantRowView: View {
     private var codecLabel: String {
         guard let codec = member.activeCodec else { return "--" }
         if codec == .pcm16 { return "PCM 16-bit" }
-        if codec == .mpeg4AACELDv2 { return "AAC-ELD v2" }
+        if codec == .mpeg4AACELD || codec == .mpeg4AACELDv2 { return "AAC-ELD" }
         if codec == .opus { return "Opus" }
         return codec.rawValue
     }

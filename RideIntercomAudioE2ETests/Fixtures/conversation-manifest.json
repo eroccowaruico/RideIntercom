@@ -1,0 +1,67 @@
+{
+  "sampleRate": 48000,
+  "channels": 1,
+  "pausesSeconds": [
+    1,
+    2,
+    3
+  ],
+  "fixtures": [
+    {
+      "name": "conversation-ja",
+      "voice": "Kyoko",
+      "rate": 190,
+      "durationSeconds": 16.382625,
+      "utterances": [
+        {
+          "text": "次の分岐で右に曲がります。速度を落として、間隔を保ってください。",
+          "startSeconds": 0.5,
+          "endSeconds": 5.744958333333333
+        },
+        {
+          "text": "うん",
+          "startSeconds": 6.744958333333333,
+          "endSeconds": 6.9925625
+        },
+        {
+          "text": "ふん",
+          "startSeconds": 8.9925625,
+          "endSeconds": 9.26125
+        },
+        {
+          "text": "了解。前の人が止まったら、こちらも止まります。",
+          "startSeconds": 12.26125,
+          "endSeconds": 15.882625
+        }
+      ]
+    },
+    {
+      "name": "conversation-reply-ja",
+      "voice": "Reed (日本語（日本）)",
+      "rate": 190,
+      "durationSeconds": 14.8876875,
+      "utterances": [
+        {
+          "text": "こちらは聞こえています。後ろからも合図を送ります。",
+          "startSeconds": 0.5,
+          "endSeconds": 4.355979166666667
+        },
+        {
+          "text": "うん",
+          "startSeconds": 5.355979166666667,
+          "endSeconds": 5.749208333333334
+        },
+        {
+          "text": "ふん",
+          "startSeconds": 7.749208333333334,
+          "endSeconds": 8.128875
+        },
+        {
+          "text": "大丈夫です。このままゆっくり進みましょう。",
+          "startSeconds": 11.128875,
+          "endSeconds": 14.3876875
+        }
+      ]
+    }
+  ]
+}

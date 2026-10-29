@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import Synchronization
 import AudioCore
 import AudioMixer
 import Codec
@@ -13,6 +14,7 @@ import PeakLimiter
 
 final class RecordingCallSession: RideIntercom.CallSession {
     var onEvent: ((TransportEvent) -> Void)?
+    var processReceivedAudio: (@Sendable (RTC.ReceivedAudioPacket) -> AudioPacketReception)?
     private(set) var activeRouteDebugTypeName = "RecordingCallSession"
     private(set) var connectedGroup: IntercomGroup?
     private(set) var startMediaCallCount = 0
@@ -23,7 +25,11 @@ final class RecordingCallSession: RideIntercom.CallSession {
     private(set) var outputMuteValues: [Bool] = []
     private(set) var enabledRouteValues: [Set<RTC.RouteKind>] = []
     private(set) var runtimePackageReports: [[RTCRuntimePackageReport]] = []
-    private(set) var sentAudioPackets: [RTC.RTCAudioPacket] = []
+    private nonisolated let audioPackets = Mutex<[RTC.RTCAudioPacket]>([])
+    var sentAudioPackets: [RTC.RTCAudioPacket] { audioPackets.withLock { $0 } }
+    var audioPacketSink: @Sendable (RTC.RTCAudioPacket) -> Void {
+        { [self] packet in audioPackets.withLock { $0.append(packet) } }
+    }
     private(set) var sentControlMessages: [ControlMessage] = []
     private(set) var sentApplicationDataMessages: [ApplicationDataMessage] = []
 
@@ -69,7 +75,7 @@ final class RecordingCallSession: RideIntercom.CallSession {
     }
 
     func sendAudioPacket(_ packet: RTC.RTCAudioPacket) {
-        sentAudioPackets.append(packet)
+        audioPackets.withLock { $0.append(packet) }
     }
 
     func sendControl(_ message: ControlMessage) {
@@ -85,7 +91,7 @@ final class RecordingCallSession: RideIntercom.CallSession {
     }
 
     func receive(_ packet: RTC.ReceivedAudioPacket) {
-        onEvent?(.receivedAudioPacket(packet))
+        onEvent?(.receivedAudioPacket(packet, processReceivedAudio?(packet) ?? .unavailable))
     }
 
     func publishMetrics(_ metrics: RTC.RouteMetrics) {
@@ -95,10 +101,16 @@ final class RecordingCallSession: RideIntercom.CallSession {
 
 final class FakeRTCCallSession: RTC.CallSession {
     var events: AsyncStream<RTC.CallSessionEvent> {
-        lock.lock()
-        hasSubscriberValue = true
-        lock.unlock()
-        return eventStream
+        let id = UUID()
+        let stream = AsyncStream<RTC.CallSessionEvent>.makeStream(bufferingPolicy: .bufferingNewest(256))
+        stream.continuation.onTermination = { [weak self] _ in
+            _ = self?.lock.withLock { self?.subscribers.removeValue(forKey: id) }
+        }
+        lock.withLock {
+            hasSubscriberValue = true
+            subscribers[id] = stream.continuation
+        }
+        return stream.stream
     }
 
     var hasSubscriber: Bool {
@@ -107,19 +119,13 @@ final class FakeRTCCallSession: RTC.CallSession {
         return hasSubscriberValue
     }
 
-    private let eventStream: AsyncStream<RTC.CallSessionEvent>
-    private let continuation: AsyncStream<RTC.CallSessionEvent>.Continuation
+    private var subscribers: [UUID: AsyncStream<RTC.CallSessionEvent>.Continuation] = [:]
     private let lock = NSLock()
     private var hasSubscriberValue = false
 
-    init() {
-        var continuation: AsyncStream<RTC.CallSessionEvent>.Continuation?
-        self.eventStream = AsyncStream { continuation = $0 }
-        self.continuation = continuation!
-    }
-
     func emit(_ event: RTC.CallSessionEvent) {
-        continuation.yield(event)
+        let current = lock.withLock { Array(subscribers.values) }
+        for continuation in current { continuation.yield(event) }
     }
 
     var prepareDelay: Duration = .zero
@@ -162,7 +168,11 @@ final class FakeRTCCallSession: RTC.CallSession {
         if let audioGate { await audioGate.wait() }
         lock.withLock { recordedAudioSequences.append(packet.sequenceNumber) }
     }
-    func sendApplicationData(_ message: RTC.ApplicationDataMessage) async {}
+    private var recordedApplicationData: [RTC.ApplicationDataMessage] = []
+    var sentApplicationDataMessages: [RTC.ApplicationDataMessage] { lock.withLock { recordedApplicationData } }
+    func sendApplicationData(_ message: RTC.ApplicationDataMessage) async {
+        lock.withLock { recordedApplicationData.append(message) }
+    }
     private var recordedPolicies: [RTC.RTCAudioPolicy] = []
     var audioPolicies: [RTC.RTCAudioPolicy] { lock.withLock { recordedPolicies } }
     func updateAudioPolicy(_ policy: RTC.RTCAudioPolicy) async {

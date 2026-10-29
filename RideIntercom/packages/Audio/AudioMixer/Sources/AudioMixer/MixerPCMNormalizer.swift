@@ -89,7 +89,7 @@ enum MixerPCMNormalizer {
 		)
 	}
 
-	private static func convertChannels(
+	static func convertChannels(
 		_ samples: [Float],
 		sourceChannelCount: Int,
 		targetChannelCount: Int
@@ -181,13 +181,19 @@ extension PCMFrame {
 		guard let channelData = buffer.floatChannelData else { return nil }
 		let format = AudioFormat(avAudioFormat: buffer.format)
 		let frameLength = Int(buffer.frameLength)
-		var samples: [Float] = []
-		samples.reserveCapacity(frameLength * format.channelCount)
-		for frameIndex in 0..<frameLength {
-			for channelIndex in 0..<format.channelCount {
-				samples.append(channelData[channelIndex][frameIndex])
-			}
-		}
+		let samples: [Float]
+        if format.channelCount == 1 {
+            samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameLength))
+        } else {
+            var interleaved: [Float] = []
+            interleaved.reserveCapacity(frameLength * format.channelCount)
+            for frameIndex in 0..<frameLength {
+                for channelIndex in 0..<format.channelCount {
+                    interleaved.append(channelData[channelIndex][frameIndex])
+                }
+            }
+            samples = interleaved
+        }
 		self.init(
 			sequenceNumber: sequenceNumber,
 			format: format,
@@ -208,11 +214,17 @@ extension PCMFrame {
 		}
 
 		buffer.frameLength = AVAudioFrameCount(frameCount)
-		for frameIndex in 0..<frameCount {
-			for channelIndex in 0..<format.channelCount {
-				channels[channelIndex][frameIndex] = samples[frameIndex * format.channelCount + channelIndex]
-			}
-		}
+        if format.channelCount == 1 {
+            samples.withUnsafeBufferPointer { input in
+                if let base = input.baseAddress { channels[0].update(from: base, count: frameCount) }
+            }
+        } else {
+            for frameIndex in 0..<frameCount {
+                for channelIndex in 0..<format.channelCount {
+                    channels[channelIndex][frameIndex] = samples[frameIndex * format.channelCount + channelIndex]
+                }
+            }
+        }
 		return buffer
 	}
 }

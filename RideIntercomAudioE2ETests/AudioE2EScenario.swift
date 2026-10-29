@@ -43,13 +43,13 @@ struct AudioE2EScenario: Codable {
         let session = try XCTUnwrap(AudioSessionProfile(rawValue: profile))
         let sensitivity = try XCTUnwrap(VoiceActivitySensitivity(rawValue: vad))
         let requested = AudioCodecIdentifier(rawValue: codec)
-        guard [.pcm16, .opus, .mpeg4AACELDv2].contains(requested) else {
+        guard [.pcm16, .opus, .mpeg4AACELD, .mpeg4AACELDv2].contains(requested) else {
             throw NSError(domain: "AudioE2E.UnknownCodec", code: 1)
         }
         if model.rtcAudioFormatPreset != rate { model.setRTCAudioFormatPreset(rate) }
         if model.preferredTransmitCodec != requested { model.setPreferredTransmitCodec(requested) }
         if codec == "opus", model.opusBitRate != bitRate { model.setOpusBitRate(bitRate) }
-        if codec == "mpeg4AACELDv2", model.aacELDv2BitRate != bitRate { model.setAACELDv2BitRate(bitRate) }
+        if ["mpeg4AACELD", "mpeg4AACELDv2"].contains(codec), model.aacELDv2BitRate != bitRate { model.setAACELDv2BitRate(bitRate) }
         // Exercise the same independent controls as Settings, including speaker
         // with Stream mode and both explicit Echo Cancellation preferences.
         if model.audioSessionModeProfile != session.settingsModeProfile {

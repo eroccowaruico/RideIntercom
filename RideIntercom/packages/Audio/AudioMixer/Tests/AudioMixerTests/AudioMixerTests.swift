@@ -18,6 +18,51 @@ import Testing
 @testable import AudioMixer
 import AVFAudio
 
+@Test func softwareGraphConstructionDoesNotRequestHardwareNodes() throws {
+    let engine = ObservedHardwareEngine()
+    let mixer = AudioMixer(engine: engine)
+    let bus = try mixer.createBus("software")
+    try bus.addSource(AVAudioPlayerNode())
+    try bus.addEffect(AVAudioMixerNode())
+    try mixer.routeToOutput(bus)
+    #expect(engine.inputRequests == 0)
+    #expect(engine.outputRequests == 0)
+}
+
+private final class ObservedHardwareEngine: AVAudioEngine, @unchecked Sendable {
+    var inputRequests = 0
+    var outputRequests = 0
+    override var inputNode: AVAudioInputNode {
+        inputRequests += 1
+        return super.inputNode
+    }
+    override var outputNode: AVAudioOutputNode {
+        outputRequests += 1
+        return super.outputNode
+    }
+}
+
+@Test func bypassedEffectIsRemovedFromRenderPathAndRestoredInOrder() throws {
+    let mixer = AudioMixer()
+    let bus = try mixer.createBus("voice")
+    let first = AVAudioMixerNode()
+    let second = AVAudioMixerNode()
+    try bus.addEffect(first, id: "first", bypassed: true)
+    try bus.addEffect(second, id: "second")
+    func destination(_ node: AVAudioNode) -> AVAudioNode? {
+        mixer.engine.outputConnectionPoints(for: node, outputBus: 0).first?.node
+    }
+    #expect(destination(bus.inputMixer) === second)
+    #expect(destination(first) == nil)
+    try bus.setEffectBypassed(id: "first", bypassed: false)
+    #expect(destination(bus.inputMixer) === first)
+    #expect(destination(first) === second)
+    try bus.setEffectBypassed(id: "first", bypassed: true)
+    #expect(destination(bus.inputMixer) === second)
+    #expect(destination(first) == nil)
+    #expect(bus.effects.count == 2)
+}
+
 @Test func defaultFormatUsesStereoFloat32At48kHz() {
     let mixer = AudioMixer()
 

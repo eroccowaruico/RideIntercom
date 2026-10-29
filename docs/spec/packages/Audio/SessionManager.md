@@ -232,7 +232,7 @@ stateDiagram-v2
 | `AudioSessionOperationReport` | session操作ごとの applied / ignored / failed を返す |
 | `AudioSessionSnapshot` | active状態、利用可能device、現在deviceを返す |
 | `AudioSessionRuntimeEvent` | session operation、configuration report、snapshot change を通知する |
-| `AudioInputStreamCapture` | input tap、OS voice processing、actual hardware PCM 通知を扱う |
+| `AudioInputStreamCapture` | native input sink、OS voice processing、actual hardware PCM 通知を扱う |
 | `AudioOutputStreamRenderer` | output renderer、actual hardware PCM schedule を扱う |
 | `AudioInputStreamConfiguration` | preferred hardware format、buffer frame count、voice processing希望を持つ |
 | `AudioOutputStreamConfiguration` | preferred hardware format を持つ |
@@ -390,7 +390,7 @@ stateDiagram-v2
 | 型 | 入力フィールド | 既定値 | 正規化 | actual hardware format との関係 |
 |---|---|---:|---|---|
 | `AudioInputStreamConfiguration` | `preferredFormat` | `AudioFormat()` | しない | start前の希望値。start後は backend が返す actual hardware format を snapshot に保持する |
-| `AudioInputStreamConfiguration` | `bufferFrameCount` | `128` | `max(1, value)` | input tap の buffer size 希望。PCMのformat変換には使わない |
+| `AudioInputStreamConfiguration` | `bufferFrameCount` | `128` | `max(1, value)` | 入力buffer sizeの希望値。native sinkは実hardware quantumを返す。PCMのformat変換には使わない |
 | `AudioInputStreamConfiguration` | `voiceProcessing` | `AudioInputVoiceProcessingConfiguration()` | voice processing matrix に従う | capture開始前に適用し、running中も更新できる |
 | `AudioOutputStreamConfiguration` | `preferredFormat` | `AudioFormat()` | しない | start前の希望値。start後は output node から actual hardware format を確定する |
 
@@ -574,7 +574,7 @@ flowchart LR
 | 操作 | ハードウェアへのアクセス |
 |---|---|
 | SystemAudioInputStreamBackendのinit | inputNodeを取得しない。VoiceProcessingManagerも必要時まで生成しない |
-| 未開始のstopCapture | 新しくinputNodeを取得せず、既に開いたnodeのtapだけを解除する |
+| 未開始のstopCapture | 新しくinputNodeを取得せず、既に開いたsinkとrender captureだけを解除する |
 | startCapture / iOS voice processing適用 | 初めてinputNodeへアクセスする。App表示だけで音声I/Oを初期化しない |
 
 SimulatorのApp初期表示でAURemoteIOのRPC timeoutによるabortが観測されたため、通話以前のinitから入力デバイス取得を除去した。engine spyの取得回数がinit・反復stopの前後でゼロであることを単体テストで確認する。実I/O開始時のOS音声サービス障害をこのテストだけで解決済みとは扱わない。
@@ -585,7 +585,7 @@ SimulatorのApp初期表示でAURemoteIOのRPC timeoutによるabortが観測さ
 |---|---|
 | 停止中の `updateVoiceProcessing` | 希望設定を保存し、reportは `.ignored(.alreadyStopped)`。backendを開かない |
 | 次の `start` | 保存した最新設定をbackendへ適用してからcapture開始 |
-| 実行中の設定変更 | 同じvoice processing I/Oモードでは即時反映。I/Oモードが変わる場合はcaptureを停止し、最新設定を適用してtapとhardware formatを取り直して再開する |
+| 実行中の設定変更 | 同じvoice processing I/Oモードでは即時反映。I/Oモードが変わる場合はcaptureを停止し、最新設定を適用してsinkとhardware formatを取り直して再開する |
 
 Simulator UIの待受中ミュート操作でAURemoteIO初期化がRPC timeoutによりabortする事象を確認した。停止中の設定変更による不要なI/O初期化を排除し、実際の録音開始と分離する。
 
@@ -614,4 +614,18 @@ SessionManagerは受け取ったhardware formatのPCMを予約するだけで、
 
 実時間再生の予約量は、playerの`lastRenderTime`が示す過去のrender境界から現在のhost時刻までを補正して見積もる。既に経過したquantumを未再生として数え、通常のbatchを誤って破棄しない。停止中・manual rendering中はhost時刻で進めず、明示されたplayer sample時計を用いる。
 
+未再生の発話がなく、新frameも無音（RMS 0.0001未満かつpeak 0.001未満）の場合は、上限未満でも蓄積した待ちを解消する。10msまたは新frame長を超えた無音予約を`.interrupts`で置換し、そのbufferと後続bufferへ新しいsample時刻を指定する。`at:nil`だけでは破棄した予約の旧末尾が後続に残る場合がある。実時間では現在のrenderとの競合を避けるため新frameの1quantum分を確保し、同期manual renderingでは現在位置から予約する。playerもdevice engineも停止・再起動しない。発話が未再生ならこの短縮を行わない。
+
 `AudioOutputStreamRenderer.start(configuration:)`は停止中の開始時に指定設定を適用する。省略時は保持している設定を使う。既に開始済みなら`alreadyRunning`として無視し、実行中の設定を書き換えない。停止後の再開始で用途別の出力予算へ変更でき、実適用した設定をrendererから取得できる。
+
+## Native quantumでの入力
+
+SystemAudioInputStreamBackendはinput nodeからAVAudioSinkNodeへ接続する。render callbackは事前確保AudioRenderCaptureへコピーし、非render threadでPCMFrame化する。約100msに集約されるinput tapは使わない。droppedCaptureFrameCountでring overflowを計上する。停止時はrender captureの未配信frameを破棄し、engineを止めてからnodeを切断する。既に実行中のcallbackはcapture世代で拒否する。
+
+AudioSessionConfiguration / ResolvedAudioSessionConfigurationはpreferredSampleRate（既定48,000Hz、8,000〜96,000Hz）とpreferredIOBufferDuration（既定128/48,000秒、1〜100ms）を保持する。iOSではsession有効化前に希望値を適用する。これはOSへの要求であり、実sample rate・quantumはhardwareが返す値を使う。voice processingの構成とcapture開始を分離し、同じIOモード内の設定を不要に再起動しない。
+
+## 出力graphの共有
+
+AVFAudio環境では`AudioOutputStreamBackend.renderingEngine`とrendererの同名propertyが既存の出力engineを返す。処理graphを同じdevice clockへ直接接続でき、別engineからPCMを再予約する待ちを避けられる。System backendは自身のengineを返し、engineを持たないbackendの既定値はnil。外部のgraphは開始前に接続し、その所有者が終了時に解放する。System backendのplayerは既存のmain mixer入力を上書きしない。PCMの`schedule`契約も維持するが、直接接続した音声を重複してscheduleしない。
+
+`AudioInputVoiceProcessingManager`は最初のconfigureでは全項目を適用し、以後は変更したnative propertyだけを更新する。ducking levelの変化だけで入力mute・bypass・I/O modeを再設定しない。I/O modeが変わる場合は関連設定を再適用し、一部の呼び出しが失敗した場合も次回は全項目を再適用する。成功するまで公開configurationを更新しない。

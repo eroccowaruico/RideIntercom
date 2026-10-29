@@ -18,6 +18,7 @@ public final class AudioMixer {
 	private var parentByChildID: [String: String] = [:]
 	private var destinationInputBusIndexByChildID: [String: Int] = [:]
 	private var outputBusID: String?
+    private let renderClock = MixerRenderClock()
 
 	public init(engine: AVAudioEngine = AVAudioEngine(), format: AVAudioFormat = AudioMixer.defaultFormat) {
 		self.engine = engine
@@ -62,6 +63,19 @@ public final class AudioMixer {
 		)
 	}
 
+    private func resetSources(feeding busID: String) {
+        // A live topology change invalidates native player reservations even
+        // when isPlaying remains true. Reset only this subtree, leaving other
+        // peers and other owners on a shared engine untouched.
+        var affected = [busID]
+        var index = 0
+        while index < affected.count {
+            affected += parentByChildID.filter { $0.value == affected[index] }.map(\.key)
+            index += 1
+        }
+        for id in affected { buses[id]?.resetPCMSourceClocks() }
+    }
+
 	@discardableResult
 	public func createBus(_ id: String) throws -> MixerBus {
 		guard !id.isEmpty else {
@@ -72,7 +86,9 @@ public final class AudioMixer {
 			return existing
 		}
 
-		let bus = MixerBus(id: id, engine: engine, format: format, audioFormat: audioFormat)
+		let bus = MixerBus(id: id, engine: engine, format: format, audioFormat: audioFormat, renderClock: renderClock) { [weak self] in
+            self?.resetSources(feeding: id)
+        }
 		engine.attach(bus.inputMixer)
 		engine.attach(bus.faderMixer)
 		bus.rebuildChain()

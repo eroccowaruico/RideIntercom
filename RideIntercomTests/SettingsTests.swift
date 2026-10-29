@@ -29,25 +29,25 @@ struct SettingsTests {
         #expect(mutedMasterBus?.volume == 0)
     }
 
-    @Test func viewModelKeepsCodecUISettingsAsRequestedValues() {
+    @Test func codecUISelectsAnActualAACBitrateWithoutPCMFallback() {
         let harness = AppTestSupport.makeHarness()
 
-        #expect(harness.viewModel.preferredTransmitCodec == .mpeg4AACELDv2)
-        #expect(harness.viewModel.aacELDv2BitRate == 32_000)
+        #expect(harness.viewModel.preferredTransmitCodec == .mpeg4AACELD)
+        #expect(harness.viewModel.aacELDv2BitRate == 48_000)
         #expect(harness.viewModel.opusBitRate == 32_000)
-        #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(.mpeg4AACELDv2))
+        #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(.mpeg4AACELD))
         #expect(harness.callSession.audioPolicies.last?.preferredSendFormat == RTC.RTCAudioFormat(audioFormat: .intercomPacketAudio))
 
-        harness.viewModel.setPreferredTransmitCodec(.mpeg4AACELDv2)
+        harness.viewModel.setPreferredTransmitCodec(.mpeg4AACELD)
         harness.viewModel.setAACELDv2BitRate(11_000)
         harness.viewModel.setOpusBitRate(129_000)
 
-        #expect(harness.viewModel.preferredTransmitCodec == .mpeg4AACELDv2)
-        #expect(harness.viewModel.aacELDv2BitRate == 12_000)
+        #expect(harness.viewModel.preferredTransmitCodec == .mpeg4AACELD)
+        #expect(harness.viewModel.aacELDv2BitRate == 48_000)
         #expect(harness.viewModel.opusBitRate == 128_000)
         #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(
-            .mpeg4AACELDv2,
-            options: AppAudioCodecOptions(aacELDv2BitRate: 12_000, opusBitRate: 128_000)
+            .mpeg4AACELD,
+            options: AppAudioCodecOptions(aacELDv2BitRate: 48_000, opusBitRate: 128_000)
         ))
     }
 
@@ -100,27 +100,27 @@ struct SettingsTests {
         #expect(harness.viewModel.vadSensitivity == .noisy)
         #expect(harness.viewModel.preferredTransmitCodec == .opus)
         #expect(harness.viewModel.rtcAudioFormatPreset == .mono16k)
-        #expect(harness.viewModel.aacELDv2BitRate == 12_000)
+        #expect(harness.viewModel.aacELDv2BitRate == 48_000)
         #expect(harness.viewModel.opusBitRate == 128_000)
         #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(
             .opus,
             format: RTCAudioFormatPreset.mono16k.audioFormat,
-            options: AppAudioCodecOptions(aacELDv2BitRate: 12_000, opusBitRate: 128_000)
+            options: AppAudioCodecOptions(aacELDv2BitRate: 48_000, opusBitRate: 128_000)
         ))
         #expect(harness.callSession.audioPolicies.last?.preferredSendFormat == RTC.RTCAudioFormat(audioFormat: RTCAudioFormatPreset.mono16k.audioFormat))
 
         harness.viewModel.setAudioSessionProfile(.echoCancelledInput)
         harness.viewModel.setVADSensitivity(.lowNoise)
-        harness.viewModel.setPreferredTransmitCodec(.mpeg4AACELDv2)
+        harness.viewModel.setPreferredTransmitCodec(.mpeg4AACELD)
         harness.viewModel.setRTCAudioFormatPreset(.mono24k)
         harness.viewModel.setAACELDv2BitRate(40_000)
 
         let saved = settingsStore.load()
         #expect(saved.audioSessionProfile == .echoCancelledInput)
         #expect(saved.vadSensitivity == .lowNoise)
-        #expect(saved.preferredTransmitCodec == .mpeg4AACELDv2)
+        #expect(saved.preferredTransmitCodec == .mpeg4AACELD)
         #expect(saved.rtcAudioFormatPreset == .mono24k)
-        #expect(saved.aacELDv2BitRate == 40_000)
+        #expect(saved.aacELDv2BitRate == 32_000)
         #expect(saved.opusBitRate == 128_000)
     }
 

@@ -24,8 +24,8 @@ struct AppSettings: Equatable {
         self.vadSensitivity = vadSensitivity
         self.preferredTransmitCodec = preferredTransmitCodec
         self.rtcAudioFormatPreset = rtcAudioFormatPreset
-        self.aacELDv2BitRate = Codec.AACELDv2Options(bitRate: aacELDv2BitRate).bitRate
-        self.opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
+        self.aacELDv2BitRate = AppAudioCodecBridge.normalizedAACBitRate(aacELDv2BitRate, format: rtcAudioFormatPreset.audioFormat)
+        self.opusBitRate = AppAudioCodecBridge.normalizedOpusBitRate(opusBitRate, format: rtcAudioFormatPreset.audioFormat)
         self.enabledRTCTransportRoutes = IntercomViewModel.normalizedRTCTransportRoutes(enabledRTCTransportRoutes)
     }
 }
@@ -104,8 +104,9 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
         guard let rawValue = defaults.string(forKey: preferredTransmitCodecKey) else {
             return IntercomViewModel.defaultTransmitCodec
         }
-        let codec = AudioCodecIdentifier(rawValue: rawValue)
-        guard [.pcm16, .mpeg4AACELDv2, .opus].contains(codec) else {
+        // Migrate the former mono-incompatible AAC preference to AAC ELD.
+        let codec: AudioCodecIdentifier = rawValue == "mpeg4AACELDv2" ? .mpeg4AACELD : .init(rawValue: rawValue)
+        guard [.pcm16, .mpeg4AACELD, .opus].contains(codec) else {
             return IntercomViewModel.defaultTransmitCodec
         }
         return codec

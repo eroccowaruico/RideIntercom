@@ -230,7 +230,7 @@ source nodes / child buses
 | source node | capture PCM、decoded peer PCM、test PCM の入口 |
 | input mixer | source と child bus の合流点 |
 | effect chain | VAD、Dynamics、Limiter、SoundIsolation などを順序付きに接続する |
-| fader mixer | bus volume、sink tap、parent/output route の起点 |
+| fader mixer | bus volume、render capture、parent/output route の起点 |
 | sink node | send PCM、output PCM、monitor PCM の出口 |
 
 ```mermaid
@@ -327,7 +327,7 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 |---|---|---|
 | `formatCreationFailed` | AudioCore `AudioFormat` から `AVAudioFormat` を作れない | throw |
 | `pcmSourceScheduleFailed` | source frameをbus formatへ正規化またはbuffer化できない | source `lastFailure`, normalization report |
-| `pcmSinkInstallFailed` | sink tap / callback setupに失敗 | throw |
+| `pcmSinkInstallFailed` | render notify / callback setupに失敗 | throw |
 | `AudioProcessingReport.failed` | source ingress / sink egress の正規化失敗 | source / sink snapshot |
 | routing系error | graph制約違反 | throw |
 
@@ -393,7 +393,7 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 
 ## 所有権と資源解放
 
-Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ。tap由来のsink診断更新はlockで保護し、利用者callbackはlockを外して呼ぶ。sink登録時は有効なformatと正のbuffer frame数を要求する。
+Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ。render通知はAudioRenderCaptureで非render threadへ渡す。sinkの更新・正規化・transition・callbackは再帰lockで直列化し、設定変更とsample処理の競合を防ぐ。sink登録時は有効なformatと正のbuffer frame数を要求する。
 
 `removeBus(id)`は対象busのsource/player/fader/effect/tapを停止・detachし、関連routeを除く。対象へ入力していた別bus自体は残し、再route可能にする。削除したbus/sourceへの参照は破棄し再利用しない。他のbusは継続する。参加者の入れ替わりに伴うノード蓄積を防げる。
 
@@ -403,8 +403,8 @@ Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ
 
 | 項目 | 契約 |
 |---|---|
-| `installPCMSink(maximumFrameDuration:)` | nilは従来どおりtap単位。有限の0超〜1秒を指定すると、その時間以下のPCMへ分割して通知する |
-| `bufferFrameCount` | OSへのtapサイズ希望。OSが大きいbufferを返す場合も最大時間はpackage側で守る |
+| `installPCMSink(maximumFrameDuration:)` | nilはnative render quantum単位。有限の0超〜1秒を指定すると、その時間以下のPCMへ分割して通知する |
+| `bufferFrameCount` | 正の値を要求する。現在のnative render通知はOSのquantumを使うため、callback周期の保証値ではない |
 | 分割 | sampleを欠落・重複させず、sample位置に応じたtimestampと単調増加sequenceを付ける。各片をtarget formatへ変換する |
 | report | 各片の正規化結果を通知し、emittedFrameCountは分割後の通知数を示す |
 
@@ -431,3 +431,39 @@ Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ
 実時間modeでは`playerTime`の最後のrender境界から現在のhost時刻までを補正し、予約量と収録時刻の上限判定へ使う。offline・停止中は補正しない。境界の古さだけで正常な予約を過負荷または時計不連続として破棄しない。
 
 収録時刻再生のsourceは、`start()`で開始を要求し、最初のbufferを予約してからplayerを開始する。最初の収録時刻とplayerのsample 0を同時に確立し、音声到着前の負の再生位置を基準にしない。開始済みの`start()`は時計を再起動せず、`stop()`は開始要求と収録時計を解除する。通常の連続予約sourceの開始方法は維持する。
+
+## 低遅延の連続処理
+
+| API / 境界 | 契約 |
+|---|---|
+| AudioFrameProcessor | 単一の直列ownerからprocessを呼ぶ。graph構築前にoffline manual renderingへ入り、AVAudioSourceNodeが現在の入力bufferを同期供給する。native Audio Unit chainをoffline renderし、hardware出力・playerの非同期queueを持たない。software node検査はengineのinputNode/outputNodeを取得せず、不要なdevice I/O初期化を避ける |
+| installPCMSink(packetDuration:) | 指定時間までだけ蓄積して送る。入力formatで先にpacket化してから変換し、任意hardware quantumごとの丸めでsample数を増減させない |
+| installPCMSink(maximumFrameDuration:) | 蓄積を待たず即時配送し、長過ぎるframeだけ分割する |
+| RenderCaptureNode | unity EQのpost-render notifyからAudioRenderCaptureへコピーする。installTapによる約100ms集約を使わない。notify登録失敗はthrow |
+| MixerPCMStreamNormalizer | 変換位相と前sampleをframe間で保持し、境界のplateauと累積時計ずれを防ぐ |
+| updateOutputFormat / updatePCMSinkFormat | sink targetだけ更新。effect履歴・未完の入力packet・受信graphを維持 |
+| setEffectBypassed | 無効effectを経路から外し、native graphの不要なlatency補償を避ける |
+| beginSinkTransition | native処理遅延だけフェード付き無音へ切替。queue・繰り返し・伸縮を追加しない |
+| droppedCaptureFrameCount | render配送ringのoverflowを累計。診断値であり通常のframeごとのログにはしない |
+
+adaptivePlayoutは相手ごとのcapture clockとsample clockを対応付け、連続frame（2sample以内）は末尾へ正確につなぐ。遅れた到着は未再生発話を切らず再基準化し、250msを超える省略無音からの復帰では古い待ちを持ち越さない。既に発話を出力し終えた無音区間だけ、余分な予約を短縮できる。無音はRMSが0.0001未満かつpeakが0.001未満で判断し、圧縮codecの小さな尾で遅延を固定しない。通常の発話は置換しない。
+
+## 無音の滞留と入力バッチ
+
+適応再生は、隣接した10ms packetが20msの入力callbackからまとめて届く場合に、その通常の予約を短縮しない。無音の短縮は開始余裕に加えて20msまたは2 packet分を超える予約がある場合に開始し、滞留を検出した同一無音バーストの残りだけを集約する。通常の時計位置へ戻るか発話を受けると集約を終了する。未再生の発話は短縮しない。これは新しい固定待機を追加する処理ではなく、過剰な短縮による発話位置の揺れを防ぐ条件である。
+
+## 設定切替の実出力
+
+render captureを持つbusの`beginSinkTransition`は、post-renderの実PCMに2msのfade-out、指定した整定時間、2msのfade-inを適用する。hardware outputと全sinkは同じ変更後のPCMを観測し、計測用コピーだけを加工しない。render threadは事前確保したchannel別状態とatomicな切替要求だけを使う。同期processorのbusは従来どおりsinkで同じ境界処理を行う。定常時のPCM・frame数・時刻は変更しない。
+
+整定時間後もnative処理が無音を返している場合、fade-inを使い切らず、実際に戻った最初のsampleから適用する。sampleを保持・再送・後方移動せず、停止時間の長さを増やさない。
+
+native設定呼び出しの所要時間がまだ分からない間は、`holding: true`でfade-out後の無音を維持する。呼び出しの完了後、初期化済みnodeから得た整定時間で同じAPIを再度呼び、保護を解除する。失敗時にも解除が必要であり、Appは`defer`で行う。この間のPCMを後から再生するqueueは作らない。
+
+稼働中のeffect接続変更は、`AVAudioPlayerNode.isPlaying`がtrueのまま既存の再生予約を無効にすることがある。変更busへ流入するsourceだけを停止して予約とcapture時計を破棄し、次の新しいPCMで再開する。停止中だったsourceは自動開始しない。別の経路や別ownerのsourceは初期化しない。ただし共有engineのnative graph切替区間には他経路にも短い無音が生じ得るため、呼び出し側は最終出力のtransitionを要求する。通常packet到着時の遅延回復ではstop/playを使わない。
+
+adaptive再生はcapture時計に対応する明示時刻を使う。render captureで観測したnative描画ブロックの長さを共有し、`lastRenderTime`の開始位置ではなく、すでに描画済みの終端を再生予約の下限とする。host時刻が未来のrenderでも、そのブロックを未処理とは扱わない。単なる連続追記と絶対時刻を混在させず、実予約と待ち時間診断を同じ時計へ揃える。
+
+無音予約を置換できるかの判定には、この未来の予約下限を使わない。最後の有声音が確実に終わったことをplayerの確定位置で確認する。描画中のブロックに残っている語尾を、無音の置換で取り消さない。
+
+受信PCM sourceもstream単位で再サンプリングの位相と直前sampleを保持する。16/24/44.1kHzから48kHzへ上げる際、packet末尾を複製して埋めない。次packetの先頭との補間に必要な1 sample未満の入力時間だけ継続し、正規化後のcapture時刻で予約する。stop・時計不連続・format変更で履歴を破棄する。

@@ -10,6 +10,7 @@ import CoreAudio
 
 public final class AudioInputVoiceProcessingManager {
     private let backend: AudioInputVoiceProcessingBackend
+    private var appliedConfiguration: AudioInputVoiceProcessingConfiguration?
     public private(set) var configuration: AudioInputVoiceProcessingConfiguration
 
     public init(
@@ -21,16 +22,26 @@ public final class AudioInputVoiceProcessingManager {
     }
 
     public func configure(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
-        try backend.setVoiceProcessingEnabled(configuration.voiceProcessingEnabled)
-        try backend.setAdvancedDucking(
-            enabled: configuration.advancedDuckingEnabled,
-            level: configuration.resolvedDuckingLevel
-        )
-        if configuration.voiceProcessingEnabled {
+        let previous = appliedConfiguration
+        // A partial failure leaves native state unknown. The next request must
+        // reapply the complete configuration, even if it returns to the old one.
+        appliedConfiguration = nil
+        let changesIO = previous?.voiceProcessingEnabled != configuration.voiceProcessingEnabled
+        if changesIO { try backend.setVoiceProcessingEnabled(configuration.voiceProcessingEnabled) }
+        if changesIO || previous?.advancedDuckingEnabled != configuration.advancedDuckingEnabled
+            || previous?.resolvedDuckingLevel != configuration.resolvedDuckingLevel {
+            try backend.setAdvancedDucking(enabled: configuration.advancedDuckingEnabled,
+                level: configuration.resolvedDuckingLevel)
+        }
+        if configuration.voiceProcessingEnabled,
+           changesIO || previous?.voiceProcessingBypassed != configuration.voiceProcessingBypassed {
             try backend.setVoiceProcessingBypassed(configuration.voiceProcessingBypassed)
         }
-        try backend.setInputMuted(configuration.inputMuted)
+        if changesIO || previous?.inputMuted != configuration.inputMuted {
+            try backend.setInputMuted(configuration.inputMuted)
+        }
         self.configuration = configuration
+        appliedConfiguration = configuration
     }
 
     public func setInputMuted(_ muted: Bool) throws {

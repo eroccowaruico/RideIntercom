@@ -141,6 +141,11 @@ public extension AudioInputStreamBackend {
 }
 
 public protocol AudioOutputStreamBackend: AnyObject {
+    #if canImport(AVFAudio)
+    /// Optional graph destination. A mixer on this engine renders directly on
+    /// the output device clock instead of crossing a second PCM player queue.
+    var renderingEngine: AVAudioEngine? { get }
+    #endif
     var bufferedOutputDuration: TimeInterval? { get }
     var playbackResetCount: Int? { get }
     func startRendering(configuration: AudioOutputStreamConfiguration) throws -> AudioFormat
@@ -149,6 +154,9 @@ public protocol AudioOutputStreamBackend: AnyObject {
 }
 
 public extension AudioOutputStreamBackend {
+    #if canImport(AVFAudio)
+    var renderingEngine: AVAudioEngine? { nil }
+    #endif
     var bufferedOutputDuration: TimeInterval? { nil }
     var playbackResetCount: Int? { nil }
 }

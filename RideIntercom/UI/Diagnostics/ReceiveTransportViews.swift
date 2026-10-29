@@ -202,7 +202,7 @@ struct ReceivePeerCodecChip: View {
     private func codecLabel(_ codec: AudioCodecIdentifier?) -> String {
         guard let codec else { return "Unknown" }
         if codec == .pcm16 { return "PCM" }
-        if codec == .mpeg4AACELDv2 { return "AAC" }
+        if codec == .mpeg4AACELD || codec == .mpeg4AACELDv2 { return "AAC" }
         if codec == .opus { return "Opus" }
         return codec.rawValue
     }

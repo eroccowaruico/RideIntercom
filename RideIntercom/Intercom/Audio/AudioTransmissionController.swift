@@ -2,11 +2,12 @@ import AudioCore
 import Foundation
 import VADGate
 
-struct AudioTransmissionController {
+nonisolated struct AudioTransmissionController {
     static let defaultVADSensitivity = VoiceActivitySensitivity.standard
 
     private struct CapturedFrame {
         let frame: PCMFrame
+        var isSpeech: Bool
     }
 
     private let vadGate: VADGate
@@ -14,7 +15,6 @@ struct AudioTransmissionController {
     private let keepaliveIntervalFrames: Int
     private var preRoll: [CapturedFrame] = []
     private var framesSinceKeepalive = 0
-    private var wasSendingVoice = false
     private(set) var lastAnalysis: VADGateAnalysis?
 
     var runtimeSnapshot: VADGateRuntimeSnapshot {
@@ -33,25 +33,20 @@ struct AudioTransmissionController {
 
     mutating func process(frame: PCMFrame, level: Float) -> [OutboundAudioPacket] {
         let analysis = analyze(level: level, frame: frame)
-        var packets: [OutboundAudioPacket] = []
-
+        preRoll.append(CapturedFrame(frame: frame, isSpeech: analysis.state == .speech))
         if analysis.state == .speech {
-            if !wasSendingVoice {
-                packets.append(contentsOf: preRoll.map { .voice($0.frame) })
-                preRoll.removeAll(keepingCapacity: true)
-            }
-            packets.append(.voice(frame))
+            // Classify the held onset once the attack is confirmed, but keep
+            // the same lookahead during speech and silence. Flushing this queue
+            // at each onset changes packet phase and underruns a low-delay peer.
+            for index in preRoll.indices { preRoll[index].isSpeech = true }
             framesSinceKeepalive = 0
-            wasSendingVoice = true
         } else {
-            appendToPreRoll(frame)
             framesSinceKeepalive += 1
-            wasSendingVoice = false
-
-            if framesSinceKeepalive >= keepaliveIntervalFrames {
-                packets.append(.keepalive)
-                framesSinceKeepalive = 0
-            }
+        }
+        var packets = releaseCompletedLookahead()
+        if framesSinceKeepalive >= keepaliveIntervalFrames {
+            packets.append(.keepalive)
+            framesSinceKeepalive = 0
         }
 
         return packets
@@ -59,32 +54,47 @@ struct AudioTransmissionController {
 
     mutating func applyVADSensitivity(_ sensitivity: VoiceActivitySensitivity) {
         vadGate.apply(configuration: sensitivity.configuration)
+        reset()
+    }
+
+    mutating func reset() {
         vadGate.reset()
         lastAnalysis = nil
         preRoll.removeAll()
         framesSinceKeepalive = 0
-        wasSendingVoice = false
     }
 
-    private mutating func appendToPreRoll(_ frame: PCMFrame) {
-        preRoll.append(CapturedFrame(frame: frame))
+    private mutating func releaseCompletedLookahead() -> [OutboundAudioPacket] {
+        var retired: [CapturedFrame] = []
         if preRoll.count > preRollLimit {
+            retired.append(contentsOf: preRoll.prefix(preRoll.count - preRollLimit))
             preRoll.removeFirst(preRoll.count - preRollLimit)
         }
-        // Retain the VAD attack window, not a fixed number of hardware batches.
-        // iOS can deliver 100 ms at once: 20 such batches would replay 2 seconds
-        // and repeatedly overflow the live mixer when speech resumes.
+        // The bounded attack window advances at a constant cadence. A large
+        // hardware batch must not turn a frame-count limit into seconds of audio.
         func duration(_ captured: CapturedFrame) -> TimeInterval {
             let format = captured.frame.format
             guard format.isValid else { return 0 }
             return Double(captured.frame.frameCount) / format.sampleRate
         }
         var retained = preRoll.reduce(0) { $0 + duration($1) }
-        let attack = vadGate.configuration.attackDuration
-        while preRoll.count > 1, let first = preRoll.first,
-              retained - duration(first) >= attack {
+        // Analysis has already consumed the current frame. Only the portion of
+        // the attack preceding it needs lookahead: a 20 ms capture already
+        // satisfies a 10 ms attack, while 5 ms captures retain the preceding
+        // 5 ms. Keep that same cadence during speech and silence.
+        let lookahead = max(0, vadGate.configuration.attackDuration - (preRoll.last.map(duration) ?? 0))
+        while let first = preRoll.first, retained - duration(first) >= lookahead - 1e-9 {
             retained -= duration(first)
+            retired.append(first)
             preRoll.removeFirst()
+        }
+        // Closed VAD emits clock-preserving silence. Confirmed onset and tail
+        // frames remain voice even when the current gate later closes.
+        return retired.map { captured in
+            if captured.isSpeech { return .voice(captured.frame) }
+            var silence = captured.frame
+            silence.samples = Array(repeating: 0, count: silence.samples.count)
+            return .silence(silence)
         }
     }
 

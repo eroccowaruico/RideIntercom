@@ -12,6 +12,9 @@ public final class AudioOutputStreamRenderer {
     private var scheduledFrameCount: UInt64 = 0
     private var actualHardwareFormat: AudioFormat
     public private(set) var configuration: AudioOutputStreamConfiguration
+    #if canImport(AVFAudio)
+    public var renderingEngine: AVAudioEngine? { backend.renderingEngine }
+    #endif
 
     public init(
         configuration: AudioOutputStreamConfiguration = AudioOutputStreamConfiguration(),

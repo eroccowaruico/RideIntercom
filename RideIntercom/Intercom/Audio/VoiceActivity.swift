@@ -1,7 +1,7 @@
 import Foundation
 import VADGate
 
-enum VoiceActivitySensitivity: String, CaseIterable, Identifiable, Sendable {
+nonisolated enum VoiceActivitySensitivity: String, CaseIterable, Identifiable, Sendable {
     case lowNoise
     case standard
     case noisy
@@ -23,16 +23,16 @@ enum VoiceActivitySensitivity: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .lowNoise:
             VADGateConfiguration(
-                attackDuration: 0.04,
+                attackDuration: 0.01,
                 releaseDuration: 0.45,
                 speechThresholdOffsetDB: 8,
                 silenceThresholdOffsetDB: 5
             )
         case .standard:
-            VADGateConfiguration()
+            VADGateConfiguration(attackDuration: 0.01)
         case .noisy:
             VADGateConfiguration(
-                attackDuration: 0.12,
+                attackDuration: 0.02,
                 releaseDuration: 0.65,
                 speechThresholdOffsetDB: 16,
                 silenceThresholdOffsetDB: 10

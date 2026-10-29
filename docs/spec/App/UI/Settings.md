@@ -71,9 +71,9 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 状態 |
 |---|---|---|---|---|---|---|---|
-| 送信コーデック選択 | `transmitCodecPanel` | `transmitCodecPicker` | `Codec` | `preferredTransmitCodec`。既定は `AAC-ELD v2` | 常時 | `Picker(.segmented)`。`PCM 16-bit`、`AAC-ELD v2`、`Opus` | ユーザーが要求する codec |
-| AAC-ELD v2 bitrate | `transmitCodecPanel` | `aacELDv2BitRateStepper` | `AAC-ELD v2 Bitrate` | `Int`, `12_000...128_000`。既定 32 kbps | `preferredTransmitCodec == .mpeg4AACELDv2` | `Stepper`、kbps 表示 | Codec package の正規化後の値を表示 |
-| Opus bitrate | `transmitCodecPanel` | `opusBitRateStepper` | `Opus Bitrate` | `Int`, `6_000...128_000`。既定 32 kbps | `preferredTransmitCodec == .opus` | `Stepper`、kbps 表示 | Codec package の正規化後の値を表示 |
+| 送信コーデック選択 | `transmitCodecPanel` | `transmitCodecPicker` | `Codec` | `preferredTransmitCodec`。既定は `AAC-ELD` | 常時 | `Picker(.segmented)`。`PCM 16-bit`、`AAC-ELD`、`Opus` | ユーザーが要求する codec |
+| AAC-ELD bitrate | `transmitCodecPanel` | `aacELDBitRatePicker` | `AAC-ELD Bitrate` | `Int`。sample rate別のOS対応値と品質下限を満たす選択肢。既定48kbps | `preferredTransmitCodec == .mpeg4AACELD` | `Picker`、kbps 表示 | sample rate別のnative対応値と音声品質下限を表示 |
+| Opus bitrate | `transmitCodecPanel` | `opusBitRateStepper` | `Opus Bitrate` | `Int`。16kHzは16〜128kbps、24/48kHzは24〜128kbps。既定32kbps | `preferredTransmitCodec == .opus` | `Stepper`、kbps 表示 | Codec package の正規化後の値を表示 |
 
 | RTC Audio選択 | `transmitCodecPanel` | `rtcAudioFormatPicker` | `RTC Audio` | `.mono48k` / `.mono24k` / `.mono16k`、既定48kHz mono | 常時 | segmented Picker | 稼働中は共通音声pipelineを再構築。hardware sample rateとは別 |
 

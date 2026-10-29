@@ -80,6 +80,7 @@ final class FakeAudioSessionBackend: AudioSessionBackend {
 }
 
 final class FakeVoiceProcessingBackend: AudioInputVoiceProcessingBackend {
+    var failDucking = false
     enum Event: Equatable {
         case setVoiceProcessingEnabled(Bool)
         case setVoiceProcessingBypassed(Bool)
@@ -99,6 +100,7 @@ final class FakeVoiceProcessingBackend: AudioInputVoiceProcessingBackend {
 
     func setAdvancedDucking(enabled: Bool, level: AudioSessionDuckingLevel) throws {
         events.append(.setAdvancedDucking(enabled: enabled, level: level))
+        if failDucking { throw AudioStreamError.engineOperationFailed("Injected ducking failure") }
     }
 
     func setInputMuted(_ muted: Bool) throws {

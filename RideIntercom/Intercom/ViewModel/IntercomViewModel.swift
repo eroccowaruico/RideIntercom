@@ -20,9 +20,9 @@ final class IntercomViewModel {
     nonisolated static let defaultAudioSessionProfile = AudioSessionProfile.echoCancelledInput
     nonisolated static let defaultDuckOthersEnabled = true
     nonisolated static let defaultVADSensitivity = VoiceActivitySensitivity.standard
-    nonisolated static let defaultTransmitCodec: AudioCodecIdentifier = .mpeg4AACELDv2
+    nonisolated static let defaultTransmitCodec: AudioCodecIdentifier = .mpeg4AACELD
     nonisolated static let defaultRTCAudioFormatPreset: RTCAudioFormatPreset = .mono48k
-    nonisolated static let defaultAACELDv2BitRate = 32_000
+    nonisolated static let defaultAACELDv2BitRate = 48_000
     nonisolated static let defaultOpusBitRate = 32_000
     nonisolated static let supportedRTCTransportRoutes = AppRTCTransportRoutePolicy.supportedRoutes
     nonisolated static let defaultEnabledRTCTransportRoutes: Set<RTC.RouteKind> = supportedRTCTransportRoutes
@@ -144,7 +144,8 @@ final class IntercomViewModel {
     let remoteTalkerTimeout: TimeInterval
     var inputFrameDelivery: AudioFrameDelivery?
     let audioPipeline: AppAudioPipeline
-    var audioTransmissionController: AudioTransmissionController
+    var transmitPacketCounterBaseline = 0
+    var lastObservedKeepaliveCount = 0
     var audioSessionSnapshot: SessionManager.AudioSessionSnapshot
     var remoteVoiceReceivedAt: [String: TimeInterval] = [:]
     var localVoicePeakWindow = VoicePeakWindow()
@@ -158,7 +159,6 @@ final class IntercomViewModel {
     var audioGeneration = UUID()
     var audioCheckTask: Task<Void, Never>?
     var audioCheckOwnsAudioPipeline = false
-    var nextAudioFrameID = 1
     var isOtherAudioDuckingActiveInternal = false
     var lastAudioSessionConfigurationReport: SessionManager.AudioSessionConfigurationReport?
     var lastAudioSessionActivationReport: SessionManager.AudioSessionOperationReport?
@@ -218,10 +218,17 @@ final class IntercomViewModel {
         self.callSession = callSession ?? RideIntercomCallSessionAdapter(memberID: localMemberIdentity.memberID, internetConfiguration: internetConfiguration)
         let sessionManager = audioSessionManager ?? SessionManager.AudioSessionManager()
         self.audioSessionManager = sessionManager
-        self.audioInputCapture = audioInputCapture ?? Self.makeDefaultAudioInputCapture()
         self.audioOutputRenderer = audioOutputRenderer ?? Self.makeDefaultAudioOutputRenderer()
-        self.audioPipeline = audioPipeline ?? AppAudioPipeline()
-        self.audioTransmissionController = audioTransmissionController ?? AudioTransmissionController()
+        self.audioInputCapture = audioInputCapture ?? Self.makeDefaultAudioInputCapture(
+            engine: self.audioOutputRenderer.renderingEngine ?? AVAudioEngine())
+        if let audioPipeline {
+            self.audioPipeline = audioPipeline
+        } else if let engine = self.audioOutputRenderer.renderingEngine {
+            self.audioPipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+        } else {
+            self.audioPipeline = AppAudioPipeline()
+        }
+        self.audioPipeline.setTransmissionController(audioTransmissionController ?? AudioTransmissionController())
         self.callTicker = callTicker ?? RepeatingCallTicker()
         self.appSettingsStore = appSettingsStore
         self.internetSettingsStore = internetSettingsStore
@@ -242,7 +249,7 @@ final class IntercomViewModel {
         self.enabledRTCTransportRoutes = Self.normalizedRTCTransportRoutes(appSettings.enabledRTCTransportRoutes)
         self.selectedInputPort = AudioPortInfo(device: audioSessionSnapshot.currentInput)
         self.selectedOutputPort = AudioPortInfo(device: audioSessionSnapshot.currentOutput)
-        self.audioTransmissionController.applyVADSensitivity(vadSensitivity)
+        self.audioPipeline.applyVADSensitivity(vadSensitivity)
         self.refreshPackageRuntimeSnapshots()
         self.callSession.setEnabledRoutes(enabledRTCTransportRoutes)
         self.callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)

@@ -15,7 +15,7 @@ import Testing
 
     #expect(configuration.codec == .pcm16)
     #expect(configuration.format == AudioFormat(sampleRate: 48_000, channelCount: 1))
-    #expect(configuration.aacELDv2Options.bitRate == 24_000)
+    #expect(configuration.aacELDv2Options.bitRate == 32_000)
     #expect(configuration.opusOptions.bitRate == 32_000)
 }
 

@@ -1,7 +1,167 @@
 import AudioCore
 import AVFAudio
+import Synchronization
 import Testing
+
+private final class TransitionSignal: Sendable {
+    let silent = Atomic<Bool>(false)
+}
+
+@Test func subSampleInputQuantaDoNotScheduleEmptyNativeBuffers() throws {
+    let mixer = try AudioMixer(audioFormat: .init(sampleRate: 16000, channelCount: 1))
+    let bus = try mixer.createBus("fractional-input")
+    let source = try bus.addPCMSource(id: "voice")
+    try mixer.routeToOutput(bus)
+    try mixer.engine.enableManualRenderingMode(.offline, format: mixer.format, maximumFrameCount: 16)
+    try mixer.start()
+    defer { mixer.stop() }
+    var emitted = 0
+    for index in 0..<7 {
+        let report = try source.schedule(.init(sequenceNumber: UInt64(index),
+            format: .init(sampleRate: 96000, channelCount: 1), capturedAt: Double(index) / 96000,
+            samples: [Float(0.1 + Double(index) * 0.001)]))
+        emitted += report.outputSampleCount
+    }
+    #expect(emitted == 2)
+    source.start()
+    let output = try #require(AVAudioPCMBuffer(pcmFormat: mixer.format, frameCapacity: 16))
+    #expect(try mixer.engine.renderOffline(2, to: output) == .success)
+    #expect(abs(output.floatChannelData![0][0] - 0.1) < 0.000001)
+    #expect(abs(output.floatChannelData![0][1] - 0.106) < 0.000001)
+}
+
+@Test(arguments: [16000.0, 24000.0, 44100.0])
+func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("resampled-peer")
+    let source = try bus.addPCMSource(id: "voice", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.engine.enableManualRenderingMode(.offline, format: mixer.format, maximumFrameCount: 4800)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let count = Int(rate / 100)
+    for packet in 0..<10 {
+        let frame = PCMFrame(sequenceNumber: UInt64(packet), format: .init(sampleRate: rate, channelCount: 1),
+            capturedAt: Double(packet) / 100,
+            samples: (0..<count).map { Float(0.1 + Double(packet * count + $0) / rate * 0.7) })
+        try source.schedule(frame)
+    }
+    Thread.sleep(forTimeInterval: 0.01)
+    let output = try #require(AVAudioPCMBuffer(pcmFormat: mixer.format, frameCapacity: 4800))
+    #expect(try mixer.engine.renderOffline(4800, to: output) == .success)
+    let samples = try #require(output.floatChannelData)[0]
+    var error: Float = 0
+    for index in 0..<4700 {
+        let expected = Float(0.1 + Double(index) / 48000.0 * 0.7)
+        error = max(error, abs(samples[index + 96] - expected))
+    }
+    #expect(error < 0.000001, "A linear signal must stay linear across every received packet boundary")
+    #expect(source.playbackResetCount == 0)
+}
+
+@Test func adaptivePlayoutRetainsLatePacketsAndRemovesDelayDuringSilence() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("adaptive")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.02, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
+    try source.schedule(.init(sequenceNumber: 0, capturedAt: 1000, samples: Array(repeating: 0.2, count: 960)))
+    Thread.sleep(forTimeInterval: 0.01)
+    #expect(try engine.renderOffline(2400, to: output) == .success) // 50 ms
+    #expect((0..<960).allSatisfy { abs(output.floatChannelData![0][$0]) < 0.001 })
+    #expect((960..<1920).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.001 })
+    // A late packet must retain its end rather than lose 10 ms of speech.
+    try source.schedule(.init(sequenceNumber: 1, capturedAt: 1000.02, samples: Array(repeating: 0.4, count: 960)))
+    Thread.sleep(forTimeInterval: 0.01)
+    #expect(try engine.renderOffline(2400, to: output) == .success)
+    #expect((1056..<1920).allSatisfy { abs(output.floatChannelData![0][$0] - 0.4) < 0.001 })
+    #expect(source.playoutAdjustmentCount == 1)
+    // Three seconds later, the extra wait must not carry into a new reply.
+    for index in 0..<30 { #expect(try engine.renderOffline(4800, to: output) == .success, "silence \(index)") }
+    try source.schedule(.init(sequenceNumber: 2, capturedAt: 1003.1, samples: Array(repeating: 0.3, count: 960)))
+    #expect(source.bufferedDuration <= 0.041)
+    #expect(source.playbackResetCount == 0, "Natural conversation pauses are not corrupt clocks")
+}
 @testable import AudioMixer
+
+@Test func graphTransitionFadesTheDeviceOutputAndDoesNotOnlyModifyItsObserver() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 480)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("output-transition")
+    let signal = TransitionSignal()
+    let source = AVAudioSourceNode(format: format) { _, _, count, buffers in
+        for buffer in UnsafeMutableAudioBufferListPointer(buffers) {
+            buffer.mData!.assumingMemoryBound(to: Float.self).update(
+                repeating: signal.silent.load(ordering: .relaxed) ? 0 : 0.25, count: Int(count))
+        }
+        return noErr
+    }
+    try bus.addSource(source, id: "continuous")
+    _ = try bus.installPCMSink(id: "meter", targetFormat: .init()) { _, _ in }
+    try mixer.routeToOutput(bus); try mixer.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    bus.beginSinkTransition(settlingDuration: 0, holding: true)
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    let down = Array(UnsafeBufferPointer(start: output.floatChannelData![0], count: 480))
+    #expect(abs(down[0] - 0.25) < 0.00001)
+    #expect(down[96...].allSatisfy { $0 == 0 })
+    #expect(zip(down, down.dropFirst()).allSatisfy { abs($1 - $0) < 0.003 })
+    for _ in 0..<3 {
+        #expect(try engine.renderOffline(480, to: output) == .success)
+        #expect((0..<480).allSatisfy { output.floatChannelData![0][$0] == 0 })
+    }
+    signal.silent.store(true, ordering: .relaxed) // Native reconfiguration can outlast declared DSP latency.
+    bus.beginSinkTransition(settlingDuration: 0.01)
+    for _ in 0..<3 {
+        #expect(try engine.renderOffline(480, to: output) == .success)
+        #expect((0..<480).allSatisfy { output.floatChannelData![0][$0] == 0 })
+    }
+    signal.silent.store(false, ordering: .relaxed)
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    let up = Array(UnsafeBufferPointer(start: output.floatChannelData![0], count: 480))
+    #expect(up[0] == 0)
+    #expect(up[96...].allSatisfy { $0 == 0.25 })
+    #expect(zip(up, up.dropFirst()).allSatisfy { abs($1 - $0) < 0.003 })
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    #expect((0..<480).allSatisfy { output.floatChannelData![0][$0] == 0.25 })
+}
+
+@Test func twoPacketCaptureBatchesDoNotShortenNormalConversationPauses() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 960)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("batched-conversation")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.01, adaptivePlayout: true)
+    try mixer.routeToOutput(bus); try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 960)!
+    var rendered: [Float] = []
+    for batch in 0..<50 {
+        for packet in 0..<2 {
+            let index = batch * 2 + packet
+            try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) * 0.01,
+                samples: Array(repeating: batch < 25 ? 0 : 0.2, count: 480)))
+        }
+        #expect(try engine.renderOffline(960, to: buffer) == .success)
+        rendered += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: 960))
+    }
+    #expect(source.playoutAdjustmentCount == 0, "Two 10 ms packets from one 20 ms capture are not stale backlog")
+    #expect(rendered[0..<24480].allSatisfy { abs($0) < 0.00001 })
+    #expect(rendered[24480..<48000].allSatisfy { abs($0 - 0.2) < 0.00001 })
+}
 
 @Test func overlappingCaptureBatchesPreserveUnplayedTail() throws {
     let engine = AVAudioEngine()
@@ -234,4 +394,64 @@ import Testing
     #expect(source.playbackResetCount == 0)
     source.stop(); source.start()
     #expect(!source.playerNode.isPlaying, "Restart waits for a new capture clock")
+}
+
+@Test func adaptivePlayoutRecoversDuringQuietCodecTailWithoutTrimmingSpeech() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("quiet-recovery")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
+    // A network burst contains a quiet native-codec tail, not absolute zeros.
+    var quiet = [Float](repeating: 0.00001, count: 480)
+    quiet[0] = 0.0004
+    for index in 0..<8 {
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) * 0.01, samples: quiet))
+    }
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    try source.schedule(.init(sequenceNumber: 8, capturedAt: 0.08, samples: quiet))
+    #expect(source.bufferedDuration <= 0.021, "Only inaudible queued tails may be replaced to recover low latency")
+    // Real quiet speech must still follow the queued voice, never interrupt it.
+    let before = source.playoutAdjustmentCount
+    for index in 9..<13 {
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) * 0.01,
+            samples: Array(repeating: 0.002, count: 480)))
+    }
+    #expect(source.playoutAdjustmentCount == before)
+    #expect(source.bufferedDuration >= 0.04)
+    #expect(source.playbackResetCount == 0)
+}
+
+@Test func silenceRecoveryPreservesEverySampleOfTheReturningFade() throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("returning-fade")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.engine.enableManualRenderingMode(.offline, format: mixer.format, maximumFrameCount: 4800)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = try #require(AVAudioPCMBuffer(pcmFormat: mixer.format, frameCapacity: 4800))
+    for index in 0..<8 {
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100,
+            samples: Array(repeating: 0, count: 480)))
+    }
+    #expect(source.playoutAdjustmentCount > 0)
+    #expect(try mixer.engine.renderOffline(480, to: output) == .success)
+    try source.schedule(.init(sequenceNumber: 8, capturedAt: 0.08, samples: Array(repeating: 0, count: 480)))
+    let fade = (0..<480).map { Float(min(1, Double($0) / 96)) * 0.2 }
+    try source.schedule(.init(sequenceNumber: 9, capturedAt: 0.09, samples: fade))
+    Thread.sleep(forTimeInterval: 0.01)
+    #expect(try mixer.engine.renderOffline(2400, to: output) == .success)
+    let samples = Array(UnsafeBufferPointer(start: output.floatChannelData![0], count: 2400))
+    let first = try #require(samples.firstIndex { $0 > 0.0001 })
+    #expect(samples[first] < 0.003, "Never trim the fade-in into an audible step")
+    #expect(samples.filter { $0 > 0.0001 }.count == 479)
+    #expect(zip(samples[(first - 1)..<(first + 479)], fade).allSatisfy { abs($0 - $1) < 0.000001 })
 }

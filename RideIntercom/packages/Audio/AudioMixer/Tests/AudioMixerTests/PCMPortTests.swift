@@ -4,12 +4,33 @@ import AudioCore
 import Testing
 
 @Test(arguments: [16_000.0, 24_000.0, 48_000.0])
+func renderQuantaBecomeExactPacketsWithoutResamplingClockDrift(_ rate: Double) throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("clock")
+    var emitted: [PCMFrame] = []
+    _ = try bus.installPCMSink(id: "packets", targetFormat: .init(sampleRate: rate, channelCount: 1),
+        packetDuration: 0.02) { frame, _ in emitted.append(frame) }
+    // 512-frame hardware quanta do not divide into 16 kHz packet samples.
+    for index in 0..<150 {
+        try bus.deliverToSinks(.init(sequenceNumber: UInt64(index), capturedAt: Double(index * 512) / 48000,
+            samples: Array(repeating: 0.25, count: 512)))
+    }
+    #expect(emitted.count == 80)
+    #expect(emitted.allSatisfy { $0.frameCount == Int(rate * 0.02) })
+    #expect(emitted.reduce(0) { $0 + $1.samples.count } == Int(rate * 1.6))
+    for (index, frame) in emitted.enumerated() {
+        #expect(abs(frame.capturedAt - Double(index) * 0.02) < 0.000001)
+        #expect(frame.samples.allSatisfy { $0 == 0.25 })
+    }
+}
+
+@Test(arguments: [16_000.0, 24_000.0, 48_000.0])
 func sinkBoundsHardwareTapFramesWithoutLosingDuration(_ rate: Double) throws {
     let mixer = try AudioMixer(audioFormat: AudioFormat(sampleRate: 48_000, channelCount: 1))
     let bus = try mixer.createBus("live")
     var emitted: [PCMFrame] = []
     _ = try bus.installPCMSink(id: "packets", targetFormat: .init(sampleRate: rate, channelCount: 1),
-        maximumFrameDuration: 0.02) { frame, _ in emitted.append(frame) }
+        packetDuration: 0.02) { frame, _ in emitted.append(frame) }
     for number in 0..<2 {
         try bus.deliverToSinks(.init(sequenceNumber: UInt64(number), format: mixer.audioFormat,
             capturedAt: 10 + Double(number) * 0.1, samples: Array(repeating: Float(number + 1) / 4, count: 4800)))

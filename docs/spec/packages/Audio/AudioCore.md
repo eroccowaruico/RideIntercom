@@ -131,3 +131,16 @@ caller input
 ## 外部入力の検証
 
 `PCMFrame.validated()`は公開可変プロパティやDecodable経由の値も再検証する。sample rateは有限の8–96 kHz、channelは1–2、timestampと全sampleは有限値でなければ拒否する。ゼロchannelのframeCountは0を返して除算例外を避ける。RMSはDoubleで累積し、有限の大きなFloat入力で中間値がoverflowしない。
+
+## Render配送と不連続の処理
+
+| 型 | 契約 |
+|---|---|
+| AudioRenderCapture | 単一producer（render）/単一consumerの32slot ring。最大4096frame/slotを事前確保。renderはcopy・atomic公開・signalのみを行い、PCM配列とcallbackは非render threadで生成する。overflowはdroppedFrameCountへ計上 |
+| PCMStreamTransition | 同じ直列ownerでbegin/process/resetする。通常streamはbit exact。明示的不連続だけ最後のsampleから2msで無音へ移り、指定settlingの後に新しい音へ2msで戻す。sample数・capture時刻を変更せず、貯留・時間伸縮をしない |
+
+settlingDurationは有限の2ms〜1秒へ制限する。長い会話休止の後はresetで過去sampleを復活させない。音声内容を通常ログへ記録しない。
+
+`AudioRenderCapture`の時刻は最初のhost timeをdevice sample timeへ対応付け、その後はsample clock差から求める。host timestampの観測上の揺れだけで連続PCMを切らない。sample timeの前方gapは保持し、sample clockが巻き戻る再起動は新しいhost anchorに切り替える。ringの破棄counterと欠落は隠さない。
+
+`finish()`は新しい入力と未配信のringを破棄し、実行中のcallbackを待たずに返る。既に実行中のcallbackだけは完了し得るため、その呼出先も通話の世代を確認する。停止後の意図した破棄はcapture overflowに数えない。入力backendの停止とrender observerの破棄で必ず呼ぶ。

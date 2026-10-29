@@ -239,7 +239,7 @@ struct TransmitPipelinePresentation {
 
     private func codecShortLabel(_ codec: AudioCodecIdentifier) -> String {
         if codec == .pcm16 { return "PCM" }
-        if codec == .mpeg4AACELDv2 { return "AAC" }
+        if codec == .mpeg4AACELD || codec == .mpeg4AACELDv2 { return "AAC" }
         if codec == .opus { return "Opus" }
         return codec.rawValue
     }

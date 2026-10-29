@@ -38,7 +38,7 @@ extension IntercomViewModel {
             aacELDv2BitRate: aacELDv2BitRate,
             opusBitRate: opusBitRate
         )
-        vadGateRuntimeSnapshot = audioTransmissionController.runtimeSnapshot
+        vadGateRuntimeSnapshot = audioPipeline.vadRuntimeSnapshot
         audioMixerSnapshot = audioPipeline.snapshot
         lastRuntimePackageReports = makeRuntimePackageReports(generatedAt: now)
     }

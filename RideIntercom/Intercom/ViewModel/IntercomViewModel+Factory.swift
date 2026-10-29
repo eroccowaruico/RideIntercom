@@ -25,9 +25,9 @@ extension IntercomViewModel {
         )
     }
 
-    static func makeDefaultAudioInputCapture() -> SessionManager.AudioInputStreamCapture {
+    static func makeDefaultAudioInputCapture(engine: AVAudioEngine) -> SessionManager.AudioInputStreamCapture {
         SessionManager.AudioInputStreamCapture(
-            configuration: .intercom(voiceProcessing: defaultVoiceProcessingConfiguration())
+            configuration: .intercom(voiceProcessing: defaultVoiceProcessingConfiguration()), engine: engine
         )
     }
 

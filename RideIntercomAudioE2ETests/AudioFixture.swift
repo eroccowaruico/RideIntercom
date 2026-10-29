@@ -48,16 +48,81 @@ final class AudioE2EBarrier {
     }
 }
 
+/// Fixture position follows capture time. A missing native interval omits the
+/// corresponding source samples; it must not delay all later fixture speech.
+struct CaptureTimedFixture {
+    let samples: [Float]
+    private var origin: Double?
+    init(samples: [Float]) { self.samples = samples }
+    mutating func render(capturedAt: Double, format: AudioFormat, frameCount: Int) -> [Float] {
+        if origin == nil { origin = capturedAt }
+        var beginning = (capturedAt - origin!) * 48000
+        if abs(beginning - beginning.rounded()) < 0.0001 { beginning = beginning.rounded() }
+        let step = 48000 / format.sampleRate
+        var block: [Float] = []
+        block.reserveCapacity(frameCount * format.channelCount)
+        for frame in 0..<frameCount {
+            var position = (beginning + Double(frame) * step).truncatingRemainder(dividingBy: Double(samples.count))
+            if position < 0 { position += Double(samples.count) }
+            let index = Int(position), fraction = Float(position - Double(Int(position)))
+            let value = samples[index] * (1 - fraction) + samples[(index + 1) % samples.count] * fraction
+            block.append(contentsOf: repeatElement(value, count: format.channelCount))
+        }
+        return block
+    }
+}
+
 /// Test-only microphone boundary. Everything downstream uses the shipping path.
 final class SpeechFileInput: AudioInputStreamBackend {
     let samples: [Float]
+    private let timingLock = NSLock()
+    private var firstCapture: Double?
+    private var captureAges: [Double] = []
+    private var captureDurations: [Double] = []
+    private var previousCaptureEnd: Double?
+    private var clockDiscontinuities: [[String: Double]] = []
+    var captureDiscontinuities: [[String: Double]] { timingLock.withLock { clockDiscontinuities } }
+    private var processingUpdates: [[String: Double]] = []
+    var voiceProcessingTimings: [[String: Double]] { timingLock.withLock { processingUpdates } }
+    var captureTiming: [String: Double] { timingLock.withLock {
+        ["maximumCallbackAge": captureAges.max() ?? 0, "meanCallbackAge": captureAges.reduce(0,+) / Double(max(1,captureAges.count)),
+         "minimumCompletedSampleAge": zip(captureAges, captureDurations).map { $0 - $1 }.min() ?? 0,
+         "maximumFrameDuration": captureDurations.max() ?? 0, "minimumFrameDuration": captureDurations.min() ?? 0]
+    } }
+    var firstCaptureTime: Double? { timingLock.withLock { firstCapture } }
+    var droppedCaptureFrameCount: Int {
+        #if os(iOS)
+        hardware.droppedCaptureFrameCount
+        #else
+        0
+        #endif
+    }
+    private func recordCaptureTime(_ time: Double, duration: Double) { timingLock.withLock {
+        if firstCapture == nil { firstCapture = time }
+        let host = ProcessInfo.processInfo.systemUptime
+        if let previousCaptureEnd, abs(time - previousCaptureEnd) > 2 / 48000.0 {
+            clockDiscontinuities.append(["host": host, "capture": time, "gap": time - previousCaptureEnd])
+        }
+        previousCaptureEnd = time + duration
+        captureAges.append(host - time); captureDurations.append(duration)
+    } }
     #if os(iOS)
-    private let hardware = SystemAudioInputStreamBackend()
+    private let hardware: SystemAudioInputStreamBackend
     #endif
     private var timer: DispatchSourceTimer?
-    private let queue = DispatchQueue(label: "audio-e2e.fixture")
+    private let queue = DispatchQueue(label: "audio-e2e.fixture", qos: .userInteractive)
 
-    init(name: String) throws {
+    init(samples: [Float], engine: AVAudioEngine = AVAudioEngine()) {
+        self.samples = samples
+        #if os(iOS)
+        hardware = SystemAudioInputStreamBackend(engine: engine)
+        #endif
+    }
+
+    init(name: String, engine: AVAudioEngine = AVAudioEngine()) throws {
+        #if os(iOS)
+        hardware = SystemAudioInputStreamBackend(engine: engine)
+        #endif
         let url = Bundle(for: AudioE2ETests.self).url(forResource: name, withExtension: "wav")!
         let file = try AVAudioFile(forReading: url)
         let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
@@ -68,6 +133,9 @@ final class SpeechFileInput: AudioInputStreamBackend {
 
     func updateVoiceProcessing(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
         #if os(iOS)
+        let start = ProcessInfo.processInfo.systemUptime
+        defer { timingLock.withLock { processingUpdates.append(["host": start,
+            "duration": ProcessInfo.processInfo.systemUptime - start]) } }
         try hardware.updateVoiceProcessing(configuration)
         #else
         // No hardware voice processing at the file boundary; never report it applied.
@@ -77,38 +145,35 @@ final class SpeechFileInput: AudioInputStreamBackend {
 
     func startCapture(configuration: AudioInputStreamConfiguration, onFrame: @escaping (PCMFrame) -> Void) throws -> AudioFormat {
         try stopCapture()
+        timingLock.withLock { firstCapture = nil; previousCaptureEnd = nil }
         #if os(iOS)
-        let samples = samples
-        var position: Double = 0
+        var fixture = CaptureTimedFixture(samples: samples)
         // Exercise the real iOS input engine, route format and capture clock.
         // Discard microphone values immediately; only fixture speech leaves here.
-        return try hardware.startCapture(configuration: configuration) { frame in
-            let step = 48_000 / frame.format.sampleRate
-            var block = [Float]()
-            block.reserveCapacity(frame.samples.count)
-            for _ in 0..<frame.frameCount {
-                let index = Int(position)
-                let fraction = Float(position - Double(index))
-                let sample = samples[index % samples.count] * (1 - fraction)
-                    + samples[(index + 1) % samples.count] * fraction
-                block.append(contentsOf: repeatElement(sample, count: frame.format.channelCount))
-                position = (position + step).truncatingRemainder(dividingBy: Double(samples.count))
-            }
+        return try hardware.startCapture(configuration: configuration) { [weak self] frame in
+            self?.recordCaptureTime(frame.capturedAt, duration: Double(frame.frameCount) / frame.format.sampleRate)
+            let block = fixture.render(capturedAt: frame.capturedAt, format: frame.format, frameCount: frame.frameCount)
             onFrame(PCMFrame(sequenceNumber: frame.sequenceNumber, format: frame.format,
                             capturedAt: frame.capturedAt, samples: block))
         }
         #else
-        let timer = DispatchSource.makeTimerSource(queue: queue)
-        let samples = samples
-        var offset = 0
+        let timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
+        var fixture = CaptureTimedFixture(samples: samples)
         var sequence: UInt64 = 0
-        timer.schedule(deadline: .now() + .milliseconds(20), repeating: .milliseconds(20))
-        timer.setEventHandler {
-            let block = (0..<960).map { samples[(offset + $0) % samples.count] }
-            offset = (offset + 960) % samples.count
+        let captureEpoch = ProcessInfo.processInfo.systemUptime
+        timer.schedule(deadline: .now() + .milliseconds(10), repeating: .milliseconds(10), leeway: .nanoseconds(0))
+        timer.setEventHandler { [weak self] in
+            // Dispatch may coalesce wakeups. Deliver every completed interval,
+            // as the real capture ring does, without slowing the fixture clock.
+            let ticks = max(1, self?.timer?.data ?? 1)
+            for _ in 0..<ticks {
+            let captureTime = captureEpoch + Double(sequence) * 0.01
+            self?.recordCaptureTime(captureTime, duration: 0.01)
+            let block = fixture.render(capturedAt: captureTime, format: .init(), frameCount: 480)
             onFrame(PCMFrame(sequenceNumber: sequence, format: AudioFormat(sampleRate: 48_000, channelCount: 1),
-                            capturedAt: ProcessInfo.processInfo.systemUptime, samples: block))
+                            capturedAt: captureTime, samples: block))
             sequence += 1
+            }
         }
         self.timer = timer
         timer.resume()
@@ -129,26 +194,58 @@ final class SpeechFileInput: AudioInputStreamBackend {
 /// Retains only the known fixture output, never microphone audio.
 final class RenderedAudioProbe: @unchecked Sendable {
     private let lock = NSLock()
-    private var samples: [Float] = []
+    private let capacity = 96_000 * 90
+    private let storage: UnsafeMutablePointer<Float>
+    private var count = 0
     private var rate: Double = 0
     private var invalidSampleCount = 0
 
-    func append(_ buffer: AVAudioPCMBuffer) {
-        guard let data = buffer.floatChannelData else { return }
+    init() {
+        storage = .allocate(capacity: capacity)
+        storage.initialize(repeating: 0, count: capacity)
+    }
+    deinit { storage.deallocate() }
+
+    private var firstRenderTime: Double?
+    var firstOutputTime: Double? { lock.withLock { firstRenderTime } }
+    var sampleCount: Int { lock.withLock { count } }
+
+    func append(_ frame: PCMFrame) {
         lock.withLock {
-            rate = buffer.format.sampleRate
-            guard samples.count < Int(rate * 90) else { return }
-            for i in 0..<Int(buffer.frameLength) {
-                let value = data[0][i]
+            if count == 0 { firstRenderTime = frame.capturedAt }
+            rate = frame.format.sampleRate
+            for index in stride(from: 0, to: frame.samples.count, by: frame.format.channelCount) {
+                guard count < capacity else { invalidSampleCount += 1; continue }
+                let value = frame.samples[index]
                 if !value.isFinite { invalidSampleCount += 1 }
-                samples.append(value.isFinite ? value : 0)
+                storage[count] = value.isFinite ? value : 0
+                count += 1
             }
         }
     }
 
-    func reset() { lock.withLock { samples.removeAll(keepingCapacity: true); invalidSampleCount = 0 } }
+    func append(_ buffer: AVAudioPCMBuffer, time: AVAudioTime? = nil) {
+        guard let data = buffer.floatChannelData else { return }
+        lock.withLock {
+            if count == 0, let time, time.isHostTimeValid { firstRenderTime = AVAudioTime.seconds(forHostTime: time.hostTime) }
+            rate = buffer.format.sampleRate
+            for index in 0..<Int(buffer.frameLength) {
+                guard count < capacity else { invalidSampleCount += 1; continue }
+                let value = data[0][index]
+                if !value.isFinite { invalidSampleCount += 1 }
+                storage[count] = value.isFinite ? value : 0
+                count += 1
+            }
+        }
+    }
+
+    // One test owner serializes snapshots and resets. The writer only appends
+    // after the captured prefix, so copying a snapshot needs no render lock or
+    // copy-on-write allocation in the next audio callback.
+    func reset() { lock.withLock { count = 0; invalidSampleCount = 0; firstRenderTime = nil } }
     func snapshot() -> (samples: [Float], rate: Double, invalid: Int) {
-        lock.withLock { (samples, rate, invalidSampleCount) }
+        let state = lock.withLock { (count, rate, invalidSampleCount) }
+        return (Array(UnsafeBufferPointer(start: storage, count: state.0)), state.1, state.2)
     }
 
     func writeWAV(to url: URL, rendered: (samples: [Float], rate: Double, invalid: Int)) throws {

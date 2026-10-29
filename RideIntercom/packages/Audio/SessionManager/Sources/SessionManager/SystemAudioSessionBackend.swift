@@ -36,6 +36,14 @@ public final class SystemAudioSessionBackend: AudioSessionBackend, @unchecked Se
             mode: configuration.mode.avMode,
             options: configuration.options.avCategoryOptions
         )
+        // Preferences are requests; actual route/device timing is measured at
+        // capture/render. Apply before activation and avoid redundant resets.
+        if session.preferredSampleRate != configuration.preferredSampleRate {
+            try session.setPreferredSampleRate(configuration.preferredSampleRate)
+        }
+        if session.preferredIOBufferDuration != configuration.preferredIOBufferDuration {
+            try session.setPreferredIOBufferDuration(configuration.preferredIOBufferDuration)
+        }
         #else
         _ = configuration
         throw AudioSessionManagerError.operationUnsupportedOnCurrentPlatform

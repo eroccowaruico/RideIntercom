@@ -251,6 +251,55 @@ func inputCaptureRestartsWhenVoiceProcessingIOModeChanges(_ initiallyEnabled: Bo
 }
 
 #if canImport(AVFAudio)
+@Test func outputGraphUsesTheDeviceClockWithoutAnotherPCMQueue() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 480)
+    let renderer = AudioOutputStreamRenderer(engine: engine)
+    #expect(renderer.renderingEngine === engine)
+    defer { _ = renderer.stop() }
+    let source = AVAudioSourceNode(format: format) { _, _, count, list in
+        for buffer in UnsafeMutableAudioBufferListPointer(list) {
+            buffer.mData!.assumingMemoryBound(to: Float.self).update(repeating: 0.2, count: Int(count))
+        }
+        return noErr
+    }
+    engine.attach(source)
+    engine.connect(source, to: engine.mainMixerNode, format: format)
+    #expect(renderer.start().result == .applied)
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    #expect((0..<480).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.001 })
+    #expect(AudioOutputStreamRenderer(backend: FakeOutputStreamBackend()).renderingEngine == nil)
+}
+
+@Test func liveOutputReleasesAccumulatedSilenceButPreservesUnplayedVoice() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
+    let backend = SystemAudioOutputStreamBackend(engine: engine)
+    let hardware = try backend.startRendering(configuration: .init(maximumBufferedDuration: 0.2))
+    defer { try? backend.stopRendering() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
+    try backend.schedule(.init(sequenceNumber: 0, format: hardware,
+        samples: Array(repeating: 0.2, count: 960)))
+    try backend.schedule(.init(sequenceNumber: 1, format: hardware,
+        samples: Array(repeating: 0, count: 4800)))
+    #expect(backend.playbackResetCount == 0, "A silent new frame cannot erase queued speech")
+    Thread.sleep(forTimeInterval: 0.01)
+    #expect(try engine.renderOffline(960, to: output) == .success)
+    #expect((0..<960).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.001 })
+    try backend.schedule(.init(sequenceNumber: 2, format: hardware,
+        samples: Array(repeating: 0.00001, count: 480)))
+    #expect((backend.bufferedOutputDuration ?? 1) <= 0.0101,
+        "A temporary 100 ms backlog must not persist through conversation pauses")
+    try backend.schedule(.init(sequenceNumber: 3, format: hardware,
+        samples: Array(repeating: 0.4, count: 480)))
+    Thread.sleep(forTimeInterval: 0.01)
+    #expect(try engine.renderOffline(960, to: output) == .success)
+    #expect((480..<960).allSatisfy { abs(output.floatChannelData![0][$0] - 0.4) < 0.001 })
+}
+
 @Test func pcmFrameRoundTripsThroughPCMBuffer() throws {
     let frame = PCMFrame(
         sequenceNumber: 3,

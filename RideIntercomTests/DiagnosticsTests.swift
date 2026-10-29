@@ -55,7 +55,7 @@ struct DiagnosticsTests {
                 let configuration = try report.decodeJSON(VoiceIsolationConfiguration.self)
                 let runtime = try #require(harness.viewModel.audioPipeline.isolationRuntimeSnapshots[bus])
                 #expect(configuration == runtime.configuration)
-                #expect(configuration.mix == (enabled ? 0.8 : 1))
+                #expect(configuration.mix == (enabled ? 0.5 : 1))
                 #expect(runtime.state == (enabled ? .active : .bypassed))
             }
         }

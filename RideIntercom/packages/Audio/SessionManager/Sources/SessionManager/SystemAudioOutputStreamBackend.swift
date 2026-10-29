@@ -8,11 +8,14 @@ import Foundation
 #if canImport(AVFAudio)
 public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
     private let engine: AVAudioEngine
+    public var renderingEngine: AVAudioEngine? { engine }
     private let playerNode: AVAudioPlayerNode
     private var isGraphConfigured = false
     private var configuredHardwareFormat: AudioFormat?
     private var maximumBufferedDuration: TimeInterval?
     private var scheduledEndSample: AVAudioFramePosition = 0
+    private var lastAudibleEndSample: AVAudioFramePosition = 0
+    private var usesExplicitTimeline = false
     private var resetCount = 0
     public var playbackResetCount: Int? { resetCount }
     private var renderedSample: AVAudioFramePosition {
@@ -58,7 +61,8 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
                 throw AudioStreamError.invalidFrame("failed to create output format")
             }
             engine.disconnectNodeOutput(playerNode)
-            engine.connect(playerNode, to: engine.mainMixerNode, format: format)
+            engine.connect(playerNode, to: engine.mainMixerNode, fromBus: 0,
+                toBus: engine.mainMixerNode.nextAvailableInputBus, format: format)
             isGraphConfigured = true
             configuredHardwareFormat = hardwareFormat
         }
@@ -79,27 +83,48 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
     public func stopRendering() throws {
         playerNode.stop()
         scheduledEndSample = 0
+        lastAudibleEndSample = 0
+        usesExplicitTimeline = false
         engine.stop()
     }
 
     public func schedule(_ frame: PCMFrame) throws {
         let buffer = try frame.makePCMBuffer()
+        let rendered = renderedSample
+        let duration = Double(buffer.frameLength) / frame.format.sampleRate
+        var energy: Float = 0, peak: Float = 0
+        for sample in frame.samples { energy += sample * sample; peak = max(peak, abs(sample)) }
+        let audible = energy >= Float(max(1, frame.samples.count)) * 0.0001 * 0.0001 || peak >= 0.001
         var options: AVAudioPlayerNodeBufferOptions = []
         if let limit = maximumBufferedDuration {
-            let duration = Double(buffer.frameLength) / frame.format.sampleRate
             guard duration <= limit else { throw AudioStreamError.invalidFrame("Frame exceeds live playback budget") }
             // Apply the latency budget to the wait before this frame starts.
             // Including the new frame itself interrupts ordinary capture batches
             // whenever their delivery overlaps the unplayed tail by a few ms.
-            if scheduledEndSample - renderedSample >= AVAudioFramePosition(limit * frame.format.sampleRate) {
+            let queued = Double(max(0, scheduledEndSample - rendered)) / frame.format.sampleRate
+            let canReleaseSilence = !audible && lastAudibleEndSample <= rendered && queued > max(0.01, duration)
+            if canReleaseSilence {
+                // at:nil after an interrupt can retain the old queue end. Keep
+                // the running player clock and explicitly anchor this buffer
+                // AND its successors. In realtime the current quantum may
+                // already be rendering; reserve one incoming quantum of safety.
                 options = .interrupts
-                scheduledEndSample = renderedSample
+                usesExplicitTimeline = true
+                scheduledEndSample = rendered + (engine.isInManualRenderingMode ? 0 : AVAudioFramePosition(buffer.frameLength))
+                resetCount += 1
+            } else if queued >= limit {
+                options = .interrupts
+                usesExplicitTimeline = false
+                scheduledEndSample = rendered
                 resetCount += 1
             }
         }
-        let startSample = max(scheduledEndSample, renderedSample)
+        let startSample = max(scheduledEndSample, rendered)
+        if options.isEmpty && scheduledEndSample <= rendered { usesExplicitTimeline = false }
         scheduledEndSample = startSample + AVAudioFramePosition(buffer.frameLength)
-        playerNode.scheduleBuffer(buffer, at: nil, options: options)
+        if audible { lastAudibleEndSample = scheduledEndSample }
+        let time = usesExplicitTimeline ? AVAudioTime(sampleTime: startSample, atRate: frame.format.sampleRate) : nil
+        playerNode.scheduleBuffer(buffer, at: time, options: options)
     }
 }
 

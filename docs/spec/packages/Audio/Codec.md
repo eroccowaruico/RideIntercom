@@ -50,7 +50,7 @@ flowchart LR
 | `EncodedCodecFrame` | struct | sequence、codec、format、timestamp、sample count、bit rate、payload、`EncodedAudioMetadata` を持つ |
 | `CodecRuntimeReport` | struct | requested / active configuration、available codecs、selected codec、fallback有無を持つ |
 | `CodecSupport` | enum | 現在環境で codec encode / decode が可能かを返す |
-| `CodecIdentifier` | enum | `pcm16`, `mpeg4AACELDv2`, `opus` を表す |
+| `CodecIdentifier` | enum | `pcm16`, `mpeg4AACELD`, `mpeg4AACELDv2`, `opus` を表す |
 | `PCM16Codec` | enum | PCM16 の pure Swift encode / decode helper |
 | `CodecError` | enum | format不一致、payload不正、availability失敗、AudioConverter失敗を外部出力する |
 
@@ -79,6 +79,7 @@ PCMFrame(format A)
 | `CodecIdentifier` | 表示名 | AudioToolbox format | encode | decode | payload |
 |---|---|---|---|---|---|
 | `pcm16` | PCM 16-bit | `kAudioFormatLinearPCM` | 常時対応 | 常時対応 | signed 16-bit little-endian bytes |
+| `mpeg4AACELD` | MPEG-4 AAC-ELD | `kAudioFormatMPEG4AAC_ELD` | 実変換に対応する環境で対応 | 実変換に対応する環境で対応 | Codec専用 compressed envelope |
 | `mpeg4AACELDv2` | MPEG-4 AAC-ELD v2 | `kAudioFormatMPEG4AAC_ELD_V2` | `AVAudioConverter` が対応する環境で対応 | `AVAudioConverter` が対応する環境で対応 | Codec専用 compressed envelope |
 | `opus` | Opus | `kAudioFormatOpus` | `AVAudioConverter` が対応する環境で対応 | `AVAudioConverter` が対応する環境で対応 | Codec専用 compressed envelope |
 
@@ -96,7 +97,7 @@ PCMFrame(format A)
 |---|---|---|---|---|
 | `codec` | `CodecIdentifier` | `pcm16` | なし | 全codec |
 | `format` | `AudioCore.AudioFormat` | `48_000Hz / mono` | `AudioFormat` の範囲正規化 | 全codec |
-| `aacELDv2Options.bitRate` | `Int` | `24_000` | `12_000...128_000` | `mpeg4AACELDv2` |
+| `aacELDv2Options.bitRate` | `Int` | `32_000` | `12_000...128_000` | `mpeg4AACELDv2` |
 | `opusOptions.bitRate` | `Int` | `32_000` | `6_000...128_000` | `opus` |
 
 | format項目 | 範囲 | 備考 |
@@ -225,7 +226,7 @@ RideIntercomのLocal / Internet / 中継は同じ符号化済みpacket経路を�
 | 観点 | 確認 |
 |---|---|
 | codec identifier | PCM16 / AAC-ELD v2 / Opus が期待する AudioToolbox format ID を持つ |
-| default configuration | PCM16 / `48_000Hz` / mono / AAC `24kbps` / Opus `32kbps` |
+| default configuration | PCM16 / `48_000Hz` / mono / AAC `32kbps` / Opus `32kbps` |
 | option normalization | AAC / Opus bit rate が範囲内へ丸められる |
 | AudioCore frame | sequence、format、timestamp、sample count を encoded metadata に保持する |
 | format mismatch | 暗黙変換せず拒否する |
@@ -242,7 +243,7 @@ RideIntercomのLocal / Internet / 中継は同じ符号化済みpacket経路を�
 
 ## 圧縮処理の実行条件
 
-bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverterのbitRateへ設定する。圧縮bufferは対応codecの最小packet時間とflush分から容量を決め、PCM sample数と同数の最大packetを確保しない。非空PCMに対して圧縮packetが返らない場合は変換失敗とする。
+bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverterのbitRateへ設定する。圧縮bufferは対応codecの最小packet時間とflush分から容量を決め、PCM sample数と同数の最大packetを確保しない。独立frameのCodecEncoderでは非空PCMに圧縮packetが返らない場合は変換失敗とする。StreamingCodecEncoderではnative packetが未完成ならnilを返し、次の入力で継続する。
 
 [Appleのcodec変換例](https://developer.apple.com/documentation/AudioToolbox/encoding-and-decoding-audio)に従い、encoderのmagic cookieを復号器へ引き渡す。decoderの出力bufferには元frame数に初期遅延を加えた容量を用意し、先頭の初期遅延を除去してから元sample数を取り出す。毎packetの先頭に初期無音を残し、末尾を切り落とすことを防ぐ。primingは8,192 frames、magic cookieは16 KiBを上限としてallocation前に検証する。compressed envelopeのpriming frame countは必須であり、この情報を持たない旧payloadは拒否する。
 
@@ -253,3 +254,19 @@ bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverter�
 待機instanceの保持はprocess全体で16個までとし、満杯では古い待機instanceを解放する。生成・変換・reset中にはpoolのlockを保持しない。format、bit rate、cookieが異なる変換器を流用しない。不正payloadの検証とcodec fallbackの判定は維持する。
 
 排他貸出・保持上限と、発話／無音を交互に30packet変換した際のsample数・独立性を回帰試験する。既存のcodec・bit rate・format・不正payload試験も通す。連続した実出力の音声品質は音声E2Eの責務とする。
+
+## 継続した会話stream
+
+| API / 条件 | 契約 |
+|---|---|
+| StreamingCodecEncoder | 送信stream専有のnative変換器を保持。各入力でEOS/resetせず、historyと部分packetを維持する。入力は最大1秒 |
+| Opus | native frameを10msへ指定。既定20msのpacket完成待ちを減らす |
+| AAC-ELD | ELD v1 monoのnative変換。480sample/frame（48/24/16kHzで10/20/30ms）。long-term average bitrateで発話過渡音と無音へのbit配分を行う |
+| availableEncodingBitRates | OSが当該codec/PCM formatで受け入れるencode bitrate一覧。App側の品質下限とは別の能力情報 |
+| stream identity | UUIDをpayloadに含め、入力clockが2sampleを超えて不連続ならencoder履歴をリセットしてidentityを更新 |
+| StreamingCodecDecoder | 相手ごとに保持。stream identity / codec / format変更時だけnative decoderを交換。初期遅延を除いたsample数に合わせcapture時刻を進める |
+| stream切替 | PCMStreamTransitionで2msずつfade out/in。100msを超える入力空白では過去の最終sampleを再生しない。通常PCMを変更しない |
+| input provider | AudioConverterが要求したpacket/frame数だけ渡す。残りを保持し、一度に与えて末尾を捨てない。継続入力がない場合はnoDataNow |
+| 独立frame API | CodecEncoder / CodecDecoderと排他的なconverter poolは独立frame用途として残す。通話streamの各packetでは使用しない |
+
+AAC-ELD v2の識別子は既存payloadの明示判定用に保持する。v2非対応時のPCM fallbackをAAC-ELDの検証成功として扱わない。Appで提供するAAC-ELDはELD v1であり、実AAC payloadの符号化・復号を必須にする。

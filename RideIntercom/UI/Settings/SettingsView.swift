@@ -186,7 +186,7 @@ struct TransmitCodecPanel: View {
                 set: { viewModel.setPreferredTransmitCodec($0) }
             )) {
                 Text("PCM 16-bit").tag(AudioCodecIdentifier.pcm16)
-                Text("AAC-ELD v2").tag(AudioCodecIdentifier.mpeg4AACELDv2)
+                Text("AAC-ELD").tag(AudioCodecIdentifier.mpeg4AACELD)
                 Text("Opus").tag(AudioCodecIdentifier.opus)
             }
             .pickerStyle(.segmented)
@@ -205,17 +205,17 @@ struct TransmitCodecPanel: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("rtcAudioFormatPicker")
 
-            if viewModel.preferredTransmitCodec == .mpeg4AACELDv2 {
-                BitRateStepper(
-                    title: "AAC-ELD v2 Bitrate",
-                    value: Binding(
+            if viewModel.preferredTransmitCodec == .mpeg4AACELD {
+                Picker("AAC-ELD Bitrate", selection: Binding(
                         get: { viewModel.aacELDv2BitRate },
                         set: { viewModel.setAACELDv2BitRate($0) }
-                    ),
-                    range: 12_000...128_000,
-                    step: 4_000,
-                    accessibilityIdentifier: "aacELDv2BitRateStepper"
-                )
+                    )) {
+                    ForEach(viewModel.availableAACBitRates, id: \.self) { bitRate in
+                        Text("\(bitRate / 1_000) kbps").tag(bitRate)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("aacELDBitRatePicker")
             }
 
             if viewModel.preferredTransmitCodec == .opus {
@@ -225,7 +225,7 @@ struct TransmitCodecPanel: View {
                         get: { viewModel.opusBitRate },
                         set: { viewModel.setOpusBitRate($0) }
                     ),
-                    range: 6_000...128_000,
+                    range: AppAudioCodecBridge.minimumOpusBitRate(format: viewModel.rtcAudioFormatPreset.audioFormat)...128_000,
                     step: 2_000,
                     accessibilityIdentifier: "opusBitRateStepper"
                 )

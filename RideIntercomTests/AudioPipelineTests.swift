@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import Synchronization
 import AudioCore
 import AudioMixer
 import Codec
@@ -14,6 +15,53 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct AudioPipelineTests {
+    @Test(arguments: [256, 480])
+    func vadLookaheadKeepsPacketCadenceAcrossConversationPauses(frameCount: Int) {
+        var controller = AudioTransmissionController()
+        var delivered: [UInt64] = []
+        for index in 0..<400 {
+            let value: Float = (index / 50).isMultiple(of: 2) ? 0 : 0.2
+            let output = controller.process(frame: .init(sequenceNumber: UInt64(index), format: .intercomMixer,
+                capturedAt: Double(index * frameCount) / 48000,
+                samples: Array(repeating: value, count: frameCount)), level: value)
+            let frames = output.compactMap { packet -> PCMFrame? in
+                switch packet {
+                case .voice(let frame), .silence(let frame): return frame
+                case .keepalive: return nil
+                }
+            }
+            if index >= 3 {
+                #expect(frames.count == 1, "VAD must not alternate between holding time and replaying a burst at speech boundaries")
+            }
+            delivered += frames.map(\.sequenceNumber)
+        }
+        #expect(delivered == Array(0..<UInt64(delivered.count)), "Every captured interval is delivered once in capture order")
+    }
+
+    @Test func receiveMixerRendersDirectlyWithoutMainActorPCMDelivery() throws {
+        let engine = AVAudioEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 480)
+        let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+        try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
+        defer { pipeline.stop() }
+        // No PCM callback or actor yield: the hardware render itself must play
+        // the received samples, exactly once, through gain and the final limiter.
+        let samples = (0..<9600).map { Float(0.1 * sin(Double($0) * 2 * .pi * 400 / 48000)) }
+        _ = try pipeline.processReceivedAudioPacket(.init(peerID: .init(rawValue: "peer"), packet:
+            .init(sequenceNumber: 0, codec: .pcm16, format: .init(), capturedAt: 0,
+                  sampleCount: samples.count, payload: PCM16Codec.encode(samples))))
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
+        var rendered: [Float] = []
+        for _ in 0..<22 {
+            #expect(try engine.renderOffline(480, to: buffer) == .success)
+            rendered += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: 480))
+        }
+        let steady = rendered[2400..<7200]
+        #expect(abs((steady.map { $0 * $0 }.reduce(0, +) / Float(steady.count)).squareRoot() - 0.07071) < 0.001)
+        #expect(steady.map { abs($0) }.max()! < 0.101)
+    }
+
     @Test func receivingSpeechChangesDuckingLevelWithoutChangingInputIOMode() {
         let harness = AppTestSupport.makeHarness()
         let viewModel = harness.viewModel
@@ -69,15 +117,13 @@ struct AudioPipelineTests {
             )
         }
 
-        #expect(controller.process(frame: frame(1, 0), level: 0).isEmpty)
-        #expect(controller.process(frame: frame(2, 0), level: 0).isEmpty)
-        #expect(controller.process(frame: frame(3, 0), level: 0) == [.keepalive])
+        #expect(controller.process(frame: frame(1, 0), level: 0) == [.silence(frame(1, 0))])
+        #expect(controller.process(frame: frame(2, 0), level: 0) == [.silence(frame(2, 0))])
+        #expect(controller.process(frame: frame(3, 0), level: 0) == [.silence(frame(3, 0)), .keepalive])
 
         let voicePackets = controller.process(frame: frame(4, 0.3), level: 0.3)
-        #expect(voicePackets == [
-            .voice(frame(3, 0)),
-            .voice(frame(4, 0.3))
-        ])
+        #expect(voicePackets == [.voice(frame(4, 0.3))])
+        #expect(controller.process(frame: frame(5, 0.3), level: 0.3) == [.voice(frame(5, 0.3))])
     }
 
     @Test func viewModelConnectsAuthenticatedPeerAndStartsPackageAudioPipeline() async throws {
@@ -150,6 +196,20 @@ struct AudioPipelineTests {
         #expect(scheduledFrames.allSatisfy { $0.format == .intercomHardwarePreferred && $0.frameCount <= 960 })
         #expect(scheduledFrames.flatMap(\.samples).contains { abs($0 - 0.2) < 0.001 })
         #expect(scheduledFrames.flatMap(\.samples).contains { abs($0 + 0.2) < 0.001 })
+    }
+
+    @Test func silentClockFramesDoNotKeepRemoteTalkingStateAlive() async throws {
+        let h = AppTestSupport.makeHarness()
+        h.viewModel.selectGroup(h.viewModel.groups[0])
+        h.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
+        let frame = PCMFrame(sequenceNumber: 1, format: .intercomPacketAudio, capturedAt: 0,
+                             samples: Array(repeating: 0, count: 480))
+        h.callSession.receive(try AppTestSupport.receivedAudioPacket(peerID: "member-108", frame: frame, codec: .pcm16))
+        #expect(h.viewModel.remoteVoiceReceivedAt["member-108"] == nil)
+        #expect(h.viewModel.selectedGroup?.members.first { $0.id == "member-108" }?.isTalking == false)
+        #expect(h.viewModel.receivedVoicePacketCount == 1)
+        h.viewModel.disconnect()
     }
 
     @Test func viewModelBroadcastsMuteStateAndUpdatesPackageVoiceProcessing() async throws {
@@ -340,9 +400,9 @@ struct AudioPipelineTests {
         let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
         try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1024)
         let pipeline = AppAudioPipeline(makeEngine: { engine })
-        var rendered: [Float] = []
+        let collected = Mutex<[Float]>([])
         pipeline.onTransmitPacket = { packet in
-            do { rendered += try AppAudioCodecBridge.decode(packet).samples }
+            do { let samples = try AppAudioCodecBridge.decode(packet).samples; collected.withLock { $0 += samples } }
             catch { Issue.record("Effect output could not be decoded: \(error)") }
         }
         try pipeline.rebuild(configuration: AppAudioPipelineConfiguration(rtcSendFormat: .intercomMixer, transmitSoundIsolationEnabled: false), peerIDs: [])
@@ -355,6 +415,7 @@ struct AudioPipelineTests {
             await Task.yield()
         }
         try await Task.sleep(for: .milliseconds(20))
+        let rendered = collected.withLock { $0 }
         #expect(rendered.count > 24_000)
         let steady = Array(rendered.dropFirst(12_000).prefix(24_000))
         let rms = AudioLevelMeter.rmsLevel(samples: steady)
@@ -421,32 +482,28 @@ struct AudioPipelineTests {
         }
     }
 
-    @Test func transmitPlayoutPreservesCaptureClockAcrossJitteredBatches() async throws {
-        let engine = AVAudioEngine()
-        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
-        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
-        let pipeline = AppAudioPipeline(makeEngine: { engine })
-        try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false,
-            maximumBufferedDuration: 0.2, transmitPlayoutDelay: 0.1), peerIDs: [])
+    @Test func transmitProcessingPreservesCaptureClockWithoutPlaybackReservations() async throws {
+        let pipeline = AppAudioPipeline()
+        let collected = Mutex<[RTC.RTCAudioPacket]>([])
+        pipeline.onTransmitPacket = { packet in collected.withLock { $0.append(packet) } }
+        try pipeline.rebuild(configuration: .init(preferredCodec: .pcm16,
+            transmitSoundIsolationEnabled: false), peerIDs: [])
         defer { pipeline.stop() }
-        func capture(_ sequence: UInt64) throws {
-            try pipeline.processCapturedFrame(.init(sequenceNumber: sequence, format: .intercomMixer,
+        for sequence in 0..<2 {
+            try pipeline.processCapturedFrame(.init(sequenceNumber: UInt64(sequence), format: .intercomMixer,
                 capturedAt: Double(sequence) * 0.1, samples: Array(repeating: 0.03, count: 4800)))
+            #expect(collected.withLock { $0.count } == (sequence + 1) * 10, "Encoding finishes before capture processing returns")
+            try await Task.sleep(for: .milliseconds(50))
         }
-        func pending() throws -> MixerSourceSnapshot {
-            try #require(pipeline.snapshot.buses.first { $0.id == "tx-bus" }?.sources.first)
+        let packets = collected.withLock { $0 }
+        #expect(packets.map(\.sequenceNumber) == Array(0..<20).map(UInt64.init))
+        for (index, packet) in packets.enumerated() {
+            #expect(abs(packet.capturedAt - Double(index) * 0.01) < 1.0 / 48000)
+            #expect(packet.sampleCount == 480)
         }
-        try capture(0)
-        #expect(try pending().bufferedDuration ?? 0 >= 0.1999)
-        try await Task.sleep(for: .milliseconds(10))
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
-        #expect(try engine.renderOffline(4800, to: buffer) == .success)
-        #expect(try engine.renderOffline(2400, to: buffer) == .success)
-        // The next 100 ms batch arrives 50 ms late. Its capture timestamp still
-        // reserves [200, 300) ms, retaining the first batch's unplayed tail.
-        try capture(1)
-        #expect(try pending().bufferedDuration ?? 0 >= 0.1499)
-        #expect(try pending().playbackResetCount == 0)
+        let source = try #require(pipeline.snapshot.buses.first { $0.id == "tx-bus" }?.sources.first)
+        #expect(source.typeName == "AVAudioSourceNode")
+        #expect(source.bufferedDuration == nil)
     }
 
     @Test func liveCallBoundsPCMReservationsWithoutRebuildingEffects() async throws {
@@ -584,13 +641,14 @@ struct AudioPipelineTests {
         for id in 0..<30 { _ = controller.process(frame: frame(UInt64(id), sample: 0), level: 0) }
         let attackFrames = Int(ceil(0.08 / (Double(count) / 48000)))
         var emitted: [PCMFrame] = []
-        for index in 0..<attackFrames {
-            emitted += controller.process(frame: frame(UInt64(30 + index), sample: 0.4), level: 0.4)
+        for index in 0..<(attackFrames * 2) {
+            let value: Float = index < attackFrames ? 0.4 : 0
+            emitted += controller.process(frame: frame(UInt64(30 + index), sample: value), level: value)
                 .compactMap { if case .voice(let frame) = $0 { frame } else { nil } }
         }
-        #expect(emitted.count == attackFrames + 1, "Only the attack window and current frame may be replayed")
-        #expect(emitted.first?.sequenceNumber == 29)
-        #expect(emitted.last?.sequenceNumber == UInt64(29 + attackFrames))
+        let expected: [UInt64] = count == 960 ? Array(30...34) : [30]
+        #expect(emitted.map(\.sequenceNumber) == expected,
+            "Preserve the onset and hangover once, without retaining already classified silence before the attack")
         #expect(emitted.filter { $0.samples.contains { $0 > 0 } }.count == attackFrames,
                 "Preserve every onset frame while excluding old silence")
     }
@@ -600,12 +658,14 @@ struct AudioPipelineTests {
         func frame(_ id: UInt64, sample: Float, count: Int) -> PCMFrame {
             .init(sequenceNumber: id, format: .intercomPacketAudio, capturedAt: 0, samples: Array(repeating: sample, count: count))
         }
-        for id in 0..<10 { #expect(controller.process(frame: frame(UInt64(id), sample: 0.5, count: 128), level: 0.5).isEmpty) }
+        for id in 0..<10 { #expect(controller.process(frame: frame(UInt64(id), sample: 0.5, count: 128), level: 0.5).allSatisfy { if case .silence(let value) = $0 { value.samples.allSatisfy { $0 == 0 } } else { false } }) }
         let speech = controller.process(frame: frame(10, sample: 0.5, count: 4800), level: 0.5)
         #expect(!speech.isEmpty)
         _ = controller.process(frame: frame(11, sample: 0, count: 4800), level: 0)
         let next = controller.process(frame: frame(12, sample: 0.5, count: 4800), level: 0.5)
-        #expect(next == [.voice(frame(11, sample: 0, count: 4800)), .voice(frame(12, sample: 0.5, count: 4800))])
+        #expect(next == [.voice(frame(12, sample: 0.5, count: 4800))])
+        #expect(controller.process(frame: frame(13, sample: 0, count: 4800), level: 0)
+                == [.silence(frame(13, sample: 0, count: 4800))])
     }
 
 }

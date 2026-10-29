@@ -11,7 +11,9 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     private let bus: AVAudioNodeBus
     private var voiceProcessingManager: AudioInputVoiceProcessingManager?
     private var openedInputNode: AVAudioInputNode?
-    private var nextSequenceNumber: UInt64 = 0
+    private var captureNode: AVAudioSinkNode?
+    private var renderCapture: AudioRenderCapture?
+    public var droppedCaptureFrameCount: Int { renderCapture?.droppedFrameCount ?? 0 }
 
     public init(
         engine: AVAudioEngine = AVAudioEngine(),
@@ -36,27 +38,20 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
             throw AudioStreamError.invalidFrame("Unsupported input hardware format or buffer size")
         }
         let hardwareFormat = AudioFormat(avAudioFormat: inputFormat, fallback: configuration.preferredFormat)
-        inputNode.removeTap(onBus: bus)
-        inputNode.installTap(
-            onBus: bus,
-            bufferSize: configuration.bufferFrameCount,
-            format: inputFormat
-        ) { [weak self] buffer, time in
-            guard let self,
-                  let frame = PCMFrame(
-                    buffer: buffer,
-                    sequenceNumber: self.nextSequenceNumber,
-                    capturedAt: time.hostTime == 0 ? Date().timeIntervalSince1970 : AVAudioTime.seconds(forHostTime: time.hostTime)
-                  )
-            else { return }
-            self.nextSequenceNumber += 1
-            onFrame(frame)
+        let capture = AudioRenderCapture(format: hardwareFormat, onFrame: onFrame)
+        let sink = AVAudioSinkNode { timestamp, count, data in
+            capture.receive(timestamp: timestamp.pointee, frameCount: count, data: data)
+            return noErr
         }
+        engine.attach(sink)
+        engine.connect(inputNode, to: sink, fromBus: bus, toBus: 0, format: inputFormat)
+        captureNode = sink
+        renderCapture = capture
         engine.prepare()
         do {
             try engine.start()
         } catch {
-            inputNode.removeTap(onBus: bus)
+            try? stopCapture()
             throw AudioStreamError.engineOperationFailed(error.localizedDescription)
         }
         return hardwareFormat
@@ -79,8 +74,14 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     }
 
     public func stopCapture() throws {
-        openedInputNode?.removeTap(onBus: bus)
+        renderCapture?.finish()
         engine.stop()
+        if let sink = captureNode {
+            engine.disconnectNodeInput(sink)
+            engine.detach(sink)
+        }
+        captureNode = nil
+        renderCapture = nil
     }
 }
 

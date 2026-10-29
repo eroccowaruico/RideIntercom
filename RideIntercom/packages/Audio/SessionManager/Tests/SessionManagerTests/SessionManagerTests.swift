@@ -1,4 +1,11 @@
 import Testing
+
+@Test func realtimeIOPreferencesSurviveConfigurationResolution() throws {
+    let configuration = AudioSessionConfiguration(preferredSampleRate: 48_000, preferredIOBufferDuration: 128.0 / 48_000)
+    let resolved = try configuration.resolved()
+    #expect(resolved.preferredSampleRate == 48_000)
+    #expect(resolved.preferredIOBufferDuration == 128.0 / 48_000)
+}
 @testable import SessionManager
 
 @Test func defaultConfigurationResolvesRealtimeCallOptions() throws {

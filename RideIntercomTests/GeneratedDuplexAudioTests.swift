@@ -24,15 +24,13 @@ import Testing
         (0..<320).map { Float(sin(Double($0) * cycles * 2 * .pi / 320)) * 0.3 }
     }
     var decodedSamples = [0, 0], frameCounts = [0, 0], duplicateCounts = [0, 0]
-    var lastSequences: [UInt64] = [0, 0]
     var maximumError: Float = 0
     func consume(_ report: PacketAudioReceiveBufferReport, receiver: Int) throws {
         #expect(report.queuedPacketCount <= 2)
         for received in report.readyPackets {
             #expect(received.peerID == peers[1 - receiver])
-            #expect(received.packet.sequenceNumber > lastSequences[receiver])
+            #expect(received.packet.sequenceNumber == UInt64(frameCounts[receiver]))
             #expect(received.packet.capturedAt == Double(frameCounts[receiver]) * 0.02)
-            lastSequences[receiver] = received.packet.sequenceNumber
             frameCounts[receiver] += 1
             let decoded = try AppAudioCodecBridge.decode(received.packet)
             #expect(decoded.format == format)

@@ -43,7 +43,7 @@ public struct PCMFrame: Codable, Equatable, Sendable {
     }
 
     public func validated() throws -> PCMFrame {
-        guard format.isValid, capturedAt.isFinite, samples.allSatisfy(\.isFinite) else {
+        guard format.isValid, capturedAt.isFinite, samples.allSatisfy({ $0.isFinite }) else {
             throw AudioProcessingFailure(operation: .validateFrame, sourceFormat: format,
                 targetFormat: format, reason: "invalid format, timestamp, or nonfinite sample")
         }

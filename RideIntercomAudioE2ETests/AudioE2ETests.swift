@@ -2,12 +2,32 @@ import AVFAudio
 import AudioCore
 import Codec
 import Foundation
+import Synchronization
 import RTC
 import SessionManager
 import XCTest
 @testable import RideIntercom
 
 final class AudioE2ETests: XCTestCase {
+    func testFixturePreservesClockGapsWithoutDelayingLaterSpeech() {
+        var fixture = CaptureTimedFixture(samples: (0..<48000).map(Float.init))
+        XCTAssertEqual(fixture.render(capturedAt: 100, format: .init(), frameCount: 480), (0..<480).map(Float.init))
+        XCTAssertEqual(fixture.render(capturedAt: 100.02, format: .init(), frameCount: 480), (960..<1440).map(Float.init),
+            "A missing 10 ms interval must omit exactly those samples, not shift the rest of the utterance")
+        XCTAssertEqual(fixture.render(capturedAt: 100.03, format: .init(), frameCount: 480), (1440..<1920).map(Float.init))
+    }
+    #if os(macOS)
+    @MainActor
+    func testMacFixturePacesCompletedSamples() async throws {
+        let input = SpeechFileInput(samples: Array(repeating: 0.1, count: 48000))
+        _ = try input.startCapture(configuration: .intercom(voiceProcessing: .init())) { _ in }
+        defer { try? input.stopCapture() }
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertNotNil(input.firstCaptureTime)
+        XCTAssertGreaterThanOrEqual(input.captureTiming["minimumCompletedSampleAge"] ?? -1, -0.001,
+            "The fixture must finish capturing every sample before delivering it, just like a microphone")
+    }
+    #endif
     /// Same production mixer/codec/output, in one process, without RTC or VAD.
     /// Compare 20 ms file delivery with the 100 ms capture batches seen on iOS.
     @MainActor
@@ -19,19 +39,16 @@ final class AudioE2ETests: XCTestCase {
             let probe = RenderedAudioProbe()
             let engine = AVAudioEngine()
             let output = SystemAudioOutputStreamBackend(engine: engine)
-            engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in probe.append(buffer) }
+            engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
             defer { engine.mainMixerNode.removeTap(onBus: 0); try? output.stopRendering() }
             let hardware = try output.startRendering(configuration: .intercom)
-            let pipeline = AppAudioPipeline()
+            let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
             defer { pipeline.stop() }
-            var processingFailures: [String] = []
-            pipeline.onTransmitPacket = { packet in
+            let processingFailureStore = Mutex<[String]>([])
+            pipeline.onTransmitPacket = { [weak pipeline] packet in
+                guard let pipeline else { return }
                 do { try pipeline.processReceivedAudioPacket(.init(peerID: PeerID(rawValue: "loopback"), packet: packet)) }
-                catch { processingFailures.append(String(describing: error)) }
-            }
-            pipeline.onOutputFrame = { frame in
-                do { try output.schedule(frame) }
-                catch { processingFailures.append(String(describing: error)) }
+                catch { processingFailureStore.withLock { $0.append(String(describing: error)) } }
             }
             try pipeline.rebuild(configuration: .init(rtcSendFormat: .init(sampleRate: 48_000, channelCount: 1),
                 outputHardwareFormat: hardware, preferredCodec: .pcm16, transmitSoundIsolationEnabled: false,
@@ -49,6 +66,7 @@ final class AudioE2ETests: XCTestCase {
             }
             try await Task.sleep(until: start + .seconds(22), clock: .continuous)
             let rendered = probe.snapshot()
+            let processingFailures = processingFailureStore.withLock { $0 }
             let resets = (output.playbackResetCount ?? 0) - resetStart
             let mixer = String(describing: pipeline.snapshot)
             pipeline.stop()
@@ -70,7 +88,7 @@ final class AudioE2ETests: XCTestCase {
             try probe.writeWAV(to: url, rendered: rendered)
             let recording = XCTAttachment(contentsOfFile: url)
             recording.name = name + "-speech"; recording.lifetime = .keepAlways; add(recording)
-            if !continuity.passed || !processingFailures.isEmpty || rendered.invalid > 0
+            if !continuity.passed || continuity.missingActiveRatio != 0 || !processingFailures.isEmpty || rendered.invalid > 0
                 || rendered.samples.count < Int(rendered.rate * 19) {
                 failures.append("\(name): matched=\(continuity.matchedWindowRatio), missing=\(continuity.missingActiveRatio), resets=\(resets), errors=\(processingFailures)")
             }
@@ -86,6 +104,17 @@ final class AudioE2ETests: XCTestCase {
             SpeechContinuity.measure(reference: speech, referenceRate: 48_000, output: output, outputRate: 48_000)
         }
         XCTAssertTrue(measure(clean).passed, "Fixed delay and gain must preserve speech")
+        let resampled = (0..<Int(Double(clean.count - 1) * 44_100 / 48_000)).map { index -> Float in
+            let position = Double(index) * 48_000 / 44_100
+            let lower = Int(position), fraction = Float(position - Double(lower))
+            return clean[lower] * (1 - fraction) + clean[lower + 1] * fraction
+        }
+        let fractionalRate = SpeechContinuity.measure(reference: speech, referenceRate: 48_000,
+            output: resampled, outputRate: 44_100)
+        XCTAssertTrue(fractionalRate.passed)
+        XCTAssertEqual(fractionalRate.missingActiveRatio, 0)
+        XCTAssertEqual(fractionalRate.referenceOffsetSeconds, 12_345.0 / 48_000, accuracy: 0.002,
+            "44.1 samples per millisecond must not accumulate a truncated-bin clock error")
         let filtered = clean.reduce(into: [Float]()) { values, sample in
             values.append(0.8 * (values.last ?? 0) + 0.2 * sample)
         }.map { tanh($0 * 8) }
@@ -173,14 +202,17 @@ final class AudioE2ETests: XCTestCase {
             #endif
         } else { internet = nil }
         let suffix = env["AUDIO_E2E_SPEECH_PAIR"] == "japanese" ? "-ja" : ""
-        let localFixture = (role == "a" ? "speech" : "reply") + suffix
-        let remoteFixture = (role == "a" ? "reply" : "speech") + suffix
-        let input = try SpeechFileInput(name: localFixture)
+        let fixtures = env["AUDIO_E2E_SPEECH_PAIR"] == "conversation"
+            ? ["conversation-ja", "conversation-reply-ja"] : ["speech" + suffix, "reply" + suffix]
+        let localFixture = fixtures[role == "a" ? 0 : 1]
+        let remoteFixture = fixtures[role == "a" ? 1 : 0]
+        let outputEngine = AVAudioEngine()
+        let input = try SpeechFileInput(name: localFixture, engine: outputEngine)
         let remote = try SpeechFileInput(name: remoteFixture)
         let probe = RenderedAudioProbe()
-        let outputEngine = AVAudioEngine()
+        let mixedProbe = RenderedAudioProbe(), decodedProbe = RenderedAudioProbe()
         let output = SystemAudioOutputStreamBackend(engine: outputEngine)
-        outputEngine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in probe.append(buffer) }
+        outputEngine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
         defer { outputEngine.mainMixerNode.removeTap(onBus: 0) }
         let namespace = "RideIntercom.AudioE2E.\(run).\(role)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: namespace))
@@ -219,6 +251,9 @@ final class AudioE2ETests: XCTestCase {
         )
         defer { viewModel.disconnect() }
         viewModel.setSoundIsolationEnabled(initial.transmitIsolation)
+        // The Mac and Simulator share one host audio service. The runner starts
+        // the other endpoint after this native setup, before either media test.
+        FileHandle.standardOutput.write(Data("AUDIO_E2E_NATIVE_READY\n".utf8))
         let token = try GroupInviteToken.make(groupID: groupID, groupName: "Audio E2E",
             groupSecret: "fixture-only-\(run)", inviterMemberID: "fixture-owner")
         try viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token))
@@ -235,6 +270,39 @@ final class AudioE2ETests: XCTestCase {
             viewModel.authenticatedPeerIDs.count == 1 && viewModel.isAudioReady
         }
         let peerID = try XCTUnwrap(viewModel.authenticatedPeerIDs.first)
+        let receivedTiming = Mutex<[[String: Double]]>([])
+        let decodeFailures = Mutex(0)
+        @Sendable func timing(_ packet: RTCAudioPacket) -> [String: Double] {
+            ["sequence": Double(packet.sequenceNumber), "capture": packet.capturedAt,
+             "host": ProcessInfo.processInfo.systemUptime,
+             "duration": Double(packet.sampleCount ?? 0) / Double(packet.format.channelCount) / packet.format.sampleRate]
+        }
+        // Observe the PCM returned by the shipping receive path. Starting an
+        // additional decoder in the middle of a stream has different priming
+        // history, adds CPU load and cannot measure the real decode boundary.
+        viewModel.callSession.processReceivedAudio = { [pipeline = viewModel.audioPipeline] received in
+            var entry = timing(received.packet)
+            do {
+                let frame = try pipeline.processReceivedAudioPacket(received)
+                entry["handled"] = ProcessInfo.processInfo.systemUptime
+                if let playout = pipeline.receivePlayoutDiagnostics(peerID: received.peerID.rawValue) {
+                    entry["buffered"] = playout.bufferedDuration
+                    entry["adjustments"] = Double(playout.adjustments)
+                    entry["resets"] = Double(playout.resets)
+                }
+                receivedTiming.withLock { $0.append(entry) }
+                decodedProbe.append(frame)
+                return .processed(level: (try? AudioSignalMeter.measure(frame).rms) ?? 0)
+            } catch AppAudioPipelineError.notConfigured {
+                return .unavailable
+            } catch {
+                decodeFailures.withLock { $0 += 1 }
+                return .failed(String(describing: type(of: error)))
+            }
+        }
+        // Preserve every failing quality condition and its recording. Connection
+        // setup still throws on timeout, so a missing peer cannot count as a run.
+        continueAfterFailure = true
         var continuityFailures: [String] = []
         for scenario in scenarios {
             try await barrier.meet("begin-" + scenario.id)
@@ -247,6 +315,30 @@ final class AudioE2ETests: XCTestCase {
             try await Task.sleep(for: .seconds(2))
             scenario.verifyApplied(to: viewModel, peerID: peerID)
             probe.reset()
+            let originalTransmit = viewModel.audioPipeline.onTransmitPacket
+            let originalOutput = viewModel.audioPipeline.onOutputFrame
+            mixedProbe.reset(); decodedProbe.reset()
+            receivedTiming.withLock { $0.removeAll(keepingCapacity: true) }
+            let failuresBefore = decodeFailures.withLock { $0 }
+            var outputTiming: [[String: Double]] = []
+            viewModel.audioPipeline.onOutputFrame = { frame in
+                mixedProbe.append(frame)
+                outputTiming.append(["capture": frame.capturedAt, "host": ProcessInfo.processInfo.systemUptime,
+                    "duration": Double(frame.frameCount) / frame.format.sampleRate,
+                    "queued": output.bufferedOutputDuration ?? 0])
+                originalOutput?(frame)
+            }
+            let transmittedTiming = Mutex<[[String: Double]]>([])
+            viewModel.audioPipeline.onTransmitPacket = { packet in
+                transmittedTiming.withLock { $0.append(timing(packet)) }; originalTransmit?(packet)
+            }
+            func dropCounts() -> [String: Int] {
+                ["capture": input.droppedCaptureFrameCount,
+                 "delivery": viewModel.inputFrameDelivery?.droppedFrameCount ?? 0,
+                 "render": viewModel.audioPipeline.droppedRenderFrameCount,
+                 "sender": (viewModel.callSession as? RideIntercomCallSessionAdapter)?.droppedAudioPacketCount ?? 0]
+            }
+            let dropsBefore = dropCounts()
             let before = (viewModel.sentVoicePacketCount, viewModel.receivedVoicePacketCount,
                           viewModel.scheduledOutputFrameCount, output.playbackResetCount ?? 0)
             let start = ContinuousClock.now
@@ -256,7 +348,25 @@ final class AudioE2ETests: XCTestCase {
                 XCTAssertNil(viewModel.audioErrorMessage, status())
                 try await Task.sleep(for: .milliseconds(100))
             }
+            if transport == "local", !scenario.expectsSilence {
+                let statistics = viewModel.networkDiagnostics?.routes.first { $0.route == .multipeer }?.statistics
+                XCTAssertGreaterThan(statistics?.sentMediaDatagrams ?? 0, 0, "Local audio must use the UDP media path")
+                XCTAssertGreaterThan(statistics?.receivedMediaDatagrams ?? 0, 0, "Local audio must arrive over UDP")
+            }
             let rendered = probe.snapshot()
+            let firstCapture = input.firstCaptureTime
+            let firstOutput = probe.firstOutputTime
+            viewModel.audioPipeline.onTransmitPacket = originalTransmit
+            viewModel.audioPipeline.onOutputFrame = originalOutput
+            let drops = dropCounts().map { ($0.key, $0.value - (dropsBefore[$0.key] ?? 0)) }
+            let dropped = Dictionary(uniqueKeysWithValues: drops)
+            let scenarioID = scenario.id, sentTrace = transmittedTiming.withLock { $0 }, receivedTrace = receivedTiming.withLock { $0 }, renderedTrace = outputTiming
+            let traceData = try await Task.detached {
+                try JSONSerialization.data(withJSONObject: ["traceForScenario": scenarioID,
+                    "transmitted": sentTrace, "received": receivedTrace, "output": renderedTrace])
+            }.value
+            let trace = XCTAttachment(data: traceData, uniformTypeIdentifier: "public.json")
+            trace.name = "endpoint-\(role)-\(scenario.id)-packet-timing"; trace.lifetime = .keepAlways; add(trace)
             let tx = viewModel.sentVoicePacketCount - before.0
             let rx = viewModel.receivedVoicePacketCount - before.1
             let scheduled = viewModel.scheduledOutputFrameCount - before.2
@@ -264,6 +374,8 @@ final class AudioE2ETests: XCTestCase {
             XCTAssertEqual(rendered.invalid, 0)
             XCTAssertGreaterThan(rendered.samples.count, Int(rendered.rate * scenario.seconds * 0.8))
             let remoteSamples = remote.samples, localSamples = input.samples
+            let mixedRecording = mixedProbe.snapshot()
+            let decodedRecording = decodedProbe.snapshot()
             // Analysis must not block the app actor and manufacture a keepalive timeout.
             let (match, localMatch, continuity) = await Task.detached {
                 (RenderedAudioProbe.speechMatch(reference: remoteSamples, referenceRate: 48_000,
@@ -273,14 +385,43 @@ final class AudioE2ETests: XCTestCase {
                  SpeechContinuity.measure(reference: remoteSamples, referenceRate: 48_000,
                     output: rendered.samples, outputRate: rendered.rate))
             }.value
+            let mixedContinuity = await Task.detached {
+                SpeechContinuity.measure(reference: remoteSamples, referenceRate: 48_000,
+                    output: mixedRecording.samples, outputRate: mixedRecording.rate)
+            }.value
+            let decodedContinuity = await Task.detached {
+                SpeechContinuity.measure(reference: remoteSamples, referenceRate: 48_000,
+                    output: decodedRecording.samples, outputRate: decodedRecording.rate)
+            }.value
+            XCTAssertEqual(decodeFailures.withLock { $0 } - failuresBefore, 0)
             let peak = rendered.samples.reduce(Float(0)) { max($0, abs($1)) }
+            let needsReplies = remoteFixture.hasPrefix("conversation") && !scenario.expectsSilence
+            let replies = try await Task.detached {
+                needsReplies ? try ConversationIdentity.measure(fixture: remoteFixture, reference: remoteSamples,
+                    output: rendered.samples, outputRate: rendered.rate, referenceOffset: continuity.referenceOffsetSeconds)
+                : nil
+            }.value
+            if let replies, !replies.passed { continuityFailures.append("\(scenario.id): short reply identity failed: \(replies)") }
             XCTAssertLessThanOrEqual(peak, 1.001, "Limiter must bound the actual output")
             let report = viewModel.audioPipeline.codecRuntimeReport
             let measurement: [String: Any] = ["scenario": scenario.id, "role": role, "transport": transport,
                 "localFixture": localFixture, "remoteFixture": remoteFixture,
+                "localFixtureDurationSeconds": Double(input.samples.count) / 48_000,
                 "continuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(continuity)),
                 "continuityPassed": continuity.passed,
+                "acknowledgements": try replies.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) } ?? NSNull(),
                 "outputPlaybackResets": playbackResets,
+                "firstCaptureHostTime": firstCapture as Any? ?? NSNull(),
+                "firstOutputHostTime": firstOutput as Any? ?? NSNull(),
+                "firstMixedHostTime": mixedProbe.firstOutputTime as Any? ?? NSNull(),
+                "mixedContinuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(mixedContinuity)),
+                "firstDecodedCaptureTime": decodedProbe.firstOutputTime as Any? ?? NSNull(),
+                "decodedContinuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(decodedContinuity)),
+                "outputPresentationLatencySeconds": outputEngine.outputNode.outputPresentationLatency,
+                "captureTiming": input.captureTiming, "captureDiscontinuities": input.captureDiscontinuities,
+                "voiceProcessingTimings": input.voiceProcessingTimings,
+                "networkDiagnostics": try viewModel.networkDiagnostics.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) } ?? NSNull(),
+                "droppedFramesAndPackets": dropped,
                 "requestedCodec": scenario.codec, "selectedCodec": report.selectedCodec.rawValue,
                 "fallback": report.isFallback, "format": scenario.format, "requestedBitRate": scenario.bitRate,
                 "selectedBitRate": report.activeConfiguration.activeBitRate as Any? ?? NSNull(),
@@ -296,17 +437,19 @@ final class AudioE2ETests: XCTestCase {
             attachment.name = "endpoint-\(role)-\(scenario.id)-measurement"; attachment.lifetime = .keepAlways; add(attachment)
             let renderedURL = directory.appendingPathComponent("rendered-\(role)-\(scenario.id).wav")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try probe.writeWAV(to: renderedURL, rendered: rendered)
+            try await Task.detached { try probe.writeWAV(to: renderedURL, rendered: rendered) }.value
             let recording = XCTAttachment(contentsOfFile: renderedURL)
             recording.name = "endpoint-\(role)-\(scenario.id)-speech"; recording.lifetime = .keepAlways; add(recording)
             if scenario.expectsSilence {
                 XCTAssertLessThan(peak, 0.001, "\(scenario.id) must silence the actual render output")
             } else {
+                XCTAssertTrue(dropped.values.allSatisfy { $0 == 0 }, "\(scenario.id): internal drops \(dropped)")
                 XCTAssertGreaterThan(tx, 20, status())
                 XCTAssertGreaterThan(rx, 20, status())
                 XCTAssertGreaterThan(scheduled, 20, status())
                 XCTAssertGreaterThan(match, 0.45, "Remote speech missing in \(scenario.id): \(status())")
                 XCTAssertGreaterThan(match, localMatch + 0.10, "Reject local echo and unrelated audio")
+                XCTAssertEqual(continuity.missingActiveRatio, 0, "Even sub-percent missing speech is a regression")
                 if !continuity.passed {
                     continuityFailures.append("\(scenario.id): matched=\(continuity.matchedWindowRatio), missing=\(continuity.missingActiveRatio), longest=\(continuity.longestMissingSeconds)s")
                 }

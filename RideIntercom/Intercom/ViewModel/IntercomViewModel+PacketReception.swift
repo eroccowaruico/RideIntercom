@@ -4,20 +4,21 @@ import Logging
 import RTC
 
 extension IntercomViewModel {
-    func handleReceivedAudioPacket(_ received: RTC.ReceivedAudioPacket) {
+    func handleReceivedAudioPacket(_ received: RTC.ReceivedAudioPacket, reception: AudioPacketReception) {
         let peerID = received.peerID.rawValue
         guard isAudioReady, authenticatedPeerIDs.contains(peerID) else {
             return
         }
 
-        let frame: PCMFrame
-        do {
-            frame = try audioPipeline.processReceivedAudioPacket(received)
-        } catch {
+        let level: Float
+        switch reception {
+        case .processed(let measured): level = measured
+        case .unavailable: return
+        case .failed(let errorType):
             AppLoggers.audio.warning(
                 "audio.pipeline.receive_failed",
                 metadata: .event("audio.pipeline.receive_failed", [
-                    "errorType": "\(type(of: error))",
+                    "errorType": "\(errorType)",
                     "isRecoverable": "true"
                 ])
             )
@@ -28,8 +29,8 @@ extension IntercomViewModel {
         let receivedAt = Date().timeIntervalSince1970
         receivedVoicePacketCount += 1
         lastReceivedAudioAt = receivedAt
-        remoteVoiceReceivedAt[peerID] = receivedAt
-        applyReceivedVoiceMemberState(peerID: peerID, voiceLevel: AudioLevelMeter.rmsLevel(samples: frame.samples))
+        if level >= 0.0001 { remoteVoiceReceivedAt[peerID] = receivedAt }
+        applyReceivedVoiceMemberState(peerID: peerID, voiceLevel: level)
         if !isOutputMuted, masterOutputVolume > 0, remoteOutputVolume(for: peerID) > 0 {
             markPlayedAudioFrame(peerID: peerID)
         }
@@ -59,7 +60,7 @@ extension IntercomViewModel {
         let peakLevel = remoteVoicePeakWindows[peerID, default: VoicePeakWindow()].record(clampedLevel)
         withActiveGroup { group in
             guard let memberIndex = group.members.firstIndex(where: { $0.id == peerID }) else { return }
-            group.members[memberIndex].isTalking = true
+            group.members[memberIndex].isTalking = remoteVoiceReceivedAt[peerID] != nil
             group.members[memberIndex].voiceLevel = clampedLevel
             group.members[memberIndex].voicePeakLevel = peakLevel
             group.members[memberIndex].receivedAudioPacketCount += 1

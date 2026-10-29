@@ -3,8 +3,9 @@ import Codec
 import Foundation
 import RTC
 
-enum OutboundAudioPacket: Equatable {
+nonisolated enum OutboundAudioPacket: Equatable, Sendable {
     case voice(PCMFrame)
+    case silence(PCMFrame)
     case keepalive
 }
 
@@ -66,7 +67,7 @@ extension RTC.RTCAudioPolicy {
 }
 
 private extension AudioFormat {
-    init(rtcFormat: RTC.RTCAudioFormat) {
+    nonisolated init(rtcFormat: RTC.RTCAudioFormat) {
         self.init(sampleRate: rtcFormat.sampleRate, channelCount: rtcFormat.channelCount)
     }
 }
@@ -87,7 +88,7 @@ struct AppAudioCodecOptions: Sendable {
     private let aacELDv2BitRate: Int
     private let opusBitRate: Int
 
-    init(aacELDv2BitRate: Int = 32_000, opusBitRate: Int = 32_000) {
+    init(aacELDv2BitRate: Int = 48_000, opusBitRate: Int = 32_000) {
         self.aacELDv2BitRate = Codec.AACELDv2Options(bitRate: aacELDv2BitRate).bitRate
         self.opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
     }
@@ -102,6 +103,32 @@ struct AppAudioCodecOptions: Sendable {
 }
 
 enum AppAudioCodecBridge {
+    // Native support alone does not imply conversational quality. These floors
+    // retain the existing identity gate for English, Japanese and brief replies.
+    static func minimumAACBitRate(format: AudioFormat) -> Int {
+        format.sampleRate == 24000 ? 32000 : 48000
+    }
+    static func minimumOpusBitRate(format: AudioFormat) -> Int {
+        format.sampleRate == 16000 ? 16000 : 24000
+    }
+    static func normalizedOpusBitRate(_ requested: Int, format: AudioFormat) -> Int {
+        max(minimumOpusBitRate(format: format), Codec.OpusOptions(bitRate: requested).bitRate)
+    }
+    private static var aacBitRateChoices: [String: [Int]] = [:]
+    static func availableAACBitRates(format: AudioFormat) -> [Int] {
+        let key = "\(format.sampleRate)/\(format.channelCount)"
+        if let cached = aacBitRateChoices[key] { return cached }
+        let choices = CodecSupport.availableEncodingBitRates(codec: .mpeg4AACELD, format: format)
+            .filter { Codec.AACELDv2Options.allowedBitRateRange.contains($0) && $0 >= minimumAACBitRate(format: format) }
+        aacBitRateChoices[key] = choices
+        return choices
+    }
+
+    static func normalizedAACBitRate(_ requested: Int, format: AudioFormat) -> Int {
+        let clamped = Codec.AACELDv2Options(bitRate: requested).bitRate
+        return availableAACBitRates(format: format).min { abs($0 - clamped) < abs($1 - clamped) } ?? clamped
+    }
+
     enum DecodingError: Error { case unsupportedCodec, invalidFormat }
     // Converter capability is stable for an OS process and PCM configuration.
     // Probing allocates converters; never repeat it on every live audio frame.
@@ -135,7 +162,7 @@ enum AppAudioCodecBridge {
         let available = Set(runtimeReport(for: .pcm16, format: format, options: options)
             .availableCodecs
             .map(\.rtcIdentifier))
-        return [AudioCodecIdentifier.mpeg4AACELDv2, .opus, .pcm16].filter { available.contains($0) }
+        return [AudioCodecIdentifier.mpeg4AACELD, .opus, .pcm16].filter { available.contains($0) }
     }
 
     static func selectedRTCCodec(
@@ -184,7 +211,7 @@ enum AppAudioCodecBridge {
         )
     }
 
-    static func decode(_ packet: RTC.RTCAudioPacket) throws -> PCMFrame {
+    nonisolated static func decode(_ packet: RTC.RTCAudioPacket, using decoder: Codec.StreamingCodecDecoder = .init()) throws -> PCMFrame {
         guard let codec = Codec.CodecIdentifier(rawValue: packet.codec.rawValue) else {
             throw DecodingError.unsupportedCodec
         }
@@ -193,7 +220,7 @@ enum AppAudioCodecBridge {
               (1...2).contains(packet.format.channelCount) else {
             throw DecodingError.invalidFormat
         }
-        return try Codec.CodecDecoder().decode(Codec.EncodedCodecFrame(
+        return try decoder.decode(Codec.EncodedCodecFrame(
             sequenceNumber: packet.sequenceNumber,
             codec: codec,
             format: AudioFormat(rtcFormat: packet.format),

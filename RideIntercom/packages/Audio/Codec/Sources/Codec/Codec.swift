@@ -18,6 +18,7 @@ public enum CodecError: Error, Equatable, Sendable {
 
 public enum CodecIdentifier: String, Codable, CaseIterable, Equatable, Sendable {
     case pcm16
+    case mpeg4AACELD
     case mpeg4AACELDv2
     case opus
 
@@ -25,6 +26,8 @@ public enum CodecIdentifier: String, Codable, CaseIterable, Equatable, Sendable 
         switch self {
         case .pcm16:
             "PCM 16-bit"
+        case .mpeg4AACELD:
+            "MPEG-4 AAC-ELD"
         case .mpeg4AACELDv2:
             "MPEG-4 AAC-ELD v2"
         case .opus:
@@ -36,6 +39,8 @@ public enum CodecIdentifier: String, Codable, CaseIterable, Equatable, Sendable 
         switch self {
         case .pcm16:
             kAudioFormatLinearPCM
+        case .mpeg4AACELD:
+            kAudioFormatMPEG4AAC_ELD
         case .mpeg4AACELDv2:
             kAudioFormatMPEG4AAC_ELD_V2
         case .opus:
@@ -49,7 +54,7 @@ public struct AACELDv2Options: Codable, Equatable, Sendable {
 
     public var bitRate: Int
 
-    public init(bitRate: Int = 24_000) {
+    public init(bitRate: Int = 32_000) {
         self.bitRate = Self.clamp(bitRate, Self.allowedBitRateRange)
     }
 
@@ -94,7 +99,7 @@ public struct CodecEncodingConfiguration: Codable, Equatable, Sendable {
         switch codec {
         case .pcm16:
             nil
-        case .mpeg4AACELDv2:
+        case .mpeg4AACELD, .mpeg4AACELDv2:
             aacELDv2Options.bitRate
         case .opus:
             opusOptions.bitRate
@@ -142,12 +147,19 @@ public struct EncodedCodecFrame: Codable, Equatable, Sendable {
 }
 
 public enum CodecSupport {
+    public static func availableEncodingBitRates(codec: CodecIdentifier, format: AudioFormat) -> [Int] {
+        guard codec != .pcm16, let input = AudioConverterBridge.makePCMFormat(format),
+              let output = AudioConverterBridge.makeCompressedFormat(codec: codec, format: format, bitRate: nil),
+              let converter = AVAudioConverter(from: input, to: output) else { return [] }
+        return Array(Set((converter.applicableEncodeBitRates ?? []).map(\.intValue).filter { $0 > 0 })).sorted()
+    }
+
     public static func isEncodingAvailable(for configuration: CodecEncodingConfiguration) -> Bool {
         guard configuration.format.isValid else { return false }
         switch configuration.codec {
         case .pcm16:
             return true
-        case .mpeg4AACELDv2, .opus:
+        case .mpeg4AACELD, .mpeg4AACELDv2, .opus:
             guard let pcmFormat = AudioConverterBridge.makePCMFormat(configuration.format),
                   let compressedFormat = AudioConverterBridge.makeCompressedFormat(
                     codec: configuration.codec,
@@ -196,7 +208,7 @@ public enum CodecSupport {
         switch codec {
         case .pcm16:
             return true
-        case .mpeg4AACELDv2, .opus:
+        case .mpeg4AACELD, .mpeg4AACELDv2, .opus:
             guard let pcmFormat = AudioConverterBridge.makePCMFormat(format),
                   let compressedFormat = AudioConverterBridge.makeCompressedFormat(codec: codec, format: format, bitRate: nil) else {
                 return false
@@ -285,7 +297,7 @@ public final class CodecEncoder {
         switch configuration.codec {
         case .pcm16:
             payload = PCM16Codec.encode(frame.samples)
-        case .mpeg4AACELDv2, .opus:
+        case .mpeg4AACELD, .mpeg4AACELDv2, .opus:
             payload = try AudioConverterBridge.encode(
                 samples: frame.samples,
                 codec: configuration.codec,
@@ -337,7 +349,7 @@ public final class CodecDecoder {
         switch frame.codec {
         case .pcm16:
             samples = try PCM16Codec.decode(frame.payload)
-        case .mpeg4AACELDv2, .opus:
+        case .mpeg4AACELD, .mpeg4AACELDv2, .opus:
             samples = try AudioConverterBridge.decode(payload: frame.payload, codec: frame.codec, format: frame.format)
         }
 
@@ -397,7 +409,7 @@ public enum PCM16Codec {
     }
 }
 
-private enum AudioConverterBridge {
+enum AudioConverterBridge {
     static func encode(samples: [Float], codec: CodecIdentifier, format: AudioFormat, bitRate: Int?) throws -> Data {
         guard codec != .pcm16 else { return PCM16Codec.encode(samples) }
         guard !samples.isEmpty else {
@@ -429,10 +441,10 @@ private enum AudioConverterBridge {
             maximumPacketSize: max(1, converter.maximumOutputPacketSize)
         )
 
-        let inputProvider = OneShotAudioBufferProvider(inputBuffer)
+        let inputProvider = AudioBufferProvider(inputBuffer)
         var conversionError: NSError?
-        let status = converter.convert(to: outputBuffer, error: &conversionError) { _, inputStatus in
-            inputProvider.provide(inputStatus)
+        let status = converter.convert(to: outputBuffer, error: &conversionError) { requested, inputStatus in
+            inputProvider.provide(requested, inputStatus)
         }
 
         guard status != .error else {
@@ -467,7 +479,7 @@ private enum AudioConverterBridge {
         guard let pcmFormat = makePCMFormat(format) else {
             throw CodecError.invalidFormat(format)
         }
-        guard let compressedFormat = makeCompressedFormat(codec: codec, format: format, bitRate: nil) else {
+        guard let compressedFormat = makeDecodeFormat(codec: codec, format: format, cookie: envelope.magicCookie) else {
             throw CodecError.audioFormatCreationFailed(codec)
         }
         compressedFormat.magicCookie = envelope.magicCookie
@@ -477,8 +489,11 @@ private enum AudioConverterBridge {
         }) else { throw CodecError.decoderUnavailable(codec) }
         defer { AudioConverterPool.shared.put(converter, key: key) }
 
+        // Preserve decoder delay explicitly; the packet envelope carries the
+        // encoder priming samples that are removed once below.
+        converter.primeMethod = .none
         // AAC decoders need the encoder's actual stream configuration.
-        converter.magicCookie = envelope.magicCookie
+
         let inputBuffer = AVAudioCompressedBuffer(
             format: compressedFormat,
             packetCapacity: max(1, envelope.packetCount),
@@ -504,10 +519,10 @@ private enum AudioConverterBridge {
             throw CodecError.audioFormatCreationFailed(codec)
         }
 
-        let inputProvider = OneShotAudioBufferProvider(inputBuffer)
+        let inputProvider = AudioBufferProvider(inputBuffer)
         var conversionError: NSError?
-        let status = converter.convert(to: outputBuffer, error: &conversionError) { _, inputStatus in
-            inputProvider.provide(inputStatus)
+        let status = converter.convert(to: outputBuffer, error: &conversionError) { requested, inputStatus in
+            inputProvider.provide(requested, inputStatus)
         }
 
         guard status != .error else {
@@ -521,6 +536,20 @@ private enum AudioConverterBridge {
             throw CodecError.conversionFailed(codec, "Decoder returned fewer samples than the source and priming frames")
         }
         return Array(decoded.dropFirst(primingSamples).prefix(envelope.sourceSampleCount))
+    }
+
+    static func makeDecodeFormat(codec: CodecIdentifier, format: AudioFormat, cookie: Data?) -> AVAudioFormat? {
+        guard codec == .mpeg4AACELD || codec == .mpeg4AACELDv2, let cookie else {
+            return makeCompressedFormat(codec: codec, format: format, bitRate: nil)
+        }
+        var description = AudioStreamBasicDescription()
+        description.mFormatID = codec.audioFormatID
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        let status = cookie.withUnsafeBytes {
+            AudioFormatGetProperty(kAudioFormatProperty_FormatInfo, UInt32(cookie.count), $0.baseAddress, &size, &description)
+        }
+        guard status == noErr else { return nil }
+        return AVAudioFormat(streamDescription: &description)
     }
 
     static func makePCMFormat(_ format: AudioFormat) -> AVAudioFormat? {
@@ -557,7 +586,7 @@ private enum AudioConverterBridge {
         return AVAudioFrameCount(sampleCount / format.channelCount)
     }
 
-    private static func makePCMBuffer(
+    static func makePCMBuffer(
         samples: [Float],
         format: AudioFormat,
         avFormat: AVAudioFormat,
@@ -569,21 +598,30 @@ private enum AudioConverterBridge {
         }
 
         buffer.frameLength = frameCount
-        for frameIndex in 0..<Int(frameCount) {
-            for channelIndex in 0..<format.channelCount {
-                channels[channelIndex][frameIndex] = samples[frameIndex * format.channelCount + channelIndex]
+        if format.channelCount == 1 {
+            samples.withUnsafeBufferPointer { input in
+                if let base = input.baseAddress { channels[0].update(from: base, count: Int(frameCount)) }
+            }
+        } else {
+            for frameIndex in 0..<Int(frameCount) {
+                for channelIndex in 0..<format.channelCount {
+                    channels[channelIndex][frameIndex] = samples[frameIndex * format.channelCount + channelIndex]
+                }
             }
         }
 
         return buffer
     }
 
-    private static func samples(from buffer: AVAudioPCMBuffer, format: AudioFormat, sampleLimit: Int) throws -> [Float] {
+    static func samples(from buffer: AVAudioPCMBuffer, format: AudioFormat, sampleLimit: Int) throws -> [Float] {
         guard let channels = buffer.floatChannelData else {
             throw CodecError.audioFormatCreationFailed(.pcm16)
         }
 
         let frameLength = Int(buffer.frameLength)
+        if format.channelCount == 1 {
+            return Array(UnsafeBufferPointer(start: channels[0], count: min(frameLength, sampleLimit)))
+        }
         var samples: [Float] = []
         samples.reserveCapacity(frameLength * format.channelCount)
         for frameIndex in 0..<frameLength {
@@ -598,7 +636,7 @@ private enum AudioConverterBridge {
         return samples
     }
 
-    private static func packetDescriptions(from buffer: AVAudioCompressedBuffer) -> [CompressedPayloadEnvelope.PacketDescription] {
+    static func packetDescriptions(from buffer: AVAudioCompressedBuffer) -> [CompressedPayloadEnvelope.PacketDescription] {
         guard let packetDescriptions = buffer.packetDescriptions else { return [] }
         return (0..<Int(buffer.packetCount)).map { index in
             CompressedPayloadEnvelope.PacketDescription(packetDescriptions[index])
@@ -606,27 +644,53 @@ private enum AudioConverterBridge {
     }
 }
 
-private final class OneShotAudioBufferProvider: @unchecked Sendable {
+final class AudioBufferProvider: @unchecked Sendable {
     private let buffer: AVAudioBuffer
-    private var didProvideInput = false
+    private var offset: UInt32 = 0
+    private let exhausted: AVAudioConverterInputStatus
+    init(_ buffer: AVAudioBuffer, exhausted: AVAudioConverterInputStatus = .endOfStream) { self.buffer = buffer; self.exhausted = exhausted }
 
-    init(_ buffer: AVAudioBuffer) {
-        self.buffer = buffer
-    }
-
-    func provide(_ inputStatus: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioBuffer? {
-        if didProvideInput {
-            inputStatus.pointee = .endOfStream
-            return nil
+    func provide(_ requested: UInt32, _ status: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioBuffer? {
+        if let pcm = buffer as? AVAudioPCMBuffer {
+            guard offset < pcm.frameLength else { status.pointee = exhausted; return nil }
+            let count = min(requested, pcm.frameLength - offset)
+            guard let part = AVAudioPCMBuffer(pcmFormat: pcm.format, frameCapacity: count),
+                  let input = pcm.floatChannelData, let output = part.floatChannelData else {
+                status.pointee = exhausted; return nil
+            }
+            part.frameLength = count
+            for channel in 0..<Int(pcm.format.channelCount) {
+                output[channel].update(from: input[channel].advanced(by: Int(offset)), count: Int(count))
+            }
+            offset += count
+            status.pointee = .haveData
+            return part
         }
-
-        didProvideInput = true
-        inputStatus.pointee = .haveData
-        return buffer
+        guard let compressed = buffer as? AVAudioCompressedBuffer, offset < compressed.packetCount,
+              let descriptions = compressed.packetDescriptions else {
+            status.pointee = exhausted; return nil
+        }
+        let count = min(requested, compressed.packetCount - offset)
+        let part = AVAudioCompressedBuffer(format: compressed.format, packetCapacity: count,
+            maximumPacketSize: compressed.maximumPacketSize)
+        var bytes = 0
+        for index in 0..<Int(count) {
+            var description = descriptions[Int(offset) + index]
+            part.data.advanced(by: bytes).copyMemory(from: compressed.data.advanced(by: Int(description.mStartOffset)),
+                byteCount: Int(description.mDataByteSize))
+            description.mStartOffset = Int64(bytes)
+            part.packetDescriptions?[index] = description
+            bytes += Int(description.mDataByteSize)
+        }
+        part.packetCount = count
+        part.byteLength = UInt32(bytes)
+        offset += count
+        status.pointee = .haveData
+        return part
     }
 }
 
-private struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
+struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
     struct PacketDescription: Codable, Equatable, Sendable {
         var startOffset: Int64
         var variableFramesInPacket: UInt32
@@ -647,6 +711,7 @@ private struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
         }
     }
 
+    var streamID: UUID? = nil
     var codec: CodecIdentifier
     var sourceSampleCount: Int
     var sourceFrameCount: UInt32

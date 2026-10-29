@@ -60,6 +60,12 @@ struct LocalNetworkEvent: Equatable {
 }
 
 
+nonisolated enum AudioPacketReception: Equatable, Sendable {
+    case processed(level: Float)
+    case unavailable
+    case failed(String)
+}
+
 enum TransportEvent: Equatable {
     case localNetworkStatus(LocalNetworkEvent)
     case connected(peerIDs: [String])
@@ -70,7 +76,7 @@ enum TransportEvent: Equatable {
     case receivedApplicationData(peerID: String, message: ApplicationDataMessage)
     case disconnected
     case linkFailed(internetAvailable: Bool)
-    case receivedAudioPacket(RTC.ReceivedAudioPacket)
+    case receivedAudioPacket(RTC.ReceivedAudioPacket, AudioPacketReception)
     case routeMetrics(RTC.RouteMetrics)
     case networkDiagnostics(RTCNetworkDiagnostics)
     case serviceError(String)
@@ -80,6 +86,8 @@ enum TransportEvent: Equatable {
 
 protocol CallSession: AnyObject {
     var onEvent: ((TransportEvent) -> Void)? { get set }
+    var processReceivedAudio: (@Sendable (RTC.ReceivedAudioPacket) -> AudioPacketReception)? { get set }
+    var audioPacketSink: @Sendable (RTC.RTCAudioPacket) -> Void { get }
     var activeRouteDebugTypeName: String { get }
     func updateInternetConfiguration(_ configuration: RTC.CloudflareRealtimeConfiguration)
 

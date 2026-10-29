@@ -11,15 +11,57 @@ from unittest.mock import patch
 from scripts.test_lifecycle import exclusive_run, stop_executable, SimulatorLease
 from scripts.validate import Runner
 from scripts.audio_e2e_matrix import scenarios
-from scripts.audio_e2e import measurements
+from scripts.audio_e2e import measurements, duplex_latencies, run_pair
 
 
 class AudioE2ELifecycleTests(unittest.TestCase):
+    def test_pair_initializes_native_audio_before_launching_the_other_host(self):
+        ready = self.root / 'ready'
+        joined = self.root / 'joined'
+        first = ['first', [sys.executable, '-u', '-c',
+            'import sys,time; from pathlib import Path; time.sleep(.15); '
+            'Path(sys.argv[1]).touch(); print("AUDIO_E2E_NATIVE_READY", flush=True); '
+            'time.sleep(.3); assert Path(sys.argv[2]).exists()', str(ready), str(joined)]]
+        second = ['second', [sys.executable, '-c',
+            'import sys; from pathlib import Path; assert Path(sys.argv[1]).exists(); Path(sys.argv[2]).touch()',
+            str(ready), str(joined)]]
+        runner = Runner(self.root / 'run')
+        run_pair(runner, [first, second], timeout=3)
+        self.assertEqual(runner.exit_code, 0)
+
+    def test_pair_does_not_launch_another_host_after_native_setup_failure(self):
+        started = self.root / 'second-started'
+        runner = Runner(self.root / 'run')
+        commands = [('first', [sys.executable, '-c', 'raise SystemExit(1)']),
+            ('second', [sys.executable, '-c', 'import sys; from pathlib import Path; Path(sys.argv[1]).touch()', str(started)])]
+        with self.assertRaisesRegex(RuntimeError, 'initialization'):
+            run_pair(runner, commands, timeout=3)
+        self.assertFalse(started.exists())
+
     def test_identity_matrix_preserves_full_utterance_and_codec_controls(self):
         cases = scenarios('identity', 8)
-        self.assertEqual([case['codec'] for case in cases], ['mpeg4AACELDv2', 'pcm16', 'opus'])
+        self.assertEqual([case['codec'] for case in cases], ['mpeg4AACELD', 'pcm16', 'opus'])
         self.assertTrue(all(case['seconds'] >= 20 for case in cases))
         self.assertEqual([case['transmitIsolation'] for case in cases], [True, False, False])
+
+    def test_duplex_latency_pairs_remote_capture_and_uses_one_global_alignment(self):
+        rows = [dict(role='a', transport='local', scenario='speech', expectedSilence=False, continuityPassed=True,
+                     firstCaptureHostTime=100, firstOutputHostTime=102.1, localFixtureDurationSeconds=8,
+                     continuity=dict(referenceOffsetSeconds=1)),
+                dict(role='b', transport='local', scenario='speech', expectedSilence=False, continuityPassed=True,
+                     firstCaptureHostTime=101, firstOutputHostTime=109.08, localFixtureDurationSeconds=10,
+                     continuity=dict(referenceOffsetSeconds=1))]
+        values = duplex_latencies(rows)
+        self.assertAlmostEqual(values[0], 0.1)
+        self.assertAlmostEqual(values[1], 0.08)
+        rows[0]['firstOutputHostTime'] += 0.2
+        rows[1]['firstOutputHostTime'] += 0.01
+        with self.assertRaisesRegex(ValueError, '125 ms'):
+            duplex_latencies(rows)
+        self.assertAlmostEqual(rows[1]['captureToRenderLatencySeconds'], 0.09,
+                               msg='Keep every measurement even when the first endpoint fails')
+        with self.assertRaises(ValueError):
+            duplex_latencies(rows[:1])
 
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
@@ -40,7 +82,7 @@ class AudioE2ELifecycleTests(unittest.TestCase):
     def test_release_matrix_covers_every_exposed_audio_choice(self):
         full = scenarios('full', 8)
         self.assertEqual(len({case['id'] for case in full}), len(full))
-        for codec in ['pcm16', 'opus', 'mpeg4AACELDv2']:
+        for codec in ['pcm16', 'opus', 'mpeg4AACELD']:
             self.assertEqual({c['format'] for c in full if c['codec'] == codec}, {'mono16k', 'mono24k', 'mono48k'})
         self.assertEqual({c['profile'] for c in full}, {'standard', 'speakerDefault', 'echoCancelledInput', 'voiceChat'})
         session_modes = {'standard': ('standard', False), 'speakerDefault': ('standard', True),
@@ -55,8 +97,8 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         self.assertEqual({c['vad'] for c in full}, {'lowNoise', 'standard', 'noisy'})
         for key in ['transmitIsolation', 'masterIsolation', 'peerIsolation', 'duck', 'localMute', 'outputMute']:
             self.assertEqual({c[key] for c in full}, {False, True}, key)
-        for codec, limits in [('opus', {6000, 128000}), ('mpeg4AACELDv2', {12000, 128000})]:
-            for rate in ['mono16k', 'mono24k', 'mono48k']:
+        for rate, aac in [('mono16k', {48000}), ('mono24k', {32000, 64000}), ('mono48k', {48000, 128000})]:
+            for codec, limits in [('mpeg4AACELD', aac), ('opus', {16000 if rate == 'mono16k' else 24000, 128000})]:
                 self.assertTrue(limits <= {c['bitRate'] for c in full if c['codec'] == codec and c['format'] == rate})
         self.assertLess(sum(c['seconds'] for c in scenarios('quick', 8)), 40)
 

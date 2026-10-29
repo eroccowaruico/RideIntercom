@@ -9,25 +9,6 @@ import SessionManager
 import VADGate
 
 extension IntercomViewModel {
-    func send(_ packet: OutboundAudioPacket) {
-        switch packet {
-        case .voice(let frame):
-            do {
-                try audioPipeline.processCapturedFrame(frame)
-            } catch {
-                AppLoggers.audio.warning(
-                    "audio.pipeline.capture_failed",
-                    metadata: .event("audio.pipeline.capture_failed", [
-                        "errorType": "\(type(of: error))",
-                        "isRecoverable": "true"
-                    ])
-                )
-            }
-        case .keepalive:
-            callSession.sendControl(.keepalive)
-        }
-    }
-
     func broadcastControl(_ message: ControlMessage) {
         callSession.sendControl(message)
     }
@@ -132,8 +113,8 @@ extension IntercomViewModel {
             connectionState = .reconnectingOffline
             markMembers(.connecting)
             publishRuntimePackageReports(force: true)
-        case .receivedAudioPacket(let received):
-            handleReceivedAudioPacket(received)
+        case .receivedAudioPacket(let received, let reception):
+            handleReceivedAudioPacket(received, reception: reception)
         case .networkDiagnostics(let report):
             networkDiagnostics = report
         case .routeMetrics(let metrics):

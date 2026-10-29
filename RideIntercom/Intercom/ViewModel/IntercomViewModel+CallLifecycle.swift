@@ -1,3 +1,4 @@
+import AudioCore
 import Foundation
 import Logging
 import RTC
@@ -146,7 +147,7 @@ extension IntercomViewModel {
         activeGroupID = disconnectingGroupID
         markMembers(.offline)
         activeGroupID = nil
-        audioTransmissionController.applyVADSensitivity(vadSensitivity)
+        audioPipeline.applyVADSensitivity(vadSensitivity)
         networkDiagnostics = nil
         lastRouteMetrics = nil
         publishRuntimePackageReports(force: true)
@@ -155,6 +156,16 @@ extension IntercomViewModel {
     func bindConnectionEvents() {
         connectionGeneration = UUID()
         let generation = connectionGeneration
+        callSession.processReceivedAudio = { [pipeline = audioPipeline] received in
+            do {
+                let frame = try pipeline.processReceivedAudioPacket(received)
+                return .processed(level: (try? AudioSignalMeter.measure(frame).rms) ?? 0)
+            } catch AppAudioPipelineError.notConfigured {
+                return .unavailable
+            } catch {
+                return .failed(String(describing: type(of: error)))
+            }
+        }
         callSession.onEvent = { [weak self] event in
             guard let self, self.connectionGeneration == generation else { return }
             self.handleTransportEvent(event)
@@ -170,21 +181,26 @@ extension IntercomViewModel {
             self.handleMicrophoneFrame(frame)
         }
         inputFrameDelivery = delivery
+        let pipeline = audioPipeline
+        pipeline.setInputMuted(isMuted)
         audioInputCapture.setRuntimeEventHandler { [weak self] event in
-            if case .inputFrame(let frame) = event { delivery.yield(frame); return }
+            if case .inputFrame(let frame) = event {
+                pipeline.processMicrophoneFrame(frame, shouldProcess: { delivery.isActive })
+                delivery.yield(frame)
+                return
+            }
             DispatchQueue.main.async {
                 guard let self, self.audioGeneration == generation else { return }
                 self.handleAudioStreamRuntimeEvent(event)
             }
         }
-        audioPipeline.onTransmitPacket = { [weak self] packet in
-            guard let self, self.audioGeneration == generation, self.isAudioReady else { return }
-            self.handleTransmitAudioPacket(packet)
-        }
+        audioPipeline.onTransmitPacket = callSession.audioPacketSink
         audioPipeline.onOutputFrame = { [weak self] frame in
             guard let self, self.audioGeneration == generation else { return }
             if self.audioCheckPhase == .playing {
-                self.lastOutputStreamOperationReport = self.audioOutputRenderer.schedule(frame)
+                if !self.audioPipeline.rendersToHardware {
+                    self.lastOutputStreamOperationReport = self.audioOutputRenderer.schedule(frame)
+                }
                 return
             }
             guard self.isAudioReady else { return }
@@ -286,7 +302,11 @@ extension IntercomViewModel {
 
     @discardableResult
     func applyCurrentVoiceProcessingConfiguration() -> Bool {
-        let report = audioInputCapture.updateVoiceProcessing(currentVoiceProcessingConfiguration())
+        let requested = currentVoiceProcessingConfiguration()
+        let changesClock = isAudioReady
+            && audioInputCapture.configuration.voiceProcessing.voiceProcessingEnabled != requested.voiceProcessingEnabled
+        let update = { self.audioInputCapture.updateVoiceProcessing(requested) }
+        let report = changesClock ? audioPipeline.reconfigureInput(update) : update()
         lastVoiceProcessingOperationReport = report
         if case .ignored(let reason) = report.result {
             AppLoggers.audio.debug(

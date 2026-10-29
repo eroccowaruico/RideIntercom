@@ -3,7 +3,7 @@
 
 def scenarios(mode, seconds):
     def case(name, **changes):
-        return dict(id=name, codec='mpeg4AACELDv2', format='mono48k', bitRate=32000,
+        return dict(id=name, codec='mpeg4AACELD', format='mono48k', bitRate=48000,
                     profile='echoCancelledInput', speaker=False, vad='standard', transmitIsolation=True,
                     masterIsolation=False, peerIsolation=False, duck=True,
                     masterVolume=1.0, peerVolume=1.0, localMute=False, outputMute=False,
@@ -29,11 +29,13 @@ def scenarios(mode, seconds):
     if mode == 'quick':
         return quick
     full = [case(f'{codec}-{rate}', codec=codec, format=rate)
-            for codec in ['pcm16', 'opus', 'mpeg4AACELDv2']
+            for codec in ['pcm16', 'opus', 'mpeg4AACELD']
             for rate in ['mono16k', 'mono24k', 'mono48k']]
-    full += [case(f'{codec}-{rate}-bitrate-{bitrate}', codec=codec, format=rate, bitRate=bitrate)
-             for codec, limits in [('opus', (6000, 128000)), ('mpeg4AACELDv2', (12000, 128000))]
-             for rate in ['mono16k', 'mono24k', 'mono48k'] for bitrate in limits]
+    full += [case(f'opus-{rate}-bitrate-{bitrate}', codec='opus', format=rate, bitRate=bitrate)
+             for rate in ['mono16k', 'mono24k', 'mono48k'] for bitrate in ((16000 if rate == 'mono16k' else 24000), 128000)]
+    full += [case(f'AAC-{rate}-bitrate-{bitrate}', codec='mpeg4AACELD', format=rate, bitRate=bitrate)
+             for rate, limits in [('mono16k', (48000, 48000)), ('mono24k', (32000, 64000)),
+                                  ('mono48k', (48000, 128000))] for bitrate in sorted(set(limits))]
     full += quick[1:]
     full += [case('speaker', profile='speakerDefault', masterVolume=2.0),
              case('speaker-without-explicit-echo', profile='standard', speaker=True),

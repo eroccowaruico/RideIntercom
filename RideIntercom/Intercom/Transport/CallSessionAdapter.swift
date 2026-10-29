@@ -12,6 +12,13 @@ private struct PeerMetadataApplicationPayload: Codable, Equatable {
 
 final class RideIntercomCallSessionAdapter: CallSession {
     var onEvent: ((TransportEvent) -> Void)?
+    var processReceivedAudio: (@Sendable (RTC.ReceivedAudioPacket) -> AudioPacketReception)? {
+        didSet { bindReceivedAudio() }
+    }
+    var audioPacketSink: @Sendable (RTC.RTCAudioPacket) -> Void {
+        let delivery = audioDelivery
+        return { delivery.enqueue($0) }
+    }
     private(set) var activeRouteDebugTypeName: String = "RTC RouteManager"
 
     private nonisolated static let keepaliveNamespace = "rideintercom.keepalive"
@@ -22,6 +29,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
     private let ownsRTCSession: Bool
     private let sessionFactory: @MainActor (RTC.RTCAudioPolicy, Set<RTC.RouteKind>, RTC.CloudflareRealtimeConfiguration?) -> RTC.CallSession
     private var eventTask: Task<Void, Never>?
+    private var audioReceiveTask: Task<Void, Never>?
+    private var audioNotificationTask: Task<Void, Never>?
     private var commandTask: Task<Void, Never>?
     private var commands = CallCommandQueue()
     private var commandQueueFailed = false
@@ -35,11 +44,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
     private var requestedReports: [RTCRuntimePackageReport] = []
     private var mediaActive = false
     var pendingCommandCount: Int { commands.count }
-    private var audioSendTask: Task<Void, Never>?
-    private var audioSendGeneration = UUID()
-    // One OS tap may deliver five 20 ms packets together. Preserve that burst
-    // while bounding pending audio to 100 ms; a single-slot mailbox loses speech.
-    private var pendingAudio: [(packet: RTC.RTCAudioPacket, queuedAt: ContinuousClock.Instant)] = []
+    private let audioDelivery = AudioPacketDelivery()
+    var droppedAudioPacketCount: Int { audioDelivery.droppedPacketCount }
     private var eventGeneration = UUID()
     private var connectionRequest: RTC.CallStartRequest?
     private var mediaRequested = false
@@ -66,7 +72,9 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     deinit {
         eventTask?.cancel()
-        audioSendTask?.cancel()
+        audioReceiveTask?.cancel()
+        audioNotificationTask?.cancel()
+        audioDelivery.suspend()
         commandTask?.cancel()
     }
 
@@ -81,6 +89,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     func startMedia() {
         mediaRequested = true
+        if !requestedLocalMute { audioDelivery.begin() }
         enqueue(.startMedia)
     }
 
@@ -119,6 +128,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
     func setLocalMute(_ muted: Bool) {
         requestedLocalMute = muted
         if muted { clearPendingAudio() }
+        else if mediaRequested { audioDelivery.begin() }
         enqueue(.localMute(muted))
     }
 
@@ -133,37 +143,16 @@ final class RideIntercomCallSessionAdapter: CallSession {
 
     func sendAudioPacket(_ packet: RTC.RTCAudioPacket) {
         guard mediaRequested, !requestedLocalMute, !commandQueueFailed else { return }
-        if pendingAudio.count == 5 { pendingAudio.removeFirst() }
-        pendingAudio.append((packet, .now))
+        audioDelivery.enqueue(packet)
         drainPendingAudio()
     }
 
     private func drainPendingAudio() {
-        guard mediaActive, !appliedLocalMute, !requestedLocalMute, audioSendTask == nil else { return }
-        let generation = audioSendGeneration
-        audioSendTask = Task { [weak self, rtcSession] in
-            while !Task.isCancelled, let self, self.audioSendGeneration == generation,
-                  self.mediaActive, !self.requestedLocalMute, !self.appliedLocalMute {
-                guard !self.pendingAudio.isEmpty else { break }
-                let next = self.pendingAudio.removeFirst()
-                if next.queuedAt.duration(to: .now) < .milliseconds(100) {
-                    await rtcSession.sendAudioPacket(next.packet)
-                }
-            }
-            if let self {
-                self.audioSendTask = nil
-                // A cancelled backend call may finish after a new generation
-                // queued audio. Start its one worker only after this one exits.
-                if !self.pendingAudio.isEmpty { self.drainPendingAudio() }
-            }
-        }
+        guard mediaActive, !appliedLocalMute, !requestedLocalMute else { return }
+        audioDelivery.resume(with: rtcSession)
     }
 
-    private func clearPendingAudio() {
-        audioSendGeneration = UUID()
-        pendingAudio.removeAll(keepingCapacity: true)
-        audioSendTask?.cancel()
-    }
+    private func clearPendingAudio() { audioDelivery.suspend() }
 
     func sendControl(_ message: ControlMessage) {
         switch message {
@@ -172,7 +161,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
             enqueue(.stateMessage(Self.keepaliveNamespace, ApplicationDataMessage(
                 namespace: Self.keepaliveNamespace,
                 payload: payload ?? Data(),
-                delivery: .unreliable
+                delivery: .reliable
             )))
         case .peerMuteState(let isMuted):
             sendPeerMuteState(isMuted: isMuted)
@@ -267,6 +256,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
         eventGeneration = UUID()
         eventTask?.cancel()
         eventTask = nil
+        audioReceiveTask?.cancel(); audioReceiveTask = nil
+        audioNotificationTask?.cancel(); audioNotificationTask = nil
     }
 
     private func prepareConnection(group: IntercomGroup) {
@@ -297,6 +288,35 @@ final class RideIntercomCallSessionAdapter: CallSession {
                 self.handleRTCEvent(event)
             }
         }
+        bindReceivedAudio()
+    }
+
+    private func bindReceivedAudio() {
+        audioReceiveTask?.cancel()
+        audioNotificationTask?.cancel()
+        guard let processReceivedAudio else { return }
+        let generation = eventGeneration
+        // RTC supplies an independent bounded subscription. UI event handling
+        // cannot hold up this consumer's decoding and native playback schedule.
+        let events = rtcSession.events
+        let notifications = AsyncStream<(RTC.ReceivedAudioPacket, AudioPacketReception)>
+            .makeStream(bufferingPolicy: .bufferingNewest(64))
+        audioReceiveTask = Task.detached(priority: .userInitiated) {
+            defer { notifications.continuation.finish() }
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                if case .receivedAudioPacket(let received) = event {
+                    let result = processReceivedAudio(received)
+                    notifications.continuation.yield((received, result))
+                }
+            }
+        }
+        audioNotificationTask = Task { [weak self] in
+            for await (received, result) in notifications.stream {
+                guard !Task.isCancelled, let self, self.eventGeneration == generation else { return }
+                self.onEvent?(.receivedAudioPacket(received, result))
+            }
+        }
     }
 
     private func handleRTCEvent(_ event: RTC.CallSessionEvent) {
@@ -315,8 +335,8 @@ final class RideIntercomCallSessionAdapter: CallSession {
             onEvent?(.authenticated(peerIDs: peerIDs))
         case .receivedApplicationData(let received):
             onEvent?(Self.makeAppEvent(peerID: received.peerID.rawValue, applicationData: received.message))
-        case .receivedAudioPacket(let received):
-            onEvent?(.receivedAudioPacket(received))
+        case .receivedAudioPacket:
+            break // The independent media consumer owns playback and notification.
         case .metricsChanged(let metrics):
             onEvent?(.routeMetrics(metrics))
         case .networkDiagnosticsChanged(let report):

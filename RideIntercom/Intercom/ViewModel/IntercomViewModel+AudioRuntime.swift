@@ -44,8 +44,23 @@ extension IntercomViewModel {
     }
 
     func handleMicrophoneFrame(_ frame: PCMFrame) {
-        let level = (try? AudioSignalMeter.measure(frame).rms) ?? AudioLevelMeter.rmsLevel(samples: frame.samples)
-        processMicrophoneFrame(frame: frame, level: level)
+        let rawLevel = (try? AudioSignalMeter.measure(frame).rms) ?? 0
+        processAudioCheckInput(level: rawLevel, frame: frame)
+        guard isAudioReady else { return }
+        let observation = audioPipeline.inputObservation
+        setLocalVoiceLevel(isMuted ? 0 : observation.level)
+        setVoiceActive(!isMuted && observation.voiceActive)
+        sentVoicePacketCount = max(0, observation.sentPackets - transmitPacketCounterBaseline)
+        vadGateRuntimeSnapshot = audioPipeline.vadRuntimeSnapshot
+        if observation.keepalives != lastObservedKeepaliveCount {
+            lastObservedKeepaliveCount = observation.keepalives
+            callSession.sendControl(.keepalive)
+        }
+        if let failure = observation.failure {
+            AppLoggers.audio.warning("audio.pipeline.capture_failed",
+                metadata: .event("audio.pipeline.capture_failed", ["errorType": "\(failure)", "isRecoverable": "true"]))
+        }
+        publishRuntimePackageReports(now: Date().timeIntervalSince1970)
     }
 
     func currentAudioPipelineConfiguration() -> AppAudioPipelineConfiguration {
@@ -62,9 +77,8 @@ extension IntercomViewModel {
             receiveMasterSoundIsolationEnabled: receiveMasterSoundIsolationEnabled,
             peerSoundIsolationEnabled: remoteSoundIsolationEnabled,
             maximumBufferedDuration: 0.2,
-            receiveMaximumBufferedDuration: 0.4,
-            receivePlayoutDelay: 0.2,
-            transmitPlayoutDelay: 0.1
+            receiveMaximumBufferedDuration: 0.12,
+            receivePlayoutDelay: 0.002
         )
     }
 
@@ -127,52 +141,6 @@ extension IntercomViewModel {
             stopAudioPipeline()
         }
         publishRuntimePackageReports(force: true)
-    }
-
-    func handleTransmitAudioPacket(_ packet: RTC.RTCAudioPacket) {
-        sentVoicePacketCount += 1
-        callSession.sendAudioPacket(packet)
-    }
-
-    func processMicrophoneFrame(level: Float, samples: [Float]) {
-        let frameID = nextAudioFrameID
-        nextAudioFrameID += 1
-        processMicrophoneFrame(
-            frame: PCMFrame(
-                sequenceNumber: UInt64(max(0, frameID)),
-                format: .intercomPacketAudio,
-                capturedAt: Date().timeIntervalSince1970,
-                samples: samples
-            ),
-            level: level
-        )
-    }
-
-    func processMicrophoneFrame(frame: PCMFrame, level: Float) {
-        processAudioCheckInput(level: level, frame: frame)
-
-        guard isAudioReady else { return }
-
-        guard !isMuted else {
-            setLocalVoiceLevel(0)
-            setVoiceActive(false)
-            return
-        }
-
-        setLocalVoiceLevel(level)
-        let packets = audioTransmissionController.process(frame: frame, level: level)
-        vadGateRuntimeSnapshot = audioTransmissionController.runtimeSnapshot
-        for packet in packets {
-            send(packet)
-        }
-
-        setVoiceActive(packets.contains { packet in
-            if case .voice = packet {
-                return true
-            }
-            return false
-        })
-        publishRuntimePackageReports(now: Date().timeIntervalSince1970)
     }
 
     private func receivePeerIDsForAudioPipeline() -> [String] {

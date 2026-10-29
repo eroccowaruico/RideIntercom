@@ -22,9 +22,9 @@ Codec は App の送信設定として選ぶ。Codec package の availability �
 
 | App 設定 | UI | package 反映 | 表示条件 |
 |---|---|---|---|
-| `preferredTransmitCodec` | segmented picker。既定 `.mpeg4AACELDv2` | `CodecEncodingConfiguration.codec` と `RTCAudioPolicy.preferredCodecs` の先頭 | 常時 |
+| `preferredTransmitCodec` | segmented picker。既定 `.mpeg4AACELD` | `CodecEncodingConfiguration.codec` と `RTCAudioPolicy.preferredCodecs` の先頭 | 常時 |
 | `rtcAudioFormatPreset` | segmented picker。既定 `48 kHz` | `CodecEncodingConfiguration.format`、`RTCAudioPolicy.preferredSendFormat`、TX `MixerPCMSink.targetFormat` | 常時 |
-| `aacELDv2BitRate` | stepper または menu。既定 `32_000` | `CodecEncodingConfiguration.aacELDv2Options.bitRate` | `preferredTransmitCodec == .mpeg4AACELDv2` |
+| `aacELDv2BitRate` | stepper または menu。既定 `48_000`。OS対応値と音声品質下限の共通部分 | `CodecEncodingConfiguration.aacELDv2Options.bitRate` | `preferredTransmitCodec == .mpeg4AACELD` |
 | `opusBitRate` | stepper または menu。既定 `32_000` | `CodecEncodingConfiguration.opusOptions.bitRate` | `preferredTransmitCodec == .opus` |
 | selected / fallback codec | Diagnostics の Codec 行 | `CodecRuntimeReport` と `RTCAudioPolicy.preferredCodecs` の結果 | 常時 |
 
@@ -35,8 +35,8 @@ Diagnostics は codec の希望値と実際に選ばれた codec を分けて表
 | 境界 | App composition の処理 | 完了条件 |
 |---|---|---|
 | TX PCM frame | AudioMixer TX sink から `AudioCore.PCMFrame` を受け取る | frame format が `rtcAudioFormatPreset.audioFormat` と一致する |
-| encode | `CodecEncoder.encode(_:)` を呼び、`EncodedCodecFrame` を `RTCAudioPacket` へ詰める | codec、format、sample count、payload を保持する |
-| decode | `ReceivedAudioPacket.packet` を `EncodedCodecFrame` へ変換し `CodecDecoder.decode(_:)` を呼ぶ | payload envelope を App が解釈しない |
+| encode | 送信stream専有の`StreamingCodecEncoder.encode(_:)` を呼び、`EncodedCodecFrame` を `RTCAudioPacket` へ詰める | codec、format、sample count、payload を保持する |
+| decode | `ReceivedAudioPacket.packet` を `EncodedCodecFrame` へ変換し 相手ごとに保持する`StreamingCodecDecoder.decode(_:)` を呼ぶ | payload envelope を App が解釈しない |
 | format policy | `CodecEncodingConfiguration.format`、`RTCAudioPolicy.preferredSendFormat`、TX `MixerPCMSink.targetFormat` を同じ `AudioFormat` にする | 送信 packet、codec runtime report、RTC policy の sample rate / channel count が一致する |
 
 ## Runtime report / event の App 側処理

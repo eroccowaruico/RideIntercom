@@ -52,24 +52,46 @@ struct SpeechContinuity: Codable, Sendable {
         }
 
         // 10 ms RMS bins distinguish reference pauses from newly missing speech.
-        func rms(_ samples: [Float], rate: Double) -> [Float] {
-            let width = max(1, Int(rate / 100))
-            return stride(from: 0, through: max(0, samples.count - width), by: width).map { start in
-                sqrt(samples[start..<(start + width)].reduce(0) { $0 + $1 * $1 } / Float(width))
+        func rms(_ samples: [Float], rate: Double, binsPerSecond: Double = 100) -> [Float] {
+            let count = Int(Double(samples.count) * binsPerSecond / rate)
+            return (0..<count).map { index in
+                // Each boundary belongs to the original clock. Truncating a
+                // 44.1-sample millisecond to 44 every time drifts 45 ms in 20 s.
+                let start = Int(Double(index) * rate / binsPerSecond)
+                let end = min(samples.count, max(start + 1, Int(Double(index + 1) * rate / binsPerSecond)))
+                return sqrt(samples[start..<end].reduce(0) { $0 + $1 * $1 } / Float(end - start))
             }
         }
-        let referenceRMS = rms(repeated, rate: referenceRate), outputRMS = rms(output, rate: outputRate)
-        let length = min(out.count, outputRMS.count, referenceRMS.count - offset)
+        // Refine the ONE global offset using a 1 ms energy envelope. A native
+        // codec's fractional 10 ms delay must not mislabel the edge of a short
+        // syllable as missing. No local alignment or time warping is introduced.
+        let fineReference = rms(repeated, rate: referenceRate, binsPerSecond: 1000)
+        let fineOutput = rms(output, rate: outputRate, binsPerSecond: 1000)
+        let outputPower = fineOutput.reduce(Float(0)) { $0 + $1 * $1 }
+        var fineOffset = offset * 10, fineScore: Float = -1
+        for candidate in max(0, offset * 10 - 15)...(offset * 10 + 15) {
+            guard candidate + fineOutput.count <= fineReference.count else { continue }
+            var dot: Float = 0, power: Float = 0
+            for i in fineOutput.indices {
+                let value = fineReference[candidate + i]
+                dot += value * fineOutput[i]; power += value * value
+            }
+            let score = dot / max(1e-12, sqrt(power * outputPower))
+            if score > fineScore { fineScore = score; fineOffset = candidate }
+        }
+        let referenceRMS = rms(Array(repeated.dropFirst(Int(Double(fineOffset) * referenceRate / 1000))), rate: referenceRate)
+        let outputRMS = rms(output, rate: outputRate)
+        let length = min(out.count, outputRMS.count, referenceRMS.count)
         let activeThreshold = (referenceRMS.max() ?? 0) * 0.08
-        let active = (0..<length).map { referenceRMS[offset + $0] > activeThreshold }
+        let active = (0..<length).map { referenceRMS[$0] > activeThreshold }
         let gains = (0..<length).compactMap { i -> Float? in
-            active[i] && outputRMS[i] > 0.00001 ? outputRMS[i] / referenceRMS[offset + i] : nil
+            active[i] && outputRMS[i] > 0.00001 ? outputRMS[i] / referenceRMS[i] : nil
         }.sorted()
         let gain = gains.isEmpty ? 1 : gains[gains.count / 2]
         var activeCount = 0, missingCount = 0, run = 0, longest = 0
         for i in 0..<length {
             if active[i] { activeCount += 1 }
-            if active[i] && outputRMS[i] < referenceRMS[offset + i] * gain * 0.1 {
+            if active[i] && outputRMS[i] < referenceRMS[i] * gain * 0.1 {
                 missingCount += 1; run += 1; longest = max(longest, run)
             } else { run = 0 }
         }
@@ -93,7 +115,7 @@ struct SpeechContinuity: Codable, Sendable {
             }
             windows.append(.init(outputSeconds: Double(start) / 100, correlation: score))
         }
-        return Self(alignmentCorrelation: best, referenceOffsetSeconds: Double(offset) / 100,
+        return Self(alignmentCorrelation: best, referenceOffsetSeconds: Double(fineOffset) / 1000,
                     matchedWindowRatio: windows.isEmpty ? 0 : Double(windows.filter { $0.correlation >= 0.65 }.count) / Double(windows.count),
                     missingActiveRatio: activeCount == 0 ? 1 : Double(missingCount) / Double(activeCount),
                     longestMissingSeconds: Double(longest) / 100, activeSeconds: Double(activeCount) / 100, windows: windows)

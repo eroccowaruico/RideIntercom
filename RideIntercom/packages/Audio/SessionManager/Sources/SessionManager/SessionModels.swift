@@ -163,19 +163,25 @@ public struct AudioSessionConfiguration: Codable, Equatable, Sendable {
     public var prefersEchoCancelledInput: Bool
     public var preferredInput: AudioSessionDeviceSelection
     public var preferredOutput: AudioSessionDeviceSelection
+    public var preferredSampleRate: Double
+    public var preferredIOBufferDuration: TimeInterval
 
     public init(
         mode: AudioSessionMode = .default,
         defaultToSpeaker: Bool = false,
         prefersEchoCancelledInput: Bool = false,
         preferredInput: AudioSessionDeviceSelection = .systemDefault,
-        preferredOutput: AudioSessionDeviceSelection = .systemDefault
+        preferredOutput: AudioSessionDeviceSelection = .systemDefault,
+        preferredSampleRate: Double = 48_000,
+        preferredIOBufferDuration: TimeInterval = 128.0 / 48_000
     ) {
         self.mode = mode
         self.defaultToSpeaker = defaultToSpeaker
         self.prefersEchoCancelledInput = prefersEchoCancelledInput
         self.preferredInput = preferredInput
         self.preferredOutput = preferredOutput
+        self.preferredSampleRate = preferredSampleRate.isFinite ? min(96_000, max(8_000, preferredSampleRate)) : 48_000
+        self.preferredIOBufferDuration = preferredIOBufferDuration.isFinite ? min(0.1, max(0.001, preferredIOBufferDuration)) : 128.0 / 48_000
     }
 
     public func resolved() throws -> ResolvedAudioSessionConfiguration {
@@ -211,7 +217,9 @@ public struct AudioSessionConfiguration: Codable, Equatable, Sendable {
             options: options,
             prefersEchoCancelledInput: resolvedPrefersEchoCancelledInput,
             preferredInput: preferredInput,
-            preferredOutput: preferredOutput
+            preferredOutput: preferredOutput,
+            preferredSampleRate: preferredSampleRate,
+            preferredIOBufferDuration: preferredIOBufferDuration
         )
     }
 }
@@ -223,6 +231,8 @@ public struct ResolvedAudioSessionConfiguration: Codable, Equatable, Sendable {
     public var prefersEchoCancelledInput: Bool?
     public var preferredInput: AudioSessionDeviceSelection
     public var preferredOutput: AudioSessionDeviceSelection
+    public var preferredSampleRate: Double
+    public var preferredIOBufferDuration: TimeInterval
 
     public init(
         category: AudioSessionCategory,
@@ -230,7 +240,9 @@ public struct ResolvedAudioSessionConfiguration: Codable, Equatable, Sendable {
         options: Set<AudioSessionCategoryOption>,
         prefersEchoCancelledInput: Bool?,
         preferredInput: AudioSessionDeviceSelection,
-        preferredOutput: AudioSessionDeviceSelection
+        preferredOutput: AudioSessionDeviceSelection,
+        preferredSampleRate: Double = 48_000,
+        preferredIOBufferDuration: TimeInterval = 128.0 / 48_000
     ) {
         self.category = category
         self.mode = mode
@@ -238,6 +250,8 @@ public struct ResolvedAudioSessionConfiguration: Codable, Equatable, Sendable {
         self.prefersEchoCancelledInput = prefersEchoCancelledInput
         self.preferredInput = preferredInput
         self.preferredOutput = preferredOutput
+        self.preferredSampleRate = preferredSampleRate.isFinite ? min(96_000, max(8_000, preferredSampleRate)) : 48_000
+        self.preferredIOBufferDuration = preferredIOBufferDuration.isFinite ? min(0.1, max(0.001, preferredIOBufferDuration)) : 128.0 / 48_000
     }
 }
 
