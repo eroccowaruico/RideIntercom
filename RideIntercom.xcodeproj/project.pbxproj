@@ -577,6 +577,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideIntercom/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover and connect nearby riders in your group.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone so riders in your group can hear your voice.";
@@ -642,6 +643,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideIntercom/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover and connect nearby riders in your group.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone so riders in your group can hear your voice.";
