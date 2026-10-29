@@ -69,7 +69,7 @@ extension IntercomViewModel {
         guard configureAudioSession(active: true),
               applyCurrentVoiceProcessingConfiguration(),
               startInputCapture(),
-              startOutputRenderer(),
+              startOutputRenderer(configuration: .intercomCall),
               rebuildAudioPipeline() else {
             stopAudioPipeline()
             return false
@@ -263,8 +263,8 @@ extension IntercomViewModel {
         return true
     }
 
-    func startOutputRenderer() -> Bool {
-        let report = audioOutputRenderer.start()
+    func startOutputRenderer(configuration: SessionManager.AudioOutputStreamConfiguration? = nil) -> Bool {
+        let report = audioOutputRenderer.start(configuration: configuration ?? .intercom)
         lastOutputStreamOperationReport = report
         guard report.result.isContinuable else {
             audioErrorMessage = "Audio output failed"

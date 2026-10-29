@@ -66,7 +66,7 @@ Voice Isolation Effect の画面設定は `SoundIsolation` effect の有効/無�
 |---|---|---|---|
 | `preferredFormat.sampleRate` | `48_000` | 希望値。実値はsnapshot | output stream actualHardwareFormat |
 | `preferredFormat.channelCount` | `1` | 固定 | output stream snapshot format |
-| `maximumBufferedDuration` | `0.1`秒 | 通話とAudio Checkのhardware出力予約上限 | bufferedOutputDuration / playbackResetCount |
+| `maximumBufferedDuration` | 通話 `0.2`秒、Audio Check `0.1`秒 | hardware出力で、新frameの再生開始までの待ち時間上限・単一frame長上限 | bufferedOutputDuration / playbackResetCount |
 
 出力 renderer の `start()`、`schedule(_:)`、`stop()` は `AudioStreamOperationReport` と `AudioStreamRuntimeEvent` を Diagnostics に集約する。
 
@@ -98,3 +98,5 @@ Voice Isolation Effect の画面設定は `SoundIsolation` effect の有効/無�
 入力・出力の希望formatと実hardware formatは同一と仮定しない。Mixerのsource/sink境界で明示的に変換する。Audio Checkの5秒録音はMixer sourceで保持し、hardware出力にはengineの進行に合わせて渡す。
 
 受話の有無ではvoice processingのI/Oモードを変えず、Duck Other AudioがONの間は入力開始前から有効にする。受話時はducking levelだけをmediumへ、無受話時はminimumへ切り替える。機能のON/OFFでI/Oモードが変わる場合の安全な停止・再開はSessionManagerが担当する。
+
+通話の最終出力は`intercomCall`の200 ms上限を開始時に明示する。100 msのtapがactorへの配送でまとまる場合も、期限内の2batchを途中で破棄しない。固定の待機を追加する設定ではない。Audio Checkは`intercom`の100 msへ戻し、直接結合試験も100 msのまま使う。

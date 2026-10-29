@@ -10,14 +10,26 @@ public final class MixerPCMSource {
 
 	private let recordSchedule: (PCMFrame, AudioProcessingReport?, String?) -> Void
 	private let maximumBufferedDuration: TimeInterval?
+	private let captureTimePlayoutDelay: TimeInterval?
+	private var playoutAnchor: (capturedAt: TimeInterval, sample: AVAudioFramePosition)?
+	private var lastCapturedAt: TimeInterval?
+	private var startRequested = false
 	private var scheduledEndSample: AVAudioFramePosition = 0
 	public private(set) var playbackResetCount = 0
 
 	private var renderedSample: AVAudioFramePosition {
-		playerNode.lastRenderTime.flatMap { time in
+        guard playerNode.isPlaying else { return 0 }
+		return playerNode.lastRenderTime.flatMap { time in
 			guard time.isSampleTimeValid || time.isHostTimeValid,
 			      let played = playerNode.playerTime(forNodeTime: time), played.isSampleTimeValid else { return nil }
-			return played.sampleTime
+			// Realtime playerTime is the last render quantum, not the current
+			// device position. Use its host clock so a healthy boundary does not
+			// spuriously cross the bounded capture-time playout window.
+			let engine = playerNode.engine
+			let elapsed = engine?.isInManualRenderingMode == false && engine?.isRunning == true
+				&& playerNode.isPlaying && time.isHostTimeValid
+				? max(0, ProcessInfo.processInfo.systemUptime - AVAudioTime.seconds(forHostTime: time.hostTime)) : 0
+			return max(0, played.sampleTime + AVAudioFramePosition(elapsed * played.sampleRate))
 		} ?? 0
 	}
 	public var bufferedDuration: TimeInterval {
@@ -35,6 +47,7 @@ public final class MixerPCMSource {
 		faderNode: AVAudioMixerNode,
 		mixerFormat: AudioFormat,
 		maximumBufferedDuration: TimeInterval?,
+		captureTimePlayoutDelay: TimeInterval?,
 		recordSchedule: @escaping (PCMFrame, AudioProcessingReport?, String?) -> Void
 	) {
 		self.id = id
@@ -43,6 +56,7 @@ public final class MixerPCMSource {
 		self.mixerFormat = mixerFormat
 		self.recordSchedule = recordSchedule
 		self.maximumBufferedDuration = maximumBufferedDuration
+		self.captureTimePlayoutDelay = captureTimePlayoutDelay
 	}
 
 	@discardableResult
@@ -50,22 +64,57 @@ public final class MixerPCMSource {
 		do {
 			let normalized = try MixerPCMNormalizer.normalize(frame, to: mixerFormat, operation: .normalizeSource)
 			let buffer = try normalized.frame.makePCMBuffer()
+			let rendered = renderedSample
 			var options: AVAudioPlayerNodeBufferOptions = []
+			let duration = Double(buffer.frameLength) / mixerFormat.sampleRate
 			if let limit = maximumBufferedDuration {
-				let duration = Double(buffer.frameLength) / mixerFormat.sampleRate
-				guard limit.isFinite, limit > 0, duration <= limit else {
+				guard limit.isFinite, limit > 0, duration <= limit,
+					  limit * mixerFormat.sampleRate < Double(Int64.max) / 4 else {
 					throw AudioMixerError.pcmSourceScheduleFailed("Frame exceeds live playback budget")
 				}
-				if bufferedDuration + duration > limit {
+			}
+			let startSample: AVAudioFramePosition
+			if let delay = captureTimePlayoutDelay, let limit = maximumBufferedDuration {
+				guard frame.capturedAt.isFinite else {
+					throw AudioMixerError.pcmSourceScheduleFailed("Invalid capture timestamp")
+				}
+				let delayedStart = rendered + AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded())
+				if playoutAnchor == nil { playoutAnchor = (frame.capturedAt, delayedStart) }
+				let anchor = playoutAnchor!
+				let target = Double(anchor.sample) + (frame.capturedAt - anchor.capturedAt) * mixerFormat.sampleRate
+				// Remote and local clocks have unrelated epochs. Retain only their
+				// relative mapping, and rebase after a restart or a discontinuity
+				// outside the bounded playout window. Never reserve arbitrary future audio.
+				if !target.isFinite || target < Double(rendered) - limit * mixerFormat.sampleRate
+					|| target > Double(rendered) + limit * mixerFormat.sampleRate
+					|| lastCapturedAt.map({ frame.capturedAt <= $0 }) == true {
+					playoutAnchor = (frame.capturedAt, delayedStart)
+					startSample = delayedStart
+					if scheduledEndSample > rendered { options = .interrupts }
+					playbackResetCount += 1
+				} else {
+					startSample = AVAudioFramePosition(target.rounded())
+				}
+				lastCapturedAt = frame.capturedAt
+			} else {
+				// Bound the wait before this frame starts, not its completion.
+				// A full capture batch may overlap the previous batch's healthy tail.
+				if let limit = maximumBufferedDuration,
+				   scheduledEndSample - rendered >= AVAudioFramePosition(limit * mixerFormat.sampleRate) {
 					options = .interrupts
-					scheduledEndSample = renderedSample
+					scheduledEndSample = rendered
 					playbackResetCount += 1
 				}
+				startSample = max(scheduledEndSample, rendered)
 			}
-			scheduledEndSample = max(scheduledEndSample, renderedSample) + AVAudioFramePosition(buffer.frameLength)
-			// Replace stale buffers at the next render boundary. stop()/play()
-			// resets the player clock and synchronously queries hardware latency.
-			playerNode.scheduleBuffer(buffer, at: nil, options: options)
+			scheduledEndSample = startSample + AVAudioFramePosition(buffer.frameLength)
+			// Timestamped sources preserve omitted silence and absorb arrival jitter.
+			// Consecutive sources follow the actual queue, including after underrun.
+			// A last-render snapshot is already in the past when the render thread runs.
+			let time = captureTimePlayoutDelay == nil
+				? nil : AVAudioTime(sampleTime: startSample, atRate: mixerFormat.sampleRate)
+			playerNode.scheduleBuffer(buffer, at: time, options: options)
+            if startRequested && !playerNode.isPlaying { playerNode.play() }
 			recordSchedule(frame, normalized.report, nil)
 			return normalized.report
 		} catch let failure as AudioProcessingFailure {
@@ -78,12 +127,19 @@ public final class MixerPCMSource {
 	}
 
 	public func start() {
+        startRequested = true
+        // A timestamped player starts with its first buffer so sample zero and
+        // the capture anchor are established together, even during graph startup.
+        guard !playerNode.isPlaying, captureTimePlayoutDelay == nil || playoutAnchor != nil else { return }
 		playerNode.play()
 	}
 
 	public func stop() {
+        startRequested = false
 		playerNode.stop()
 		scheduledEndSample = 0
+		playoutAnchor = nil
+		lastCapturedAt = nil
 	}
 }
 

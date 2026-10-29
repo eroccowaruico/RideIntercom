@@ -25,7 +25,7 @@ struct WorkerPairTests {
         // Cross two lease boundaries without replacing the published SFU connection.
         try await Task.sleep(for: .seconds(6))
         #expect(a.answers == originalAnswers)
-        #expect(a.failures.isEmpty && b.failures.isEmpty)
+        #expect(a.failures.isEmpty && b.failures.isEmpty, "After renewal: A=\(a.failures), B=\(b.failures)")
         await b.client.disconnect()
         try await eventually { a.members.isEmpty }
         await b.join(request("bob"))
@@ -35,7 +35,7 @@ struct WorkerPairTests {
         try await eventually { a.messages.contains("after-rejoin") }
         await a.client.disconnect(); await b.client.disconnect()
         aTask.cancel(); bTask.cancel()
-        #expect(a.failures.isEmpty && b.failures.isEmpty)
+        #expect(a.failures.isEmpty && b.failures.isEmpty, "After rejoin: A=\(a.failures), B=\(b.failures)")
     }
 }
 

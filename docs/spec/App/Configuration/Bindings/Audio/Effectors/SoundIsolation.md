@@ -33,3 +33,7 @@ Settings の `Voice Isolation Effect` は送信用 `SoundIsolation` package の 
 | support check / fallback の詳細 | package adapter で扱う |
 
 詳細な SoundIsolation の仕様は `docs/spec/packages/Audio/Effectors/SoundIsolation.md` を正とする。
+
+## 通話の音声保持
+
+音声分離を有効にしたbusは処理音80%・原音20%のmixを指定する。強い分離だけでは弱い音節が落ち、連続性の低出力率を超えるため、既知の発話で全文を比較して設定する。無効busはmix 100%のままbypassする。package既定値のmix 100%は変更しない。原音を残す分、背景音の抑制は弱くなるため、走行音・Bluetoothを含む実機評価で確認する。

@@ -106,9 +106,9 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 
 | 操作 | 契約 |
 |---|---|
-| Multipeer browser / advertiser生成・開始・停止・解放 | main run loopへ直列化。main上からの同期再入は直接実行してdeadlockを避ける |
+| Multipeer peer / session / browser / advertiser生成・開始・停止・解放 | native資源をMainActorの所有者へまとめ、最終解放もisolated deinitで同じactorへ揃える。main上からの同期再入は直接実行してdeadlockを避ける |
 | 停止 | delegateを外して探索・sessionを停止。停止済み・別sessionの遅延callbackを拒否 |
-| 理由 | SimulatorのDisconnect UIでBonjour `_MonitorCancel` / `_netServiceMonitorCallBack` がEXC_BAD_ACCESSとなった。探索の寿命をcallback側run loopと揃える |
+| 理由 | SimulatorのDisconnect UIでBonjour `_MonitorCancel` / `_netServiceMonitorCallBack` がEXC_BAD_ACCESSとなった。sessionも含むnative資源の寿命をcallback側run loopと揃える |
 
 ## ネットワーク診断の契約
 
@@ -165,3 +165,7 @@ Local識別子は[MCPeerIDの制約](https://developer.apple.com/documentation/m
 | 再試行の失敗通知 | 既存backoffで次の試行を予約する。接続成功時はretry状態を破棄する |
 
 招待側の決定とretry中のsession維持を単体テストで確認し、実際の両端接続・音声は独立したAudio E2E targetで検証する。
+
+## SFU購読更新の一時切断
+
+`pull`は指定peerの購読状態を照合する冪等な要求である。HTTP keep-alive接続の`networkConnectionLost`だけは100 ms、200 ms後に再試行し、初回を含め3回・元の要求の総期限25秒以内に制限する。進行中のmediaは維持し、世代変更やTaskのcancelは再試行待機を中断する。認証拒否、他のHTTPエラー、新規session作成はこの再試行の対象にしない。停止時のDELETEは、呼出元Taskがcancelされていても従来どおり一度実行する。

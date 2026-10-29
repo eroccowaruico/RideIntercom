@@ -134,7 +134,7 @@ extension IntercomViewModel {
     func setPreferredTransmitCodec(_ codec: AudioCodecIdentifier) {
         preferredTransmitCodec = codec
         refreshPackageRuntimeSnapshots()
-        rebuildAudioPipelineIfRunning()
+        updateAudioPipelineCodecSettings()
         setLocalActiveCodec(selectedTransmitCodec)
         saveAppSettings()
         AppLoggers.settings.info(
@@ -153,7 +153,7 @@ extension IntercomViewModel {
         aacELDv2BitRate = Codec.AACELDv2Options(bitRate: bitRate).bitRate
         refreshPackageRuntimeSnapshots()
         setLocalActiveCodec(selectedTransmitCodec)
-        rebuildAudioPipelineIfRunning()
+        updateAudioPipelineCodecSettings()
         saveAppSettings()
         AppLoggers.settings.info(
             "settings.codec.bitrate_changed",
@@ -169,7 +169,7 @@ extension IntercomViewModel {
         opusBitRate = Codec.OpusOptions(bitRate: bitRate).bitRate
         refreshPackageRuntimeSnapshots()
         setLocalActiveCodec(selectedTransmitCodec)
-        rebuildAudioPipelineIfRunning()
+        updateAudioPipelineCodecSettings()
         saveAppSettings()
         AppLoggers.settings.info(
             "settings.codec.bitrate_changed",

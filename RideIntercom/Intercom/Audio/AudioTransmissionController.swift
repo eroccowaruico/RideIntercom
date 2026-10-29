@@ -71,6 +71,21 @@ struct AudioTransmissionController {
         if preRoll.count > preRollLimit {
             preRoll.removeFirst(preRoll.count - preRollLimit)
         }
+        // Retain the VAD attack window, not a fixed number of hardware batches.
+        // iOS can deliver 100 ms at once: 20 such batches would replay 2 seconds
+        // and repeatedly overflow the live mixer when speech resumes.
+        func duration(_ captured: CapturedFrame) -> TimeInterval {
+            let format = captured.frame.format
+            guard format.isValid else { return 0 }
+            return Double(captured.frame.frameCount) / format.sampleRate
+        }
+        var retained = preRoll.reduce(0) { $0 + duration($1) }
+        let attack = vadGate.configuration.attackDuration
+        while preRoll.count > 1, let first = preRoll.first,
+              retained - duration(first) >= attack {
+            retained -= duration(first)
+            preRoll.removeFirst()
+        }
     }
 
     private mutating func analyze(level: Float, frame: PCMFrame) -> VADGateAnalysis {

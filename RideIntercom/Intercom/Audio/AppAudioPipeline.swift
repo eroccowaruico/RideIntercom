@@ -22,6 +22,9 @@ struct AppAudioPipelineConfiguration: Equatable {
     var receiveMasterSoundIsolationEnabled: Bool
     var peerSoundIsolationEnabled: [String: Bool]
     var maximumBufferedDuration: TimeInterval?
+    var receiveMaximumBufferedDuration: TimeInterval?
+    var receivePlayoutDelay: TimeInterval?
+    var transmitPlayoutDelay: TimeInterval?
 
     init(
         mixerFormat: AudioFormat = .intercomMixer,
@@ -36,7 +39,10 @@ struct AppAudioPipelineConfiguration: Equatable {
         transmitSoundIsolationEnabled: Bool = true,
         receiveMasterSoundIsolationEnabled: Bool = false,
         peerSoundIsolationEnabled: [String: Bool] = [:],
-        maximumBufferedDuration: TimeInterval? = nil
+        maximumBufferedDuration: TimeInterval? = nil,
+        receiveMaximumBufferedDuration: TimeInterval? = nil,
+        receivePlayoutDelay: TimeInterval? = nil,
+        transmitPlayoutDelay: TimeInterval? = nil
     ) {
         self.mixerFormat = mixerFormat
         self.rtcSendFormat = rtcSendFormat
@@ -51,6 +57,9 @@ struct AppAudioPipelineConfiguration: Equatable {
         self.receiveMasterSoundIsolationEnabled = receiveMasterSoundIsolationEnabled
         self.peerSoundIsolationEnabled = peerSoundIsolationEnabled
         self.maximumBufferedDuration = maximumBufferedDuration
+        self.receiveMaximumBufferedDuration = receiveMaximumBufferedDuration
+        self.receivePlayoutDelay = receivePlayoutDelay
+        self.transmitPlayoutDelay = transmitPlayoutDelay
     }
 
     var codecOptions: AppAudioCodecOptions {
@@ -145,7 +154,9 @@ final class AppAudioPipeline {
             parameters: Self.effectParameters(package: "DynamicsProcessor", label: "Dynamics", detail: "Threshold \(dynamics.configuration.threshold) dB"))
         transmitDynamics = dynamics
         transmitLimiter = try installLimiter(on: txBus)
-        let txSource = try txBus.addPCMSource(id: "microphone-input", maximumBufferedDuration: configuration.maximumBufferedDuration)
+        let txSource = try txBus.addPCMSource(id: "microphone-input",
+            maximumBufferedDuration: configuration.maximumBufferedDuration,
+            captureTimePlayoutDelay: configuration.transmitPlayoutDelay)
         let transmitDelivery = AudioFrameDelivery { [weak self] frame in
             guard let self, self.generation == generation else { return }
             self.encodeAndPublish(frame)
@@ -208,6 +219,12 @@ final class AppAudioPipeline {
         outputLimiter = nil
     }
 
+    func updateCodec(preferred: AudioCodecIdentifier, aacELDv2BitRate: Int, opusBitRate: Int) {
+        configuration.preferredCodec = preferred
+        configuration.aacELDv2BitRate = aacELDv2BitRate
+        configuration.opusBitRate = opusBitRate
+    }
+
     func updateOutput(masterVolume: Float, isMuted: Bool, peerOutputVolumes: [String: Float]) {
         configuration.masterOutputVolume = min(2, max(0, masterVolume))
         configuration.isOutputMuted = isMuted
@@ -251,7 +268,9 @@ final class AppAudioPipeline {
         guard let mixer, let rxMasterBus else { throw AppAudioPipelineError.notConfigured }
         let peerBus = try mixer.createBus("rx-peer-\(peerID)")
         try installIsolation(on: peerBus, enabled: configuration.peerSoundIsolationEnabled[peerID] ?? false)
-        let source = try peerBus.addPCMSource(id: "rtc-audio-\(peerID)", maximumBufferedDuration: configuration.maximumBufferedDuration)
+        let source = try peerBus.addPCMSource(id: "rtc-audio-\(peerID)",
+            maximumBufferedDuration: configuration.receiveMaximumBufferedDuration ?? configuration.maximumBufferedDuration,
+            captureTimePlayoutDelay: configuration.receivePlayoutDelay)
         source.volume = configuration.peerOutputVolumes[peerID] ?? 1
         try mixer.route(peerBus, to: rxMasterBus)
         rxSourcesByPeerID[peerID] = source
@@ -270,6 +289,7 @@ final class AppAudioPipeline {
             case "rx-master": enabled = receiveMaster
             default: enabled = peers[String(busID.dropFirst("rx-peer-".count))] ?? false
             }
+            try effect.apply(Self.isolationConfiguration(enabled: enabled))
             effect.avAudioUnitEffect.bypass = !enabled
             guard let bus = mixer?.bus(busID) else { throw AppAudioPipelineError.notConfigured }
             try bus.updateEffectSnapshot(id: "sound-isolation",
@@ -277,9 +297,14 @@ final class AppAudioPipeline {
         }
     }
 
+    static func isolationConfiguration(enabled: Bool) -> VoiceIsolationConfiguration {
+        VoiceIsolationConfiguration(mix: enabled ? 0.8 : 1)
+    }
+
     private func installIsolation(on bus: MixerBus, enabled: Bool) throws {
         guard VoiceIsolationSupport.isAvailable else { return }
-        let effect = try VoiceIsolationEffect.make()
+        // Retain quiet syllables that the system speech classifier suppresses.
+        let effect = try VoiceIsolationEffect.make(configuration: Self.isolationConfiguration(enabled: enabled))
         effect.avAudioUnitEffect.bypass = !enabled
         try bus.addEffect(effect.node, id: "sound-isolation", state: enabled ? .active : .bypassed,
             parameters: Self.effectParameters(package: "SoundIsolation", label: "Isolation", detail: effect.configuration.soundType.rawValue))
@@ -309,7 +334,8 @@ final class AppAudioPipeline {
     }
 
     private func publishOutput(_ frame: PCMFrame) {
-        guard Self.containsSignal(frame) else { return }
+        // Silent render frames carry time too. Omitting them lets each phrase
+        // restart at a different player boundary and shifts speech after pauses.
         onOutputFrame?(frame)
     }
 

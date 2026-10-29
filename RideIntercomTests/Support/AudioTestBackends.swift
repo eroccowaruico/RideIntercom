@@ -97,12 +97,14 @@ final class FakeInputStreamBackend: SessionManager.AudioInputStreamBackend {
 }
 
 final class FakeOutputStreamBackend: SessionManager.AudioOutputStreamBackend {
+    private(set) var configurations: [SessionManager.AudioOutputStreamConfiguration] = []
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var scheduledFrames: [PCMFrame] = []
     var startError: Error?
 
     func startRendering(configuration: SessionManager.AudioOutputStreamConfiguration) throws -> AudioFormat {
+        configurations.append(configuration)
         startCount += 1
         if let startError { throw startError }
         return configuration.preferredFormat

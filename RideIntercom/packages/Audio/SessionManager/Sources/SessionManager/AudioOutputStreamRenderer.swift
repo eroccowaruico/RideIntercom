@@ -40,10 +40,11 @@ public final class AudioOutputStreamRenderer {
     }
 
     @discardableResult
-    public func start() -> AudioStreamOperationReport {
+    public func start(configuration requestedConfiguration: AudioOutputStreamConfiguration? = nil) -> AudioStreamOperationReport {
         guard !isRunning else {
             return emitReport(.startOutputRenderer, .ignored(.alreadyRunning))
         }
+        if let requestedConfiguration { configuration = requestedConfiguration }
         do {
             actualHardwareFormat = try backend.startRendering(configuration: configuration)
             isRunning = true

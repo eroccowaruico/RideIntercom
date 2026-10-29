@@ -382,14 +382,14 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 
 | 項目 | 契約 |
 |---|---|
-| `addPCMSource(id:maximumBufferedDuration:)` | nilは録音済み音声などの連続予約。正の秒数を指定するとlive音声の予約上限 |
+| `addPCMSource(id:maximumBufferedDuration:captureTimePlayoutDelay:)` | nilは録音済み音声などの連続予約。正の秒数を指定すると新frameの再生開始までの待ち時間上限。同じ値を単一frame長の上限にも使う |
 | 計測 | source playerの有効な再生sample時刻と予約末尾の差。停止前・開始直後の無効なAVAudioTimeを照会しない |
-| 超過 | 同じsourceの古い予約をstopで解放し、最新bufferから再開。他peerのsourceやeffect instanceは変更しない |
+| 超過 | 新frameを加える前の予約量が上限以上なら、`.interrupts`で古い予約を最新bufferへ置換する。player時計、他peerのsource、effect instanceは維持する |
 | 単一frameが上限超過 | schedule失敗として報告。長いframeを遅延再生したり、formatを偽装して短く扱わない |
 | snapshot | `bufferedDuration`と`playbackResetCount`をsourceごとに報告 |
 | Mixer停止 | 全PCM sourceを停止して予約も解放する。再開後に旧音声を出さない |
 
-これはアプリケーションの再生予約上限であり、OS・実機の出力遅延保証ではない。瞬間的な欠落よりも過去の会話が遅れて続くことを避けるlive用途と、録音再生用途を明示的に分ける。
+これは新frameが再生開始を待つ時間の上限であり、OS・実機の出力遅延保証ではない。瞬間的な欠落よりも過去の会話が遅れて続くことを避けるlive用途と、録音再生用途を明示的に分ける。
 
 ## 所有権と資源解放
 
@@ -397,7 +397,7 @@ Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ
 
 `removeBus(id)`は対象busのsource/player/fader/effect/tapを停止・detachし、関連routeを除く。対象へ入力していた別bus自体は残し、再route可能にする。削除したbus/sourceへの参照は破棄し再利用しない。他のbusは継続する。参加者の入れ替わりに伴うノード蓄積を防げる。
 
-再生予約上限を超えて旧bufferを破棄するときは、停止前の再生状態を保持し、新bufferをscheduleしてから再生を再開する。空のplayerを先にplayして最初のrenderが無音になる順序を避ける。停止中のsourceはscheduleだけで自動再生しない。offline AVAudioEngineの20並行fixtureで、破棄後の最初のblockに最新音声が含まれることを確認する。
+新frameの再生開始までの待ち時間が上限以上なら旧bufferを置換する。stop/playはplayer時計をリセットし実I/Oの遅延照会を伴うため使わない。停止中のsourceはscheduleだけで自動再生しない。offline AVAudioEngineの20並行fixtureで、置換後64 ms以内に最新音声へ切り替わり、その後に旧予約が戻らないことを確認する。
 
 ## 実時間sinkのフレーム上限
 
@@ -409,3 +409,25 @@ Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ
 | report | 各片の正規化結果を通知し、emittedFrameCountは分割後の通知数を示す |
 
 100 msのtapをそのまま48 kHz PCM16として送ると9,600 byteになり、RTCの音声payload上限を超える。低遅延の送信側は20 msなどの上限を明示する。OSのtapサイズ指定だけを通信packetサイズの保証として扱わない。
+
+## 通常配送の重なりと過負荷の区別
+
+100 msのcaptureまたはtap配送は、OSのrender境界と同時にはならない。前の音声が数ms残った状態で次のbatchが届く。新frameの長さまで加えた合計を待ち時間上限と比較すると、この正常な重なりで旧音声を破棄する。20 msへ分割したbatchでも、最後の片の投入で約80 msをまとめて破棄し得る。
+
+上限の判定は新frameの投入前に行う。投入前の待ち時間が上限未満であり、かつ新frame自身も上限以下なら連続予約する。したがって予約末尾までの長さは「待ち時間上限＋今回のframe長」未満、最悪でも上限の2倍未満に収まる。`bufferedDuration`は今回のframeを含む実際の予約量であり、上限値で丸めない。100 ms設定へ20 msのframeを入れる場合は120 ms未満、100 msのcaptureなら200 ms未満となる。無制限のqueueは設けない。
+
+5 msの未再生tailに100 msのframeを追加する回帰試験と、既存の停止中に6個の20 msを詰める過負荷試験を併用する。前者はtailを維持して破棄0回、後者は最新bufferへ置換する。全文の同一性と連続性は独立した音声E2Eで判定する。
+
+## 収録時刻に基づく受信再生
+
+`captureTimePlayoutDelay`を指定したsourceは、最初の`PCMFrame.capturedAt`とplayer sample時刻を対応付け、その後のframeを収録時刻の差で予約する。送受信機の時計の原点が同じである必要はない。無音packetの省略や通信到着の揺れがあっても、発話間の無音と音節の位置を維持する。nilのsourceは従来の連続予約を用いる。
+
+開始遅延は有限・0以上で、有限の`maximumBufferedDuration`未満でなければ作成を拒否する。正常な受信では開始遅延の範囲で揺れを吸収する。収録時刻が非有限ならscheduleを拒否する。時刻逆行、待ち上限を超える遅着、上限より先の予約は時計の不連続として再基準化し、残った古い予約を置換する。上限内の単発の遅着では時計全体をずらさず、playerが既に過ぎたsample部分だけを省略する。次のframeは元の収録時刻に沿って再生する。`playbackResetCount`へ反映する。停止は時刻の対応も破棄する。
+
+予約時刻は`AVAudioPlayerNode.scheduleBuffer`へ明示する。`at: nil`は前のbufferの直後を意味し、収録時刻の間隔を自動で復元しない（[Appleの説明](https://developer.apple.com/documentation/avfaudio/avaudioplayernode)）。80 msの無音を挟む20 msの2packetを一括で予約し、先行待機・両音声・間の無音の全sampleを検証する。大きな時計ジャンプでも待ち時間を上限内に戻し、停止後に古い時計を使わない試験も持つ。
+
+10 ms遅着したframeの未経過半分と直後のframeを全sample照合し、完全に期限を過ぎたframeが再生されず後続音声の時刻も変わらないことを確認する。遅着ごとに開始待機を足し直して再同期を連鎖させない。
+
+実時間modeでは`playerTime`の最後のrender境界から現在のhost時刻までを補正し、予約量と収録時刻の上限判定へ使う。offline・停止中は補正しない。境界の古さだけで正常な予約を過負荷または時計不連続として破棄しない。
+
+収録時刻再生のsourceは、`start()`で開始を要求し、最初のbufferを予約してからplayerを開始する。最初の収録時刻とplayerのsample 0を同時に確立し、音声到着前の負の再生位置を基準にしない。開始済みの`start()`は時計を再起動せず、`stop()`は開始要求と収録時計を解除する。通常の連続予約sourceの開始方法は維持する。

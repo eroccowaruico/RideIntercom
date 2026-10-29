@@ -7,6 +7,12 @@ private func drainMultipeerDelegateQueue() async {
     await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
 }
 
+@MainActor
+private func nativeResource<T>(_ transport: MultipeerConnectionTransport, _ name: String, as type: T.Type) throws -> T {
+    let owner = try #require(Mirror(reflecting: transport).children.first { $0.label == "native" }?.value)
+    return try #require(Mirror(reflecting: owner).children.first { $0.label == name }?.value as? T)
+}
+
 @Test func localTransportCapabilitiesDoNotFreezeTheInitialCodecPreference() {
     let routes = CallSessionFactory.makeRoutes(.init(
         routeConfiguration: .init(enabledRoutes: [.multipeer]), audioPolicy: .init(preferredCodecs: [.pcm16])))
@@ -20,7 +26,7 @@ private func drainMultipeerDelegateQueue() async {
     a.start(); b.start()
     defer { a.stop(); b.stop() }
     for (transport, remote) in [(a, "b"), (b, "a")] {
-        let browser = try #require(Mirror(reflecting: transport).children.first { $0.label == "browser" }?.value as? MCNearbyServiceBrowser)
+        let browser = try nativeResource(transport, "browser", as: MCNearbyServiceBrowser.self)
         transport.browser(browser, foundPeer: MCPeerID(displayName: remote), withDiscoveryInfo: [LocalDiscoveryInfo.groupHashKey: credential.groupHash])
     }
     // Delegate work is submitted to the main queue, as are actual Bonjour callbacks.
@@ -51,7 +57,7 @@ private final class TransportEvents: @unchecked Sendable {
     }
 }
 
-@Test func multipeerRejectsUnauthenticatedDataAndRetiredSessionCallbacks() async throws {
+@Test @MainActor func multipeerRejectsUnauthenticatedDataAndRetiredSessionCallbacks() async throws {
     let credential = RTCCredential.derived(groupID: "g", secret: "secret")
     let request = CallStartRequest(sessionID: "s", localPeer: PeerDescriptor(id: PeerID(rawValue: "local"), displayName: "Local"), credential: credential)
     let transport = MultipeerConnectionTransport(request: request)
@@ -59,8 +65,7 @@ private final class TransportEvents: @unchecked Sendable {
     transport.onEvent = { events.append($0) }
     // Inspect the real delegate-owned session only in test support. Do not add
     // production launch flags or a second transport path to simulate discovery.
-    let reflected = Mirror(reflecting: transport).children.first { $0.label == "session" }?.value
-    let session = try #require(reflected as? MCSession)
+    let session = try nativeResource(transport, "session", as: MCSession.self)
     let peer = MCPeerID(displayName: "remote")
     let peerID = PeerID(rawValue: peer.displayName)
     let message = ApplicationDataMessage(namespace: "mute", payload: Data([1]), delivery: .reliable)
@@ -86,18 +91,19 @@ private final class TransportEvents: @unchecked Sendable {
     #expect(!transport.accept(RouteHandshakeMessage.make(credential: credential, senderID: peerID), from: peerID))
 }
 
-@Test func disconnectRequiresNewHandshakeWithoutRevokingOtherPeer() async throws {
+@Test @MainActor func disconnectRequiresNewHandshakeWithoutRevokingOtherPeer() async throws {
     let credential = RTCCredential.derived(groupID: "g", secret: "secret")
     let request = CallStartRequest(sessionID: "s", localPeer: PeerDescriptor(id: PeerID(rawValue: "local"), displayName: "Local"), credential: credential)
     let transport = MultipeerConnectionTransport(request: request)
     defer { transport.stop() }
     let events = TransportEvents()
     transport.onEvent = { events.append($0) }
-    let session = try #require(Mirror(reflecting: transport).children.first { $0.label == "session" }?.value as? MCSession)
+    let session = try nativeResource(transport, "session", as: MCSession.self)
     let a = MCPeerID(displayName: "a")
     let b = MCPeerID(displayName: "b")
     for peer in [a, b] {
         transport.session(session, peer: peer, didChange: .connected)
+        await drainMultipeerDelegateQueue()
         let id = PeerID(rawValue: peer.displayName)
         #expect(transport.accept(RouteHandshakeMessage.make(credential: credential, senderID: id), from: id))
     }

@@ -411,9 +411,11 @@ private enum AudioConverterBridge {
         guard let compressedFormat = makeCompressedFormat(codec: codec, format: format, bitRate: bitRate) else {
             throw CodecError.audioFormatCreationFailed(codec)
         }
-        guard let converter = AVAudioConverter(from: pcmFormat, to: compressedFormat) else {
-            throw CodecError.encoderUnavailable(codec)
-        }
+        let key = AudioConverterPool.Key(encoding: true, codec: codec, format: format, bitRate: bitRate, cookie: nil)
+        guard let converter = AudioConverterPool.shared.take(key: key, make: {
+            AVAudioConverter(from: pcmFormat, to: compressedFormat)
+        }) else { throw CodecError.encoderUnavailable(codec) }
+        defer { AudioConverterPool.shared.put(converter, key: key) }
 
         if let bitRate { converter.bitRate = bitRate }
         guard converter.maximumOutputPacketSize > 0 else { throw CodecError.encoderUnavailable(codec) }
@@ -469,9 +471,11 @@ private enum AudioConverterBridge {
             throw CodecError.audioFormatCreationFailed(codec)
         }
         compressedFormat.magicCookie = envelope.magicCookie
-        guard let converter = AVAudioConverter(from: compressedFormat, to: pcmFormat) else {
-            throw CodecError.decoderUnavailable(codec)
-        }
+        let key = AudioConverterPool.Key(encoding: false, codec: codec, format: format, bitRate: nil, cookie: envelope.magicCookie)
+        guard let converter = AudioConverterPool.shared.take(key: key, make: {
+            AVAudioConverter(from: compressedFormat, to: pcmFormat)
+        }) else { throw CodecError.decoderUnavailable(codec) }
+        defer { AudioConverterPool.shared.put(converter, key: key) }
 
         // AAC decoders need the encoder's actual stream configuration.
         converter.magicCookie = envelope.magicCookie

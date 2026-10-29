@@ -84,7 +84,16 @@ public final class MixerBus {
 	}
 
 	@discardableResult
-	public func addPCMSource(id sourceID: String, maximumBufferedDuration: TimeInterval? = nil) throws -> MixerPCMSource {
+	public func addPCMSource(
+		id sourceID: String, maximumBufferedDuration: TimeInterval? = nil,
+		captureTimePlayoutDelay: TimeInterval? = nil
+	) throws -> MixerPCMSource {
+		if let delay = captureTimePlayoutDelay {
+			guard delay.isFinite, delay >= 0, let limit = maximumBufferedDuration,
+				  limit.isFinite, limit > delay, limit * audioFormat.sampleRate < Double(Int64.max) / 4 else {
+				throw AudioMixerError.pcmSourceScheduleFailed("Capture-time playout requires a finite delay below the playback budget")
+			}
+		}
 		let player = AVAudioPlayerNode()
 		let fader = AVAudioMixerNode()
 		let nodeID = ObjectIdentifier(player)
@@ -114,6 +123,7 @@ public final class MixerBus {
 			faderNode: fader,
 			mixerFormat: audioFormat,
 			maximumBufferedDuration: maximumBufferedDuration,
+			captureTimePlayoutDelay: captureTimePlayoutDelay,
 			recordSchedule: { [weak self, weak player] frame, report, failure in
 				guard let player else { return }
 				self?.recordPCMSourceSchedule(

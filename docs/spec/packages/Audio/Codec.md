@@ -245,3 +245,11 @@ RideIntercomのLocal / Internet / 中継は同じ符号化済みpacket経路を�
 bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverterのbitRateへ設定する。圧縮bufferは対応codecの最小packet時間とflush分から容量を決め、PCM sample数と同数の最大packetを確保しない。非空PCMに対して圧縮packetが返らない場合は変換失敗とする。
 
 [Appleのcodec変換例](https://developer.apple.com/documentation/AudioToolbox/encoding-and-decoding-audio)に従い、encoderのmagic cookieを復号器へ引き渡す。decoderの出力bufferには元frame数に初期遅延を加えた容量を用意し、先頭の初期遅延を除去してから元sample数を取り出す。毎packetの先頭に初期無音を残し、末尾を切り落とすことを防ぐ。primingは8,192 frames、magic cookieは16 KiBを上限としてallocation前に検証する。compressed envelopeのpriming frame countは必須であり、この情報を持たない旧payloadは拒否する。
+
+## 変換器の寿命とパケットの独立性
+
+20 msごとのAAC / Opus処理でOS変換器を毎回生成・破棄しない。package内部で同じ方向・codec・PCM format・bit rate・magic cookieの変換器を排他的に貸し出す。貸出中のinstanceは他の呼出しへ渡さず、返却時は`reset()`で新しいstreamとして初期化する。各packetのprimingとpayloadは従来どおり独立し、前の発話が無音packetへ混入しない。
+
+待機instanceの保持はprocess全体で16個までとし、満杯では古い待機instanceを解放する。生成・変換・reset中にはpoolのlockを保持しない。format、bit rate、cookieが異なる変換器を流用しない。不正payloadの検証とcodec fallbackの判定は維持する。
+
+排他貸出・保持上限と、発話／無音を交互に30packet変換した際のsample数・独立性を回帰試験する。既存のcodec・bit rate・format・不正payload試験も通す。連続した実出力の音声品質は音声E2Eの責務とする。

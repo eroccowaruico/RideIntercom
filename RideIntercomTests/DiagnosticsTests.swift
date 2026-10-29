@@ -40,6 +40,27 @@ struct DiagnosticsTests {
         #expect(harness.viewModel.transmitEffectChainSnapshot.stages.isEmpty)
     }
 
+    @Test func isolationConfigurationReportMatchesTheAppliedEffect() async throws {
+        let harness = AppTestSupport.makeHarness()
+        harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        harness.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { harness.viewModel.isAudioReady }
+        defer { harness.viewModel.disconnect() }
+        for enabled in [true, false] {
+            harness.viewModel.setSoundIsolationEnabled(enabled)
+            harness.viewModel.setReceiveMasterSoundIsolationEnabled(enabled)
+            let reports = harness.viewModel.makeRuntimePackageReports(generatedAt: 100)
+            for (kind, bus) in [("transmitConfiguration", "tx-bus"), ("receiveMasterConfiguration", "rx-master")] {
+                let report = try #require(reports.first { $0.package == "SoundIsolation" && $0.kind == kind })
+                let configuration = try report.decodeJSON(VoiceIsolationConfiguration.self)
+                let runtime = try #require(harness.viewModel.audioPipeline.isolationRuntimeSnapshots[bus])
+                #expect(configuration == runtime.configuration)
+                #expect(configuration.mix == (enabled ? 0.8 : 1))
+                #expect(runtime.state == (enabled ? .active : .bypassed))
+            }
+        }
+    }
+
     @Test func viewModelPublishesPackageRuntimeReportsForDiagnosticsAndRTC() throws {
         let harness = AppTestSupport.makeHarness()
         let peerID = "member-108"

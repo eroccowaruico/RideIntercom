@@ -593,8 +593,8 @@ Simulator UIの待受中ミュート操作でAURemoteIO初期化がRPC timeout�
 
 | 項目 | 契約 |
 |---|---|
-| `AudioOutputStreamConfiguration.maximumBufferedDuration` | nilは予約量制限なし。正の秒数でlive出力の予約上限を指定 |
-| System backend | 有効なplayer再生時刻と予約末尾で予約量を計測。上限超過時は`.interrupts`で旧予約を最新bufferへ置換。playerの再生時計とengine/sessionは維持 |
+| `AudioOutputStreamConfiguration.maximumBufferedDuration` | nilは予約量制限なし。正の秒数で新frameの再生開始までの待ち時間上限と、単一frame長の上限を指定 |
+| System backend | 有効なplayer再生時刻と予約末尾で予約量を計測。新frameを追加する前の待ち時間が上限以上なら`.interrupts`で旧予約を最新bufferへ置換。playerの再生時計とengine/sessionは維持 |
 | 長過ぎる単一frame | `invalidFrame`として報告 |
 | stop | playerと予約末尾を初期化。再開後に旧出力を出さない |
 | runtime snapshot | `bufferedOutputDuration` / `playbackResetCount`。未提供backendはnilであり正常値の0に置換しない |
@@ -608,4 +608,10 @@ SessionManagerは受け取ったhardware formatのPCMを予約するだけで、
 
 入力voice processingの結果がfailedならcaptureを開始せずbackendを停止する。unsupportedのignoredは従来通りcaptureを継続する。hardware PCMは有限の8–96 kHz・1–2 channelを要求し、対応外channelを丸めて偽ったmetadataで配送しない。interleaved/noninterleaved Float bufferを同じPCM sample順へ読み出す。利用者callbackは内部状態lockの外で呼び、開始・停止は単一の直列ownerが管理する。
 
-再生予約上限を超えた場合は`.interrupts`で新bufferを予約する。stop/playを繰り返すとplayer時計がリセットされ、実I/Oの遅延照会が入力配送を長く待たせるため、予約置換では停止しない。停止中のsourceはscheduleだけで自動再生しない。offline fixtureで置換後の最新音声と、再生時計の継続を確認し、実I/Oの安定性はAudio E2Eで検証する。
+新frameの再生開始までの待ち時間が上限以上なら`.interrupts`で新bufferを予約する。stop/playを繰り返すとplayer時計がリセットされ、実I/Oの遅延照会が入力配送を長く待たせるため、予約置換では停止しない。停止中のsourceはscheduleだけで自動再生しない。offline fixtureで置換後の最新音声と、再生時計の継続を確認し、実I/Oの安定性はAudio E2Eで検証する。
+
+通常の100 ms配送では数msの未再生tailが残り得るため、新frame自身の長さを加えて過負荷と判定しない。投入前の待ち時間と単一frame長をそれぞれ制限する。予約全体は「上限＋新frame長」未満（最悪でも上限の2倍未満）に収まり、`bufferedOutputDuration`は丸めずに実予約量を返す。待ち時間が上限以上の停滞では既存どおり旧予約を破棄する。5 msのtail保持と停止時の20 ms×6個の置換を別々に回帰試験する。
+
+実時間再生の予約量は、playerの`lastRenderTime`が示す過去のrender境界から現在のhost時刻までを補正して見積もる。既に経過したquantumを未再生として数え、通常のbatchを誤って破棄しない。停止中・manual rendering中はhost時刻で進めず、明示されたplayer sample時計を用いる。
+
+`AudioOutputStreamRenderer.start(configuration:)`は停止中の開始時に指定設定を適用する。省略時は保持している設定を使う。既に開始済みなら`alreadyRunning`として無視し、実行中の設定を書き換えない。停止後の再開始で用途別の出力予算へ変更でき、実適用した設定をrendererから取得できる。

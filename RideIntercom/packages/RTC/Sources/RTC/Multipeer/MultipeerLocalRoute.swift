@@ -142,56 +142,57 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
 
     private let request: CallStartRequest
     private let credential: RTCCredential?
-    private let localPeerID: MCPeerID
-    private var session: MCSession
-    // Bonjour's browser/monitor lifecycle belongs to the main run loop. Starting
-    // and destroying it on another queue races its pending cancellation callback.
-    private let queue = DispatchQueue.main
+    private let native: MultipeerNativeResources
     private var isStopped = false
     private var connectedPeerIDs: Set<PeerID> = []
-    private var advertiser: MCNearbyServiceAdvertiser?
-    private var browser: MCNearbyServiceBrowser?
     private var authenticatedPeers: Set<PeerID> = []
     private var pendingInvites: Set<String> = []
 
     init(request: CallStartRequest) {
         self.request = request
         self.credential = request.credential
-        self.localPeerID = MCPeerID(displayName: request.localPeer.id.rawValue)
-        self.session = MCSession(peer: localPeerID, securityIdentity: nil, encryptionPreference: .required)
+        if Thread.isMainThread {
+            self.native = MainActor.assumeIsolated { MultipeerNativeResources(peerName: request.localPeer.id.rawValue) }
+        } else {
+            self.native = DispatchQueue.main.sync { MultipeerNativeResources(peerName: request.localPeer.id.rawValue) }
+        }
         super.init()
-        session.delegate = self
+        onQueue { native.session.delegate = self }
     }
 
-    private func onQueue<T>(_ operation: () -> T) -> T {
-        if Thread.isMainThread { return operation() }
-        return queue.sync(execute: operation)
+    private func onQueue<T: Sendable>(_ operation: @MainActor () -> T) -> T {
+        if Thread.isMainThread { return MainActor.assumeIsolated(operation) }
+        return DispatchQueue.main.sync(execute: operation)
+    }
+
+    private func enqueue(_ operation: @escaping @MainActor @Sendable () -> Void) {
+        DispatchQueue.main.async(execute: operation)
     }
 
     func start() {
         onQueue { [self] in
             stopDiscovery()
-            session.delegate = nil
-            session.disconnect()
-            session = MCSession(peer: localPeerID, securityIdentity: nil, encryptionPreference: .required)
-            session.delegate = self
+            native.session.delegate = nil
+            native.session.disconnect()
+            native.session = MCSession(peer: native.localPeerID, securityIdentity: nil, encryptionPreference: .required)
+            native.session.delegate = self
             isStopped = false
             connectedPeerIDs.removeAll()
             authenticatedPeers.removeAll()
             onEvent?(.state(.connecting))
 
             let advertiser = MCNearbyServiceAdvertiser(
-                peer: localPeerID,
+                peer: native.localPeerID,
                 discoveryInfo: credential.map { [LocalDiscoveryInfo.groupHashKey: $0.groupHash] },
                 serviceType: LocalDiscoveryInfo.serviceType
             )
             advertiser.delegate = self
-            self.advertiser = advertiser
+            native.advertiser = advertiser
             advertiser.startAdvertisingPeer()
 
-            let browser = MCNearbyServiceBrowser(peer: localPeerID, serviceType: LocalDiscoveryInfo.serviceType)
+            let browser = MCNearbyServiceBrowser(peer: native.localPeerID, serviceType: LocalDiscoveryInfo.serviceType)
             browser.delegate = self
-            self.browser = browser
+            native.browser = browser
             browser.startBrowsingForPeers()
 
         }
@@ -202,8 +203,8 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             isStopped = true
             connectedPeerIDs.removeAll()
             stopDiscovery()
-            session.delegate = nil
-            session.disconnect()
+            native.session.delegate = nil
+            native.session.disconnect()
             authenticatedPeers.removeAll()
             onEvent?(.state(.disconnected))
 
@@ -213,10 +214,10 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     func send(_ payload: TransportPayload) {
         onQueue { [self] in
             guard !isStopped else { return }
-            let peers = session.connectedPeers.filter { authenticatedPeers.contains(PeerID(rawValue: $0.displayName)) }
+            let peers = native.session.connectedPeers.filter { authenticatedPeers.contains(PeerID(rawValue: $0.displayName)) }
             guard !peers.isEmpty else { return }
             do {
-                try session.send(payload.data, toPeers: peers, with: payload.mcSendMode)
+                try native.session.send(payload.data, toPeers: peers, with: payload.mcSendMode)
             } catch {
                 onEvent?(.failed("Multipeer payload send failed"))
             }
@@ -240,17 +241,17 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
         }
     }
 
-    private func stopDiscovery() {
-        advertiser?.delegate = nil
-        browser?.delegate = nil
-        advertiser?.stopAdvertisingPeer()
-        browser?.stopBrowsingForPeers()
-        advertiser = nil
-        browser = nil
+    @MainActor private func stopDiscovery() {
+        native.advertiser?.delegate = nil
+        native.browser?.delegate = nil
+        native.advertiser?.stopAdvertisingPeer()
+        native.browser?.stopBrowsingForPeers()
+        native.advertiser = nil
+        native.browser = nil
         pendingInvites.removeAll()
     }
 
-    private func sendHandshake(to peerID: MCPeerID) {
+    @MainActor private func sendHandshake(to peerID: MCPeerID) {
         guard let credential else {
             authenticatedPeers.insert(PeerID(rawValue: peerID.displayName))
             onEvent?(.members(Array(authenticatedPeers)))
@@ -260,7 +261,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
         do {
             let handshake = RouteHandshakeMessage.make(credential: credential, senderID: request.localPeer.id)
             let payload = try MultipeerPayloadBuilder.makeControlPayload(.handshake(handshake))
-            try session.send(payload.data, toPeers: [peerID], with: payload.mcSendMode)
+            try native.session.send(payload.data, toPeers: [peerID], with: payload.mcSendMode)
         } catch {
             onEvent?(.failed("Multipeer handshake send failed"))
         }
@@ -269,18 +270,18 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
 
 extension MultipeerConnectionTransport: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
-        queue.async { [self] in
-            guard !isStopped, self.browser === browser else { return }
-            guard peerID != localPeerID else { return }
+        enqueue { [self] in
+            guard !isStopped, native.browser === browser else { return }
+            guard peerID != native.localPeerID else { return }
             if let credential, info?[LocalDiscoveryInfo.groupHashKey] != credential.groupHash { return }
             // Both endpoints advertise and browse. Elect one initiator so two
             // simultaneous invitations cannot tear down each other's session.
-            guard localPeerID.displayName < peerID.displayName else { return }
-            guard !pendingInvites.contains(peerID.displayName), !session.connectedPeers.contains(peerID) else { return }
+            guard native.localPeerID.displayName < peerID.displayName else { return }
+            guard !pendingInvites.contains(peerID.displayName), !native.session.connectedPeers.contains(peerID) else { return }
             pendingInvites.insert(peerID.displayName)
             browser.invitePeer(
                 peerID,
-                to: session,
+                to: native.session,
                 withContext: credential.flatMap { LocalInvitationContext(groupHash: $0.groupHash).encoded },
                 timeout: 10
             )
@@ -289,16 +290,16 @@ extension MultipeerConnectionTransport: MCNearbyServiceBrowserDelegate {
     }
 
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
-        queue.async { [self] in
-            guard !isStopped, self.browser === browser else { return }
+        enqueue { [self] in
+            guard !isStopped, native.browser === browser else { return }
             pendingInvites.remove(peerID.displayName)
 
         }
     }
 
     func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
-        queue.async { [self] in
-            guard !isStopped, self.browser === browser else { return }
+        enqueue { [self] in
+            guard !isStopped, native.browser === browser else { return }
             onEvent?(.failed(error.localizedDescription))
 
         }
@@ -313,16 +314,16 @@ extension MultipeerConnectionTransport: MCNearbyServiceAdvertiserDelegate {
         invitationHandler: @escaping (Bool, MCSession?) -> Void
     ) {
         let acceptedSession: MCSession? = onQueue {
-            guard !isStopped, self.advertiser === advertiser else { return nil }
+            guard !isStopped, native.advertiser === advertiser else { return nil }
             if let credential, LocalInvitationContext.decode(context)?.groupHash != credential.groupHash { return nil }
-            return session
+            return native.session
         }
         invitationHandler(acceptedSession != nil, acceptedSession)
     }
 
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
-        queue.async { [self] in
-            guard !isStopped, self.advertiser === advertiser else { return }
+        enqueue { [self] in
+            guard !isStopped, native.advertiser === advertiser else { return }
             onEvent?(.failed(error.localizedDescription))
 
         }
@@ -331,8 +332,8 @@ extension MultipeerConnectionTransport: MCNearbyServiceAdvertiserDelegate {
 
 extension MultipeerConnectionTransport: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        queue.async { [self] in
-            guard !isStopped, self.session === session else { return }
+        enqueue { [self] in
+            guard !isStopped, native.session === session else { return }
             switch state {
             case .connected:
                 connectedPeerIDs.insert(PeerID(rawValue: peerID.displayName))
@@ -356,8 +357,8 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
 
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
         guard data.count <= 65536 else { return }
-        queue.async { [self] in
-            guard !isStopped, self.session === session else { return }
+        enqueue { [self] in
+            guard !isStopped, native.session === session else { return }
             do {
                 let message = try MultipeerPayloadBuilder.decode(data)
                 if case .control(.handshake) = message {
@@ -376,6 +377,31 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
     func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {}
     func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, with progress: Progress) {}
     func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {}
+}
+
+/// Multipeer owns Bonjour run-loop state even inside MCSession. Keep creation,
+/// mutation AND final release on the main actor; the route itself is an actor
+/// whose last reference can otherwise disappear on a cooperative worker thread.
+@MainActor
+private final class MultipeerNativeResources {
+    let localPeerID: MCPeerID
+    var session: MCSession
+    var advertiser: MCNearbyServiceAdvertiser?
+    var browser: MCNearbyServiceBrowser?
+
+    init(peerName: String) {
+        localPeerID = MCPeerID(displayName: peerName)
+        session = MCSession(peer: localPeerID, securityIdentity: nil, encryptionPreference: .required)
+    }
+
+    isolated deinit {
+        advertiser?.delegate = nil
+        browser?.delegate = nil
+        advertiser?.stopAdvertisingPeer()
+        browser?.stopBrowsingForPeers()
+        session.delegate = nil
+        session.disconnect()
+    }
 }
 
 enum LocalDiscoveryInfo {

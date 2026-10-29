@@ -19,7 +19,13 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
         playerNode.lastRenderTime.flatMap { time in
                 guard time.isSampleTimeValid || time.isHostTimeValid,
                       let played = playerNode.playerTime(forNodeTime: time), played.isSampleTimeValid else { return nil }
-                return played.sampleTime
+                // lastRenderTime is a snapshot from the previous render quantum.
+                // In realtime mode the device clock has advanced since then; counting
+                // those already elapsed samples as queued audio can interrupt a
+                // healthy 100 ms tap batch. Offline rendering advances only explicitly.
+                let elapsed = !engine.isInManualRenderingMode && engine.isRunning && playerNode.isPlaying && time.isHostTimeValid
+                    ? max(0, ProcessInfo.processInfo.systemUptime - AVAudioTime.seconds(forHostTime: time.hostTime)) : 0
+                return played.sampleTime + AVAudioFramePosition(elapsed * played.sampleRate)
             } ?? 0
     }
     public var bufferedOutputDuration: TimeInterval? {
@@ -82,13 +88,17 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
         if let limit = maximumBufferedDuration {
             let duration = Double(buffer.frameLength) / frame.format.sampleRate
             guard duration <= limit else { throw AudioStreamError.invalidFrame("Frame exceeds live playback budget") }
-            if (bufferedOutputDuration ?? 0) + duration > limit {
+            // Apply the latency budget to the wait before this frame starts.
+            // Including the new frame itself interrupts ordinary capture batches
+            // whenever their delivery overlaps the unplayed tail by a few ms.
+            if scheduledEndSample - renderedSample >= AVAudioFramePosition(limit * frame.format.sampleRate) {
                 options = .interrupts
                 scheduledEndSample = renderedSample
                 resetCount += 1
             }
         }
-        scheduledEndSample = max(scheduledEndSample, renderedSample) + AVAudioFramePosition(buffer.frameLength)
+        let startSample = max(scheduledEndSample, renderedSample)
+        scheduledEndSample = startSample + AVAudioFramePosition(buffer.frameLength)
         playerNode.scheduleBuffer(buffer, at: nil, options: options)
     }
 }

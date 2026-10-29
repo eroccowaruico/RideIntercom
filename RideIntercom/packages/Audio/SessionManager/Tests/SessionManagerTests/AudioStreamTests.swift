@@ -370,6 +370,7 @@ private final class FakeInputStreamBackend: AudioInputStreamBackend {
 }
 
 private final class FakeOutputStreamBackend: AudioOutputStreamBackend {
+    var configurations: [AudioOutputStreamConfiguration] = []
     var startCount = 0
     var stopCount = 0
     var scheduledFrames: [PCMFrame] = []
@@ -383,7 +384,7 @@ private final class FakeOutputStreamBackend: AudioOutputStreamBackend {
     }
 
     func startRendering(configuration: AudioOutputStreamConfiguration) throws -> AudioFormat {
-        _ = configuration
+        configurations.append(configuration)
         startCount += 1
         if let startError {
             throw startError
@@ -407,6 +408,50 @@ private final class FakeOutputStreamBackend: AudioOutputStreamBackend {
 }
 
 #if canImport(AVFAudio)
+@Test func overlappingOutputBatchesPreserveUnplayedTail() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
+    let backend = SystemAudioOutputStreamBackend(engine: engine)
+    let hardware = try backend.startRendering(configuration: .init(maximumBufferedDuration: 0.1))
+    defer { try? backend.stopRendering() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
+    try backend.schedule(.init(sequenceNumber: 0, format: hardware,
+                               samples: Array(repeating: 0.2, count: 4800)))
+    Thread.sleep(forTimeInterval: 0.01)
+    #expect(try engine.renderOffline(4560, to: output) == .success)
+    #expect((0..<4560).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.001 })
+    for i in 1...10 {
+        let value: Float = i.isMultiple(of: 2) ? 0.2 : 0.4
+        try backend.schedule(.init(sequenceNumber: UInt64(i), format: hardware,
+                                   samples: Array(repeating: value, count: 4800)))
+        // Let the player command queue settle without advancing the offline clock.
+        Thread.sleep(forTimeInterval: 0.01)
+        #expect(try engine.renderOffline(4800, to: output) == .success)
+        let samples = output.floatChannelData![0]
+        #expect((0..<240).allSatisfy { abs(samples[$0] - (0.6 - value)) < 0.001 })
+        #expect((240..<4800).allSatisfy { abs(samples[$0] - value) < 0.001 })
+    }
+    #expect(backend.playbackResetCount == 0)
+}
+
+@Test func renderedOutputBatchesDoNotCountAsPendingPlayback() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
+    let backend = SystemAudioOutputStreamBackend(engine: engine)
+    let actual = try backend.startRendering(configuration: .init(preferredFormat: .init(), maximumBufferedDuration: 0.1))
+    defer { try? backend.stopRendering() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
+    for i in 0..<10 {
+        try backend.schedule(.init(sequenceNumber: UInt64(i), format: actual,
+                                  samples: Array(repeating: 0.2, count: 4800)))
+        #expect(try engine.renderOffline(4800, to: output) == .success)
+        #expect((backend.bufferedOutputDuration ?? 1) < 1 / 48000.0)
+    }
+    #expect(backend.playbackResetCount == 0)
+}
+
 @Test func constructingAndStoppingUnusedInputBackendDoesNotOpenHardware() throws {
     let engine = ObservedInputEngine()
     let backend = SystemAudioInputStreamBackend(engine: engine)
@@ -473,4 +518,22 @@ private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
     #expect(!report.snapshot.isRunning)
     #expect(backend.startCount == 0)
     #expect(backend.stopCount == 1)
+}
+
+@Test func outputConfigurationAppliesAtStartAndRemainsStableWhileRunning() throws {
+    let backend = FakeOutputStreamBackend()
+    let original = AudioOutputStreamConfiguration(maximumBufferedDuration: 0.1)
+    let call = AudioOutputStreamConfiguration(maximumBufferedDuration: 0.2)
+    let renderer = AudioOutputStreamRenderer(configuration: original, backend: backend)
+    #expect(renderer.start(configuration: call).result == .applied)
+    #expect(renderer.configuration == call)
+    #expect(backend.configurations == [call])
+    #expect(renderer.start(configuration: original).result == .ignored(.alreadyRunning))
+    #expect(renderer.configuration == call)
+    #expect(backend.configurations == [call])
+    #expect(renderer.stop().result == .applied)
+    #expect(renderer.start(configuration: original).result == .applied)
+    #expect(renderer.configuration == original)
+    #expect(backend.configurations == [call, original])
+    _ = renderer.stop()
 }

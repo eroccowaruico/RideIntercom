@@ -61,7 +61,10 @@ extension IntercomViewModel {
             transmitSoundIsolationEnabled: isSoundIsolationEnabled,
             receiveMasterSoundIsolationEnabled: receiveMasterSoundIsolationEnabled,
             peerSoundIsolationEnabled: remoteSoundIsolationEnabled,
-            maximumBufferedDuration: 0.1
+            maximumBufferedDuration: 0.2,
+            receiveMaximumBufferedDuration: 0.4,
+            receivePlayoutDelay: 0.2,
+            transmitPlayoutDelay: 0.1
         )
     }
 
@@ -97,6 +100,14 @@ extension IntercomViewModel {
         } else {
             stopAudioPipeline()
         }
+    }
+
+    func updateAudioPipelineCodecSettings() {
+        if isAudioReady {
+            audioPipeline.updateCodec(preferred: preferredTransmitCodec,
+                aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
+        }
+        callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
     }
 
     func updateAudioPipelineOutputSettings() {

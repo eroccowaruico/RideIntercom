@@ -134,6 +134,7 @@ extension SessionManager.AudioInputStreamConfiguration {
 
 extension SessionManager.AudioOutputStreamConfiguration {
     static let intercom = Self(preferredFormat: .intercomHardwarePreferred, maximumBufferedDuration: 0.1)
+    static let intercomCall = Self(preferredFormat: .intercomHardwarePreferred, maximumBufferedDuration: 0.2)
 }
 
 protocol CallTicking: AnyObject {

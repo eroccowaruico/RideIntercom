@@ -220,18 +220,35 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         request.cloudflare.workerURL.appendingPathComponent("api/rooms/\(request.call.credential!.groupHash)/\(path)")
     }
     private func http(_ connect: WebRTCSignalingConnectRequest, path: String, method: String = "POST", body: [String: Any]? = nil) async throws -> Data {
-        try await Self.fetch(connect.cloudflare, url: endpoint(connect, path: path), method: method, body: try body.map { try JSONSerialization.data(withJSONObject: $0) }, session: session)
+        try await Self.fetch(connect.cloudflare, url: endpoint(connect, path: path), method: method, body: try body.map { try JSONSerialization.data(withJSONObject: $0) }, session: session, retryConnectionLoss: path.hasSuffix("/pull"))
     }
-    private static func fetch(_ configuration: CloudflareRealtimeConfiguration, url: URL, method: String, body: Data?, session: URLSession) async throws -> Data {
-        var request = URLRequest(url: url); request.httpMethod = method; request.timeoutInterval = 25
+    static func fetch(_ configuration: CloudflareRealtimeConfiguration, url: URL, method: String, body: Data?, session: URLSession, retryConnectionLoss: Bool = false) async throws -> Data {
+        var request = URLRequest(url: url); request.httpMethod = method
         request.setValue("Bearer \(configuration.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
-        let (data, response) = try await session.data(for: request, delegate: NoRedirects())
-        guard let response = response as? HTTPURLResponse else { throw Failure.invalidResponse }
-        guard response.url?.host == request.url?.host, response.url?.scheme == request.url?.scheme else { throw Failure.invalidResponse }
-        guard (200..<300).contains(response.statusCode) else { throw Failure.http(response.statusCode) }
-        return data
+        let deadline = ContinuousClock.now.advanced(by: .seconds(25))
+        var retries = 0
+        while true {
+            let remaining = ContinuousClock.now.duration(to: deadline)
+            guard remaining > .zero else { throw URLError(.timedOut) }
+            let components = remaining.components
+            request.timeoutInterval = Double(components.seconds) + Double(components.attoseconds) / 1e18
+            do {
+                let (data, response) = try await session.data(for: request, delegate: NoRedirects())
+                guard let response = response as? HTTPURLResponse else { throw Failure.invalidResponse }
+                guard response.url?.host == request.url?.host, response.url?.scheme == request.url?.scheme else { throw Failure.invalidResponse }
+                guard (200..<300).contains(response.statusCode) else { throw Failure.http(response.statusCode) }
+                return data
+            } catch let error as URLError where retryConnectionLoss && error.code == .networkConnectionLost && retries < 2 {
+                // Pull reconciles the requested subscriptions idempotently. A lost
+                // keep-alive connection must not destroy otherwise healthy media.
+                // Never repeat session creation, authorization failures or cancellation,
+                // and retain the original request's total deadline across retries.
+                retries += 1
+                try await Task.sleep(for: .milliseconds(retries * 100))
+            }
+        }
     }
     private struct IceConfiguration: Decodable { let iceServers: [WebRTCIceServer] }
     private struct Description: Decodable { let type: String; let sdp: String }
