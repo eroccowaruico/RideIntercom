@@ -205,6 +205,15 @@ public final class MixerBus {
         }
     }
 
+    /// Tail from active native effects only; bypassed nodes are disconnected.
+    public var processingTailTime: TimeInterval {
+        metadataLock.withLock {
+            effects.filter { !bypassedEffectNodeIDs.contains(ObjectIdentifier($0)) }.reduce(0) {
+                $0 + (($1 as? AVAudioUnit)?.auAudioUnit.tailTime ?? 0)
+            }
+        }
+    }
+
     /// A graph change discards the settling interval instead of playing it late.
     /// Only explicitly requested transitions modify samples; normal sinks do not.
     public func beginSinkTransition(settlingDuration: TimeInterval, holding: Bool = false) {

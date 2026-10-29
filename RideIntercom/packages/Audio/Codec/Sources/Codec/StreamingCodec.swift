@@ -13,9 +13,14 @@ public final class StreamingCodecEncoder {
     private var capturedStart: TimeInterval?
     private var inputEnd: TimeInterval?
     private var emittedFrames = 0
+    private let suppressesSilence: Bool
+    private var silentDuration: TimeInterval = 0
 
-    public init(configuration: CodecEncodingConfiguration) throws {
+    /// Drain native history for 100 ms before suspending exact digital silence.
+    /// Quiet speech is never thresholded here; voice detection belongs upstream.
+    public init(configuration: CodecEncodingConfiguration, suppressesSilence: Bool = false) throws {
         self.configuration = configuration
+        self.suppressesSilence = suppressesSilence
         guard let pcm = AudioConverterBridge.makePCMFormat(configuration.format),
               let initial = AudioConverterBridge.makeCompressedFormat(codec: configuration.codec,
                 format: configuration.format, bitRate: configuration.activeBitRate) else {
@@ -59,6 +64,12 @@ public final class StreamingCodecEncoder {
         }
         guard frame.frameCount > 0 else { return nil }
         guard frame.frameCount <= Int(frame.format.sampleRate) else { throw CodecError.malformedPayload(configuration.codec) }
+        if suppressesSilence {
+            if frame.samples.allSatisfy({ $0 == 0 }) {
+                if silentDuration >= 0.1 { return nil }
+                silentDuration += Double(frame.frameCount) / frame.format.sampleRate
+            } else { silentDuration = 0 }
+        }
         if let end = inputEnd, abs(frame.capturedAt - end) > 2 / frame.format.sampleRate {
             converter?.reset()
             capturedStart = nil

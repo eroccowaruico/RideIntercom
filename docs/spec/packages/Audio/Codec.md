@@ -260,6 +260,7 @@ bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverter�
 | API / 条件 | 契約 |
 |---|---|
 | StreamingCodecEncoder | 送信stream専有のnative変換器を保持。各入力でEOS/resetせず、historyと部分packetを維持する。入力は最大1秒 |
+| suppressesSilence | 既定false。trueでは完全な0の入力が100ms続くまでnative末尾を送り、その後は符号化とpacket生成を休止する。音量閾値による小声の除去はしない。次の非無音入力を同じ呼出しで処理し、省略した時刻の不連続によりstream identityとnative履歴を更新する。各packetにcookieを保持し、信頼あり通信への依存を追加しない |
 | Opus | native frameを10msへ指定。既定20msのpacket完成待ちを減らす |
 | AAC-ELD | ELD v1 monoのnative変換。480sample/frame（48/24/16kHzで10/20/30ms）。long-term average bitrateで発話過渡音と無音へのbit配分を行う |
 | availableEncodingBitRates | OSが当該codec/PCM formatで受け入れるencode bitrate一覧。App側の品質下限とは別の能力情報 |

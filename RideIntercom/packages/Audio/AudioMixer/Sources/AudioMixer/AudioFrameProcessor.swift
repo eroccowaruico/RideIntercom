@@ -12,10 +12,15 @@ public final class AudioFrameProcessor {
     private let output: AVAudioPCMBuffer
     private var sequence: UInt64 = 0
     private let normalizer = MixerPCMStreamNormalizer()
+    private let suspendsDuringSilence: Bool
+    private var silentInputDuration: TimeInterval = 0
+    private var silentOutputDuration: TimeInterval = 0
 
     public init(format: AudioFormat, outputFormat: AudioFormat, busID: String = "processor",
                 packetDuration: TimeInterval = 0.01,
+                suspendsDuringSilence: Bool = false,
                 onFrame: @escaping (PCMFrame, AudioProcessingReport) -> Void) throws {
+        self.suspendsDuringSilence = suspendsDuringSilence
         mixer = try AudioMixer(audioFormat: format)
         try mixer.engine.enableManualRenderingMode(.offline, format: mixer.format, maximumFrameCount: 4096)
         bus = try mixer.createBus(busID)
@@ -44,6 +49,16 @@ public final class AudioFrameProcessor {
     }
 
     public func process(_ frame: PCMFrame) throws {
+        // Only exact digital silence can sleep. Drain declared native delay/tail
+        // as well as 250 ms of zero output, so downstream codecs can flush their
+        // partial packets. An audible first sample resumes in this same call.
+        let silent = suspendsDuringSilence && frame.samples.allSatisfy { $0 == 0 }
+        if silent {
+            _ = try frame.validated()
+            let drained = max(0.25, bus.processingLatency + bus.processingTailTime)
+            if silentInputDuration >= drained && silentOutputDuration >= 0.25 { return }
+            silentInputDuration += Double(frame.frameCount) / frame.format.sampleRate
+        } else { silentInputDuration = 0; silentOutputDuration = 0 }
         let normalized = try normalizer.normalize(frame, to: mixer.audioFormat, operation: .normalizeSource).frame
         guard normalized.frameCount > 0 else { return }
         input.buffer = try normalized.makePCMBuffer()
@@ -61,6 +76,9 @@ public final class AudioFrameProcessor {
             }
             sequence &+= 1
             try bus.deliverToSinks(processed)
+            if silent && processed.samples.allSatisfy({ $0 == 0 }) {
+                silentOutputDuration += Double(count) / mixer.audioFormat.sampleRate
+            } else { silentOutputDuration = 0 }
             offset += Int(count)
         }
     }

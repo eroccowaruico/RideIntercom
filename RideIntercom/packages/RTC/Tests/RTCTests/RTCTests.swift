@@ -488,6 +488,21 @@ private func makeFilteredPacketAudioPacket(
     )
 }
 
+@Test func idleConnectionHasNoAudioPollingTimer() async throws {
+    let route = FakeRoute(kind: .multipeer)
+    let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer)
+    let manager = RouteManager(routes: [route], configuration: configuration,
+        runtimeStatusPolicy: .init(isAutomaticBroadcastEnabled: false))
+    await manager.prepare(.init(sessionID: "idle", localPeer: .init(id: .init(rawValue: "me"), displayName: "me"), configuration: configuration))
+    await manager.startConnection()
+    let deadline = try #require(await manager.maintenanceDeadline)
+    #expect(deadline - ProcessInfo.processInfo.systemUptime > 1.8, "Idle maintenance must sleep for presence, not poll at 50 Hz")
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(await manager.maintenanceDeadline == deadline)
+    await manager.stopConnection()
+    #expect(await manager.maintenanceDeadline == nil)
+}
+
 private final class FakeRoute: RTCCallRoute, @unchecked Sendable {
     let kind: RouteKind
     let capabilities: RouteCapabilities

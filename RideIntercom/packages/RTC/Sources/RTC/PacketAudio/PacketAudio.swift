@@ -48,6 +48,10 @@ struct PacketAudioReceiveBuffer: Sendable {
         queuedPackets.count
     }
 
+    var nextDeadline: TimeInterval? {
+        queuedPackets.map { $0.receivedAt + min(configuration.playoutDelay, configuration.packetLifetime) }.min()
+    }
+
     init(configuration: PacketAudioReceiveConfiguration = PacketAudioReceiveConfiguration()) {
         self.configuration = configuration
     }

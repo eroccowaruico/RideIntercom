@@ -103,7 +103,13 @@ public final class MixerPCMSource {
 				guard capturedAt.isFinite else {
 					throw AudioMixerError.pcmSourceScheduleFailed("Invalid capture timestamp")
 				}
-				let delayedStart = rendered + AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded())
+                // A hardware render can begin between reading its clock and
+                // submitting the player command. Reserve two native quanta
+                // only for adaptive realtime playback; offline clocks need no
+                // handoff allowance. A fixed 2 ms can be shorter than one block.
+                let nativeLead = adaptivePlayout && playerNode.engine?.isInManualRenderingMode == false
+                    ? AVAudioFramePosition(renderClock.frameCount.load(ordering: .relaxed)) * 2 : 0
+				let delayedStart = rendered + max(nativeLead, AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded()))
 				if playoutAnchor == nil { playoutAnchor = (capturedAt, delayedStart) }
 				let anchor = playoutAnchor!
 				var target = Double(anchor.sample) + (capturedAt - anchor.capturedAt) * mixerFormat.sampleRate

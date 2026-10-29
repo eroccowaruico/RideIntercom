@@ -12,6 +12,7 @@ public actor RouteManager: CallSession {
     private var request: CallStartRequest?
     private var routeTasks: [Task<Void, Never>] = []
     private var timer: Task<Void, Never>?
+    private(set) var maintenanceDeadline: TimeInterval?
     private var isConnectionStarted = false
     private var fallbackTask: Task<Void, Never>?
     private var routeStates: [RouteKind: RouteConnectionState] = [:]
@@ -87,15 +88,11 @@ public actor RouteManager: CallSession {
                 await self?.startRemaining(generation: token)
             }
         }
-        timer = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(20))
-                guard !Task.isCancelled else { return }
-                await self?.tick(generation: token)
-            }
-        }
+        lastPresence = ProcessInfo.processInfo.systemUptime
+        lastRuntimeStatus = lastPresence
         await broadcast(.presence)
         await sendRuntimeStatus(reason: .connectionStarted)
+        if generation == token { scheduleMaintenance() }
     }
     private func start(_ kind: RouteKind) async {
         guard configuration.enabledRoutes.contains(kind), let route = routes[kind], !started.contains(kind) else { return }
@@ -113,7 +110,7 @@ public actor RouteManager: CallSession {
         await broadcast(.leave)
         generation = UUID()
         let token = generation
-        timer?.cancel(); timer = nil; fallbackTask?.cancel(); fallbackTask = nil
+        timer?.cancel(); timer = nil; maintenanceDeadline = nil; fallbackTask?.cancel(); fallbackTask = nil
         isConnectionStarted = false
         routeTasks.forEach { $0.cancel() }; routeTasks = []
         observedPaths = [:]; lastPresence = 0; lastRuntimeStatus = 0; eventSource.resetDiagnostics()
@@ -181,6 +178,7 @@ public actor RouteManager: CallSession {
     }
     private func handle(_ event: RouteEvent, generation token: UUID) async {
         guard generation == token, request != nil else { return }
+        defer { if generation == token { scheduleMaintenance() } }
         switch event {
         case .stateChanged(let kind, let state):
             routeStates[kind] = state
@@ -242,7 +240,32 @@ public actor RouteManager: CallSession {
         case .error(_, let error): emit(.error(error))
         }
     }
-    private func tick(generation token: UUID) async {
+    /// Healthy packets leave in handle(). Wake only for an unresolved reorder
+    /// gap, presence expiry, retry, or explicitly enabled diagnostics.
+    private func scheduleMaintenance() {
+        guard isConnectionStarted else { return }
+        var deadline = lastPresence + 2
+        if let gap = receiveBuffer.nextDeadline { deadline = min(deadline, gap) }
+        if let retry = retries.values.map(\.deadline).min() { deadline = min(deadline, retry) }
+        if runtimeStatusPolicy.isAutomaticBroadcastEnabled, let interval = runtimeStatusPolicy.periodicInterval {
+            deadline = min(deadline, lastRuntimeStatus + max(0.02, interval))
+        }
+        // Do not allocate/cancel a Task on every arriving audio packet.
+        if let scheduled = maintenanceDeadline, scheduled <= deadline { return }
+        timer?.cancel()
+        maintenanceDeadline = deadline
+        let token = generation
+        let delay = max(0, deadline - ProcessInfo.processInfo.systemUptime)
+        timer = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+            await self?.tick(generation: token, deadline: deadline)
+        }
+    }
+
+    private func tick(generation token: UUID, deadline: TimeInterval) async {
+        guard generation == token, maintenanceDeadline == deadline else { return }
+        timer = nil; maintenanceDeadline = nil
+        defer { if generation == token { scheduleMaintenance() } }
         guard generation == token, let request else { return }
         let now = ProcessInfo.processInfo.systemUptime
         for packet in receiveBuffer.drain(now: now).readyPackets { emit(.receivedAudioPacket(packet)) }
@@ -263,7 +286,8 @@ public actor RouteManager: CallSession {
             await start(kind)
             guard generation == token else { return }
         }
-        if let interval = runtimeStatusPolicy.periodicInterval, now - lastRuntimeStatus >= interval {
+        if runtimeStatusPolicy.isAutomaticBroadcastEnabled, let interval = runtimeStatusPolicy.periodicInterval,
+           now - lastRuntimeStatus >= max(0.02, interval) {
             lastRuntimeStatus = now
             await sendRuntimeStatus(reason: .periodic)
         }
@@ -290,11 +314,11 @@ public actor RouteManager: CallSession {
                             isHandoverInProgress: !retries.isEmpty && availableRoutes.isEmpty)
     }
     private func sendRuntimeStatus(reason: RTCRuntimeStatusReason) async {
+        guard runtimeStatusPolicy.isAutomaticBroadcastEnabled else { return }
         let token = generation
         let network = await networkDiagnostics()
         guard token == generation else { return }
         emit(.networkDiagnosticsChanged(network))
-        guard runtimeStatusPolicy.isAutomaticBroadcastEnabled else { return }
         var status = makeRuntimeStatus(reason: reason)
         if let report = try? RTCRuntimePackageReport.json(package: "RTC", kind: "network", payload: network) {
             status.packageReports.append(report)

@@ -437,6 +437,8 @@ Graphの作成・変更・schedule・snapshotは単一の直列ownerから呼ぶ
 | API / 境界 | 契約 |
 |---|---|
 | AudioFrameProcessor | 単一の直列ownerからprocessを呼ぶ。graph構築前にoffline manual renderingへ入り、AVAudioSourceNodeが現在の入力bufferを同期供給する。native Audio Unit chainをoffline renderし、hardware出力・playerの非同期queueを持たない。software node検査はengineのinputNode/outputNodeを取得せず、不要なdevice I/O初期化を避ける |
+| suspendsDuringSilence | 既定false。trueでは入力が完全な0で、active effectのlatency＋tailTime以上を流し、さらに出力の完全な0が250ms続いた場合にnative描画とbuffer生成を休止する。閾値で小声を削らない。次の非無音入力を同じprocess呼出しで処理し、音声時刻の間隔を保持する |
+| processingTailTime | active native effectのtailTime合計。無効effectはlatency・tailTime・render resource allocationの対象外。休止前にはCodecの100ms排出より長い250msの無音出力を渡す |
 | installPCMSink(packetDuration:) | 指定時間までだけ蓄積して送る。入力formatで先にpacket化してから変換し、任意hardware quantumごとの丸めでsample数を増減させない |
 | installPCMSink(maximumFrameDuration:) | 蓄積を待たず即時配送し、長過ぎるframeだけ分割する |
 | RenderCaptureNode | unity EQのpost-render notifyからAudioRenderCaptureへコピーする。installTapによる約100ms集約を使わない。notify登録失敗はthrow |
@@ -463,6 +465,8 @@ native設定呼び出しの所要時間がまだ分からない間は、`holding
 稼働中のeffect接続変更は、`AVAudioPlayerNode.isPlaying`がtrueのまま既存の再生予約を無効にすることがある。変更busへ流入するsourceだけを停止して予約とcapture時計を破棄し、次の新しいPCMで再開する。停止中だったsourceは自動開始しない。別の経路や別ownerのsourceは初期化しない。ただし共有engineのnative graph切替区間には他経路にも短い無音が生じ得るため、呼び出し側は最終出力のtransitionを要求する。通常packet到着時の遅延回復ではstop/playを使わない。
 
 adaptive再生はcapture時計に対応する明示時刻を使う。render captureで観測したnative描画ブロックの長さを共有し、`lastRenderTime`の開始位置ではなく、すでに描画済みの終端を再生予約の下限とする。host時刻が未来のrenderでも、そのブロックを未処理とは扱わない。単なる連続追記と絶対時刻を混在させず、実予約と待ち時間診断を同じ時計へ揃える。
+
+実時間のadaptive再生では、時計の取得とplayerへの予約の間にも描画が進むため、開始・再基準化の余裕は指定時間と実測native quantum 2個分の大きい方を使う。offline描画には追加しない。2msが1描画ブロックより短い環境で、発話の途中へブロック単位の空白が入ることを防ぐ。正常な連続packetごとにこの余裕を足し直さない。
 
 無音予約を置換できるかの判定には、この未来の予約下限を使わない。最後の有声音が確実に終わったことをplayerの確定位置で確認する。描画中のブロックに残っている語尾を、無音の置換で取り消さない。
 

@@ -4,6 +4,43 @@ import Foundation
 import Testing
 @testable import AudioMixer
 
+@Test func silenceSuspendsRenderingWithoutLosingDelayedTailOrQuietOnset() throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init(),
+        suspendsDuringSilence: true) { frame, _ in frames.append(frame) }
+    let delay = AVAudioUnitDelay()
+    delay.delayTime = 0.4; delay.feedback = 0; delay.wetDryMix = 100
+    try processor.bus.addEffect(delay, id: "delay")
+    try processor.start()
+    defer { processor.stop() }
+    for index in 0..<300 {
+        let voiced = (0..<10).contains(index) || (200..<210).contains(index)
+        let samples = (0..<480).map { sample in
+            voiced ? Float(sin(Double(index * 480 + sample) * 2 * .pi * 400 / 48000) * 0.01) : 0
+        }
+        try processor.process(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100, samples: samples))
+    }
+    #expect(processor.mixer.engine.manualRenderingSampleTime < 48000 * 2,
+        "Idle quanta must skip native rendering, not merely discard its output")
+    for start in [0.4, 2.4] {
+        let audible = frames.filter { $0.capturedAt >= start - 0.01 && $0.capturedAt < start + 0.11 }
+            .flatMap(\.samples).filter { abs($0) > 0.001 }.count
+        #expect(audible > 4000, "The delayed tail and the returning quiet utterance must both survive")
+    }
+}
+
+@Test func bypassedEffectDoesNotRenderOrAddLatency() throws {
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { _, _ in }
+    let delay = AVAudioUnitDelay()
+    delay.delayTime = 0.4
+    try processor.bus.addEffect(delay, id: "delay", bypassed: true)
+    try processor.start()
+    defer { processor.stop() }
+    #expect(processor.bus.processingLatency == 0)
+    #expect(processor.bus.processingTailTime == 0)
+    #expect(!delay.auAudioUnit.renderResourcesAllocated, "Disabled effects must be outside the active native graph")
+}
+
 @Test func enablingNativeEffectPublishesLatencyBeforeTheNextFrame() throws {
     let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { _, _ in }
     let effect = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(

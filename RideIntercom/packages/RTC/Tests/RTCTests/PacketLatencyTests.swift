@@ -2,6 +2,23 @@ import Foundation
 import Testing
 @testable import RTC
 
+@Test func receiveMaintenanceSleepsUntilAnActualGapDeadline() throws {
+    var buffer = PacketAudioReceiveBuffer()
+    func packet(_ n: UInt64) -> FilteredPacketAudioPacket {
+        .init(received: .init(peerID: .init(rawValue: "peer"), packet: .init(sequenceNumber: n, codec: .pcm16, payload: Data([0, 0]))))
+    }
+    #expect(buffer.nextDeadline == nil)
+    buffer.enqueue(packet(0), receivedAt: 1)
+    #expect(buffer.drain(now: 1).readyPackets.count == 1)
+    #expect(buffer.nextDeadline == nil)
+    buffer.enqueue(packet(2), receivedAt: 1.02)
+    #expect(buffer.drain(now: 1.02).readyPackets.isEmpty)
+    #expect(try #require(buffer.nextDeadline) == 1.035)
+    #expect(buffer.drain(now: 1.034).readyPackets.isEmpty)
+    #expect(buffer.drain(now: 1.035 + 1e-9).readyPackets.count == 1)
+    #expect(buffer.nextDeadline == nil)
+}
+
 @Test func localAudioNeverUsesReliableDeliveryOrRetransmission() throws {
     let message = ApplicationDataMessage(namespace: GroupRelay.namespace, payload: Data([1, 2, 3]), delivery: .unreliable)
     let payload = try MultipeerPayloadBuilder.makeApplicationDataPayload(message)
