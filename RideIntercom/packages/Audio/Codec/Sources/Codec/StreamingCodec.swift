@@ -13,6 +13,7 @@ public final class StreamingCodecEncoder {
     private var capturedStart: TimeInterval?
     private var inputEnd: TimeInterval?
     private var emittedFrames = 0
+    private var primingFrames = 0
     private let suppressesSilence: Bool
     private var silentDuration: TimeInterval = 0
 
@@ -70,19 +71,30 @@ public final class StreamingCodecEncoder {
                 silentDuration += Double(frame.frameCount) / frame.format.sampleRate
             } else { silentDuration = 0 }
         }
+        var inputFrame = frame
         if let end = inputEnd, abs(frame.capturedAt - end) > 2 / frame.format.sampleRate {
             converter?.reset()
             capturedStart = nil
             emittedFrames = 0
             streamID = UUID()
         }
-        if capturedStart == nil { capturedStart = frame.capturedAt }
+        if capturedStart == nil, converter != nil {
+            // Native Opus drops its initial 2.5 ms while priming. Warm each
+            // stream with one silent codec packet, never with the first syllable.
+            // The receiver consumes this prefix without scheduling it, including
+            // at initial startup and setting changes as well as silent pauses.
+            primingFrames = Int(compressedFormat.streamDescription.pointee.mFramesPerPacket)
+            inputFrame.samples.insert(contentsOf: repeatElement(0,
+                count: primingFrames * frame.format.channelCount), at: 0)
+            inputFrame.capturedAt -= Double(primingFrames) / frame.format.sampleRate
+        }
+        if capturedStart == nil { capturedStart = inputFrame.capturedAt }
         inputEnd = frame.capturedAt + Double(frame.frameCount) / frame.format.sampleRate
         guard let converter else { return try CodecEncoder(configuration: configuration).encode(frame) }
-        let input = try AudioConverterBridge.makePCMBuffer(samples: frame.samples, format: frame.format,
-            avFormat: pcmFormat, frameCount: UInt32(frame.frameCount))
+        let input = try AudioConverterBridge.makePCMBuffer(samples: inputFrame.samples, format: frame.format,
+            avFormat: pcmFormat, frameCount: UInt32(inputFrame.frameCount))
         let nativePacketFrames = max(1, compressedFormat.streamDescription.pointee.mFramesPerPacket)
-        let capacity = UInt32(frame.frameCount) / nativePacketFrames + 2
+        let capacity = UInt32(inputFrame.frameCount) / nativePacketFrames + 2
         let output = AVAudioCompressedBuffer(format: compressedFormat, packetCapacity: capacity,
             maximumPacketSize: max(1, converter.maximumOutputPacketSize))
         let provider = AudioBufferProvider(input, exhausted: .noDataNow)
@@ -107,13 +119,16 @@ public final class StreamingCodecEncoder {
         }
         let timestamp = capturedStart! + Double(emittedFrames) / frame.format.sampleRate
         emittedFrames += count
+        let primed = min(count, primingFrames)
+        primingFrames -= primed
         let envelope = CompressedPayloadEnvelope(streamID: streamID, codec: configuration.codec,
             sourceSampleCount: count * frame.format.channelCount, sourceFrameCount: UInt32(count),
             maximumPacketSize: output.maximumPacketSize, packetCount: output.packetCount,
             packetDescriptions: packetDescriptions, magicCookie: converter.magicCookie,
-            primingFrameCount: 0, data: Data(bytes: output.data, count: Int(output.byteLength)))
+            primingFrameCount: UInt32(primed), data: Data(bytes: output.data, count: Int(output.byteLength)))
         return EncodedCodecFrame(sequenceNumber: frame.sequenceNumber, codec: configuration.codec,
-            format: frame.format, capturedAt: timestamp, sampleCount: count * frame.format.channelCount,
+            format: frame.format, capturedAt: timestamp + Double(primed) / frame.format.sampleRate,
+            sampleCount: (count - primed) * frame.format.channelCount,
             bitRate: configuration.activeBitRate, payload: try envelope.encoded())
     }
 }
@@ -142,7 +157,8 @@ public final class StreamingCodecDecoder {
               frame.payload.count <= CodecDecoder.maximumPayloadBytes else { throw CodecError.malformedPayload(frame.codec) }
         let envelope = try CompressedPayloadEnvelope.decode(frame.payload, expectedCodec: frame.codec)
         guard let identity = envelope.streamID else { return try CodecDecoder().decode(frame) }
-        guard frame.sampleCount == envelope.sourceSampleCount,
+        guard envelope.primingFrameCount <= envelope.sourceFrameCount,
+              frame.sampleCount == envelope.sourceSampleCount - Int(envelope.primingFrameCount) * frame.format.channelCount,
               envelope.sourceSampleCount == Int(envelope.sourceFrameCount) * frame.format.channelCount else {
             throw CodecError.malformedPayload(frame.codec)
         }
@@ -181,8 +197,10 @@ public final class StreamingCodecDecoder {
         let samples = try AudioConverterBridge.samples(from: output, format: frame.format,
             sampleLimit: Int(output.frameLength) * frame.format.channelCount)
         let skipped = max(0, Int(envelope.sourceFrameCount) - Int(output.frameLength))
+        let primed = min(Int(output.frameLength), max(0, Int(envelope.primingFrameCount) - skipped))
         return finish(PCMFrame(sequenceNumber: frame.sequenceNumber, format: frame.format,
-            capturedAt: frame.capturedAt + Double(skipped) / frame.format.sampleRate, samples: samples), streamChanged: changed)
+            capturedAt: frame.capturedAt + Double(max(0, skipped - Int(envelope.primingFrameCount))) / frame.format.sampleRate,
+            samples: Array(samples.dropFirst(primed * frame.format.channelCount))), streamChanged: changed)
     }
 
     private func finish(_ frame: PCMFrame, streamChanged: Bool) -> PCMFrame {

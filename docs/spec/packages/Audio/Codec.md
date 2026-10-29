@@ -265,9 +265,16 @@ bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverter�
 | AAC-ELD | ELD v1 monoのnative変換。480sample/frame（48/24/16kHzで10/20/30ms）。long-term average bitrateで発話過渡音と無音へのbit配分を行う |
 | availableEncodingBitRates | OSが当該codec/PCM formatで受け入れるencode bitrate一覧。App側の品質下限とは別の能力情報 |
 | stream identity | UUIDをpayloadに含め、入力clockが2sampleを超えて不連続ならencoder履歴をリセットしてidentityを更新 |
+| 無音復帰のpriming | 新streamの先頭にnative 1packet分の無音を内部で供給する。primingFrameCountで明示し、復号時に初期欠落分とともに消費して再生へ出さない。Opusの初期2.5msで発話を削らず、無音prefixによる再生待ちも増やさない |
 | StreamingCodecDecoder | 相手ごとに保持。stream identity / codec / format変更時だけnative decoderを交換。初期遅延を除いたsample数に合わせcapture時刻を進める |
 | stream切替 | PCMStreamTransitionで2msずつfade out/in。100msを超える入力空白では過去の最終sampleを再生しない。通常PCMを変更しない |
 | input provider | AudioConverterが要求したpacket/frame数だけ渡す。残りを保持し、一度に与えて末尾を捨てない。継続入力がない場合はnoDataNow |
 | 独立frame API | CodecEncoder / CodecDecoderと排他的なconverter poolは独立frame用途として残す。通話streamの各packetでは使用しない |
 
 AAC-ELD v2の識別子は既存payloadの明示判定用に保持する。v2非対応時のPCM fallbackをAAC-ELDの検証成功として扱わない。Appで提供するAAC-ELDはELD v1であり、実AAC payloadの符号化・復号を必須にする。
+
+## 通信metadataの大きさ
+
+compressed envelopeはFoundation JSONのCodableを維持し、内部CodingKeysを短縮する。packet descriptionはFoundationの3要素配列（offset、variable frame count、byte count）とし、余分な要素も拒否する。stream UUID・各packetのcookie・frame数・priming情報を毎回保持し、再送や信頼ありの別経路で状態を同期しない。独自binary parserは追加しない。サイズ・allocation・offsetの検証は維持する。旧key形式は受理しないため、通信相手は同じRTC v2形式へ更新する。
+
+Streamingの外側EncodedCodecFrameのsampleCountとcapturedAtは、内部primingを除いた実音声を表す。native packet数・buffer容量を表すenvelope内のsourceFrameCountとは区別する。復号後にもprimingを足し直さず、実音声時刻を保持する。

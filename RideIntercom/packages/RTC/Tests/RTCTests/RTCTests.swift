@@ -212,7 +212,8 @@ import Testing
     let multipeer = FakeRoute(kind: .multipeer)
     let manager = RouteManager(
         routes: [multipeer],
-        configuration: CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer)
+        configuration: CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer),
+        runtimeStatusPolicy: .init(periodicInterval: nil)
     )
     let report = RTCRuntimePackageReport(
         package: "AudioMixer",
@@ -501,6 +502,27 @@ private func makeFilteredPacketAudioPacket(
     #expect(await manager.maintenanceDeadline == deadline)
     await manager.stopConnection()
     #expect(await manager.maintenanceDeadline == nil)
+}
+
+@Test func packageSnapshotsCoalesceWithoutDelayingControlChanges() async throws {
+    let route = FakeRoute(kind: .multipeer)
+    let config = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer)
+    let manager = RouteManager(routes: [route], configuration: config,
+        runtimeStatusPolicy: .init(periodicInterval: 0.2))
+    await manager.prepare(makeRequest(configuration: config)); await manager.startConnection()
+    let before = route.sentApplicationData.count
+    for i in 0..<100 {
+        await manager.updateRuntimePackageReports([.init(package: "AudioMixer", kind: "snapshot", generatedAt: Double(i), payload: Data([UInt8(i)]))])
+    }
+    #expect(route.sentApplicationData.count == before, "Repeated diagnostic snapshots must not serialize/send or query native stats immediately")
+    await manager.setLocalMute(true)
+    let statuses = try relayMessages(route.sentApplicationData).compactMap { try? RTCRuntimeStatusTransport.decode($0) }
+    #expect(statuses.last?.localMute == true, "User controls remain immediate")
+    #expect(statuses.last?.packageReports.contains { $0.package == "AudioMixer" && $0.generatedAt == 99 } == true)
+    let afterControl = route.sentApplicationData.count
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(route.sentApplicationData.count > afterControl, "Periodic status still carries the latest report")
+    await manager.stopConnection()
 }
 
 private final class FakeRoute: RTCCallRoute, @unchecked Sendable {

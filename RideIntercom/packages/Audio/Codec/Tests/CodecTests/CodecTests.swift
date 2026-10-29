@@ -172,18 +172,20 @@ func opusBitRateChangesEncodedAudioRatherThanOnlyPacketMetadata(rate: Double) th
 }
 
 @Test func compressedEnvelopeRejectsInvalidAllocationAndPacketRanges() throws {
-    let valid: [String: Any] = ["codec": "opus", "sourceSampleCount": 960, "sourceFrameCount": 960,
-        "primingFrameCount": 0,
-        "maximumPacketSize": 8, "packetCount": 1,
-        "packetDescriptions": [["startOffset": 0, "variableFramesInPacket": 960, "dataByteSize": 8]],
-        "data": Data(repeating: 0, count: 8).base64EncodedString()]
+    let valid: [String: Any] = ["c": "opus", "s": 960, "f": 960,
+        "r": 0,
+        "m": 8, "n": 1,
+        "p": [[0, 960, 8]],
+        "d": Data(repeating: 0, count: 8).base64EncodedString()]
+    #expect(try CompressedPayloadEnvelope.decode(JSONSerialization.data(withJSONObject: valid), expectedCodec: .opus).sourceFrameCount == 960)
     let mutations: [[String: Any]] = [
-        ["maximumPacketSize": 0], ["maximumPacketSize": Int.max], ["packetCount": 0],
-        ["packetCount": UInt32.max], ["sourceFrameCount": UInt32.max], ["sourceSampleCount": -1],
-        ["primingFrameCount": UInt32.max], ["magicCookie": Data(repeating: 0, count: 16_385).base64EncodedString()],
-        ["packetDescriptions": [["startOffset": -1, "variableFramesInPacket": 960, "dataByteSize": 8]]],
-        ["packetDescriptions": [["startOffset": 4, "variableFramesInPacket": 960, "dataByteSize": 8]]],
-        ["data": Data(repeating: 0, count: 16).base64EncodedString()]
+        ["m": 0], ["m": Int.max], ["n": 0],
+        ["n": UInt32.max], ["f": UInt32.max], ["s": -1],
+        ["r": UInt32.max], ["k": Data(repeating: 0, count: 16_385).base64EncodedString()],
+        ["p": [[-1, 960, 8]]],
+        ["p": [[4, 960, 8]]],
+        ["p": [[0, 960, 8, 1]]],
+        ["d": Data(repeating: 0, count: 16).base64EncodedString()]
     ]
     for mutation in mutations {
         let payload = try JSONSerialization.data(withJSONObject: valid.merging(mutation) { _, new in new })

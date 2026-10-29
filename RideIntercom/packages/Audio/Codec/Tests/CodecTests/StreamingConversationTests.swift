@@ -3,6 +3,18 @@ import Foundation
 import Testing
 @testable import Codec
 
+@Test(arguments: [CodecIdentifier.opus, .mpeg4AACELD])
+func compressedPacketMetadataHasABoundedWireCost(codec: CodecIdentifier) throws {
+    let encoder = try StreamingCodecEncoder(configuration: .init(codec: codec))
+    let frame = PCMFrame(sequenceNumber: 0, capturedAt: 0,
+        samples: (0..<960).map { Float(sin(Double($0) * 0.05) * 0.2) })
+    let packet = try #require(try encoder.encode(frame))
+    let envelope = try CompressedPayloadEnvelope.decode(packet.payload, expectedCodec: codec)
+    let overhead = packet.payload.count - envelope.data.base64EncodedData().count
+    #expect(overhead < 220, "Metadata must not dominate every 10 ms packet: \(overhead) bytes")
+    print("codec wire \(codec): \(packet.payload.count) bytes, metadata \(overhead)")
+}
+
 @Test(arguments: [(CodecIdentifier.pcm16, 48000.0), (.opus, 48000), (.opus, 24000), (.opus, 16000),
     (.mpeg4AACELD, 48000), (.mpeg4AACELD, 24000), (.mpeg4AACELD, 16000)])
 func silenceSuspensionPreservesQuietRepliesAndStopsSending(setting: (CodecIdentifier, Double)) throws {
@@ -24,6 +36,7 @@ func silenceSuspensionPreservesQuietRepliesAndStopsSending(setting: (CodecIdenti
         }
     }
     var bytes = 0, continuousBytes = 0, packets = 0
+    var previousEnd: Double?
     let count = Int(rate * 0.01)
     for offset in stride(from: 0, to: input.count, by: count) {
         let frame = PCMFrame(sequenceNumber: UInt64(offset / count), format: format,
@@ -34,6 +47,15 @@ func silenceSuspensionPreservesQuietRepliesAndStopsSending(setting: (CodecIdenti
         #expect(!((0.5..<1.2).contains(frame.capturedAt) || (1.6..<3.3).contains(frame.capturedAt)
             || (3.7..<6.4).contains(frame.capturedAt)), "Sustained digital silence must not invoke transmission")
         let decoded = try decoder.decode(packet)
+        if decoded.frameCount > 0 {
+            if let previousEnd, decoded.capturedAt > previousEnd + 1 / rate {
+                for start in starts {
+                    #expect(decoded.capturedAt <= start + 1 / rate || previousEnd >= start + 0.1 - 1 / rate,
+                        "Native priming may not remove voiced samples after silence: \(previousEnd)..<\(decoded.capturedAt), reply \(start)")
+                }
+            }
+            previousEnd = decoded.capturedAt + Double(decoded.frameCount) / rate
+        }
         let first = Int((decoded.capturedAt * rate).rounded())
         for (index, value) in decoded.samples.enumerated() where first + index < output.count {
             output[first + index] = value

@@ -691,6 +691,13 @@ final class AudioBufferProvider: @unchecked Sendable {
 }
 
 struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
+    // Foundation retains parsing/validation. Compact keys remove repeated field
+    // names without a bespoke binary parser or a reliable side-channel dictionary.
+    private enum CodingKeys: String, CodingKey {
+        case streamID = "i", codec = "c", sourceSampleCount = "s", sourceFrameCount = "f"
+        case maximumPacketSize = "m", packetCount = "n", packetDescriptions = "p"
+        case magicCookie = "k", primingFrameCount = "r", data = "d"
+    }
     struct PacketDescription: Codable, Equatable, Sendable {
         var startOffset: Int64
         var variableFramesInPacket: UInt32
@@ -700,6 +707,21 @@ struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
             self.startOffset = description.mStartOffset
             self.variableFramesInPacket = description.mVariableFramesInPacket
             self.dataByteSize = description.mDataByteSize
+        }
+
+        init(from decoder: Decoder) throws {
+            var values = try decoder.unkeyedContainer()
+            startOffset = try values.decode(Int64.self)
+            variableFramesInPacket = try values.decode(UInt32.self)
+            dataByteSize = try values.decode(UInt32.self)
+            guard values.isAtEnd else { throw DecodingError.dataCorruptedError(in: values, debugDescription: "Invalid packet description") }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var values = encoder.unkeyedContainer()
+            try values.encode(startOffset)
+            try values.encode(variableFramesInPacket)
+            try values.encode(dataByteSize)
         }
 
         var audioStreamPacketDescription: AudioStreamPacketDescription {

@@ -6,6 +6,8 @@ RouteManagerは固定20ms pollingを行わず、未解決の並べ替え期限�
 
 自動runtime statusが無効なら周期起床・native統計収集・配信を行わない。必要時の明示的な`networkDiagnostics()`は利用できる。停止ではtimerも破棄する。
 
+高頻度の`updateRuntimePackageReports`は最新snapshotだけを保持し、周期status（既定5秒）または接続・操作のstatusに同梱する。更新ごとのnative統計取得・JSON生成・通信はしない。周期をnilにした明示更新方式では更新時に配信する。mute・設定・接続操作は集約せず即時通知する。
+
 ## 役務と所有関係
 
 | 項目 | 契約 |
@@ -63,7 +65,7 @@ flowchart LR
 | Local接続 | MCSession暗号化必須。同一groupHash discovery/contextとshared secretのhandshake。切断peerの登録解除、旧session通知拒否 |
 | peer識別 | MCPeerIDは`CallStartRequest.localPeer.id`。表示名の変更でInternet側と別人にならない |
 | Internet接続 | Workerの端末資格・同一room購読認可。SFU App Secretはサーバーのみ |
-| 中継envelope | `rtc.group-relay.v1`。session、origin、epoch、sequence、path、body、Internet ready状態。招待由来のgroup keyでAES-GCM暗号化 |
+| 中継envelope | `rtc.group-relay.v2`。session、origin、epoch、sequence、path、body、Internet ready状態。招待由来のgroup keyでAES-GCM暗号化。Foundation binary PropertyListのCodingKeysを短縮し、packetごとのmetadata量を減らす。独自parserや信頼ありの辞書同期は導入しない。v1参加者との混在は不可 |
 | 信頼境界 | 接続元hopが認証済みpeerで、path末尾と一致すること。group credentialを持つ参加者間の信頼モデル。個人署名による悪意あるグループ参加者のなりすまし防止ではない |
 | 自分へ戻った音声 | path内に自分が含まれるものを破棄 |
 | duplicate / replay | originと接続epochごとの1024 sequence window。古いepochは直近8世代を拒否。音声はpresenceで参加済みかつ有効な話者だけ受理。認証済み音声も活動期限を更新し、制御streamの再接続を音声の停止条件にしない |

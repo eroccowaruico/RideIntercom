@@ -92,7 +92,7 @@ import Testing
             let encoder = PropertyListEncoder(); encoder.outputFormat = .binary
             let wire = try encoder.encode(ApplicationDataMessage(namespace: GroupRelay.namespace, payload: payload, delivery: .unreliable))
             print("Relay wire fixture: \(codec.rawValue) payload=\(bytes) encoded=\(wire.count) bytes/20ms, \(Double(wire.count) * 0.4) kbps before DTLS/SCTP/IP")
-            #expect(wire.count < bytes + 1200)
+            #expect(wire.count < bytes + 600, "Bound framing overhead without batching live audio")
         }
     }
     @Test func rejectsForeignGroupUnknownHopTamperingAndReplay() throws {

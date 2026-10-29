@@ -30,6 +30,7 @@ public struct RTCAudioCodecIdentifier: RawRepresentable, Codable, Hashable, Send
 }
 
 public struct RTCAudioFormat: Codable, Equatable, Sendable {
+    private enum CodingKeys: String, CodingKey { case sampleRate = "r", channelCount = "c" }
     public var sampleRate: Double
     public var channelCount: Int
 
@@ -56,6 +57,10 @@ public struct RTCAudioPolicy: Codable, Equatable, Sendable {
 }
 
 public struct RTCAudioPacket: Codable, Equatable, Sendable {
+    private enum CodingKeys: String, CodingKey {
+        case sequenceNumber = "s", codec = "c", format = "f", capturedAt = "t"
+        case sampleCount = "n", bitRate = "b", payload = "p"
+    }
     public var sequenceNumber: UInt64
     public var codec: RTCAudioCodecIdentifier
     public var format: RTCAudioFormat

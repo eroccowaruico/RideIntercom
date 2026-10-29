@@ -19,9 +19,13 @@ enum RelayBody: Codable, Equatable, Sendable {
 /// on both networks. No leader lease can strand members behind a failed gateway.
 /// Every origin/epoch/sequence is forwarded at most once per device, with <= 8 hops.
 struct GroupRelay: Sendable {
-    static let namespace = "rtc.group-relay.v1"
+    static let namespace = "rtc.group-relay.v2"
     static let presenceLifetime: TimeInterval = 8
     private struct Envelope: Codable {
+        private enum CodingKeys: String, CodingKey {
+            case session = "s", origin = "o", epoch = "e", sequence = "q"
+            case path = "p", body = "b", internetReady = "i"
+        }
         var session: String
         var origin: PeerDescriptor
         var epoch: UUID

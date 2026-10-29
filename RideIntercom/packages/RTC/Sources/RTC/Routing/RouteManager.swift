@@ -153,7 +153,10 @@ public actor RouteManager: CallSession {
     }
     public func updateRuntimePackageReports(_ reports: [RTCRuntimePackageReport]) async {
         runtimePackageReports = reports.sorted { ($0.package, $0.kind) < ($1.package, $1.kind) }
-        await sendRuntimeStatus(reason: .packageReportsChanged)
+        // Local meters may refresh much faster than network diagnostics. Keep
+        // only the latest snapshot for the next periodic/status event. Explicit
+        // event-only users (no periodic interval) still publish on this call.
+        if runtimeStatusPolicy.periodicInterval == nil { await sendRuntimeStatus(reason: .packageReportsChanged) }
     }
     public func updateAudioPolicy(_ policy: RTCAudioPolicy) async {
         guard request != nil else { return }
