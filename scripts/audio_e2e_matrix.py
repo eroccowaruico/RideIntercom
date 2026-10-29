@@ -11,6 +11,12 @@ def scenarios(mode, seconds):
     default = case('default')
     if mode == 'smoke':
         return [default]
+    if mode == 'identity':
+        # Both bundled pairs complete at least one full utterance per recording.
+        duration = max(20, seconds)
+        return [case('identity-default', seconds=duration),
+                case('identity-pcm16', codec='pcm16', transmitIsolation=False, seconds=duration),
+                case('identity-opus', codec='opus', transmitIsolation=False, seconds=duration)]
     quick = [default,
         case('opus-24k-effects', codec='opus', format='mono24k', profile='standard',
              vad='lowNoise', transmitIsolation=False, masterIsolation=True, duck=False,

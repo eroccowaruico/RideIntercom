@@ -8,6 +8,106 @@ import XCTest
 @testable import RideIntercom
 
 final class AudioE2ETests: XCTestCase {
+    /// Same production mixer/codec/output, in one process, without RTC or VAD.
+    /// Compare 20 ms file delivery with the 100 ms capture batches seen on iOS.
+    @MainActor
+    func testSpeechContinuityWithoutNetwork() async throws {
+        let samples = try SpeechFileInput(name: "speech-ja").samples
+        var failures: [String] = []
+        for milliseconds in [20, 100] {
+            let name = "pipeline-\(milliseconds)ms"
+            let probe = RenderedAudioProbe()
+            let engine = AVAudioEngine()
+            let output = SystemAudioOutputStreamBackend(engine: engine)
+            engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in probe.append(buffer) }
+            defer { engine.mainMixerNode.removeTap(onBus: 0); try? output.stopRendering() }
+            let hardware = try output.startRendering(configuration: .intercom)
+            let pipeline = AppAudioPipeline()
+            defer { pipeline.stop() }
+            var processingFailures: [String] = []
+            pipeline.onTransmitPacket = { packet in
+                do { try pipeline.processReceivedAudioPacket(.init(peerID: PeerID(rawValue: "loopback"), packet: packet)) }
+                catch { processingFailures.append(String(describing: error)) }
+            }
+            pipeline.onOutputFrame = { frame in
+                do { try output.schedule(frame) }
+                catch { processingFailures.append(String(describing: error)) }
+            }
+            try pipeline.rebuild(configuration: .init(rtcSendFormat: .init(sampleRate: 48_000, channelCount: 1),
+                outputHardwareFormat: hardware, preferredCodec: .pcm16, transmitSoundIsolationEnabled: false,
+                maximumBufferedDuration: 0.1), peerIDs: ["loopback"])
+            let start = ContinuousClock.now
+            let count = milliseconds * 48
+            var resetStart = 0
+            for index in 0..<(22_000 / milliseconds) {
+                try await Task.sleep(until: start + .milliseconds(index * milliseconds), clock: .continuous)
+                if index == 2_000 / milliseconds { probe.reset(); resetStart = output.playbackResetCount ?? 0 }
+                let block = (0..<count).map { samples[(index * count + $0) % samples.count] }
+                try pipeline.processCapturedFrame(PCMFrame(sequenceNumber: UInt64(index),
+                    format: .init(sampleRate: 48_000, channelCount: 1),
+                    capturedAt: ProcessInfo.processInfo.systemUptime, samples: block))
+            }
+            try await Task.sleep(until: start + .seconds(22), clock: .continuous)
+            let rendered = probe.snapshot()
+            let resets = (output.playbackResetCount ?? 0) - resetStart
+            let mixer = String(describing: pipeline.snapshot)
+            pipeline.stop()
+            try output.stopRendering()
+            let continuity = await Task.detached {
+                SpeechContinuity.measure(reference: samples, referenceRate: 48_000,
+                                         output: rendered.samples, outputRate: rendered.rate)
+            }.value
+            let measurement: [String: Any] = ["scenario": name, "role": "pipeline", "transport": "none",
+                "remoteFixture": "speech-ja", "continuityPassed": continuity.passed,
+                "continuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(continuity)),
+                "renderedSamples": rendered.samples.count, "sampleRate": rendered.rate,
+                "outputPlaybackResets": resets, "mixer": mixer, "processingFailures": processingFailures]
+            let data = XCTAttachment(data: try JSONSerialization.data(withJSONObject: measurement, options: [.sortedKeys]),
+                                     uniformTypeIdentifier: "public.json")
+            data.name = name + "-measurement"; data.lifetime = .keepAlways; add(data)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(name + ".wav")
+            defer { try? FileManager.default.removeItem(at: url) }
+            try probe.writeWAV(to: url, rendered: rendered)
+            let recording = XCTAttachment(contentsOfFile: url)
+            recording.name = name + "-speech"; recording.lifetime = .keepAlways; add(recording)
+            if !continuity.passed || !processingFailures.isEmpty || rendered.invalid > 0
+                || rendered.samples.count < Int(rendered.rate * 19) {
+                failures.append("\(name): matched=\(continuity.matchedWindowRatio), missing=\(continuity.missingActiveRatio), resets=\(resets), errors=\(processingFailures)")
+            }
+        }
+        XCTAssertTrue(failures.isEmpty, failures.joined(separator: "; "))
+    }
+
+    func testContinuityRejectsGapsRepeatsAndMissingSpeech() throws {
+        let speech = try SpeechFileInput(name: "speech").samples
+        let other = try SpeechFileInput(name: "reply").samples
+        let clean = (0..<960_000).map { speech[($0 + 12_345) % speech.count] * 0.3 }
+        func measure(_ output: [Float]) -> SpeechContinuity {
+            SpeechContinuity.measure(reference: speech, referenceRate: 48_000, output: output, outputRate: 48_000)
+        }
+        XCTAssertTrue(measure(clean).passed, "Fixed delay and gain must preserve speech")
+        let filtered = clean.reduce(into: [Float]()) { values, sample in
+            values.append(0.8 * (values.last ?? 0) + 0.2 * sample)
+        }.map { tanh($0 * 8) }
+        XCTAssertTrue(measure(filtered).passed, "Coloration alone is not a dropout")
+        var gaps = clean
+        for index in gaps.indices where index % 24_000 < 4_800 { gaps[index] = 0 }
+        XCTAssertFalse(measure(gaps).passed, "Repeated 100 ms losses must fail")
+        XCTAssertGreaterThan(measure(gaps).missingActiveRatio, 0.05)
+        var missing = clean
+        missing.replaceSubrange(240_000..<264_000, with: repeatElement(0, count: 24_000))
+        XCTAssertFalse(measure(missing).passed, "One missing half-second must fail")
+        var repeated = clean
+        repeated.replaceSubrange(240_000..<288_000, with: clean[192_000..<240_000])
+        XCTAssertFalse(measure(repeated).passed, "Repeated speech must fail even without silence")
+        var reordered = clean
+        reordered.replaceSubrange(240_000..<480_000, with: clean[480_000..<720_000])
+        reordered.replaceSubrange(480_000..<720_000, with: clean[240_000..<480_000])
+        XCTAssertFalse(measure(reordered).passed, "Out-of-order speech must fail")
+        XCTAssertFalse(measure(Array(repeating: 0, count: clean.count)).passed)
+        XCTAssertFalse(measure((0..<clean.count).map { other[$0 % other.count] }).passed)
+    }
+
     func testSpeechMatcherRejectsSilenceAndWrongSpeaker() throws {
         let speech = try SpeechFileInput(name: "speech").samples
         let other = try SpeechFileInput(name: "reply").samples
@@ -72,8 +172,11 @@ final class AudioE2ETests: XCTestCase {
             addTeardownBlock { await worker.stop() }
             #endif
         } else { internet = nil }
-        let input = try SpeechFileInput(name: role == "a" ? "speech" : "reply")
-        let remote = try SpeechFileInput(name: role == "a" ? "reply" : "speech")
+        let suffix = env["AUDIO_E2E_SPEECH_PAIR"] == "japanese" ? "-ja" : ""
+        let localFixture = (role == "a" ? "speech" : "reply") + suffix
+        let remoteFixture = (role == "a" ? "reply" : "speech") + suffix
+        let input = try SpeechFileInput(name: localFixture)
+        let remote = try SpeechFileInput(name: remoteFixture)
         let probe = RenderedAudioProbe()
         let outputEngine = AVAudioEngine()
         let output = SystemAudioOutputStreamBackend(engine: outputEngine)
@@ -132,6 +235,7 @@ final class AudioE2ETests: XCTestCase {
             viewModel.authenticatedPeerIDs.count == 1 && viewModel.isAudioReady
         }
         let peerID = try XCTUnwrap(viewModel.authenticatedPeerIDs.first)
+        var continuityFailures: [String] = []
         for scenario in scenarios {
             try await barrier.meet("begin-" + scenario.id)
             try scenario.apply(to: viewModel, peerID: peerID)
@@ -143,7 +247,8 @@ final class AudioE2ETests: XCTestCase {
             try await Task.sleep(for: .seconds(2))
             scenario.verifyApplied(to: viewModel, peerID: peerID)
             probe.reset()
-            let before = (viewModel.sentVoicePacketCount, viewModel.receivedVoicePacketCount, viewModel.scheduledOutputFrameCount)
+            let before = (viewModel.sentVoicePacketCount, viewModel.receivedVoicePacketCount,
+                          viewModel.scheduledOutputFrameCount, output.playbackResetCount ?? 0)
             let start = ContinuousClock.now
             while start.duration(to: .now) < .seconds(scenario.seconds) {
                 XCTAssertTrue(viewModel.isAudioReady, "\(scenario.id): \(status())")
@@ -152,23 +257,30 @@ final class AudioE2ETests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(100))
             }
             let rendered = probe.snapshot()
+            let tx = viewModel.sentVoicePacketCount - before.0
+            let rx = viewModel.receivedVoicePacketCount - before.1
+            let scheduled = viewModel.scheduledOutputFrameCount - before.2
+            let playbackResets = (output.playbackResetCount ?? 0) - before.3
             XCTAssertEqual(rendered.invalid, 0)
             XCTAssertGreaterThan(rendered.samples.count, Int(rendered.rate * scenario.seconds * 0.8))
             let remoteSamples = remote.samples, localSamples = input.samples
             // Analysis must not block the app actor and manufacture a keepalive timeout.
-            let (match, localMatch) = await Task.detached {
+            let (match, localMatch, continuity) = await Task.detached {
                 (RenderedAudioProbe.speechMatch(reference: remoteSamples, referenceRate: 48_000,
                     output: rendered.samples, outputRate: rendered.rate),
                  RenderedAudioProbe.speechMatch(reference: localSamples, referenceRate: 48_000,
+                    output: rendered.samples, outputRate: rendered.rate),
+                 SpeechContinuity.measure(reference: remoteSamples, referenceRate: 48_000,
                     output: rendered.samples, outputRate: rendered.rate))
             }.value
             let peak = rendered.samples.reduce(Float(0)) { max($0, abs($1)) }
             XCTAssertLessThanOrEqual(peak, 1.001, "Limiter must bound the actual output")
-            let tx = viewModel.sentVoicePacketCount - before.0
-            let rx = viewModel.receivedVoicePacketCount - before.1
-            let scheduled = viewModel.scheduledOutputFrameCount - before.2
             let report = viewModel.audioPipeline.codecRuntimeReport
             let measurement: [String: Any] = ["scenario": scenario.id, "role": role, "transport": transport,
+                "localFixture": localFixture, "remoteFixture": remoteFixture,
+                "continuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(continuity)),
+                "continuityPassed": continuity.passed,
+                "outputPlaybackResets": playbackResets,
                 "requestedCodec": scenario.codec, "selectedCodec": report.selectedCodec.rawValue,
                 "fallback": report.isFallback, "format": scenario.format, "requestedBitRate": scenario.bitRate,
                 "selectedBitRate": report.activeConfiguration.activeBitRate as Any? ?? NSNull(),
@@ -184,7 +296,7 @@ final class AudioE2ETests: XCTestCase {
             attachment.name = "endpoint-\(role)-\(scenario.id)-measurement"; attachment.lifetime = .keepAlways; add(attachment)
             let renderedURL = directory.appendingPathComponent("rendered-\(role)-\(scenario.id).wav")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try probe.writeWAV(to: renderedURL)
+            try probe.writeWAV(to: renderedURL, rendered: rendered)
             let recording = XCTAttachment(contentsOfFile: renderedURL)
             recording.name = "endpoint-\(role)-\(scenario.id)-speech"; recording.lifetime = .keepAlways; add(recording)
             if scenario.expectsSilence {
@@ -195,9 +307,17 @@ final class AudioE2ETests: XCTestCase {
                 XCTAssertGreaterThan(scheduled, 20, status())
                 XCTAssertGreaterThan(match, 0.45, "Remote speech missing in \(scenario.id): \(status())")
                 XCTAssertGreaterThan(match, localMatch + 0.10, "Reject local echo and unrelated audio")
+                if !continuity.passed {
+                    continuityFailures.append("\(scenario.id): matched=\(continuity.matchedWindowRatio), missing=\(continuity.missingActiveRatio), longest=\(continuity.longestMissingSeconds)s")
+                }
             }
             try await barrier.meet("measured-" + scenario.id)
         }
+        // Report a normal failed test after collecting every condition. With
+        // continueAfterFailure=false, XCTest aborts this async Swift test host
+        // and adds an unrelated "runner exited with code 75" failure.
+        continueAfterFailure = true
+        XCTAssertTrue(continuityFailures.isEmpty, "Speech continuity failed: " + continuityFailures.joined(separator: "; "))
     }
 
     @MainActor

@@ -25,7 +25,7 @@ def source_manifest():
     files = {}
     for name in sorted(set(names)):
         path = ROOT / name
-        if name and path.suffix in {'.swift', '.py', '.pbxproj', '.xcscheme', '.wav', '.metadata'}:
+        if name and path.suffix in {'.swift', '.py', '.pbxproj', '.xcscheme', '.wav', '.metadata', '.json', '.plist', '.resolved'}:
             files[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
     return dict(head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), files=files)
 
@@ -82,7 +82,9 @@ def main():
     parser.add_argument('--ephemeral', action='store_true', help='Delete the owned simulator after this run (CI)')
     parser.add_argument('--cleanup-only', action='store_true', help='Stop owned hosts and delete managed test devices')
     parser.add_argument('--transport', choices=['local', 'webrtc', 'all'], default='all')
-    parser.add_argument('--matrix', choices=['smoke', 'quick', 'full'], default='quick')
+    parser.add_argument('--matrix', choices=['smoke', 'quick', 'full', 'identity'], default='quick')
+    parser.add_argument('--speech-pair', choices=['english', 'japanese'], default='english')
+    parser.add_argument('--pipeline-only', action='store_true', help='Measure the iOS mixer/codec/output without network or VAD')
     parser.add_argument('--seconds', type=int, default=8)
     parser.add_argument('--codec', choices=['default', 'pcm16', 'opus'], default='default')
     parser.add_argument('--isolation', choices=['default', 'off'], default='default')
@@ -114,6 +116,7 @@ def execute(args, runner, resource_root):
     (out / 'scenarios.json').write_text(json.dumps(cases, indent=2) + '\n')
     (out / 'configuration.json').write_text(json.dumps(dict(run=run_id, seconds=args.seconds, codec=args.codec,
         isolation=args.isolation, input='bundled synthetic speech WAV', transport=args.transport,
+        speechPair=args.speech_pair, pipelineOnly=args.pipeline_only,
         output='system AVAudioEngine render tap'), indent=2) + '\n')
     simulator = None
     leases = [SimulatorLease(runner, resource_root / name) for name in ['reusable.json', 'ephemeral.json']]
@@ -169,6 +172,7 @@ def execute(args, runner, resource_root):
         preflight = products / 'audio-preflight.xctestrun'
         configure_test_run(runs[0], preflight, {}, identifiers=[
             'AudioE2ETests/testSpeechMatcherRejectsSilenceAndWrongSpeaker',
+            'AudioE2ETests/testContinuityRejectsGapsRepeatsAndMissingSpeech',
             'AudioE2ETests/testSystemSessionAcceptsCallProfiles'])
         command('preflight', ['xcodebuild', 'test-without-building', '-xctestrun', str(preflight),
             '-destination', 'platform=iOS Simulator,id=' + simulator, '-parallel-testing-enabled', 'NO',
@@ -176,9 +180,26 @@ def execute(args, runner, resource_root):
         command('preflight-summary', ['xcrun', 'xcresulttool', 'get', 'test-results', 'summary',
             '--path', str(out / 'preflight.xcresult'), '--format', 'json'], 60)
         preflight_summary = json.loads((out / 'preflight-summary.log').read_text())
-        if not xcode_tests_passed(preflight_summary) or preflight_summary['totalTestCount'] != 2:
+        if not xcode_tests_passed(preflight_summary) or preflight_summary['totalTestCount'] != 3:
             raise RuntimeError('Speech oracle and real iOS session preflight must both pass')
         transports = ['local', 'webrtc'] if args.transport == 'all' else [args.transport]
+        if args.pipeline_only:
+            configured = products / 'audio-pipeline.xctestrun'
+            configure_test_run(runs[0], configured, {}, identifiers=['AudioE2ETests/testSpeechContinuityWithoutNetwork'])
+            runner.run('test-pipeline', ['xcodebuild', 'test-without-building', '-xctestrun', str(configured),
+                '-destination', 'platform=iOS Simulator,id=' + simulator, '-parallel-testing-enabled', 'NO',
+                '-resultBundlePath', str(out / 'pipeline.xcresult')], timeout=180)
+            if runner.run('summary-pipeline', ['xcrun', 'xcresulttool', 'get', 'test-results', 'summary',
+                '--path', str(out / 'pipeline.xcresult'), '--format', 'json'], timeout=60):
+                summary = json.loads((out / 'summary-pipeline.log').read_text())
+                passed = xcode_tests_passed(summary) and summary['totalTestCount'] == 1
+                runner.record('accept-pipeline', [], 'passed' if passed else 'failed', 0 if passed else 1, time.monotonic())
+            folder = out / 'attachments-pipeline'
+            if runner.run('attachments-pipeline', ['xcrun', 'xcresulttool', 'export', 'attachments',
+                '--path', str(out / 'pipeline.xcresult'), '--output-path', str(folder)], timeout=60):
+                rows = measurements(folder, ['pipeline-20ms', 'pipeline-100ms'], 'pipeline', 'none')
+                (out / 'pipeline-measurements.json').write_text(json.dumps(rows, indent=2) + '\n')
+            transports = []
         measured = []
         for transport in transports:
             # A fresh group per route proves authentication separately. Reuse the
@@ -188,6 +209,7 @@ def execute(args, runner, resource_root):
                 reservation.bind(('127.0.0.1', 0))
                 port = reservation.getsockname()[1]
             environment = dict(AUDIO_E2E_RUN=run_id, AUDIO_E2E_TRANSPORT=transport,
+                AUDIO_E2E_SPEECH_PAIR=args.speech_pair,
                 AUDIO_E2E_WORKER_URL=f'http://127.0.0.1:{port}', AUDIO_E2E_SCENARIOS=json.dumps(cases))
             (out / (transport + '-configuration.json')).write_text(json.dumps(environment, indent=2) + '\n')
             commands = []

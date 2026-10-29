@@ -19,6 +19,7 @@ python3 scripts/audio_e2e.py --matrix full
 |---|---|
 | quick | AAC-ELD v2指定時の実選択、Opus、PCM16、48/24/16kHz、送信・受信master・受信peerのSoundIsolation、DynamicsProcessor、PeakLimiter、VADの3 preset、ducking、音量、出力muteとStream mode + speakerへの復帰 |
 | full | quickに加え、3 codec指定×3 rate、AAC/Opusのbit rate下限・上限×3 rate、mode・speaker・明示echo cancellationの6通り、master/peer音量ゼロ、送信muteと復帰 |
+| identity | 20秒以上の全文照合。既定設定、PCM16で送信Isolation無効、Opusで送信Isolation無効を比較。英語・日本語を別runで実行する |
 
 マトリクスの正本はリポジトリの`scripts/audio_e2e_matrix.py`にある。各runの`scenarios.json`へ全条件を保存する。短い検証では既存のbuild productsを使い、設定区間ごとにアプリを再ビルドしない。
 
@@ -32,7 +33,30 @@ iOS側は実`SystemAudioInputStreamBackend`でcaptureを起動し、音声処理
 
 VoiceProcessingIOについて、このE2Eが保証するのは有効化・無効化・mute・ducking・session profile変更時にOSのI/Oが動き続けること。fixtureはcapture callbackで差し替えるため、ハードウェア側のAECによるエコー低減量やマイク雑音除去の品質は測定しない。AppのAudioMixer上のSoundIsolation / DynamicsProcessor / PeakLimiterにはfixture発話自体を通す。
 
-双方には異なる声・文章を渡す。受信renderの750ms発話断片を異なる3箇所（計2.25秒）で照合する。8kHzへ変換した信号の周波数帯域ごとの時間変化を使い、音量・固定的な音色の変化を除いて相手の発話との相関が0.45を超え、自分の発話より0.10以上強く一致することを要求する。VADが抑止する静かな区間は全区間平均に含めない。これは発話の到達判定であり、自然さ・明瞭度の品質点数ではない。無音・別話者・雑音を拒否し、遅延・音量変化・フィルター・非線形変形を受けた既知発話を識別する事前試験と、実iOS音声session profileの事前試験も毎run実行する。packet数やマイクメーターだけでは合格しない。mute区間は実renderが無音になること、その後は再び発話が届くことを確認する。
+双方には異なる声・文章を渡す。従来の到達判定は、受信renderの750ms発話断片を異なる3箇所（計2.25秒）で照合する。8kHzへ変換した信号の周波数帯域ごとの時間変化を使い、音量・固定的な音色の変化を除いて相手の発話との相関が0.45を超え、自分の発話より0.10以上強く一致することを要求する。この判定だけでは良い断片を選べば合格するため、途中の途切れや音声の同一性を保証しない。
+
+非mute区間には、録音全体の時間順を維持する連続性判定も必須とする。2秒の安定待ち後の録音に対し、繰り返し再生した基準音声との時間位置を全体で一度だけ決定する。区間ごとの遠い位置への再探索や時間伸縮は行わず、欠落・繰り返し・順序入れ替えを隠さない。音量と固定的な音色変化を除いた16帯域の時間変化を比較する。
+
+| 指標 | 判定 |
+|---|---|
+| 全体の相関 | 0.65以上。低い場合は時間整合自体が弱いため、欠落率の厳密な解釈は避ける |
+| 発話区間の一致 | 200ms窓を100ms刻みで評価し、相関0.65以上の窓が98%以上。局所の時間ずれ許容は±30ms |
+| 発話中の低出力 | 基準の10ms RMSがピークの8%を超える部分を対象とし、推定音量比で補正した基準RMSの10%未満になる比率が1%以下 |
+| 連続した低出力 | 上記の低出力が60msを超えて続かない |
+| 測定不足 | 有効な発話が2秒未満、評価窓なし、実renderの長さ不足、非有限sampleは合格にしない |
+
+この閾値はリポジトリの回帰検出基準であり、知覚品質の標準スコアや発話内容の文字認識率ではない。元音声の自然な間は低出力比率から除外する。無音・別話者・雑音に加え、100ms周期欠落、途中500msの無音、1秒の繰り返し、順序入れ替えを拒否し、固定遅延・音量変化・フィルター・非線形変形を許容する事前試験を実行する。mute区間は実renderの無音、その後は発話と連続性の復帰を確認する。
+
+連続性不合格でも残りの設定区間を測定してWAVとJSONを保存し、最後にテストを失敗させる。接続喪失や処理不能はその時点で失敗する。保存WAVは判定に使った同じsnapshotから書き出す。
+
+```sh
+python3 scripts/audio_e2e.py --matrix identity --speech-pair english
+python3 scripts/audio_e2e.py --matrix identity --speech-pair japanese
+# iOSの実Mixer→PCM16 encode/decode→実出力を1プロセスで測定する
+python3 scripts/audio_e2e.py --pipeline-only
+```
+
+`--pipeline-only`はRTC・VAD・送信Isolationを通さず、日本語発話を20ms / 100ms周期でAppAudioPipelineへ渡す。各条件で2秒の安定待ちと20秒の測定を行い、同じ連続性判定、実出力WAV、処理エラー、再生予約リセット回数を残す。通信を外しても欠落するかを切り分ける試験であり、ネットワーク試験の代用ではない。
 
 コーデックの要求と実選択は別に記録する。AAC-ELD v2はOSの変換器を作れても実変換に失敗する場合がある。実encode/decode能力判定で非対応なら既存仕様のPCM fallbackを試験し、AAC成功とは報告しない。
 
@@ -59,6 +83,7 @@ python3 scripts/audio_e2e.py --cleanup-only
 |---|---|
 | results.json / results.tsv | build、実行、受入判定、後片付けの成否と秒数 |
 | measurements.json | 全通信経路・全端末・全設定の発話照合、packet数、render数、peak、要求／実選択codec。各設定の実測が揃わない場合も失敗扱い |
+| pipeline-measurements.json | `--pipeline-only`の20ms / 100ms入力周期別の連続性、再生予約リセット、処理失敗 |
 | configuration.json / scenarios.json | run識別子、入力境界、通信経路、設定区間 |
 | source-manifest.json | HEAD、Swift・テスト・スクリプト・project・発話fixtureのSHA-256。buildから受入までにsourceが変わると失敗扱い |
 | local-mac.xcresult / local-ios.xcresult / webrtc-mac.xcresult / webrtc-ios.xcresult | 通信経路・端末別の独立したXCTest結果 |
@@ -69,7 +94,20 @@ python3 scripts/audio_e2e.py --cleanup-only
 
 ## Fixture
 
-同梱WAVはmacOSの音声合成で生成した48kHz・mono・PCM16の英語発話である。`speech.wav`はSamantha、`reply.wav`はDanielを使い、別の文章を発話する。実行のたびに音声合成や外部サービスを呼ばず、同じWAVを繰り返す。
+同梱WAVはmacOSの音声合成で生成した48kHz・mono・PCM16の発話である。実行のたびに音声合成や外部サービスを呼ばず、同じWAVを繰り返す。実際の利用者の会話は含まない。
+
+| ファイル | 声・生成条件 | 長さ |
+|---|---|---|
+| speech.wav | Samantha、英語 | 約4.48秒 |
+| reply.wav | Daniel、別の英語文 | 約3.57秒 |
+| speech-ja.wav | Kyoko、日本語、`say -r 180` | 約13.70秒 |
+| reply-ja.wav | Reed（日本語）、別の日本語文、`say -r 210` | 約13.90秒 |
+
+日本語入力は2026-10-29に`/usr/bin/say -v <voice> -r <rate> -o <file.aiff> <text>`で生成し、`afconvert -f WAVE -d LEI16@48000 -c 1`で変換した。原文は以下の通り。
+
+> 次の信号を右に曲がってください。橋を渡ったら、広い駐車場で待ち合わせましょう。後ろの二人も聞こえていますか。ゆっくり進むので、安全なところで返事をしてください。
+
+> こちらは全員そろっています。少し風が強くなりました。トンネルを抜けてから、青い看板の手前で止まります。三人目は赤い自転車です。到着したら、もう一度連絡します。
 
 ## サーバーモックの範囲
 

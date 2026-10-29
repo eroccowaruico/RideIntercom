@@ -15,6 +15,12 @@ from scripts.audio_e2e import measurements
 
 
 class AudioE2ELifecycleTests(unittest.TestCase):
+    def test_identity_matrix_preserves_full_utterance_and_codec_controls(self):
+        cases = scenarios('identity', 8)
+        self.assertEqual([case['codec'] for case in cases], ['mpeg4AACELDv2', 'pcm16', 'opus'])
+        self.assertTrue(all(case['seconds'] >= 20 for case in cases))
+        self.assertEqual([case['transmitIsolation'] for case in cases], [True, False, False])
+
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
