@@ -21,8 +21,10 @@ extension AudioE2ETests {
                         let decoder = Mutex(StreamingCodecDecoder())
                         let probe = RenderedAudioProbe()
                         let failureStore = Mutex<[String]>([])
+                        let sent = Mutex((packets: 0, bytes: 0))
                         pipeline.onTransmitPacket = { packet in
-                            do { probe.append(try decoder.withLock { try AppAudioCodecBridge.decode(packet, using: $0) }) }
+                            sent.withLock { $0.packets += 1; $0.bytes += packet.payload.count }
+                            do { probe.append(try decoder.withLock { try AppAudioCodecBridge.decode(packet, using: $0) }, preservingTimeline: true) }
                             catch { failureStore.withLock { $0.append(String(describing: error)) } }
                         }
                         try pipeline.rebuild(configuration: .init(preferredCodec: codec,
@@ -43,15 +45,18 @@ extension AudioE2ETests {
                             output: output.samples, outputRate: output.rate)
                         let replies = try ConversationIdentity.measure(fixture: fixture, reference: reference,
                             output: output.samples, outputRate: output.rate, referenceOffset: match.referenceOffsetSeconds)
-                        let passed = match.passed && match.missingActiveRatio == 0 && replies.passed && failures.isEmpty
+                        let budget = sent.withLock { $0 }
+                        let passed = match.passed && match.missingActiveRatio == 0 && replies.passed && failures.isEmpty && output.invalid == 0
                         rows.append(["case": name, "continuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(match)),
-                            "acknowledgements": try JSONSerialization.jsonObject(with: JSONEncoder().encode(replies)), "passed": passed])
+                            "acknowledgements": try JSONSerialization.jsonObject(with: JSONEncoder().encode(replies)),
+                            "sentPackets": budget.packets, "codecPayloadBytes": budget.bytes, "passed": passed])
                         let url = FileManager.default.temporaryDirectory.appendingPathComponent(name + ".wav")
                         try probe.writeWAV(to: url, rendered: output)
                         let recording = XCTAttachment(contentsOfFile: url)
                         recording.name = name; recording.lifetime = .keepAlways; add(recording)
                         try? FileManager.default.removeItem(at: url)
                         XCTAssertTrue(failures.isEmpty, "\(name): \(failures)")
+                        XCTAssertEqual(output.invalid, 0, name)
                         XCTAssertTrue(match.passed, "\(name): \(match)")
                         XCTAssertEqual(match.missingActiveRatio, 0, name)
                         XCTAssertTrue(replies.passed, "\(name): \(replies)")

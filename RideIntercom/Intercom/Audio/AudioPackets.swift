@@ -6,7 +6,6 @@ import RTC
 nonisolated enum OutboundAudioPacket: Equatable, Sendable {
     case voice(PCMFrame)
     case silence(PCMFrame)
-    case keepalive
 }
 
 typealias AudioCodecIdentifier = RTC.RTCAudioCodecIdentifier

@@ -44,18 +44,16 @@ extension IntercomViewModel {
     }
 
     func handleMicrophoneFrame(_ frame: PCMFrame) {
-        let rawLevel = (try? AudioSignalMeter.measure(frame).rms) ?? 0
-        processAudioCheckInput(level: rawLevel, frame: frame)
+        if audioCheckPhase == .recording {
+            let rawLevel = (try? AudioSignalMeter.measure(frame).rms) ?? 0
+            processAudioCheckInput(level: rawLevel, frame: frame)
+        }
         guard isAudioReady else { return }
         let observation = audioPipeline.inputObservation
         setLocalVoiceLevel(isMuted ? 0 : observation.level)
         setVoiceActive(!isMuted && observation.voiceActive)
         sentVoicePacketCount = max(0, observation.sentPackets - transmitPacketCounterBaseline)
         vadGateRuntimeSnapshot = audioPipeline.vadRuntimeSnapshot
-        if observation.keepalives != lastObservedKeepaliveCount {
-            lastObservedKeepaliveCount = observation.keepalives
-            callSession.sendControl(.keepalive)
-        }
         if let failure = observation.failure {
             AppLoggers.audio.warning("audio.pipeline.capture_failed",
                 metadata: .event("audio.pipeline.capture_failed", ["errorType": "\(failure)", "isRecoverable": "true"]))

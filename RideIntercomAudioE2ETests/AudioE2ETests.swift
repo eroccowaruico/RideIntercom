@@ -291,7 +291,7 @@ final class AudioE2ETests: XCTestCase {
                     entry["resets"] = Double(playout.resets)
                 }
                 receivedTiming.withLock { $0.append(entry) }
-                decodedProbe.append(frame)
+                decodedProbe.append(frame, preservingTimeline: true)
                 return .processed(level: (try? AudioSignalMeter.measure(frame).rms) ?? 0)
             } catch AppAudioPipelineError.notConfigured {
                 return .unavailable

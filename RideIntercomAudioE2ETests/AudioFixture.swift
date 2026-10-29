@@ -210,10 +210,21 @@ final class RenderedAudioProbe: @unchecked Sendable {
     var firstOutputTime: Double? { lock.withLock { firstRenderTime } }
     var sampleCount: Int { lock.withLock { count } }
 
-    func append(_ frame: PCMFrame) {
+    func append(_ frame: PCMFrame, preservingTimeline: Bool = false) {
         lock.withLock {
             if count == 0 { firstRenderTime = frame.capturedAt }
             rate = frame.format.sampleRate
+            if preservingTimeline, let firstRenderTime {
+                let position = Int(((frame.capturedAt - firstRenderTime) * rate).rounded())
+                if position < count - 1 { invalidSampleCount += count - position }
+                // Missing packets remain silence on the capture clock. Do not
+                // concatenate across omitted pauses or hide lost voiced time.
+                if position > count {
+                    let end = min(position, capacity)
+                    storage.advanced(by: count).update(repeating: 0, count: end - count)
+                    count = end
+                }
+            }
             for index in stride(from: 0, to: frame.samples.count, by: frame.format.channelCount) {
                 guard count < capacity else { invalidSampleCount += 1; continue }
                 let value = frame.samples[index]

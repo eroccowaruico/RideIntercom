@@ -12,9 +12,7 @@ nonisolated struct AudioTransmissionController {
 
     private let vadGate: VADGate
     private let preRollLimit: Int
-    private let keepaliveIntervalFrames: Int
     private var preRoll: [CapturedFrame] = []
-    private var framesSinceKeepalive = 0
     private(set) var lastAnalysis: VADGateAnalysis?
 
     var runtimeSnapshot: VADGateRuntimeSnapshot {
@@ -23,12 +21,10 @@ nonisolated struct AudioTransmissionController {
 
     init(
         vadGate: VADGate = VADGate(configuration: Self.defaultVADSensitivity.configuration),
-        preRollLimit: Int = 20,
-        keepaliveIntervalFrames: Int = 50
+        preRollLimit: Int = 20
     ) {
         self.vadGate = vadGate
         self.preRollLimit = max(0, min(100, preRollLimit))
-        self.keepaliveIntervalFrames = max(1, keepaliveIntervalFrames)
     }
 
     mutating func process(frame: PCMFrame, level: Float) -> [OutboundAudioPacket] {
@@ -39,17 +35,8 @@ nonisolated struct AudioTransmissionController {
             // the same lookahead during speech and silence. Flushing this queue
             // at each onset changes packet phase and underruns a low-delay peer.
             for index in preRoll.indices { preRoll[index].isSpeech = true }
-            framesSinceKeepalive = 0
-        } else {
-            framesSinceKeepalive += 1
         }
-        var packets = releaseCompletedLookahead()
-        if framesSinceKeepalive >= keepaliveIntervalFrames {
-            packets.append(.keepalive)
-            framesSinceKeepalive = 0
-        }
-
-        return packets
+        return releaseCompletedLookahead()
     }
 
     mutating func applyVADSensitivity(_ sensitivity: VoiceActivitySensitivity) {
@@ -61,7 +48,6 @@ nonisolated struct AudioTransmissionController {
         vadGate.reset()
         lastAnalysis = nil
         preRoll.removeAll()
-        framesSinceKeepalive = 0
     }
 
     private mutating func releaseCompletedLookahead() -> [OutboundAudioPacket] {

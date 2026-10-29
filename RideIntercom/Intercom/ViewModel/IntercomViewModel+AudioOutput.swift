@@ -7,7 +7,6 @@ extension IntercomViewModel {
     func resetAudioDebugCounters() {
         sentVoicePacketCount = 0
         transmitPacketCounterBaseline = audioPipeline.inputObservation.sentPackets
-        lastObservedKeepaliveCount = audioPipeline.inputObservation.keepalives
         receivedVoicePacketCount = 0
         playedAudioFrameCount = 0
         lastScheduledOutputRMS = 0

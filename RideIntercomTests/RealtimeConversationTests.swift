@@ -12,6 +12,29 @@ import VADGate
 extension AppTests {
 @MainActor
 struct RealtimeConversationTests {
+    @Test(arguments: [RTCAudioCodecIdentifier.pcm16, .opus, .mpeg4AACELD])
+    func silentTransmitterStopsPacketsAndRestartsForBriefReplies(codec: RTCAudioCodecIdentifier) throws {
+        let transmitter = AppAudioTransmitter()
+        let configuration = AppAudioPipelineConfiguration(preferredCodec: codec, transmitSoundIsolationEnabled: false)
+        let packets = Mutex<[RTCAudioPacket]>([])
+        transmitter.onPacket = { packet in packets.withLock { $0.append(packet) } }
+        try transmitter.rebuild(configuration: configuration, encoding: configuration.codecRuntimeReport.activeConfiguration)
+        defer { transmitter.stop() }
+        for index in 0..<400 {
+            let samples = (0..<480).map { sample in
+                (200..<210).contains(index) ? Float(0.03 * sin(Double(sample) * 2 * .pi * 500 / 48000)) : 0
+            }
+            transmitter.processMicrophone(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100, samples: samples))
+        }
+        let sent = packets.withLock { $0 }
+        #expect(!sent.isEmpty)
+        #expect(sent.count < 120, "Silence must avoid encoding and sending, including the VAD release period")
+        #expect(sent.filter { (0.3..<1.9).contains($0.capturedAt) || (3..<4).contains($0.capturedAt) }.isEmpty)
+        let onset = try #require(sent.first { $0.capturedAt >= 1.9 })
+        #expect(onset.capturedAt < 2.03, "A 100 ms acknowledgement must resume immediately")
+        #expect(transmitter.failureCount == 0)
+    }
+
     @Test(arguments: [256, 480, 960])
     func transmitIsolationSwitchDoesNotClickWithoutNetworkOrHardware(quantum: Int) throws {
         let transmitter = AppAudioTransmitter()
@@ -259,7 +282,6 @@ struct RealtimeConversationTests {
                 if case .voice(let voice) = packet { sent.append(voice.sequenceNumber); sentAt[voice.sequenceNumber] = number }
                 switch packet {
                 case .voice(let frame), .silence(let frame): clock.append(frame.sequenceNumber)
-                case .keepalive: break
                 }
             }
         }

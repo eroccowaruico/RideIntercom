@@ -27,7 +27,6 @@ struct AudioPipelineTests {
             let frames = output.compactMap { packet -> PCMFrame? in
                 switch packet {
                 case .voice(let frame), .silence(let frame): return frame
-                case .keepalive: return nil
                 }
             }
             if index >= 3 {
@@ -95,7 +94,7 @@ struct AudioPipelineTests {
         #expect(try AppAudioCodecBridge.decode(valid).samples == [0])
     }
 
-    @Test func audioTransmissionControllerSendsVoiceAndKeepalive() {
+    @Test func audioTransmissionControllerKeepsVoiceAndSilenceWithoutTransportControl() {
         var controller = AudioTransmissionController(
             vadGate: VADGate(configuration: VADGateConfiguration(
                 attackDuration: 0.01,
@@ -105,8 +104,7 @@ struct AudioPipelineTests {
                 silenceThresholdOffsetDB: 3,
                 initialNoiseFloorDBFS: -60
             )),
-            preRollLimit: 2,
-            keepaliveIntervalFrames: 3
+            preRollLimit: 2
         )
         func frame(_ sequenceNumber: UInt64, _ sample: Float) -> PCMFrame {
             PCMFrame(
@@ -119,7 +117,7 @@ struct AudioPipelineTests {
 
         #expect(controller.process(frame: frame(1, 0), level: 0) == [.silence(frame(1, 0))])
         #expect(controller.process(frame: frame(2, 0), level: 0) == [.silence(frame(2, 0))])
-        #expect(controller.process(frame: frame(3, 0), level: 0) == [.silence(frame(3, 0)), .keepalive])
+        #expect(controller.process(frame: frame(3, 0), level: 0) == [.silence(frame(3, 0))])
 
         let voicePackets = controller.process(frame: frame(4, 0.3), level: 0.3)
         #expect(voicePackets == [.voice(frame(4, 0.3))])

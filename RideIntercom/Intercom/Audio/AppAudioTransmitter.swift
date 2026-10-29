@@ -13,7 +13,6 @@ nonisolated struct AudioInputObservation: Sendable {
     var level: Float = 0
     var voiceActive = false
     var sentPackets = 0
-    var keepalives = 0
     var failure: String?
 }
 
@@ -64,7 +63,7 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
         stop()
         self.encoding = encoding
         let processor = try AudioFrameProcessor(format: configuration.mixerFormat,
-            outputFormat: configuration.rtcSendFormat, busID: "tx-bus") { [weak self] frame, _ in
+            outputFormat: configuration.rtcSendFormat, busID: "tx-bus", suspendsDuringSilence: true) { [weak self] frame, _ in
                 self?.encodeAndCollect(frame)
             }
         self.processor = processor
@@ -113,8 +112,7 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
         observation.level = level
         var input = frame
         if muted { input.samples = Array(repeating: 0, count: frame.samples.count) }
-        // Keep native effect history moving through mute, without sending it.
-        // Pausing the DSP would replay its old tail when capture resumes.
+        // The package drains native tails before sleeping through mute/silence.
         let packets: [OutboundAudioPacket] = muted ? [.silence(input)] : controller.process(frame: input, level: level)
         observation.voiceActive = packets.contains { if case .voice = $0 { return true }; return false }
         observation.failure = nil
@@ -123,7 +121,6 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
             case .voice(let pcm), .silence(let pcm):
                 do { try processor?.process(pcm) }
                 catch { failures += 1; observation.failure = String(describing: type(of: error)) }
-            case .keepalive: observation.keepalives += 1
             }
         }
         let packetsToSend = pendingPackets, handler = packetHandler
@@ -145,7 +142,9 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
     private func encodeAndCollect(_ frame: PCMFrame) {
         guard !muted else { return }
         do {
-            if encoder?.configuration != encoding { encoder = try StreamingCodecEncoder(configuration: encoding) }
+            if encoder?.configuration != encoding {
+                encoder = try StreamingCodecEncoder(configuration: encoding, suppressesSilence: true)
+            }
             guard let encoded = try encoder?.encode(frame) else { return }
             let packet = RTCAudioPacket(sequenceNumber: sequence, codec: .init(rawValue: encoded.codec.rawValue),
                 format: .init(sampleRate: encoded.format.sampleRate, channelCount: encoded.format.channelCount),

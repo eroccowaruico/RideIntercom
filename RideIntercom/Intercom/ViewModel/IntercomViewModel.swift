@@ -145,7 +145,6 @@ final class IntercomViewModel {
     var inputFrameDelivery: AudioFrameDelivery?
     let audioPipeline: AppAudioPipeline
     var transmitPacketCounterBaseline = 0
-    var lastObservedKeepaliveCount = 0
     var audioSessionSnapshot: SessionManager.AudioSessionSnapshot
     var remoteVoiceReceivedAt: [String: TimeInterval] = [:]
     var localVoicePeakWindow = VoicePeakWindow()

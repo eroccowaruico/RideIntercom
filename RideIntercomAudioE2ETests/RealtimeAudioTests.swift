@@ -46,7 +46,7 @@ extension AudioE2ETests {
                 guard let pipeline else { return }
                 do {
                     txAges.withLock { $0.append(ProcessInfo.processInfo.systemUptime - packet.capturedAt) }
-                    transmitted.append(try pipeline.processReceivedAudioPacket(.init(peerID: .init(rawValue: "loopback"), packet: packet)))
+                    transmitted.append(try pipeline.processReceivedAudioPacket(.init(peerID: .init(rawValue: "loopback"), packet: packet)), preservingTimeline: true)
                 }
                 catch { errorStore.withLock { $0.append(String(describing: error)) } }
             }

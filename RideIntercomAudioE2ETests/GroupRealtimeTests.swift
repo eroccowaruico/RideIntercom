@@ -56,7 +56,7 @@ extension AudioE2ETests {
             managers.append(manager)
             let (codec, rate, bitRate) = settings[index]
             encoders.append(try StreamingCodecEncoder(configuration: .init(codec: codec, format: .init(sampleRate: rate, channelCount: 1),
-                aacELDv2Options: .init(bitRate: bitRate), opusOptions: .init(bitRate: bitRate))))
+                aacELDv2Options: .init(bitRate: bitRate), opusOptions: .init(bitRate: bitRate)), suppressesSilence: true))
             await manager.prepare(.init(sessionID: "eight-realtime", localPeer: .init(id: peer, displayName: String(index)),
                 credential: .derived(groupID: "eight-realtime", secret: "fixture-only"), configuration: configuration,
                 audioPolicy: .init(preferredCodecs: [.pcm16, .opus, .mpeg4AACELD])))
@@ -110,17 +110,31 @@ extension AudioE2ETests {
         for index in 1..<8 {
             let frames = decoded[String(index), default: []].filter { !$0.samples.isEmpty }
             let rate = settings[index].1
+            let epoch = Double(index - 4) * 10000
+            let timeline = RenderedAudioProbe()
             for pair in zip(frames, frames.dropFirst()) {
-                XCTAssertLessThan(abs(pair.1.capturedAt - pair.0.capturedAt - Double(pair.0.frameCount) / rate), 1 / rate,
-                    "No missing or overlapping sample at a codec boundary")
+                let end = pair.0.capturedAt + Double(pair.0.frameCount) / rate
+                let gap = pair.1.capturedAt - end
+                XCTAssertGreaterThan(gap, -1 / rate, "No overlapping sample at a codec boundary")
+                if gap >= 1 / rate {
+                    let missing = (Int(((end - epoch) * rate).rounded())..<Int(((pair.1.capturedAt - epoch) * rate).rounded())).filter { sample in
+                        let t = Double(sample) / rate
+                        return t < 4 || (5..<5.1).contains(t) || (7.1..<7.2).contains(t) || (10.2..<10.3).contains(t)
+                    }
+                    XCTAssertTrue(missing.isEmpty, "Peer \(index) gap \(end - epoch)..<\(pair.1.capturedAt - epoch), voiced \(missing.count), first \(missing.first ?? -1): only silent source samples may be omitted")
+                }
             }
-            let samples = frames.flatMap(\.samples)
+            for frame in frames { timeline.append(frame, preservingTimeline: true) }
+            let recorded = timeline.snapshot()
+            XCTAssertEqual(recorded.invalid, 0)
+            let samples = recorded.samples
             guard samples.count >= Int(rate * 10.35) else { XCTFail("Incomplete decoded conversation for peer \(index)"); continue }
             for beginning in [5.0,7.1,10.2] {
                 let window = samples[Int(beginning * rate)..<min(samples.count,Int((beginning + 0.15) * rate))]
                 XCTAssertGreaterThan(window.filter { abs($0) > 0.003 }.count, Int(rate * 0.07), "Short reply after silence must survive")
             }
         }
+        XCTAssertTrue(sent.allSatisfy { $0 < 270 }, "Quiet periods must remove over half of the 540 input packets per participant")
         let measurement: [String:Any] = ["scenario":"eight-person-mixed", "role":"pipeline", "transport":"none",
             "participants":8,"mixedRoutes":true,"sentPackets":sent,"lostPackets":losses,"duplicatePackets":duplicates,
             "maximumSendIterationSeconds":maximumSendIteration,"waveform":waveform.dictionary,
