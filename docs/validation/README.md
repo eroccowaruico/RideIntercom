@@ -25,6 +25,7 @@
 | Worker / Swiftペア / 費用 | [Cloudflare](history/Cloudflare検証.md)、[品質点検](history/品質点検.md)、[費用試算](../development/Cloudflare費用試算.md) |
 | 音声・UI | [音声エフェクト](history/音声エフェクト接続検証.md)、[混在通話](history/混在通話検証.md) |
 | 開発環境 | [構造検査の記録](history/文書役割分離記録.md) |
+| 配布・採番・Organizer | [配布ビルド採番とOrganizer認証調査](history/配布ビルド採番とOrganizer認証調査.md) |
 | 文書・ログ整合 | [文書整理](文書整理記録.md)、[要求構造整理](history/要求構造整理記録.md)、[役割分離](history/文書役割分離記録.md) |
 
 ## 再実行
