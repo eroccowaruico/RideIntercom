@@ -166,11 +166,10 @@ public actor RouteManager: CallSession {
     }
     private func broadcast(_ body: RelayBody) async {
         guard let data = try? relay?.make(body, now: ProcessInfo.processInfo.systemUptime), data.count <= 32768 else { return }
-        let skipInternet: Bool
-        if case .audio = body {
-            skipInternet = routeMembers[.webRTC, default: []].isSubset(of: routeMembers[.multipeer, default: []]) && !routeMembers[.multipeer, default: []].isEmpty
-        } else { skipInternet = false }
-        await forward(data, delivery: body.delivery, excluding: skipInternet ? .webRTC : nil)
+        // Connection presence says nothing about media latency or loss. Keep
+        // both usable copies; GroupRelay accepts the first authenticated arrival
+        // exactly once, so a slow Local link cannot suppress faster Internet audio.
+        await forward(data, delivery: body.delivery)
     }
     private func forward(_ data: Data, delivery: ApplicationDataDelivery, excluding: RouteKind? = nil) async {
         let token = generation
@@ -217,7 +216,11 @@ public actor RouteManager: CallSession {
             updateMembers()
             switch result.body {
             case .audio(let packet):
-                if isMediaStarted { receiveBuffer.enqueue(.init(received: .init(peerID: result.peer.id, packet: packet)), receivedAt: ProcessInfo.processInfo.systemUptime) }
+                if isMediaStarted {
+                    let now = ProcessInfo.processInfo.systemUptime
+                    receiveBuffer.enqueue(.init(received: .init(peerID: result.peer.id, packet: packet)), receivedAt: now)
+                    for ready in receiveBuffer.drain(now: now).readyPackets { emit(.receivedAudioPacket(ready)) }
+                }
             case .application(let message): emit(.receivedApplicationData(.init(peerID: result.peer.id, message: message)))
             case .presence, .leave: break
             }
@@ -296,7 +299,7 @@ public actor RouteManager: CallSession {
         if let report = try? RTCRuntimePackageReport.json(package: "RTC", kind: "network", payload: network) {
             status.packageReports.append(report)
         }
-        guard let message = try? RTCRuntimeStatusTransport.makeMessage(status, delivery: .unreliable) else { return }
+        guard let message = try? RTCRuntimeStatusTransport.makeMessage(status) else { return }
         await sendApplicationData(message)
     }
     public func networkDiagnostics() async -> RTCNetworkDiagnostics {

@@ -19,7 +19,7 @@ flowchart LR
     Mix <--> Codec
     Codec <--> Session[CallSession / RouteManager]
     Session <--> Relay[GroupRelay: origin / epoch / sequence]
-    Relay <--> Local[Multipeer: MCSession]
+    Relay <--> Local[音声: Network.framework UDP / 制御: MCSession]
     Relay <--> Internet[WebRTC DataChannel: Cloudflare SFU]
 ```
 
@@ -32,7 +32,7 @@ flowchart LR
 | 既存のautomatic 2値 | ともにグループ接続維持として扱う。1経路へ切り替えて他の接続を切る旧動作は廃止 |
 | Local専用A、両経路B、Internet専用C | A↔B↔Cで元の話者を保持して中継。AはCloudflare資格を持たなくてよい |
 | 中継候補が複数 | Local近隣でInternet媒体がreadyと通知された候補の最小PeerIDを選ぶ。直接Internetへ送る話者の再出版は抑止 |
-| 全員近くにいる | Internet参加者がすべてLocal隣接peerでもある送信者は、音声のInternet出版を省略。presence・制御・leaseは継続 |
+| 全員近くにいる | 開始済みのLocal / Internet両方へ音声を送り、先着した認証済みenvelopeだけ再生。接続の有無だけで速い経路を抑止しない |
 | 複雑なLocal接続グラフ | Localは重複破棄付き転送。近隣ごとに候補が異なる間は重複転送があり得るが、再生は1回。最大8hop |
 | 中継離脱・接続障害 | 残る経路を停止しない。membership/presence更新で中継候補を再評価し、失敗した経路だけ2〜30秒間隔で再試行 |
 | 接続経路がなくなる | 接続を作れるまで音声は届かない。無音や探索中を接続成功とみなさない。presence失効は8秒 |
@@ -60,13 +60,13 @@ flowchart LR
 | 中継envelope | `rtc.group-relay.v1`。session、origin、epoch、sequence、path、body、Internet ready状態。招待由来のgroup keyでAES-GCM暗号化 |
 | 信頼境界 | 接続元hopが認証済みpeerで、path末尾と一致すること。group credentialを持つ参加者間の信頼モデル。個人署名による悪意あるグループ参加者のなりすまし防止ではない |
 | 自分へ戻った音声 | path内に自分が含まれるものを破棄 |
-| duplicate / replay | originと接続epochごとの1024 sequence window。古いepochは直近8世代を拒否。音声は直近presenceが有効な話者だけ受理 |
+| duplicate / replay | originと接続epochごとの1024 sequence window。古いepochは直近8世代を拒否。音声はpresenceで参加済みかつ有効な話者だけ受理。認証済み音声も活動期限を更新し、制御streamの再接続を音声の停止条件にしない |
 | 再参加 | 新epochで当該peerの受信待ちを破棄し、memberの再認証をAppへ通知。他のpeerは維持 |
-| presence | 2秒周期、8秒失効。leave以前の遅延presenceで離脱を取り消さない |
+| presence | 2秒周期のreliable制御。presenceも認証済み音声も8秒届かない場合に失効。leave以前の遅延presenceで離脱を取り消さない |
 | 上限 | リモート7人、path最大8、envelope 32KiB、音声payload 8KiB、受信待ち256件。過剰分は古い受信待ちから破棄 |
-| 再生時刻 | 端末間時計の同期を前提にしない。最終受信端末で15ms待ち、100msを過ぎた受信待ちは破棄。enqueue時とdrain時にpeerごとの再生済みsequenceを検査し、待機中に古くなったフレームも破棄 |
+| 再生時刻 | 端末間時計の同期を前提にしない。最終受信端末では順序通りなら即時配送し、sequence欠落だけ15msの並べ替え猶予（20ms timerでもdrain）、100msを過ぎた受信待ちは破棄。enqueue時とdrain時にpeerごとの再生済みsequenceを検査し、待機中に古くなったフレームも破棄 |
 | codec / format | policyで許可されたcodec、8〜48kHz、1〜2ch。対応範囲内のformat差は保持し、PCM変換しない |
-| route capabilities | Local / Internetとも符号化済みPCM16・Opus・AAC-ELD v2を転送可能。初期codec設定に固定しない。OSの実encode/decode能力と受理codecのpolicyは別に判定する |
+| route capabilities | Local / Internetとも符号化済みPCM16・Opus・AAC-ELD・旧AAC-ELD v2を転送可能。初期codec設定に固定しない。OSの実encode/decode能力と受理codecのpolicyは別に判定する |
 | パケットsequence | 中継epoch内のsequenceで再生順を管理。収録再起動によるApp側counterのリセットと分離 |
 
 ## Cloudflareの媒体契約
@@ -90,10 +90,10 @@ Cloudflareは[custom media payloads](https://developers.cloudflare.com/realtime/
 
 | 境界 | 方針 | 所有者 |
 |---|---|---|
-| Local / Internet送信 | 音声とpresenceはunreliable、ミュート・leaveなどの制御はreliable | GroupRelayが分類、各routeが配送 |
+| Local / Internet送信 | 音声は全経路で再送なしUDP、presenceを含む制御はreliable。音声に再送・順序保証待ち・reliableコピーを使わない | GroupRelayが分類、各routeが配送 |
 | Internet DataChannel | 音声は`ordered=false`、`maxRetransmits=0`。送信バッファが空のときだけ送信し、詰まっていたらその音声を破棄 | RTCNativeWebRTCとWorkerのpublish/pullで同じ指定 |
 | 接続通知と音声のイベント待ち | 各購読者につき一時データ最大64件・100ms。古い音声・telemetryを捨て、接続・認証・離脱・reliable制御は256件まで順序を保持 | EventSource（Local受信、native engine、route、CallSessionの各境界） |
-| 再生待ち | 受信から15ms、期限100ms、最大256件。期限・件数超過・再生済みsequence以下は破棄 | PacketAudioReceiveBuffer |
+| 再生待ち | 連続packetは待機なし、欠落時だけ15ms、期限100ms、最大256件。期限・件数超過・再生済みsequence以下は破棄 | PacketAudioReceiveBuffer |
 | 再接続 | peer離脱でそのpeerの再生sequenceを破棄、session停止で全待ち状態を破棄 | RTC |
 
 DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配送契約である。既定のreliable/orderedを音声に流用しない。`maxRetransmits=0`は初回送信後の再送を止める設定で、OS・SFUを含む絶対遅延の保証ではない。`maxPacketLifeTime`との同時指定は行わない。上記100msは各境界での待ち時間上限であり、端末間の総遅延ではない。期限に使う端末内時計は同期不要である。
@@ -120,7 +120,7 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 | bufferedBytes | native connectionが所有するDataChannelのbufferedAmount合計 | アプリの送信待ちbyte数。接続がない場合はnil |
 | packetLoss | DataChannel用の損失率はnil | RTPのpacketsLostをSCTP音声に流用しない。取得不能理由を明示し、0で正常表示しない |
 | peers | group envelopeを認証・重複検査した最後のpathと到着route、観測時刻 | 最後に届いた経路。全候補経路の探索結果ではない。8秒経過・hop消失・route消失・stopで表示対象から除く |
-| Multipeer | transportとrouteのmailbox破棄を通知 | OSが公開しないRTT/loss/buffered値は取得不能として返す |
+| Multipeer | transportとrouteのmailbox破棄を通知 | UDP音声の送受信datagram数と送信処理中bytesを通知。ACKのないUDPからRTTやネットワーク損失を捏造しない |
 
 経路の新実装が統計backendを持たない場合も、共通診断APIから明示的な取得不能を返す。新たなplugin層は追加せず既存route / native engine境界を使う。packet形式・音声送信方式は変更しない。
 
@@ -144,7 +144,7 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 | CallSession / RouteManager | 共通の音声開始・停止・ミュート・暗号化中継・受信待ちを所有 |
 | SFU signaling | 完全なSDP offer / answerとmembership snapshotを使用。trickle候補の個別配送や空のsendAnswer APIは持たない |
 | NativeWebRTCEngine.prepareTransport | 接続試行の診断を初期化。マイク・スピーカーを取得しない |
-| Local wire | handshakeはreliable、application dataはmessage.deliveryに従う。音声も認証済みgroup envelopeをapplication dataとして送る |
+| Local wire | handshake・presence・操作はMCSessionのreliable。GroupRelay音声は認証済み暗号化envelopeをNetwork.framework UDPへ直接渡す。UDPが未準備なら破棄し、MCSessionやTCPへfallbackしない |
 
 旧per-route音声API・暗号化・二重受信待ちは削除した。招待URLと現行group-relay wireは変更しない。旧per-route音声wireとの互換は提供せず、参加端末は同じ版を使用する。
 
@@ -169,3 +169,24 @@ Local識別子は[MCPeerIDの制約](https://developer.apple.com/documentation/m
 ## SFU購読更新の一時切断
 
 `pull`は指定peerの購読状態を照合する冪等な要求である。HTTP keep-alive接続の`networkConnectionLost`だけは100 ms、200 ms後に再試行し、初回を含め3回・元の要求の総期限25秒以内に制限する。進行中のmediaは維持し、世代変更やTaskのcancelは再試行待機を中断する。認証拒否、他のHTTPエラー、新規session作成はこの再試行の対象にしない。停止時のDELETEは、呼出元Taskがcancelされていても従来どおり一度実行する。
+
+## 音声の連続性とLocal配送
+
+GroupRelayの認証・replay protection用sequenceと音声専用sequenceを分ける。presenceや制御を挟んでも音声に偽の欠番を作らない。受信bufferは相手別に並べ替え、同じsequenceの複数経路コピーを再生しない。
+
+途中参加や受信再開では最初のsequenceが0とは限らない。受信履歴がない相手の先頭packetは、その番号を基準に即時配送する。履歴から実際の欠番を確認した場合だけ並べ替え猶予を使い、欠番が埋まったらタイマーを待たずに配送する。
+
+音声はLocalのNetwork.framework UDP、Internetのunordered・maxRetransmits=0 DataChannelで配送する。InternetのICEはTCP候補を無効にし、STUN/TURNのUDP URLだけを許可する。TURN/TCP・TURN/TLSへのfallbackは行わない。TCP相当の順序保証待ち・再送・信頼性ありコピーは使用しない。接続・認証・ミュート等の制御メッセージのreliable配送とは分ける。複数の独立経路が有効なら、同じ認証済み音声を即時配送し、先着だけを再生する。
+
+
+### Local datagramの所有と再接続
+
+MCSessionは探索・認証・制御を所有する。別の`_ride-audio._udp` Bonjour serviceをNetwork.frameworkで探索し、Peer-to-Peer Wi-Fiを許可したUDP listenerへ送る。音声にはGroupRelayの暗号化・認証・epoch・重複排除を引き続き適用する。UDPの先頭にある直近hop識別子だけでは認証しない。
+
+UDP送受信はBonjourと制御を所有するMainActorを経由しない。認証済み媒体peerのsnapshotだけを短いlockで取得し、送信はdatagram queue、受信は有界event sourceへ直接渡す。停止時は媒体許可を先に取り消す。native Bonjour資源の作成・変更・最終解放はMainActorで行う。
+
+送信endpointが準備できないときはその音声を保持しない。送信処理中のbytesには上限を設け、接続失敗後に古いpacketを再送しない。受信flowは16個までとし、UDPに切断handshakeがないことを考慮して最も古いflowを解放する。endpoint変更・stopで所有資源を閉じ、前世代のcallbackを拒否する。
+
+制御接続の切断時にはMCSession上の認証を取り消して再handshakeを要求するが、同じ通話で認証済みのUDP媒体資格は保持する。期限切れ・離脱済み話者の音声はGroupRelayで拒否し、音声が途絶えた資格を音声packetだけで復活させない。通話stop時に両方を破棄する。
+
+検証結果と残る音声E2Eの問題は[RTC音声の再送禁止と即時配送](../../validation/history/RTC音声の再送禁止と即時配送.md)に記録する。

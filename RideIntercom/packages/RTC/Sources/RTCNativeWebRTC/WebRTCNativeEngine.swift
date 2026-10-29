@@ -19,22 +19,33 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
     public override init() {
         RTCInitializeSSL()
         self.factory = RTCPeerConnectionFactory()
-        self.rtcConfiguration = RTCConfiguration()
-        self.rtcConfiguration.sdpSemantics = .unifiedPlan
-        self.rtcConfiguration.iceServers = [RTCIceServer(urlStrings: ["stun:stun.cloudflare.com:3478"])]
+        self.rtcConfiguration = Self.configuration([.init(urls: ["stun:stun.cloudflare.com:3478"])])
         super.init()
     }
 
     public init(iceServers: [WebRTCIceServer], factory: RTCPeerConnectionFactory = RTCPeerConnectionFactory()) {
         RTCInitializeSSL()
         self.factory = factory
+        self.rtcConfiguration = Self.configuration(iceServers)
+        super.init()
+    }
+
+    /// maxRetransmits=0 alone is insufficient if ICE selects TCP/TLS TURN.
+    /// Every construction and credential refresh uses the same UDP-only policy.
+    private static func configuration(_ servers: [WebRTCIceServer]) -> RTCConfiguration {
         let configuration = RTCConfiguration()
         configuration.sdpSemantics = .unifiedPlan
-        configuration.iceServers = iceServers.map {
-            RTCIceServer(urlStrings: $0.urls, username: $0.username, credential: $0.credential)
+        configuration.tcpCandidatePolicy = .disabled
+        configuration.iceServers = servers.compactMap { server in
+            let urls = server.urls.filter { url in
+                let value = url.lowercased()
+                guard value.hasPrefix("stun:") || value.hasPrefix("turn:") else { return false }
+                let parts = value.split(separator: "?", maxSplits: 1)
+                return parts.count == 1 || parts[1] == "transport=udp"
+            }
+            return urls.isEmpty ? nil : RTCIceServer(urlStrings: urls, username: server.username, credential: server.credential)
         }
-        self.rtcConfiguration = configuration
-        super.init()
+        return configuration
     }
 
     public override func createPeerConnection(for peer: PeerDescriptor) async {
@@ -61,10 +72,8 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
     }
 
     public override func configureIceServers(_ servers: [WebRTCIceServer]) async -> Bool {
-        guard !servers.isEmpty, servers.allSatisfy({ !$0.urls.isEmpty }) else { return false }
-        let configuration = RTCConfiguration()
-        configuration.sdpSemantics = .unifiedPlan
-        configuration.iceServers = servers.map { RTCIceServer(urlStrings: $0.urls, username: $0.username, credential: $0.credential) }
+        let configuration = Self.configuration(servers)
+        guard !configuration.iceServers.isEmpty else { return false }
         let connections = lock.withLock {
             rtcConfiguration = configuration
             return Array(peerConnections.values)
@@ -130,6 +139,11 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
             config.isNegotiated = true; config.channelId = allocation.id
             if allocation.delivery == .unreliable { config.isOrdered = false; config.maxRetransmits = 0 }
             let existing = lock.withLock { channels[peerID]?[allocation.id] }
+            if let existing, existing.isOrdered != config.isOrdered
+                || (allocation.delivery == .unreliable && existing.maxRetransmits != 0) {
+                emit(.connectionStateChanged(.failed))
+                continue
+            }
             guard let channel = existing ?? connection.dataChannel(forLabel: "rideintercom", configuration: config) else { continue }
             let retained = lock.withLock {
                 guard peerConnections[peerID] === connection else { return false }
@@ -148,6 +162,7 @@ public final class WebRTCNativeEngine: NativeWebRTCEngine, @unchecked Sendable {
         let channel = lock.withLock { publishers[peerID]?[message.delivery].flatMap { channels[peerID]?[$0] } }
         guard let channel, channel.readyState == .open,
               (message.delivery == .reliable ? channel.bufferedAmount <= 65536 : channel.bufferedAmount == 0) else { return }
+        guard message.delivery == .reliable || (!channel.isOrdered && channel.maxRetransmits == 0) else { return }
         _ = channel.sendData(RTCDataBuffer(data: data, isBinary: true))
     }
 

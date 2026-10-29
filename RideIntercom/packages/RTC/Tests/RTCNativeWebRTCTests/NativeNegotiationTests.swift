@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import RTC
-import RTCNativeWebRTC
+@testable import RTCNativeWebRTC
 @preconcurrency import WebRTC
 
 @Test func nativeSDPUsesPacketTransportAndReportsRejectedAnswers() async throws {
@@ -74,4 +74,31 @@ private actor PacketRecorder {
     #expect(metrics.packetLoss == nil)
     await a.close(); await b.close()
     #expect(await a.networkStatistics(for: peer.id).bufferedBytes == nil)
+}
+
+@Test func internetMediaNeverFallsBackToTCPOrReliableTURN() async throws {
+    let engine = WebRTCNativeEngine(iceServers: [])
+    #expect(await !engine.configureIceServers([.init(urls: ["turn:relay:3478?transport=tcp", "turns:relay:5349"])]))
+    #expect(await engine.configureIceServers([.init(urls: ["turn:relay:3478?transport=tcp", "stun:localhost:3478"])]))
+    let peer = PeerDescriptor(id: .init(rawValue: "udp-only"), displayName: "UDP")
+    await engine.createPeerConnection(for: peer)
+    let offer = try #require(await engine.makeOffer(for: peer.id))
+    let candidates = offer.sdp.components(separatedBy: "\n").filter { $0.hasPrefix("a=candidate:") }
+    #expect(!candidates.isEmpty)
+    #expect(candidates.allSatisfy { $0.lowercased().contains(" udp ") })
+    await engine.close()
+}
+
+@Test func aReliableChannelCannotBeReusedAsAnAudioPublisher() async throws {
+    let engine = WebRTCNativeEngine(iceServers: [])
+    let peer = PeerDescriptor(id: .init(rawValue: "changed-allocation"), displayName: "Allocation")
+    let recorder = PacketRecorder(), events = engine.events
+    let task = Task { for await event in events { await recorder.record(event) } }
+    defer { task.cancel() }
+    await engine.createPeerConnection(for: peer)
+    await engine.configureDataChannels([.init(id: 2, isPublisher: true, delivery: .reliable)], for: peer.id)
+    await engine.configureDataChannels([.init(id: 2, isPublisher: true, delivery: .unreliable)], for: peer.id)
+    for _ in 0..<20 where await !recorder.states.contains(.failed) { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(await recorder.states.contains(.failed), "A changed delivery contract needs a fresh allocation; never send audio on the reliable channel")
+    await engine.close()
 }

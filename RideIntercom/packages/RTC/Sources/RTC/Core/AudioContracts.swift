@@ -25,6 +25,7 @@ public struct RTCAudioCodecIdentifier: RawRepresentable, Codable, Hashable, Send
 
     public static let pcm16 = RTCAudioCodecIdentifier(rawValue: "pcm16")
     public static let opus = RTCAudioCodecIdentifier(rawValue: "opus")
+    public static let mpeg4AACELD = RTCAudioCodecIdentifier(rawValue: "mpeg4AACELD")
     public static let mpeg4AACELDv2 = RTCAudioCodecIdentifier(rawValue: "mpeg4AACELDv2")
 }
 

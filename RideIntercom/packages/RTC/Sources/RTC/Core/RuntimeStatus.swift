@@ -138,13 +138,12 @@ public enum RTCRuntimeStatusTransport {
     public static let namespace = "rideintercom.rtc.runtimeStatus"
 
     public static func makeMessage(
-        _ status: RTCRuntimeStatus,
-        delivery: ApplicationDataDelivery = .unreliable
+        _ status: RTCRuntimeStatus
     ) throws -> ApplicationDataMessage {
         ApplicationDataMessage(
             namespace: namespace,
             payload: try JSONEncoder().encode(status),
-            delivery: delivery
+            delivery: .reliable
         )
     }
 

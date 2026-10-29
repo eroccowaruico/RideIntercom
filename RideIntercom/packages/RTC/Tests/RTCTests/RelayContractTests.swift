@@ -96,6 +96,9 @@ extension RelayContractTests {
             let payload = try MultipeerPayloadBuilder.makeApplicationDataPayload(message)
             #expect(payload.mode == (delivery == .reliable ? .reliable : .unreliable))
             #expect(try MultipeerPayloadBuilder.decode(payload.data) == .applicationData(message))
+            let generic = ApplicationDataMessage(namespace: "application", payload: Data([1, 2]), delivery: delivery)
+            #expect(try MultipeerPayloadBuilder.makeApplicationDataPayload(generic).mode
+                == (delivery == .reliable ? .reliable : .unreliable))
         }
     }
 
@@ -139,4 +142,25 @@ extension RelayContractTests {
         buffer.enqueue(.init(received: .init(peerID: peerA, packet: .init(sequenceNumber: 0, codec: .pcm16, payload: Data([1])))), receivedAt: 0.03)
         #expect(buffer.drain(now: 0.05).readyPackets.map(\.peerID) == [peerA])
     }
+}
+
+@Test func controlDeliveryIsReliableAndLiveAudioKeepsMembershipDuringControlOutage() throws {
+    #expect(RelayBody.presence.delivery == .reliable)
+    #expect(RelayBody.leave.delivery == .reliable)
+    let tests = RelayContractTests()
+    var sender = tests.relay("a"), receiver = tests.relay("b")
+    let peer = PeerID(rawValue: "a")
+    _ = receiver.receive(try sender.make(.presence, now: 0), from: peer, now: 0)
+    let packet = RTCAudioPacket(sequenceNumber: 0, codec: .pcm16, payload: Data([1]))
+    #expect(RelayBody.audio(packet).delivery == .unreliable)
+    for second in 1...20 {
+        #expect(receiver.receive(try sender.make(.audio(packet), now: Double(second)), from: peer, now: Double(second)) != nil)
+    }
+    #expect(receiver.members(now: 20).map(\.id) == [peer])
+    #expect(receiver.members(now: 29).isEmpty)
+    #expect(receiver.receive(try sender.make(.audio(packet), now: 29), from: peer, now: 29) == nil)
+    let delayedControl = ApplicationDataMessage(namespace: "old-settings", payload: Data([1]))
+    _ = receiver.receive(try sender.make(.application(delayedControl), now: 29), from: peer, now: 29)
+    #expect(receiver.members(now: 29).isEmpty, "Queued control cannot revive an expired audio membership")
+    #expect(receiver.receive(try sender.make(.audio(packet), now: 29.1), from: peer, now: 29.1) == nil)
 }

@@ -8,8 +8,8 @@ enum RelayBody: Codable, Equatable, Sendable {
     case application(ApplicationDataMessage)
     var delivery: ApplicationDataDelivery {
         switch self {
-        case .audio, .presence: .unreliable
-        case .leave: .reliable
+        case .audio: .unreliable
+        case .presence, .leave: .reliable
         case .application(let message): message.delivery
         }
     }
@@ -44,7 +44,7 @@ struct GroupRelay: Sendable {
         var highest: UInt64 = 0
         var seen = [UInt64?](repeating: nil, count: 1024)
         var presenceSequence: UInt64 = 0
-        var lastPresence: TimeInterval
+        var lastActivity: TimeInterval
         var left = false
         var internetReady = false
         mutating func accept(_ sequence: UInt64) -> Bool {
@@ -59,6 +59,7 @@ struct GroupRelay: Sendable {
     var internetReady = false
     private let epoch = UUID()
     private var sequence: UInt64 = 0
+    private var audioSequence: UInt64 = 0
     private var peers: [PeerID: Member] = [:]
     init(request: CallStartRequest) { self.request = request }
 
@@ -67,6 +68,14 @@ struct GroupRelay: Sendable {
     }
 
     mutating func make(_ body: RelayBody, now: TimeInterval) throws -> Data {
+        var body = body
+        if case .audio(var packet) = body {
+            // An audio-only sequence survives capture restarts without making
+            // presence/control traffic look like missing audio packets.
+            packet.sequenceNumber = audioSequence
+            audioSequence &+= 1
+            body = .audio(packet)
+        }
         sequence &+= 1
         return try encode(Envelope(session: request.sessionID, origin: request.localPeer, epoch: epoch,
                                    sequence: sequence, path: [request.localPeer.id], body: body, internetReady: internetReady))
@@ -84,30 +93,30 @@ struct GroupRelay: Sendable {
         var didRestart = false
         if peers[id] == nil {
             guard isPresence else { return nil }
-            if peers.count >= 7, let expired = peers.filter({ $0.value.left || now - $0.value.lastPresence >= Self.presenceLifetime })
-                .min(by: { $0.value.lastPresence < $1.value.lastPresence })?.key { peers[expired] = nil }
+            if peers.count >= 7, let expired = peers.filter({ $0.value.left || now - $0.value.lastActivity >= Self.presenceLifetime })
+                .min(by: { $0.value.lastActivity < $1.value.lastActivity })?.key { peers[expired] = nil }
             guard peers.count < 7 else { return nil }
-            peers[id] = Member(peer: envelope.origin, epoch: envelope.epoch, lastPresence: now)
+            peers[id] = Member(peer: envelope.origin, epoch: envelope.epoch, lastActivity: now)
         }
         guard var member = peers[id] else { return nil }
         if member.epoch != envelope.epoch {
             guard isPresence, !member.retired.contains(envelope.epoch) else { return nil }
             didRestart = true
             let retired = Array((member.retired + [member.epoch]).suffix(8))
-            member = Member(peer: envelope.origin, epoch: envelope.epoch, retired: retired, lastPresence: now)
+            member = Member(peer: envelope.origin, epoch: envelope.epoch, retired: retired, lastActivity: now)
         }
         if isPresence, envelope.sequence <= member.presenceSequence { return nil }
         guard member.accept(envelope.sequence) else { return nil }
-        if isPresence { member.lastPresence = now; member.presenceSequence = envelope.sequence; member.left = false; member.peer = envelope.origin; member.internetReady = envelope.internetReady }
+        if isPresence { member.lastActivity = now; member.presenceSequence = envelope.sequence; member.left = false; member.peer = envelope.origin; member.internetReady = envelope.internetReady }
         if envelope.body == .leave { member.left = true; member.presenceSequence = envelope.sequence }
-        if case .audio(var packet) = envelope.body {
-            guard !member.left, now - member.lastPresence < Self.presenceLifetime,
+        if case .audio(let packet) = envelope.body {
+            guard !member.left, now - member.lastActivity < Self.presenceLifetime,
                   packet.payload.count <= 8192, request.audioPolicy.preferredCodecs.contains(packet.codec),
                   packet.format.sampleRate.isFinite, (8_000...48_000).contains(packet.format.sampleRate),
                   (1...2).contains(packet.format.channelCount) else { return nil }
-            // A capture restart may reset its counter. Relay epochs own playback ordering.
-            packet.sequenceNumber = envelope.sequence
-            envelope.body = .audio(packet)
+            // Fresh audio sustains an established membership while control
+            // reconnects. Queued application control cannot revive an expired peer.
+            member.lastActivity = now
         }
         peers[id] = member
         envelope.path.append(request.localPeer.id)
@@ -116,11 +125,11 @@ struct GroupRelay: Sendable {
     }
 
     func members(now: TimeInterval) -> [PeerDescriptor] {
-        peers.values.filter { !$0.left && now - $0.lastPresence < Self.presenceLifetime }
+        peers.values.filter { !$0.left && now - $0.lastActivity < Self.presenceLifetime }
             .map(\.peer).sorted { $0.id.rawValue < $1.id.rawValue }
     }
     func internetGateways(now: TimeInterval) -> Set<PeerID> {
-        Set(peers.values.filter { !$0.left && $0.internetReady && now - $0.lastPresence < Self.presenceLifetime }.map { $0.peer.id })
+        Set(peers.values.filter { !$0.left && $0.internetReady && now - $0.lastActivity < Self.presenceLifetime }.map { $0.peer.id })
     }
     private func encode(_ envelope: Envelope) throws -> Data {
         let encoder = PropertyListEncoder(); encoder.outputFormat = .binary

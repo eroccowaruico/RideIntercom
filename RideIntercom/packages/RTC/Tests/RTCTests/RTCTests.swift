@@ -67,7 +67,7 @@ import Testing
     let decoded = try RTCRuntimeStatusTransport.decode(message)
 
     #expect(message.namespace == RTCRuntimeStatusTransport.namespace)
-    #expect(message.delivery == .unreliable)
+    #expect(message.delivery == .reliable)
     #expect(decoded == status)
 }
 
@@ -81,12 +81,15 @@ import Testing
         packetLifetime: 1.0
     ))
 
+    buffer.enqueue(makeFilteredPacketAudioPacket(peerID: "remote", sequenceNumber: 0), receivedAt: 9.9)
+    #expect(buffer.drain(now: 9.9).readyPackets.map(\.packet.sequenceNumber) == [0])
+
     buffer.enqueue(makeFilteredPacketAudioPacket(peerID: "remote", sequenceNumber: 2), receivedAt: 10.00)
     buffer.enqueue(makeFilteredPacketAudioPacket(peerID: "remote", sequenceNumber: 1), receivedAt: 10.01)
 
-    #expect(buffer.drain(now: 10.05).readyPackets.isEmpty)
-
-    let ready = buffer.drain(now: 10.10).readyPackets
+    // The missing predecessor arrived before the timer: release the complete
+    // ordered sequence immediately instead of imposing a fixed wait.
+    let ready = buffer.drain(now: 10.05).readyPackets
 
     #expect(ready.map(\.packet.sequenceNumber) == [1, 2])
     #expect(buffer.queuedPacketCount == 0)
@@ -375,7 +378,8 @@ private actor ReceivedPackets {
     let request = makeRequest(configuration: configuration)
     await manager.prepare(request); await manager.startConnection(); await manager.startMedia()
     let recorded = ReceivedPackets()
-    let listener = Task { for await event in manager.events { await recorded.record(event) } }
+    let events = manager.events // Register before an immediately deliverable audio packet can arrive.
+    let listener = Task { for await event in events { await recorded.record(event) } }
     defer { listener.cancel() }
     var remote = request
     remote.localPeer = .init(id: .init(rawValue: "remote"), displayName: "Remote")
@@ -390,7 +394,7 @@ private actor ReceivedPackets {
     let deadline = ContinuousClock.now.advanced(by: .seconds(2))
     while await recorded.sequences.isEmpty, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
     // The relay owns sequence ordering independently of the encoder counter.
-    #expect(await recorded.sequences == [2])
+    #expect(await recorded.sequences == [0])
     #expect(route.prepareCount == 1)
     #expect(route.startConnectionCount == 1)
     await manager.stopConnection()
@@ -448,7 +452,7 @@ private actor ReceivedPackets {
         try await Task.sleep(for: .milliseconds(20))
         #expect(await recorded.sequences.count == sequence)
     }
-    #expect(await recorded.sequences == [2, 2])
+    #expect(await recorded.sequences == [0, 0])
 }
 
 private func makeRequest(
@@ -608,3 +612,26 @@ private func relayMessages(_ messages: [ApplicationDataMessage]) -> [Application
     }
 }
 #endif
+
+@Test func audioUsesBothAvailablePathsEvenForTheSameNeighbor() async {
+    let local = FakeRoute(kind: .multipeer), internet = FakeRoute(kind: .webRTC)
+    let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer, .webRTC],
+        preferredRoute: .multipeer, selectionMode: .automaticFallback, fallbackDelay: 0)
+    let manager = RouteManager(routes: [local, internet], configuration: configuration)
+    await manager.prepare(makeRequest(configuration: configuration))
+    await manager.startConnection()
+    try? await Task.sleep(for: .milliseconds(20))
+    let peer = PeerDescriptor(id: PeerID(rawValue: "neighbor"), displayName: "Neighbor")
+    for route in [local, internet] {
+        route.yield(.membersChanged(route.kind, [.init(peer: peer, route: route.kind, isConnected: true)]))
+        route.yield(.stateChanged(route.kind, .mediaReady))
+    }
+    try? await Task.sleep(for: .milliseconds(20))
+    await manager.startMedia()
+    await manager.sendAudioPacket(makePacket(sequenceNumber: 0))
+    for route in [local, internet] {
+        #expect(relayBodies(route.sentApplicationData).contains { if case .audio = $0 { true } else { false } },
+            "A connected Local link may be slower or lose media; the faster Internet copy must remain available")
+    }
+    await manager.stopConnection()
+}

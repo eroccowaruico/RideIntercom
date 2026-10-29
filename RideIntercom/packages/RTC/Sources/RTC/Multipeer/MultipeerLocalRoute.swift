@@ -11,8 +11,8 @@ public actor MultipeerLocalRoute: RTCCallRoute {
             supportsReliableApplicationData: true,
             supportsUnreliableApplicationData: true,
             requiresSignaling: false,
-            supportedAudioCodecs: [.pcm16, .opus, .mpeg4AACELDv2],
-            backendName: "MultipeerConnectivity"
+            supportedAudioCodecs: [.pcm16, .opus, .mpeg4AACELD, .mpeg4AACELDv2],
+            backendName: "Local UDP / Multipeer control"
         )
     }
     nonisolated public var events: AsyncStream<RouteEvent> { eventSource.stream }
@@ -31,7 +31,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
     }
 
     public func networkDiagnostics() async -> RTCRouteNetworkDiagnostics {
-        .init(route: kind, statistics: .init(unavailableReason: "MultipeerConnectivity does not expose RTT, loss or buffered bytes"),
+        .init(route: kind, statistics: transport?.mediaStatistics ?? .init(),
               eventDrops: ["route": eventSource.report, "transport": transportSource?.report ?? .init()])
     }
     public func prepare(_ request: CallStartRequest) async {
@@ -138,14 +138,28 @@ enum MultipeerConnectionEvent: Sendable {
 }
 
 final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
-    var onEvent: ((MultipeerConnectionEvent) -> Void)?
+    private let mediaLock = NSLock()
+    private var eventHandler: (@Sendable (MultipeerConnectionEvent) -> Void)?
+    var onEvent: (@Sendable (MultipeerConnectionEvent) -> Void)? {
+        get { mediaLock.withLock { eventHandler } }
+        set { mediaLock.withLock { eventHandler = newValue } }
+    }
 
     private let request: CallStartRequest
     private let credential: RTCCredential?
     private let native: MultipeerNativeResources
+    private var datagrams: LocalDatagramTransport?
     private var isStopped = false
     private var connectedPeerIDs: Set<PeerID> = []
     private var authenticatedPeers: Set<PeerID> = []
+    private var storedMediaPeers: Set<PeerID> = []
+    private var mediaStopped = false
+    // Only control mutates membership. UDP takes a small immutable snapshot;
+    // it never enters the UI/Bonjour actor or waits behind reliable sends.
+    private var mediaPeers: Set<PeerID> {
+        get { mediaLock.withLock { storedMediaPeers } }
+        set { mediaLock.withLock { storedMediaPeers = newValue } }
+    }
     private var pendingInvites: Set<String> = []
 
     init(request: CallStartRequest) {
@@ -157,6 +171,17 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             self.native = DispatchQueue.main.sync { MultipeerNativeResources(peerName: request.localPeer.id.rawValue) }
         }
         super.init()
+        if let credential {
+            datagrams = LocalDatagramTransport(peerID: request.localPeer.id, groupHash: credential.groupHash) { [weak self] peer, data in
+                self?.receiveDatagram(data, from: peer)
+            }
+        }
+        datagrams?.onFailure = { [weak self] reason in
+            self?.enqueue { [weak self] in
+                guard let self, !self.isStopped else { return }
+                self.onEvent?(.failed(reason))
+            }
+        }
         onQueue { native.session.delegate = self }
     }
 
@@ -169,6 +194,18 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
         DispatchQueue.main.async(execute: operation)
     }
 
+    var mediaStatistics: RTCNetworkStatistics { datagrams?.statistics ?? .init() }
+
+    func receiveDatagram(_ data: Data, from peer: PeerID) {
+        let handler = mediaLock.withLock {
+            !mediaStopped && storedMediaPeers.contains(peer) ? eventHandler : nil
+        }
+        // Only the encrypted group envelope travels over UDP. GroupRelay
+        // authenticates its claimed origin, path, epoch and sequence.
+        handler?(.message(.applicationData(.init(namespace: GroupRelay.namespace,
+            payload: data, delivery: .unreliable)), peer))
+    }
+
     func start() {
         onQueue { [self] in
             stopDiscovery()
@@ -177,9 +214,13 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             native.session = MCSession(peer: native.localPeerID, securityIdentity: nil, encryptionPreference: .required)
             native.session.delegate = self
             isStopped = false
+            mediaLock.withLock { mediaStopped = false }
             connectedPeerIDs.removeAll()
             authenticatedPeers.removeAll()
+            mediaPeers.removeAll()
             onEvent?(.state(.connecting))
+            do { try datagrams?.start() }
+            catch { onEvent?(.failed("Local UDP listener could not start")); return }
 
             let advertiser = MCNearbyServiceAdvertiser(
                 peer: native.localPeerID,
@@ -199,19 +240,28 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
     }
 
     func stop() {
+        mediaLock.withLock { mediaStopped = true; storedMediaPeers.removeAll() }
         onQueue { [self] in
             isStopped = true
+            datagrams?.stop()
             connectedPeerIDs.removeAll()
             stopDiscovery()
             native.session.delegate = nil
             native.session.disconnect()
             authenticatedPeers.removeAll()
+            mediaPeers.removeAll()
             onEvent?(.state(.disconnected))
 
         }
     }
 
     func send(_ payload: TransportPayload) {
+        if let audio = payload.groupAudio {
+            let peers = mediaLock.withLock { mediaStopped ? [] : Array(storedMediaPeers) }
+            guard !peers.isEmpty else { return }
+            _ = datagrams?.send(audio, to: peers)
+            return
+        }
         onQueue { [self] in
             guard !isStopped else { return }
             let peers = native.session.connectedPeers.filter { authenticatedPeers.contains(PeerID(rawValue: $0.displayName)) }
@@ -234,8 +284,13 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
                 return true
             }
             guard handshake.verify(credential: credential) else { return false }
+            if !mediaPeers.contains(peerID), mediaPeers.count >= 7 {
+                guard let departed = mediaPeers.subtracting(connectedPeerIDs).first else { return false }
+                mediaPeers.remove(departed)
+            }
             authenticatedPeers.insert(peerID)
-            onEvent?(.members(Array(authenticatedPeers)))
+            mediaPeers.insert(peerID)
+            onEvent?(.members(Array(mediaPeers)))
             return true
 
         }
@@ -345,9 +400,12 @@ extension MultipeerConnectionTransport: MCSessionDelegate {
             case .notConnected:
                 connectedPeerIDs.remove(PeerID(rawValue: peerID.displayName))
                 pendingInvites.remove(peerID.displayName)
+                // A control stream interruption does not tear down UDP media.
+                // GroupRelay expires absent peers and rejects expired/left epochs.
                 authenticatedPeers.remove(PeerID(rawValue: peerID.displayName))
-                onEvent?(.members(Array(authenticatedPeers)))
-                onEvent?(.state(connectedPeerIDs.isEmpty ? .disconnected : (authenticatedPeers.isEmpty ? .connected : .authenticated)))
+                let reachable = authenticatedPeers.union(mediaPeers)
+                onEvent?(.members(Array(reachable)))
+                onEvent?(.state(!reachable.isEmpty ? .authenticated : (connectedPeerIDs.isEmpty ? .disconnected : .connected)))
             @unknown default:
                 break
             }

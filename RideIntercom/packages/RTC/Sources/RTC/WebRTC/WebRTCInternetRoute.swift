@@ -8,7 +8,7 @@ public actor WebRTCInternetRoute: RTCCallRoute {
         supportsReliableApplicationData: true,
         supportsUnreliableApplicationData: true,
         requiresSignaling: true,
-        supportedAudioCodecs: [.pcm16, .opus, .mpeg4AACELDv2],
+        supportedAudioCodecs: [.pcm16, .opus, .mpeg4AACELD, .mpeg4AACELDv2],
         backendName: "Cloudflare Realtime SFU"
     )
     public nonisolated var events: AsyncStream<RouteEvent> { eventSource.stream }

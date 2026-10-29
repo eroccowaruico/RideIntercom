@@ -9,6 +9,8 @@ public struct RTCEventDropReport: Codable, Equatable, Sendable {
 
 public struct RTCNetworkStatistics: Codable, Equatable, Sendable {
     public var roundTripTime: TimeInterval?
+    public var sentMediaDatagrams: UInt64? = nil
+    public var receivedMediaDatagrams: UInt64? = nil
     public var bufferedBytes: UInt64?
     /// DataChannel/SCTP does not expose an RTP packet-loss fraction. Never substitute zero.
     public var packetLoss: Double? = nil

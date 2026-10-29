@@ -70,32 +70,29 @@ struct PacketAudioReceiveBuffer: Sendable {
         let expiredPacketCount = queuedCountBeforeExpiration - queuedPackets.count
         droppedPacketCount += expiredPacketCount
 
-        var readyPackets: [QueuedPacket] = []
-        var pendingPackets: [QueuedPacket] = []
-        for queuedPacket in queuedPackets {
-            if now - queuedPacket.receivedAt >= configuration.playoutDelay {
-                readyPackets.append(queuedPacket)
-            } else {
-                pendingPackets.append(queuedPacket)
-            }
-        }
-        queuedPackets = pendingPackets
-
-        let candidates = readyPackets
-            .sorted { left, right in
-                left.sortKey < right.sortKey
-            }
-            .map(\.filtered.received)
-
         var ready: [ReceivedAudioPacket] = []
-        for received in candidates {
-            if let last = lastDeliveredSequence[received.peerID], received.packet.sequenceNumber <= last {
+        var pending: [QueuedPacket] = []
+        // Sort before advancing each sender's independent sequence. Contiguous
+        // packets can leave immediately; only an unresolved gap needs a timer.
+        for queued in queuedPackets.sorted(by: { $0.sortKey < $1.sortKey }) {
+            let received = queued.filtered.received
+            let last = lastDeliveredSequence[received.peerID]
+            let sequence = received.packet.sequenceNumber
+            if let last, sequence <= last {
                 droppedPacketCount += 1
-            } else {
+                continue
+            }
+            // A participant can join an established stream at any sequence.
+            // There is no observed gap until this receiver has a predecessor.
+            let contiguous = last.map { $0 != UInt64.max && sequence == $0 + 1 } ?? true
+            if contiguous || now - queued.receivedAt >= configuration.playoutDelay {
                 ready.append(received)
-                lastDeliveredSequence[received.peerID] = received.packet.sequenceNumber
+                lastDeliveredSequence[received.peerID] = sequence
+            } else {
+                pending.append(queued)
             }
         }
+        queuedPackets = pending
 
         return PacketAudioReceiveBufferReport(
             readyPackets: ready,
@@ -186,6 +183,7 @@ enum TransportSendMode: Equatable, Sendable {
 struct TransportPayload: Equatable, Sendable {
     var data: Data
     var mode: TransportSendMode
+    var groupAudio: Data? = nil
 }
 
 enum MultipeerPayloadBuilder {
@@ -195,7 +193,8 @@ enum MultipeerPayloadBuilder {
 
     static func makeApplicationDataPayload(_ message: ApplicationDataMessage) throws -> TransportPayload {
         let mode: TransportSendMode = message.delivery == .reliable ? .reliable : .unreliable
-        return TransportPayload(data: try encode(.applicationData(message)), mode: mode)
+        return TransportPayload(data: try encode(.applicationData(message)), mode: mode,
+            groupAudio: message.namespace == GroupRelay.namespace && mode == .unreliable ? message.payload : nil)
     }
 
     static func decode(_ data: Data) throws -> MultipeerWireMessage {

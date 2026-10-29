@@ -7,6 +7,10 @@ private func drainMultipeerDelegateQueue() async {
     await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
 }
 
+@MainActor private func waitWithControlActorOccupied(_ completion: DispatchSemaphore) -> Bool {
+    completion.wait(timeout: .now() + .milliseconds(30)) == .success
+}
+
 @MainActor
 private func nativeResource<T>(_ transport: MultipeerConnectionTransport, _ name: String, as type: T.Type) throws -> T {
     let owner = try #require(Mirror(reflecting: transport).children.first { $0.label == "native" }?.value)
@@ -16,7 +20,7 @@ private func nativeResource<T>(_ transport: MultipeerConnectionTransport, _ name
 @Test func localTransportCapabilitiesDoNotFreezeTheInitialCodecPreference() {
     let routes = CallSessionFactory.makeRoutes(.init(
         routeConfiguration: .init(enabledRoutes: [.multipeer]), audioPolicy: .init(preferredCodecs: [.pcm16])))
-    #expect(Set(routes.first?.capabilities.supportedAudioCodecs ?? []) == [.pcm16, .opus, .mpeg4AACELDv2])
+    #expect(Set(routes.first?.capabilities.supportedAudioCodecs ?? []) == [.pcm16, .opus, .mpeg4AACELD, .mpeg4AACELDv2])
 }
 
 @Test @MainActor func simultaneousDiscoveryHasExactlyOneInvitationInitiator() async throws {
@@ -55,6 +59,47 @@ private final class TransportEvents: @unchecked Sendable {
     var messages: Int {
         lock.withLock { events.filter { if case .message = $0 { return true }; return false }.count }
     }
+}
+
+@Test @MainActor func localAudioSendDoesNotWaitForTheControlActor() throws {
+    let transport = MultipeerConnectionTransport(request: CallStartRequest(sessionID: "media-deadline",
+        localPeer: .init(id: .init(rawValue: "local"), displayName: "Local"),
+        credential: .derived(groupID: "media-deadline", secret: "fixture")))
+    defer { transport.stop() }
+    let payload = try MultipeerPayloadBuilder.makeApplicationDataPayload(.init(
+        namespace: GroupRelay.namespace, payload: Data([1]), delivery: .unreliable))
+    let completed = DispatchSemaphore(value: 0)
+    DispatchQueue.global(qos: .userInteractive).async {
+        transport.send(payload)
+        completed.signal()
+    }
+    // Model an occupied UI/control actor. An unavailable UDP endpoint must
+    // be discarded immediately, without synchronously hopping to that actor.
+    #expect(waitWithControlActorOccupied(completed))
+}
+
+@Test @MainActor func authenticatedDatagramReceptionDoesNotWaitForTheControlActor() async throws {
+    let credential = RTCCredential.derived(groupID: "receive-deadline", secret: "fixture")
+    let transport = MultipeerConnectionTransport(request: CallStartRequest(sessionID: "receive-deadline",
+        localPeer: .init(id: .init(rawValue: "local"), displayName: "Local"), credential: credential))
+    defer { transport.stop() }
+    let events = TransportEvents()
+    transport.onEvent = { events.append($0) }
+    let session = try nativeResource(transport, "session", as: MCSession.self)
+    let peer = MCPeerID(displayName: "remote"), peerID = PeerID(rawValue: "remote")
+    transport.session(session, peer: peer, didChange: .connected)
+    await drainMultipeerDelegateQueue()
+    #expect(transport.accept(.make(credential: credential, senderID: peerID), from: peerID))
+    let completed = DispatchSemaphore(value: 0)
+    DispatchQueue.global(qos: .userInteractive).async {
+        transport.receiveDatagram(Data([1]), from: peerID)
+        completed.signal()
+    }
+    #expect(waitWithControlActorOccupied(completed))
+    #expect(events.messages == 1, "The media event must arrive while the control actor is occupied")
+    transport.stop()
+    transport.receiveDatagram(Data([2]), from: peerID)
+    #expect(events.messages == 1, "Stop revokes the fast path too")
 }
 
 @Test @MainActor func multipeerRejectsUnauthenticatedDataAndRetiredSessionCallbacks() async throws {

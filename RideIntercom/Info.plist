@@ -16,6 +16,7 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_ride-intercom._tcp</string>
+		<string>_ride-audio._udp</string>
 	</array>
 	<key>NSQuitAlwaysKeepsWindows</key>
 	<false/>

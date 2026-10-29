@@ -3,6 +3,23 @@ import Testing
 @testable import RTC
 
 @Suite struct RelayTests {
+    @Test func controlTrafficAndCaptureCounterRestartsDoNotDelayAudio() throws {
+        var sender = node("a"), receiver = node("b")
+        var buffer = PacketAudioReceiveBuffer()
+        for index in 0..<50 {
+            let now = Double(index) * 0.01
+            _ = receiver.receive(try sender.make(.presence, now: now), from: .init(rawValue: "a"), now: now)
+            // Capture counters may restart; the relay owns an audio-only
+            // sequence within its authenticated sender epoch.
+            let audio = RTCAudioPacket(sequenceNumber: 0, codec: .pcm16, payload: Data([1, 2]))
+            let reception = try #require(receiver.receive(try sender.make(.audio(audio), now: now),
+                from: .init(rawValue: "a"), now: now))
+            guard case .audio(let packet) = reception.body else { Issue.record("Missing audio"); return }
+            #expect(packet.sequenceNumber == UInt64(index))
+            buffer.enqueue(.init(received: .init(peerID: .init(rawValue: "a"), packet: packet)), receivedAt: now)
+            #expect(buffer.drain(now: now).readyPackets.count == 1, "Control traffic must not create a reorder wait")
+        }
+    }
     let credential = RTCCredential.derived(groupID: "group", secret: "secret")
     func node(_ id: String) -> GroupRelay {
         GroupRelay(request: CallStartRequest(sessionID: "group", localPeer: .init(id: .init(rawValue: id), displayName: id), credential: credential))
@@ -138,11 +155,13 @@ import Testing
 @Test func pendingReorderedSpeechCannotPlayAfterNewerReadyAudio() {
     var buffer = PacketAudioReceiveBuffer(configuration: .init(playoutDelay: 0.02, packetLifetime: 1))
     let peer = PeerID(rawValue: "peer")
+    buffer.enqueue(.init(received: .init(peerID: peer, packet: .init(sequenceNumber: 7, codec: .pcm16, payload: Data([1])))), receivedAt: -1)
+    #expect(buffer.drain(now: -1).readyPackets.map(\.packet.sequenceNumber) == [7])
     for (sequence, arrival) in [(10, 0.0), (9, 0.01), (11, 0.02)] {
         buffer.enqueue(.init(received: .init(peerID: peer, packet: .init(sequenceNumber: UInt64(sequence), codec: .pcm16, payload: Data([1])))), receivedAt: arrival)
     }
-    #expect(buffer.drain(now: 0.025).readyPackets.map(\.packet.sequenceNumber) == [10])
+    #expect(buffer.drain(now: 0.025).readyPackets.map(\.packet.sequenceNumber) == [10, 11])
     let next = buffer.drain(now: 0.05)
-    #expect(next.readyPackets.map(\.packet.sequenceNumber) == [11])
+    #expect(next.readyPackets.isEmpty)
     #expect(next.droppedPacketCount == 1)
 }
