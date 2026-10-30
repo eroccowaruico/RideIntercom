@@ -24,7 +24,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
     private var generation = UUID()
     private var outgoing: [String: NWConnection] = [:]
     private var replacements: [String: NWConnection] = [:]
-    private var retryAfter: [String: (deadline: TimeInterval, delay: TimeInterval)] = [:]
+    private var retryAfter: [String: ConnectionRetry] = [:]
     private var ready: Set<String> = []
     private var incoming: [UUID: (connection: NWConnection, lastActivity: TimeInterval)] = [:]
     private var endpoints: [String: NWEndpoint] = [:]
@@ -142,8 +142,8 @@ final class LocalDatagramTransport: @unchecked Sendable {
                     self.outgoing[serviceName] = nil
                 }
                 connection.cancel()
-                let delay = min(30, (self.retryAfter[serviceName]?.delay ?? 1) * 2)
-                self.retryAfter[serviceName] = (ProcessInfo.processInfo.systemUptime + delay, delay)
+                self.retryAfter[serviceName] = ConnectionRetry(after: self.retryAfter[serviceName],
+                    at: ProcessInfo.processInfo.systemUptime, policy: .connectionRecovery)
             default:
                 if self.outgoing[serviceName] === connection { self.ready.remove(serviceName) }
             }
@@ -199,9 +199,10 @@ final class LocalDatagramTransport: @unchecked Sendable {
                     guard let self, self.generation == token, self.outgoing[name] === connection else { return }
                     self.inFlight[name] = max(0, self.inFlight[name, default: 0] - bytes.count)
                     if error != nil {
-                        let delay = min(30, (self.retryAfter[name]?.delay ?? 1) * 2)
+                        let retry = ConnectionRetry(after: self.retryAfter[name],
+                            at: ProcessInfo.processInfo.systemUptime, policy: .connectionRecovery)
                         self.removeOutgoing(name)
-                        self.retryAfter[name] = (ProcessInfo.processInfo.systemUptime + delay, delay)
+                        self.retryAfter[name] = retry
                     }
                 })
                 self.sent += 1

@@ -19,7 +19,7 @@ public actor RouteManager: CallSession {
     private var routeAvailabilities: [RouteKind: RouteAvailability] = [:]
     private var routeMembers: [RouteKind: Set<PeerID>] = [:]
     private var started: Set<RouteKind> = []
-    private var retries: [RouteKind: (deadline: TimeInterval, delay: TimeInterval)] = [:]
+    private var retries: [RouteKind: ConnectionRetry] = [:]
     private var activeRoute: RouteKind?
     private var mediaRoute: RouteKind? { activeRoute }
     private var availableRoutes: Set<RouteKind> = []
@@ -197,8 +197,8 @@ public actor RouteManager: CallSession {
             } else if state == .failed || state == .disconnected {
                 availableRoutes.remove(kind); routeMembers[kind] = []
                 if started.contains(kind) {
-                    let delay = min(30, (retries[kind]?.delay ?? 1) * 2)
-                    retries[kind] = (ProcessInfo.processInfo.systemUptime + delay, delay)
+                    retries[kind] = ConnectionRetry(after: retries[kind],
+                        at: ProcessInfo.processInfo.systemUptime, policy: .connectionRecovery)
                 }
             }
             updateState(); emitRouteSnapshot()
@@ -287,7 +287,7 @@ public actor RouteManager: CallSession {
             // The next attempt owns its connection timeout. Re-arming this
             // timer here repeatedly destroys a still-connecting native route.
             // A subsequent failure schedules the next backoff; success clears it.
-            retries[kind]?.deadline = .infinity
+            retries[kind]?.beginAttempt()
             started.remove(kind)
             await routes[kind]?.prepare(request)
             guard generation == token else { return }

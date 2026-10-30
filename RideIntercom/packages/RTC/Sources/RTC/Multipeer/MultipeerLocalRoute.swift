@@ -284,7 +284,7 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
                 onEvent?(.members(Array(authenticatedPeers)))
                 return true
             }
-            guard handshake.verify(credential: credential) else { return false }
+            guard handshake.senderID == peerID, handshake.verify(credential: credential) else { return false }
             if !mediaPeers.contains(peerID), mediaPeers.count >= 7 {
                 guard let departed = mediaPeers.subtracting(connectedPeerIDs).first else { return false }
                 mediaPeers.remove(departed)

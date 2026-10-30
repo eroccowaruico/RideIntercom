@@ -10,6 +10,11 @@ private final class DatagramRecording: @unchecked Sendable {
     var packets: [(PeerID, Data, TimeInterval)] { lock.withLock { values } }
 }
 
+// These tests share native Bonjour/run-loop resources. Do not overlap the
+// deliberate control-actor stalls and restart storms with the 50 ms latency gate.
+@Suite(.serialized) struct LocalTransportTests {}
+
+extension LocalTransportTests {
 @Test func localDatagramsArriveImmediatelyWithoutReliableRecoveryOrBacklog() async throws {
     let recording = DatagramRecording()
     let senderID = PeerID(rawValue: "sender"), receiverID = PeerID(rawValue: "receiver")
@@ -164,4 +169,6 @@ private final class DatagramRecording: @unchecked Sendable {
     queue.sync { lostPath(false) }
     #expect(!sender.isReady(for: receiverID))
     #expect(sender.send(Data([255]), to: [receiverID]).isEmpty)
+}
+
 }

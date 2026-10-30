@@ -17,6 +17,7 @@ private func nativeResource<T>(_ transport: MultipeerConnectionTransport, _ name
     return try #require(Mirror(reflecting: owner).children.first { $0.label == name }?.value as? T)
 }
 
+extension LocalTransportTests {
 @Test func localTransportCapabilitiesDoNotFreezeTheInitialCodecPreference() {
     let routes = CallSessionFactory.makeRoutes(.init(
         routeConfiguration: .init(enabledRoutes: [.multipeer]), audioPolicy: .init(preferredCodecs: [.pcm16])))
@@ -27,7 +28,18 @@ private func nativeResource<T>(_ transport: MultipeerConnectionTransport, _ name
     let credential = RTCCredential.derived(groupID: "invitation-election", secret: "test-only")
     let a = MultipeerConnectionTransport(request: CallStartRequest(sessionID: "s", localPeer: .init(id: .init(rawValue: "a"), displayName: "A"), credential: credential))
     let b = MultipeerConnectionTransport(request: CallStartRequest(sessionID: "s", localPeer: .init(id: .init(rawValue: "b"), displayName: "B"), credential: credential))
-    a.start(); b.start()
+    // Drive discovery delegates explicitly. Real discovery can finish a native
+    // connection and clear pendingInvites before the election assertion runs.
+    for transport in [a, b] {
+        transport.start()
+        let browser = try nativeResource(transport, "browser", as: MCNearbyServiceBrowser.self)
+        browser.delegate = nil
+        browser.stopBrowsingForPeers()
+        let advertiser = try nativeResource(transport, "advertiser", as: MCNearbyServiceAdvertiser.self)
+        advertiser.delegate = nil
+        advertiser.stopAdvertisingPeer()
+        try nativeResource(transport, "session", as: MCSession.self).delegate = nil
+    }
     defer { a.stop(); b.stop() }
     for (transport, remote) in [(a, "b"), (b, "a")] {
         let browser = try nativeResource(transport, "browser", as: MCNearbyServiceBrowser.self)
@@ -119,6 +131,9 @@ private final class TransportEvents: @unchecked Sendable {
     transport.session(session, didReceive: payload.data, fromPeer: peer)
     await drainMultipeerDelegateQueue()
     #expect(events.messages == 0)
+    #expect(!transport.accept(RouteHandshakeMessage.make(credential: credential,
+        senderID: .init(rawValue: "different-peer")), from: peerID),
+        "The authenticated identity must match the discovered peer whose UDP service will be resolved")
     #expect(transport.accept(RouteHandshakeMessage.make(credential: credential, senderID: peerID), from: peerID))
     transport.session(session, didReceive: payload.data, fromPeer: peer)
     await drainMultipeerDelegateQueue()
@@ -164,4 +179,6 @@ private final class TransportEvents: @unchecked Sendable {
     transport.session(session, didReceive: payload.data, fromPeer: a)
     await drainMultipeerDelegateQueue()
     #expect(events.messages == 2)
+}
+
 }
