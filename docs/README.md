@@ -61,6 +61,7 @@
 | [backlog/README.md](<backlog/README.md>) | 課題と候補 |
 | [backlog/改善候補.md](<backlog/改善候補.md>) | 改善候補 |
 | [backlog/未実装課題.md](<backlog/未実装課題.md>) | 未実装課題 |
+| [backlog/機能拡張の実装前整理.md](<backlog/機能拡張の実装前整理.md>) | 追加要望の全体点検、実装前の判断事項と成立条件 |
 
 ### 利用マニュアル
 
