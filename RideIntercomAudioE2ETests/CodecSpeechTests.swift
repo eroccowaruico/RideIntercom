@@ -16,7 +16,7 @@ extension AudioE2ETests {
         for rate in [16000.0, 24000, 48000] {
             let format = AudioFormat(sampleRate: rate, channelCount: 1)
             settings.append((.pcm16, rate, 32000))
-            for bitRate in [AppAudioCodecBridge.minimumOpusBitRate(format: format), 32000, 128000] {
+            for bitRate in [48000, 64000, 128000] {
                 settings.append((.opus, rate, bitRate))
             }
             for bitRate in AppAudioCodecBridge.availableAACBitRates(format: format) {

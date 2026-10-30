@@ -32,7 +32,7 @@ nonisolated struct AppAudioPipelineConfiguration: Equatable, Sendable {
         outputHardwareFormat: AudioFormat = .intercomHardwarePreferred,
         preferredCodec: AudioCodecIdentifier = .pcm16,
         aacELDv2BitRate: Int = 48_000,
-        opusBitRate: Int = 32_000,
+        opusBitRate: Int = Codec.OpusOptions().bitRate,
         masterOutputVolume: Float = 1,
         isOutputMuted: Bool = false,
         peerOutputVolumes: [String: Float] = [:],

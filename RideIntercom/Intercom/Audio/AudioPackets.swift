@@ -87,7 +87,7 @@ struct AppAudioCodecOptions: Sendable {
     private let aacELDv2BitRate: Int
     private let opusBitRate: Int
 
-    init(aacELDv2BitRate: Int = 48_000, opusBitRate: Int = 32_000) {
+    init(aacELDv2BitRate: Int = 48_000, opusBitRate: Int = Codec.OpusOptions().bitRate) {
         self.aacELDv2BitRate = Codec.AACELDv2Options(bitRate: aacELDv2BitRate).bitRate
         self.opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
     }
@@ -106,12 +106,6 @@ enum AppAudioCodecBridge {
     // retain the existing identity gate for English, Japanese and brief replies.
     static func minimumAACBitRate(format: AudioFormat) -> Int {
         format.sampleRate == 24000 ? 32000 : 48000
-    }
-    static func minimumOpusBitRate(format: AudioFormat) -> Int {
-        format.sampleRate == 16000 ? 16000 : 24000
-    }
-    static func normalizedOpusBitRate(_ requested: Int, format: AudioFormat) -> Int {
-        max(minimumOpusBitRate(format: format), Codec.OpusOptions(bitRate: requested).bitRate)
     }
     private static var aacBitRateChoices: [String: [Int]] = [:]
     static func availableAACBitRates(format: AudioFormat) -> [Int] {

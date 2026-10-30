@@ -171,7 +171,7 @@ extension IntercomViewModel {
     }
 
     func setOpusBitRate(_ bitRate: Int) {
-        opusBitRate = AppAudioCodecBridge.normalizedOpusBitRate(bitRate, format: rtcAudioFormatPreset.audioFormat)
+        opusBitRate = Codec.OpusOptions(bitRate: bitRate).bitRate
         refreshPackageRuntimeSnapshots()
         setLocalActiveCodec(selectedTransmitCodec)
         updateAudioPipelineCodecSettings()
@@ -190,7 +190,7 @@ extension IntercomViewModel {
         guard rtcAudioFormatPreset != preset else { return }
         rtcAudioFormatPreset = preset
         aacELDv2BitRate = AppAudioCodecBridge.normalizedAACBitRate(aacELDv2BitRate, format: preset.audioFormat)
-        opusBitRate = AppAudioCodecBridge.normalizedOpusBitRate(opusBitRate, format: preset.audioFormat)
+        opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
         refreshPackageRuntimeSnapshots()
         do {
             if isAudioReady { try audioPipeline.updateTransmitFormat(preset.audioFormat) }

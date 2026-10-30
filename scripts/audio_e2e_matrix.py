@@ -32,7 +32,7 @@ def scenarios(mode, seconds):
             for codec in ['pcm16', 'opus', 'mpeg4AACELD']
             for rate in ['mono16k', 'mono24k', 'mono48k']]
     full += [case(f'opus-{rate}-bitrate-{bitrate}', codec='opus', format=rate, bitRate=bitrate)
-             for rate in ['mono16k', 'mono24k', 'mono48k'] for bitrate in ((16000 if rate == 'mono16k' else 24000), 128000)]
+             for rate in ['mono16k', 'mono24k', 'mono48k'] for bitrate in (48000, 128000)]
     full += [case(f'AAC-{rate}-bitrate-{bitrate}', codec='mpeg4AACELD', format=rate, bitRate=bitrate)
              for rate, limits in [('mono16k', (48000, 48000)), ('mono24k', (32000, 64000)),
                                   ('mono48k', (48000, 128000))] for bitrate in sorted(set(limits))]

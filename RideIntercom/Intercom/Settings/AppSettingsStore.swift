@@ -25,7 +25,7 @@ struct AppSettings: Equatable {
         self.preferredTransmitCodec = preferredTransmitCodec
         self.rtcAudioFormatPreset = rtcAudioFormatPreset
         self.aacELDv2BitRate = AppAudioCodecBridge.normalizedAACBitRate(aacELDv2BitRate, format: rtcAudioFormatPreset.audioFormat)
-        self.opusBitRate = AppAudioCodecBridge.normalizedOpusBitRate(opusBitRate, format: rtcAudioFormatPreset.audioFormat)
+        self.opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
         self.enabledRTCTransportRoutes = IntercomViewModel.normalizedRTCTransportRoutes(enabledRTCTransportRoutes)
     }
 }

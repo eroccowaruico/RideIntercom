@@ -25,8 +25,8 @@ extension AudioE2ETests {
         let network = DelayedGroupNetwork()
         let kinds: [Set<RouteKind>] = [[.multipeer], [.multipeer], [.multipeer, .webRTC], [.multipeer, .webRTC],
             [.webRTC], [.webRTC], [.multipeer, .webRTC], [.multipeer, .webRTC]]
-        let settings: [(CodecIdentifier, Double, Int)] = [(.pcm16,48000,32000),(.opus,48000,32000),
-            (.opus,24000,16000),(.opus,16000,24000),(.mpeg4AACELD,48000,64000),
+        let settings: [(CodecIdentifier, Double, Int)] = [(.pcm16,48000,32000),(.opus,48000,48000),
+            (.opus,24000,64000),(.opus,16000,128000),(.mpeg4AACELD,48000,64000),
             (.mpeg4AACELD,48000,32000),(.mpeg4AACELD,24000,32000),(.mpeg4AACELD,16000,24000)]
         let frequencies = [230.0,310,430,570,710,890,1070,1270]
         var managers: [RouteManager] = [], encoders: [StreamingCodecEncoder] = [], listeners: [Task<Void,Never>] = []

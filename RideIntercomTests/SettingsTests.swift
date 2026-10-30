@@ -34,7 +34,7 @@ struct SettingsTests {
 
         #expect(harness.viewModel.preferredTransmitCodec == .mpeg4AACELD)
         #expect(harness.viewModel.aacELDv2BitRate == 48_000)
-        #expect(harness.viewModel.opusBitRate == 32_000)
+        #expect(harness.viewModel.opusBitRate == 48_000)
         #expect(harness.callSession.audioPolicies.last?.preferredCodecs.first == AppAudioCodecBridge.selectedRTCCodec(.mpeg4AACELD))
         #expect(harness.callSession.audioPolicies.last?.preferredSendFormat == RTC.RTCAudioFormat(audioFormat: .intercomPacketAudio))
 
@@ -122,6 +122,24 @@ struct SettingsTests {
         #expect(saved.rtcAudioFormatPreset == .mono24k)
         #expect(saved.aacELDv2BitRate == 32_000)
         #expect(saved.opusBitRate == 128_000)
+    }
+
+    @Test func legacyOpusBitrateMigratesWithoutChangingAACOrFormat() {
+        let suiteName = "RideIntercomTests.legacy-opus.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(32_000, forKey: "RideIntercom.settings.opusBitRate")
+        let store = UserDefaultsAppSettingsStore(defaults: defaults)
+        let harness = AppTestSupport.makeHarness(appSettingsStore: store)
+        #expect(harness.viewModel.opusBitRate == 48_000)
+        #expect(harness.viewModel.aacELDv2BitRate == 48_000)
+        for format in RTCAudioFormatPreset.allCases {
+            harness.viewModel.setRTCAudioFormatPreset(format)
+            harness.viewModel.setOpusBitRate(16_000)
+            #expect(harness.viewModel.opusBitRate == 48_000)
+            #expect(store.load().opusBitRate == 48_000)
+            #expect(store.load().rtcAudioFormatPreset == format)
+        }
     }
 
     @Test func userDefaultsSettingsStoreMigratesLegacyRTCTransportRouteSettingsToDefault() {

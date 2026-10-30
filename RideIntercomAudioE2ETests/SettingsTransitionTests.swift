@@ -121,17 +121,17 @@ extension AudioE2ETests {
             changeHostTimes.append(changeStart)
             switch index {
             case 1: try pipeline.updateSoundIsolation(transmit: true, receiveMaster: false, peers: [:])
-            case 2: pipeline.updateCodec(preferred: .opus, aacELDv2BitRate: 64000, opusBitRate: 32000)
-            case 3: pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 64000, opusBitRate: 32000)
+            case 2: pipeline.updateCodec(preferred: .opus, aacELDv2BitRate: 64000, opusBitRate: 48000)
+            case 3: pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 64000, opusBitRate: 48000)
             case 4:
                 try pipeline.updateTransmitFormat(.init(sampleRate: 16000, channelCount: 1))
-                pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 48000, opusBitRate: 32000)
+                pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 48000, opusBitRate: 48000)
             case 5:
                 try pipeline.updateTransmitFormat(.init(sampleRate: 24000, channelCount: 1))
-                pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 32000, opusBitRate: 32000)
+                pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 32000, opusBitRate: 48000)
             case 6:
                 try pipeline.updateTransmitFormat(.init())
-                pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 64000, opusBitRate: 32000)
+                pipeline.updateCodec(preferred: .mpeg4AACELD, aacELDv2BitRate: 64000, opusBitRate: 48000)
             case 7: try pipeline.updateSoundIsolation(transmit: false, receiveMaster: false, peers: [:])
             case 8: try pipeline.updateSoundIsolation(transmit: false, receiveMaster: true, peers: [:])
             case 9: try pipeline.updateSoundIsolation(transmit: false, receiveMaster: false, peers: [:])

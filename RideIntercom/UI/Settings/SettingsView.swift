@@ -1,5 +1,6 @@
 import SwiftUI
 import RTC
+import Codec
 
 struct SettingsView: View {
     @Bindable var viewModel: IntercomViewModel
@@ -225,7 +226,7 @@ struct TransmitCodecPanel: View {
                         get: { viewModel.opusBitRate },
                         set: { viewModel.setOpusBitRate($0) }
                     ),
-                    range: AppAudioCodecBridge.minimumOpusBitRate(format: viewModel.rtcAudioFormatPreset.audioFormat)...128_000,
+                    range: Codec.OpusOptions.allowedBitRateRange,
                     step: 2_000,
                     accessibilityIdentifier: "opusBitRateStepper"
                 )

@@ -23,7 +23,7 @@ final class IntercomViewModel {
     nonisolated static let defaultTransmitCodec: AudioCodecIdentifier = .mpeg4AACELD
     nonisolated static let defaultRTCAudioFormatPreset: RTCAudioFormatPreset = .mono48k
     nonisolated static let defaultAACELDv2BitRate = 48_000
-    nonisolated static let defaultOpusBitRate = 32_000
+    nonisolated static let defaultOpusBitRate = Codec.OpusOptions().bitRate
     nonisolated static let supportedRTCTransportRoutes = AppRTCTransportRoutePolicy.supportedRoutes
     nonisolated static let defaultEnabledRTCTransportRoutes: Set<RTC.RouteKind> = supportedRTCTransportRoutes
     nonisolated static let defaultMasterOutputVolume: Float = 1
