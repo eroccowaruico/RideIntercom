@@ -31,6 +31,8 @@ GitHub連携ではSettings → Builds → Branch controlのEnable Preview Builds
 
 ## Apple登録入口の保護
 
+削除時のApple認可取消には、AppleのSign in with Apple private keyから発行した有効なclient-secret JWTを環境別secret `APPLE_CLIENT_SECRET`へ登録する。client ID・team ID・key ID・有効期限をApple側設定と合わせ、期限前に更新する。値を通常変数・Git・ログへ入れない。未設定でもBearerによるアカウントデータ削除は利用できるが、Apple再認証付きの取消は503となる。実Apple受入は別途行う。
+
 `APPLE_AUTH_ENABLED`はProduction/Previewとも既定でfalseのままにする。AppのInternet登録は端末証明の発行も必要なため、有効化する際は環境専用のP-256 private JWKをsecret `DEVICE_IDENTITY_SIGNING_KEY`へ登録する。未設定では証明発行が503となり、Appは新資格を回収して登録を完了させない。既存のLocal通話はこの設定を待たない。秘密鍵を通常変数・Git・ログへ入れない。証明の契約と鍵変更時の再取得は[Worker仕様](../spec/server/Worker.md#ユーザーと端末の署名付き証明)を参照する。合わせて`APPLE_CLIENT_ID`と、`APPLE_ENROLLMENT_IP_LIMIT`・`APPLE_ENROLLMENT_GLOBAL_LIMIT`の両bindingを配置する。`wrangler.toml`は送信元別30回/60秒、全体300回/60秒を指定し、Productionのnamespace 1001/1002とPreviewの1003/1004を分ける。同じCloudflareアカウントの別Workerでこのnamespaceを共用しない。
 
 登録制限の429には60秒待って新たに認証を準備する。409 / `device_limit_reached`は登録8端末の上限であり、単なる待機では解除されない。利用できる他端末でInternet資格をサインアウト・失効するか、その資格の期限を待つ。既存端末の再認証は上限でも可能。`/api/auth/session`のGET/DELETEは登録頻度制限から独立している。保存済み資格の値やApple tokenを診断へ貼らない。

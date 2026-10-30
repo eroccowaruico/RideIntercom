@@ -1,5 +1,21 @@
 # 検証状況と証跡
 
+## アカウント削除時のApple認可取消（2026-10-31）
+
+削除時だけ新しいApple認証のコードを交換し、確認したrefresh tokenを使って認可を取り消すserver処理を追加した。通常ログインの保存情報は増やさず、取消待ちのtoken・試行状態だけを保持する。[Worker契約](../spec/server/Worker.md#アカウントの端末登録削除)を参照。
+
+証跡は`.validation/apple-deletion-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| TDD | Apple取消済みの応答を返せない失敗を先に確認。Workersでredirect=errorが使えない点を実行で確認し、manualとHTTP応答検査で転送を拒否。調査用変更はローカルbundleだけに限定し、最終buildで除去 |
+| Worker | 型検査と全52件成功、失敗・skipなし。実Cloudflare・Apple資格は使わず、workerd・SQLite DOと固定originの代替providerを使用 |
+| 削除・再試行 | 正常取消、別人のBearer/subject、外部redirect、過大応答、並行する削除と登録、失敗後の再起動、24時間経過、再試行上限と最低間隔、完了した古い削除の再送を確認 |
+| 結合 | 実Swift client→HTTP/WS→Worker/DOの1件成功。既存join・renew・peer交換・再参加を確認。SFU媒体providerは代替であり、音声実測ではない |
+| 整合 | 検証前後のsource/configuration指紋一致。文書・開発設定検査成功。App・packageの実装は変更していない |
+
+Appの削除UI・端末データと鍵の消去、稼働中の媒体回収、実Appleでの取消確認・secret設定は残る。serverの成功だけでアカウント削除全体の完成とは扱わない。
+
 ## アカウント宛て個別通話の接続（2026-10-31）
 
 同じ二人をprincipalで識別し、端末は接続時の証明で許可するApp実装を追加した。保存済みの端末鍵はgroupにも保持してオフライン再参加と連絡先削除後の通話を維持し、未知端末には有効なservice証明を必要とする。[現行契約](../spec/App/通信仕様.md#保存ユーザーを指定する個別通話)を参照。

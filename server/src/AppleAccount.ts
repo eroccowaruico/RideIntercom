@@ -1,17 +1,22 @@
 import { DurableObject } from 'cloudflare:workers'
-import { createRemoteJWKSet, errors, jwtVerify } from 'jose'
+import { errors, jwtVerify } from 'jose'
 import { Env, json, readJSON } from './types'
 import { certifyDevice } from './DeviceIdentity'
 
-// Only Apple's fixed public-key origin is used; a token cannot choose a key URL.
-const appleKeys = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'), { timeoutDuration: 5000 })
+import { appleKeys, appleDeletionToken, revokeAppleAuthorization } from './AppleAuthorization'
 const devicePattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
 const objectPattern = /^[a-f0-9]{64}$/
 const randomSecret = () => hex(crypto.getRandomValues(new Uint8Array(32)))
 const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
 const digest = async (secret: string) => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret))))
 interface Challenge { deviceID: string; nonce: string; issuedAt: number; expiresAt: number }
-interface DeletionReceipt { deviceID: string; tokenHash: string; deletedAt: number; expiresAt: number }
+interface DeletionReceipt {
+    deviceID: string; tokenHash: string; deletedAt: number; expiresAt: number
+    appleToken?: string; appleAuthorizationRevoked?: boolean; attempts?: number; retryAt?: number
+}
+interface DeletionPreparation { id: string; expiresAt: number }
+interface DeletionResult { deleted: true; appleAuthorizationRevoked: boolean; appleRevocationPending?: true }
+const retryDelays = [60000, 300000, 1800000, 7200000, 21600000]
 interface Device { tokenHash: string; expiresAt: number }
 export interface DeviceIdentity { userID: string; deviceID: string; expiresAt: number }
 
@@ -23,7 +28,7 @@ export class AppleAuthAttempt extends DurableObject<Env> {
         return { ...attempt, challengeID: this.ctx.id.toString() }
     }
 
-    async exchange(identityToken: string): Promise<{ subject: string; deviceID: string; issuedAt: number } | null> {
+    async exchange(identityToken: string): Promise<{ subject: string; deviceID: string; issuedAt: number; nonce: string } | null> {
         const attempt = this.ctx.storage.kv.get<Challenge>('challenge')
         if (!attempt || attempt.expiresAt <= Date.now()) return null
         // Reserve a verification attempt before any external await. Restarting
@@ -52,16 +57,17 @@ export class AppleAuthAttempt extends DurableObject<Env> {
         this.ctx.storage.kv.delete('challenge')
         this.ctx.storage.kv.delete('verificationAttempts')
         await this.ctx.storage.deleteAlarm()
-        return { subject, deviceID: attempt.deviceID, issuedAt: attempt.issuedAt }
+        return { subject, deviceID: attempt.deviceID, issuedAt: attempt.issuedAt, nonce: attempt.nonce }
     }
 
     async alarm(): Promise<void> { await this.ctx.storage.deleteAll() }
 }
 
 export class UserAccount extends DurableObject<Env> {
-    async register(deviceID: string, tokenHash: string, issuedAt: number): Promise<DeviceIdentity | 'stale-proof' | null> {
+    async register(deviceID: string, tokenHash: string, issuedAt: number): Promise<DeviceIdentity | 'stale-proof' | 'deletion-pending' | null> {
         this.prune()
         const deletion = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
+        if (deletion?.appleToken || this.ctx.storage.kv.get('deletionPreparation')) return 'deletion-pending'
         if (deletion && (!Number.isFinite(issuedAt) || issuedAt <= deletion.deletedAt)) return 'stale-proof'
         if (!this.ctx.storage.kv.get(`device:${deviceID}`) && [...this.ctx.storage.kv.list({ prefix: 'device:' })].length >= 8) return null
         const expiresAt = Date.now() + 30 * 86400000
@@ -92,31 +98,76 @@ export class UserAccount extends DurableObject<Env> {
         return true
     }
 
-    async erase(deviceID: string, tokenHash: string): Promise<boolean> {
+    deletionResult(deviceID: string, tokenHash: string): DeletionResult | null {
         this.prune()
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
-        if (receipt?.deviceID === deviceID && receipt.tokenHash === tokenHash) {
-            // A lost DELETE response can be retried, even after a new sign-in.
-            // Never apply an old successful deletion to the new registrations.
-            await this.scheduleExpiry()
-            return true
-        }
-        if (!this.authenticate(deviceID, tokenHash)) return false
-        const now = Date.now()
-        this.ctx.storage.transactionSync(() => {
-            this.ctx.storage.kv.delete('userID')
-            for (const [key] of this.ctx.storage.kv.list({ prefix: 'device:' })) this.ctx.storage.kv.delete(key)
-            // One bounded receipt, containing a hash rather than the bearer secret.
-            // Its timestamp also excludes previously issued enrollment proofs.
-            this.ctx.storage.kv.put('deletion', { deviceID, tokenHash, deletedAt: now, expiresAt: now + 86400000 })
-        })
+        if (!receipt || receipt.deviceID !== deviceID || !crypto.subtle.timingSafeEqual(
+            new TextEncoder().encode(receipt.tokenHash), new TextEncoder().encode(tokenHash))) return null
+        return { deleted: true, appleAuthorizationRevoked: receipt.appleAuthorizationRevoked === true,
+            ...(receipt.appleToken ? { appleRevocationPending: true as const } : {}) }
+    }
+
+    async eraseWithAppleProof(deviceID: string, tokenHash: string, code: string, subject: string, nonce: string): Promise<DeletionResult | null> {
+        if (this.deletionResult(deviceID, tokenHash)) return this.erase(deviceID, tokenHash)
+        if (!this.authenticate(deviceID, tokenHash)) return null
+        if (this.ctx.storage.kv.get('deletionPreparation')) throw new Error('Deletion preparation pending')
+        const preparation = { id: crypto.randomUUID(), expiresAt: Date.now() + 30000 }
+        this.ctx.storage.kv.put('deletionPreparation', preparation)
         await this.scheduleExpiry()
-        return true
+        try {
+            const token = await appleDeletionToken(this.env, code, subject, nonce)
+            if (this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')?.id !== preparation.id) throw new Error('Deletion preparation expired')
+            this.ctx.storage.kv.delete('deletionPreparation')
+            return await this.erase(deviceID, tokenHash, token)
+        } finally {
+            if (this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')?.id === preparation.id) this.ctx.storage.kv.delete('deletionPreparation')
+            await this.scheduleExpiry()
+        }
+    }
+
+    async erase(deviceID: string, tokenHash: string, appleToken?: string): Promise<DeletionResult | null> {
+        if (this.ctx.storage.kv.get('deletionPreparation')) throw new Error('Deletion preparation pending')
+        if (!this.deletionResult(deviceID, tokenHash)) {
+            if (!this.authenticate(deviceID, tokenHash)) return null
+            const now = Date.now()
+            this.ctx.storage.transactionSync(() => {
+                this.ctx.storage.kv.delete('userID')
+                for (const [key] of this.ctx.storage.kv.list({ prefix: 'device:' })) this.ctx.storage.kv.delete(key)
+                // The token is held only for deletion retries, never routine login.
+                this.ctx.storage.kv.put('deletion', { deviceID, tokenHash, deletedAt: now, expiresAt: now + 86400000,
+                    ...(appleToken ? { appleToken, attempts: 0, retryAt: now } : {}) })
+            })
+        }
+        await this.retryAppleRevocation()
+        await this.scheduleExpiry()
+        return this.deletionResult(deviceID, tokenHash)
+    }
+
+    private async retryAppleRevocation() {
+        const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
+        if (!receipt?.appleToken || receipt.retryAt === undefined || receipt.retryAt > Date.now()) return
+        const attempt = receipt.attempts ?? 0
+        // Persist a bounded retry schedule before external I/O. Concurrent DELETE
+        // and alarm requests cannot duplicate this attempt, even after a restart.
+        receipt.attempts = Math.min(attempt + 1, retryDelays.length + 1)
+        receipt.retryAt = Date.now() + (retryDelays[attempt] ?? 60000)
+        this.ctx.storage.kv.put('deletion', receipt)
+        await this.scheduleExpiry()
+        try { await revokeAppleAuthorization(this.env, receipt.appleToken) }
+        catch { return }
+        const current = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
+        if (current?.tokenHash !== receipt.tokenHash || current.appleToken !== receipt.appleToken) return
+        delete current.appleToken; delete current.retryAt; delete current.attempts
+        current.appleAuthorizationRevoked = true
+        current.expiresAt = Date.now() + 86400000
+        this.ctx.storage.kv.put('deletion', current)
     }
 
     private prune() {
+        const preparation = this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')
+        if (preparation && preparation.expiresAt <= Date.now()) this.ctx.storage.kv.delete('deletionPreparation')
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
-        if (receipt && receipt.expiresAt <= Date.now()) this.ctx.storage.kv.delete('deletion')
+        if (receipt && !receipt.appleToken && receipt.expiresAt <= Date.now()) this.ctx.storage.kv.delete('deletion')
         for (const [key, device] of this.ctx.storage.kv.list<Device>({ prefix: 'device:' })) {
             if (device.expiresAt <= Date.now()) this.ctx.storage.kv.delete(key)
         }
@@ -124,11 +175,13 @@ export class UserAccount extends DurableObject<Env> {
     private async scheduleExpiry() {
         const devices = [...this.ctx.storage.kv.list<Device>({ prefix: 'device:' })].map(([, device]) => device)
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
-        const deadlines = [...devices.map(device => device.expiresAt), ...(receipt ? [receipt.expiresAt] : [])]
+        const preparation = this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')
+        const deadlines = [...devices.map(device => device.expiresAt), ...(preparation ? [preparation.expiresAt] : []),
+            ...(receipt?.appleToken ? (receipt.retryAt !== undefined && (receipt.attempts ?? 0) <= retryDelays.length ? [receipt.retryAt] : []) : receipt ? [receipt.expiresAt] : [])]
         if (deadlines.length) await this.ctx.storage.setAlarm(Math.min(...deadlines))
         else await this.ctx.storage.deleteAlarm()
     }
-    async alarm(): Promise<void> { this.prune(); await this.scheduleExpiry() }
+    async alarm(): Promise<void> { this.prune(); await this.retryAppleRevocation(); await this.scheduleExpiry() }
 }
 
 function deviceCredential(token: string, env: Env) {
@@ -173,8 +226,24 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
             const tokenHash = await digest(credential.secret)
             if (path === '/api/auth/account') {
                 if (request.method !== 'DELETE') return json({ error: 'Method not allowed' }, 405)
-                return await credential.account.erase(credential.deviceID, tokenHash)
-                    ? json({ deleted: true, appleAuthorizationRevoked: false }) : json({ error: 'Unauthorized' }, 401)
+                const previous = await credential.account.deletionResult(credential.deviceID, tokenHash)
+                if (!previous && !await credential.account.authenticate(credential.deviceID, tokenHash)) return json({ error: 'Unauthorized' }, 401)
+                if (!previous && request.body) {
+                    if (!env.APPLE_CLIENT_SECRET) return json({ error: 'Apple authorization unavailable' }, 503)
+                    const limited = await limitEnrollment(request, env); if (limited) return limited
+                    const body = await readJSON(request)
+                    if (typeof body.challengeID !== 'string' || !objectPattern.test(body.challengeID)
+                        || typeof body.identityToken !== 'string' || !body.identityToken || body.identityToken.length > 16384
+                        || typeof body.authorizationCode !== 'string' || !body.authorizationCode || body.authorizationCode.length > 8192) return json({ error: 'Invalid proof' }, 400)
+                    const attempt = env.APPLE_AUTH_ATTEMPT.get(env.APPLE_AUTH_ATTEMPT.idFromString(body.challengeID))
+                    const proof = await attempt.exchange(body.identityToken)
+                    if (!proof || proof.deviceID !== credential.deviceID
+                        || env.USER_ACCOUNT.idFromName(await digest('apple:' + proof.subject)).toString() !== credential.accountID) return json({ error: 'Unauthorized' }, 401)
+                    const result = await credential.account.eraseWithAppleProof(credential.deviceID, tokenHash, body.authorizationCode, proof.subject, proof.nonce)
+                    return result ? json(result) : json({ error: 'Unauthorized' }, 401)
+                }
+                const result = await credential.account.erase(credential.deviceID, tokenHash)
+                return result ? json(result) : json({ error: 'Unauthorized' }, 401)
             }
             if (request.method === 'DELETE') {
                 return await credential.account.revoke(credential.deviceID, tokenHash) ? json({}) : json({ error: 'Unauthorized' }, 401)
@@ -206,6 +275,7 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
         const account = env.USER_ACCOUNT.getByName(await digest('apple:' + verified.subject))
         const secret = randomSecret()
         const identity = await account.register(verified.deviceID, await digest(secret), verified.issuedAt)
+        if (identity === 'deletion-pending') return json({ error: 'Account deletion is still pending', code: 'deletion_pending' }, 409)
         if (identity === 'stale-proof') return json({ error: 'Prepare Apple sign-in again' }, 401)
         if (!identity) return json({ error: 'Device registration limit reached', code: 'device_limit_reached' }, 409)
         return json({ ...identity, accessToken: `ri1.${account.id.toString()}.${identity.deviceID}.${secret}` })
