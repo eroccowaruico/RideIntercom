@@ -174,6 +174,9 @@ public actor WebRTCInternetRoute: RTCCallRoute {
         case .receivedApplicationData(let data):
             guard remotePeers[data.peerID] != nil else { return }
             eventSource.yield(.receivedApplicationData(kind, data))
+        case .blocked(let message):
+            eventSource.yield(.connectionBlocked(kind, message))
+            await stopConnection(finalState: .failed)
         case .failed(let message):
             await fail(message, generation: generation)
         }

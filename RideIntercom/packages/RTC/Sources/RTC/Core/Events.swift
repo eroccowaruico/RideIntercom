@@ -41,6 +41,7 @@ public enum CallSessionError: Error, Equatable, Sendable {
     case routeUnavailable(RouteKind)
     case signalingUnavailable(RouteKind)
     case connectionFailed(RouteKind, String)
+    case connectionBlocked(RouteKind, String)
     case unsupportedApplicationDataDelivery(RouteKind, ApplicationDataDelivery)
     case unsupportedAudioCodec(RouteKind, requested: [RTCAudioCodecIdentifier], supported: [RTCAudioCodecIdentifier])
 }

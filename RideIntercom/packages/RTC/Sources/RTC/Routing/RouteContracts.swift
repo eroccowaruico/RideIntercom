@@ -15,6 +15,8 @@ public enum RouteEvent: Equatable, Sendable {
     case receivedApplicationData(RouteKind, ReceivedApplicationData)
     case metricsChanged(RouteMetrics)
     case error(RouteKind, CallSessionError)
+    /// Prevent automatic retries for this route until the next prepare.
+    case connectionBlocked(RouteKind, String)
 }
 
 public protocol RTCCallRoute: AnyObject, Sendable {

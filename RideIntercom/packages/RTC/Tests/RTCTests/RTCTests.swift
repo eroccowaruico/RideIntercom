@@ -284,6 +284,60 @@ import Testing
     await route.stopConnection()
 }
 
+@Test func webRTCAccountConflictStopsMediaAndRequestsManualRecovery() async throws {
+    let signaling = FakeWebRTCSignalingClient(), engine = FakeWebRTCEngine()
+    let route = WebRTCInternetRoute(cloudflareConfiguration: makeCloudflareConfiguration(), signalingClient: signaling, engine: engine)
+    let recorder = RouteEventRecorder(), events = route.events
+    let listener = Task { for await event in events { recorder.append(event) } }
+    defer { listener.cancel() }
+    await route.prepare(makeRequest()); await route.startConnection()
+    signaling.yield(.blocked("End the existing call"))
+    let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+    while !recorder.values.contains(.stateChanged(.webRTC, .failed)), ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(recorder.values.contains(.connectionBlocked(.webRTC, "End the existing call")))
+    #expect(recorder.values.contains(.stateChanged(.webRTC, .failed)))
+    #expect(engine.closeCount > 0)
+    #expect(signaling.disconnectCount > 0)
+    await route.stopConnection()
+}
+
+@Test(arguments: [false, true])
+func blockedRouteWaitsForExplicitRestartAndPreservesOtherRoutes(localAvailable: Bool) async throws {
+    let internet = FakeRoute(kind: .webRTC), local = FakeRoute(kind: .multipeer)
+    let configuration = CallRouteConfiguration(enabledRoutes: localAvailable ? [.multipeer, .webRTC] : [.webRTC],
+        preferredRoute: .webRTC, selectionMode: localAvailable ? .automaticFallbackAndRestore : .singleRoute, fallbackDelay: 0)
+    let manager = RouteManager(routes: localAvailable ? [internet, local] : [internet], configuration: configuration)
+    let recorded = CallEventRecorder(), events = manager.events
+    let listener = Task { for await event in events { await recorded.append(event) } }
+    defer { listener.cancel() }
+    let request = makeRequest(configuration: configuration)
+    await manager.prepare(request); await manager.startConnection()
+    if localAvailable { local.yield(.stateChanged(.multipeer, .mediaReady)) }
+    internet.yield(.connectionBlocked(.webRTC, "End the existing call"))
+    internet.yield(.stateChanged(.webRTC, .failed))
+    try await Task.sleep(for: .milliseconds(2300))
+    #expect(internet.prepareCount == 1 && internet.startConnectionCount == 1)
+    let values = await recorded.values
+    #expect(values.contains(.error(.connectionBlocked(.webRTC, "End the existing call"))))
+    if localAvailable {
+        #expect(local.startConnectionCount == 1)
+        #expect(values.contains { if case .routeChanged(let snapshot) = $0 { snapshot.availableRoutes.contains(.multipeer) } else { false } })
+    } else {
+        #expect(values.contains(.stateChanged(.failed)))
+        #expect(!values.contains(.stateChanged(.reconnecting)))
+    }
+    await manager.prepare(request); await manager.startConnection()
+    #expect(internet.startConnectionCount == 2)
+    await manager.stopConnection()
+}
+
+private actor CallEventRecorder {
+    var values: [CallSessionEvent] = []
+    func append(_ event: CallSessionEvent) { values.append(event) }
+}
+
 @Test func webRTCRouteStopsAfterFailureAndRejectsLateSignaling() async {
     let signaling = FakeWebRTCSignalingClient(), engine = FakeWebRTCEngine()
     let route = WebRTCInternetRoute(cloudflareConfiguration: makeCloudflareConfiguration(), signalingClient: signaling, engine: engine)

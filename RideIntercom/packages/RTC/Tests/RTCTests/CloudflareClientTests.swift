@@ -14,6 +14,28 @@ struct CloudflareClientTests {
                          credential: .derived(groupID: "group", secret: "invitation-secret")),
               cloudflare: .init(workerURL: URL(string: url)!, accessToken: "device-token"))
     }
+    @Test(arguments: ["ice", "join"])
+    func accountConflictEmitsManualRecoveryAndCleansOnlyItsOwnAttempt(stage: String) async {
+        SFUHTTPStub.reset(rejectedStage: stage)
+        let client = makeClient()
+        var events = client.events.makeAsyncIterator()
+        await client.connect(request())
+        if stage == "join" {
+            guard case .iceServers = await events.next() else { Issue.record("Expected ICE"); return }
+            #expect(await events.next() == .connected)
+            await client.sendOffer(.init(kind: .offer, sdp: "offer"), to: .init(rawValue: "cloudflare-sfu"))
+        }
+        guard case .blocked(let message) = await events.next() else { Issue.record("Expected manual recovery"); return }
+        #expect(message.contains("End the existing call"))
+        #expect(!message.contains("private-upstream-message"))
+        let calls = SFUHTTPStub.requests
+        #expect(calls.filter { $0.httpMethod == "POST" }.count == (stage == "ice" ? 1 : 2))
+        #expect(calls.last?.httpMethod == "DELETE")
+        #expect(calls.last?.url?.path.hasSuffix("/ice/device") == true)
+        #expect(!calls.contains { $0.url!.path.contains("/sessions/") })
+        await client.disconnect()
+    }
+
     @Test func joinDoesNotSendTheLocalDisplayName() async throws {
         SFUHTTPStub.reset()
         let client = makeClient()
@@ -136,8 +158,9 @@ private final class SFUHTTPStub: URLProtocol, @unchecked Sendable {
     static var requests: [URLRequest] { lock.withLock { recorded } }
     nonisolated(unsafe) private static var transient = false
     nonisolated(unsafe) private static var delayFirstDelete = false
-    static func reset(transient: Bool = false, delayFirstDelete: Bool = false) {
-        lock.withLock { recorded = []; self.transient = transient; self.delayFirstDelete = delayFirstDelete }
+    nonisolated(unsafe) private static var rejectedStage: String?
+    static func reset(transient: Bool = false, delayFirstDelete: Bool = false, rejectedStage: String? = nil) {
+        lock.withLock { recorded = []; self.transient = transient; self.delayFirstDelete = delayFirstDelete; self.rejectedStage = rejectedStage }
     }
     override class func canInit(with request: URLRequest) -> Bool { request.url?.scheme == "https" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -160,7 +183,11 @@ private final class SFUHTTPStub: URLProtocol, @unchecked Sendable {
         }
         let transient = Self.lock.withLock { Self.transient }
         let renewing = request.url!.path.hasSuffix("/renew")
-        let status = renewing ? (transient ? (renewals == 1 ? 503 : 200) : (renewals >= 2 ? 429 : 200)) : 200
+        let rejected = Self.lock.withLock {
+            request.httpMethod == "POST" && (Self.rejectedStage == "ice" && request.url!.path.contains("/ice/")
+                || Self.rejectedStage == "join" && request.url!.path.hasSuffix("/join"))
+        }
+        let status = rejected ? 409 : renewing ? (transient ? (renewals == 1 ? 503 : 200) : (renewals >= 2 ? 429 : 200)) : 200
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type":"application/json"])!
         let sid = Self.lock.withLock { Self.delayFirstDelete ? "session-\(Self.recorded.filter { $0.url!.path.hasSuffix("/join") }.count)" : "same-session" }
         var data = Data("{\"sessionId\":\"\(sid)\",\"expiresAt\":9999999999999,\"renewAfterSeconds\":1,\"sessionDescription\":{\"type\":\"answer\",\"sdp\":\"answer\"}}".utf8)
@@ -170,6 +197,7 @@ private final class SFUHTTPStub: URLProtocol, @unchecked Sendable {
         if request.url!.path == "/api/status" {
             data = Data("{\"month\":\"2026-10\",\"reservedParticipantSeconds\":0,\"monthlyParticipantSeconds\":1000000,\"activeSessions\":0}".utf8)
         }
+        if rejected { data = Data("{\"code\":\"account_in_use\",\"error\":\"private-upstream-message\"}".utf8) }
         let responseData = data
         let delayed = Self.lock.withLock { Self.delayFirstDelete && request.httpMethod == "DELETE" && Self.recorded.filter { $0.httpMethod == "DELETE" }.count == 1 }
         let finish: @Sendable () -> Void = { [self] in

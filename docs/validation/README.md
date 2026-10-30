@@ -1,5 +1,19 @@
 # 検証状況と証跡
 
+## WebRTC競合の手動復帰契約（2026-10-31）
+
+RTC packageが既知の409 codeを解釈し、HTTP再送・route再接続を繰り返さず手動復帰を通知する。Local経路は維持し、明示的なprepareで再試行を許す。serverやAppに文字列判定を重複させない。[契約](../spec/packages/RTC.md#ユーザー操作を必要とする接続拒否)を参照する。
+
+証跡は`.validation/account-connection-rtc/`。409の本文をそのまま表示しないこと、不明code・不正JSON・過大本文・異なるHTTP statusを専用案内にしないこと、ICE/joinの両方の失敗回収、単独routeとLocal併用、明示再開を検証する。
+
+| 検証 | 結果 |
+|---|---|
+| RTC package | 規定の直列実行で86件とnative WebRTC 4件、計90件成功。失敗・skip・compile warningなし。`final-typed.log` |
+| Swift–Worker | 分離したローカルDOとのHTTP/WS契約1件成功。`pair-typed.log` |
+| 文書・差分 | package仕様のリンク・diff検査成功。`documentation.log` |
+
+初回の専用案内テストは未実装のHTTP文言で失敗した。route試験の初回compileでは新しいeventの未定義に加えてtest内の選択mode名の誤りがあり、正しい既存modeに直した。通常のpackage実行では別工程用WorkerPairがskipとなるため、その実行は最終合格の根拠にせず、規定の対象分離で検証する。
+
 ## ユーザー単位のWebRTC予約（2026-10-31）
 
 serverの確認済みuserIDを既存の利用枠予約に対応付け、room・端末をまたぐ追加接続を拒否する。App・packageの変更とは分けて検証した。契約と媒体回収の限界は[Worker仕様](../spec/server/Worker.md#ユーザー単位のwebrtc接続予約)を参照する。

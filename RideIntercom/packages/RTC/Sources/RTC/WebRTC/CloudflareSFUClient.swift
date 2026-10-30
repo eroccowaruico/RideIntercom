@@ -215,7 +215,8 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
     private func fail(_ error: Error, generation: UUID) async {
         guard self.generation == generation else { return }
         let message = (error as? Failure)?.description ?? "Cloudflare connection failed"
-        source.yield(.failed(message))
+        if case Failure.accountInUse = error { source.yield(.blocked(message)) }
+        else { source.yield(.failed(message)) }
         await disconnect()
     }
     private func endpoint(_ request: WebRTCSignalingConnectRequest, path: String) -> URL {
@@ -240,6 +241,10 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
                 let (data, response) = try await session.data(for: request, delegate: NoRedirects())
                 guard let response = response as? HTTPURLResponse else { throw Failure.invalidResponse }
                 guard response.url?.host == request.url?.host, response.url?.scheme == request.url?.scheme else { throw Failure.invalidResponse }
+                if response.statusCode == 409, data.count <= 32768,
+                   (try? JSONDecoder().decode(Rejection.self, from: data))?.code == "account_in_use" {
+                    throw Failure.accountInUse
+                }
                 guard (200..<300).contains(response.statusCode) else { throw Failure.http(response.statusCode) }
                 return data
             } catch let error as URLError where retryConnectionLoss && error.code == .networkConnectionLost && retries < 2 {
@@ -252,6 +257,7 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             }
         }
     }
+    private struct Rejection: Decodable { let code: String }
     private struct IceConfiguration: Decodable { let iceServers: [WebRTCIceServer] }
     private struct Description: Decodable { let type: String; let sdp: String }
     private struct Lease: Decodable { let sessionId: String; let expiresAt: Double; let renewAfterSeconds: Double; let sessionDescription: Description?; let channels: [WebRTCDataChannel]?; let iceServers: [WebRTCIceServer]? }
@@ -261,10 +267,15 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         let type: String; let peers: [Peer]?; let from: String?; let namespace: String?; let payload: String?
     }
     private enum Failure: Error, LocalizedError {
-        case invalidConfiguration, invalidResponse, http(Int)
+        case invalidConfiguration, invalidResponse, accountInUse, http(Int)
         var errorDescription: String? { description }
         var description: String {
-            switch self { case .invalidConfiguration: "A secure Worker URL and device token are required"; case .invalidResponse: "Invalid Cloudflare response"; case .http(let code): "Cloudflare Worker rejected request (HTTP \(code))" }
+            switch self {
+            case .invalidConfiguration: "A secure Worker URL and device token are required"
+            case .invalidResponse: "Invalid Cloudflare response"
+            case .accountInUse: "This account already has an Internet call. End the existing call, then try again. If the other device lost its connection, wait for that call to expire."
+            case .http(let code): "Cloudflare Worker rejected request (HTTP \(code))"
+            }
         }
     }
 }

@@ -19,6 +19,7 @@ public actor RouteManager: CallSession {
     private var routeAvailabilities: [RouteKind: RouteAvailability] = [:]
     private var routeMembers: [RouteKind: Set<PeerID>] = [:]
     private var started: Set<RouteKind> = []
+    private var blocked: Set<RouteKind> = []
     private var retries: [RouteKind: ConnectionRetry] = [:]
     private var activeRoute: RouteKind?
     private var mediaRoute: RouteKind? { activeRoute }
@@ -53,7 +54,7 @@ public actor RouteManager: CallSession {
         relay = GroupRelay(request: request)
         observedPaths = [:]; lastPresence = 0; lastRuntimeStatus = 0; eventSource.resetDiagnostics()
         receiveBuffer.reset(); memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
-        routeStates = [:]; routeAvailabilities = [:]; started = []; retries = [:]
+        routeStates = [:]; routeAvailabilities = [:]; started = []; retries = [:]; blocked = []
         availableRoutes = []; activeRoute = nil; isMediaStarted = false
         emitState(.preparing)
         let enabled = configuration.enabledRoutes.compactMap { routes[$0] }
@@ -95,7 +96,7 @@ public actor RouteManager: CallSession {
         if generation == token { scheduleMaintenance() }
     }
     private func start(_ kind: RouteKind) async {
-        guard configuration.enabledRoutes.contains(kind), let route = routes[kind], !started.contains(kind) else { return }
+        guard configuration.enabledRoutes.contains(kind), let route = routes[kind], !started.contains(kind), !blocked.contains(kind) else { return }
         started.insert(kind); routeStates[kind] = .connecting
         await route.startConnection()
     }
@@ -114,7 +115,7 @@ public actor RouteManager: CallSession {
         isConnectionStarted = false
         routeTasks.forEach { $0.cancel() }; routeTasks = []
         observedPaths = [:]; lastPresence = 0; lastRuntimeStatus = 0; eventSource.resetDiagnostics()
-        request = nil; relay = nil; started = []; retries = [:]; availableRoutes = []
+        request = nil; relay = nil; started = []; retries = [:]; blocked = []; availableRoutes = []
         activeRoute = nil; isMediaStarted = false; receiveBuffer.reset()
         memberSnapshot = []; memberRoutes = [:]; routeMembers = [:]
         for route in routes.values {
@@ -196,7 +197,7 @@ public actor RouteManager: CallSession {
                 await broadcast(.presence)
             } else if state == .failed || state == .disconnected {
                 availableRoutes.remove(kind); routeMembers[kind] = []
-                if started.contains(kind) {
+                if started.contains(kind), !blocked.contains(kind) {
                     retries[kind] = ConnectionRetry(after: retries[kind],
                         at: ProcessInfo.processInfo.systemUptime, policy: .connectionRecovery)
                 }
@@ -245,6 +246,9 @@ public actor RouteManager: CallSession {
                 await forward(bytes, body: result.body, excluding: excluded)
             }
         case .metricsChanged(let metrics): emit(.metricsChanged(metrics))
+        case .connectionBlocked(let kind, let message):
+            blocked.insert(kind); retries[kind] = nil
+            emit(.error(.connectionBlocked(kind, message)))
         case .error(_, let error): emit(.error(error))
         }
     }
@@ -313,7 +317,7 @@ public actor RouteManager: CallSession {
     private func updateState() {
         let live = availableRoutes.intersection(started)
         activeRoute = live.contains(configuration.preferredRoute) ? configuration.preferredRoute : live.sorted { $0.rawValue < $1.rawValue }.first
-        let state: CallConnectionState = !memberSnapshot.isEmpty ? (isMediaStarted ? .mediaReady : .connected) : (live.isEmpty && !retries.isEmpty ? .reconnecting : .connecting)
+        let state: CallConnectionState = live.isEmpty && configuration.enabledRoutes.isSubset(of: blocked) ? .failed : !memberSnapshot.isEmpty ? (isMediaStarted ? .mediaReady : .connected) : (live.isEmpty && !retries.isEmpty ? .reconnecting : .connecting)
         if connectionState != state { emitState(state) }
     }
     private func emitRouteSnapshot() { emit(.routeChanged(routeSnapshot())) }

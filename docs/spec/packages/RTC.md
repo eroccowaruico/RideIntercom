@@ -180,6 +180,16 @@ Local識別子は[MCPeerIDの制約](https://developer.apple.com/documentation/m
 
 `pull`は指定peerの購読状態を照合する冪等な要求である。HTTP keep-alive接続の`networkConnectionLost`だけは100 ms、200 ms後に再試行し、初回を含め3回・元の要求の総期限25秒以内に制限する。進行中のmediaは維持し、世代変更やTaskのcancelは再試行待機を中断する。認証拒否、他のHTTPエラー、新規session作成はこの再試行の対象にしない。停止時のDELETEは、呼出元Taskがcancelされていても従来どおり一度実行する。
 
+### ユーザー操作を必要とする接続拒否
+
+| 境界 | 契約 |
+|---|---|
+| Worker応答 | HTTP 409と32KiB以内のJSONの`code: account_in_use`が一致したときだけ、同じアカウントの既存通話を終了して再操作する案内へ変換する。サーバーの任意のerror本文は表示しない。不明code・不正JSON・別statusは既存のHTTP失敗として扱う |
+| Signaling | `WebRTCSignalingEvent.blocked`で手動復帰を通知。通常の`failed`と区別し、この接続試行が所有するICE/sessionだけを回収する |
+| Route | `RouteEvent.connectionBlocked`を通知して当該媒体を停止。RouteManagerはそのrouteの自動再試行を次のprepareまで止め、共通`CallSessionError.connectionBlocked`で理由と手動復帰の必要性をAppへ渡す。特定serviceの文字列をAppやRouteManagerで判定しない |
+| 他経路 | 利用できるLocal経路は維持する。全有効routeが手動復帰待ちなら全体をfailedとし、reconnectingを繰り返さない |
+| 明示的な再操作 | 新しいprepareで抑止を解除する。既存通話の強制切断・他端末の追い出しは行わない。通信断した端末の予約回収はWorkerのleaseに従う |
+
 ## 音声の連続性とLocal配送
 
 GroupRelayの認証・replay protection用sequenceと音声専用sequenceを分ける。presenceや制御を挟んでも音声に偽の欠番を作らない。受信bufferは相手別に並べ替え、同じsequenceの複数経路コピーを再生しない。
