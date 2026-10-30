@@ -108,11 +108,24 @@ main/devへのマージ、push、Cloudflareデプロイは行っていない。
 |---|---|
 | 実Worker | `rideintercom`。通常URLは`https://rideintercom.analog.workers.dev`。Productionに2つのSQLite DO bindingがあり、SERVICE_ENABLEDはfalse、SFU値・端末registryは未登録 |
 | 実メトリクス | 2026-10-30 19:22 JST取得。直前24時間のWorkers集計はrequests=3、errors=0、subrequests=0。errorsは実行時例外等の指標でありHTTP 401/503やSFU音声の成否とは別 |
-| Previews Base | SFU App ID、SFU App Secret、CLIENT_TOKENS_JSONの3項目が存在。secretの内容は取得・出力していない。実プレビューは0件 |
+| Previews Base | 初回読取時、SFU App ID、SFU App Secret、CLIENT_TOKENS_JSONの3項目が存在。secretの内容は取得・出力していない。実プレビューは0件 |
 | 設定の修正 | Worker名を実設定と同期。`previews.vars`へ有効化と利用枠、`previews.durable_objects.bindings`へ2つの独立bindingを定義。`npm run preview`を追加しbranch単位で配置 |
 | ローカル検証 | Wrangler 4.151.3による設定読込み・bundle dry-run、TypeScript型検査、Worker 20 tests、Cloudflareスクリプト4 tests、文書検査、diff checkが成功 |
 | 外部配置の制約 | プラグインのPreview作成APIはHTTP 403。ローカルWranglerは未ログイン。既存main用CIをPreview向けに置換する操作は、自動承認レビューが本番配置への影響を理由に拒否し、変更されていない |
-| 次の操作 | mainのProduction用CIを保持し、GitHub連携でPreview buildsを有効化。Preview commandは`npx wrangler preview`とし、修正を含む作業branchを配置する |
-| 未確認 | 実Preview URLでの資格照合・DO動作、実SFUの接続・双方向音声、利用枠更新、TURN、請求。ローカルの20 testsは外部SFUを代替しており、これらを証明しない |
+| 採用した配置経路 | mainのProduction用CIを保持し、利用者がGitHub連携のPreview buildsと`npx wrangler preview`を設定。修正を含む専用branchをpushして配置する |
+| 配置前の未確認 | 実Preview URLでの資格照合・DO動作、実SFUの接続・双方向音声、利用枠更新、TURN、請求。ローカルの20 testsは外部SFUを代替しており、これらを証明しない |
+
+同日19:33 JST、`codex/cloudflare-preview-setup`の`2a50b5cba134ff0ae755fecb087dfe53f3883023`をpushし、GitHub連携のプレビュービルドが成功した。以降の記録更新では、同じbranchのソースへ変更を加えていない。
+
+| 実プレビューの確認 | 結果 |
+|---|---|
+| Preview URL | `https://codex-cloudflare-preview-setup-rideintercom.analog.workers.dev` |
+| 配置 | build `a565635f-440d-42d4-9bed-c0b8a8e8e30d`がsuccess。deployment `dc340055-0e85-41cd-85db-669d3b8100f8`、migration v1 |
+| 実行時設定 | Baseの3項目と、ファイルで定義した有効化・利用枠・2つのDO bindingを確認。SERVICE_ENABLED=true、TURN_ENABLED=false |
+| 独立性 | SIGNALING_ROOM / USAGE_GUARDのnamespace IDが両方ともProductionと異なる。Productionのdeployment `9cdf421f-c93e-4130-94f2-c8d9abd7ad68`が変更されていないことをAPIで照合 |
+| GET /health | 200、service=`RideIntercom SFU`、protocol=1 |
+| GET /api/status、資格なし | 401 |
+| GET /api/status、Mac / iPhoneの個別資格 | 両方200。2026-10月、予約参加者秒0、月上限1,000,000、active sessions 0。資格の値は出力していない |
+| 残る確認 | 実SFUの接続・双方向音声、通話中の更新・回収、TURN・制限回線、実請求。healthとstatusの成功はSFU App Secretの有効性や音声品質の証明ではない |
 
 現行の設定手順は[Cloudflare試用手順](../../development/Cloudflare試用手順.md)を参照する。
