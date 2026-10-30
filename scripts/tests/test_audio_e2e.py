@@ -98,7 +98,7 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         for key in ['transmitIsolation', 'masterIsolation', 'peerIsolation', 'duck', 'localMute', 'outputMute']:
             self.assertEqual({c[key] for c in full}, {False, True}, key)
         for rate, aac in [('mono16k', {48000}), ('mono24k', {32000, 64000}), ('mono48k', {48000, 128000})]:
-            for codec, limits in [('mpeg4AACELD', aac), ('opus', {16000 if rate == 'mono16k' else 24000, 128000})]:
+            for codec, limits in [('mpeg4AACELD', aac), ('opus', {48000, 128000})]:
                 self.assertTrue(limits <= {c['bitRate'] for c in full if c['codec'] == codec and c['format'] == rate})
         self.assertLess(sum(c['seconds'] for c in scenarios('quick', 8)), 40)
 
