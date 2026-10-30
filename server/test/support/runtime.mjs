@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { Miniflare, Response } from 'miniflare';
 
 export const token = 'test-device-token-with-at-least-32-characters';
@@ -7,14 +8,18 @@ export const hash = createHash('sha256').update(token).digest('hex');
 export const room = 'a'.repeat(64);
 export const offer = { type: 'offer', sdp: 'v=0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:0\r\na=sctp-port:5000\r\n' };
 export const provider = { requests: [], serial: 0, upstreamFails: false, upstreamGone: false };
-export async function makeRuntime(overrides = {}, { storageDirectory } = {}) {
+export async function makeRuntime(overrides = {}, { storageDirectory, appleKeys = [], clockOffsetMs = 0 } = {}) {
+    const source = clockOffsetMs ? { script: `const systemNow = Date.now; Date.now = () => systemNow() + ${Number(clockOffsetMs)};\n` + await readFile('dist/index.js', 'utf8') }
+        : { scriptPath: 'dist/index.js' };
     const instance = new Miniflare({ durableObjectsPersist: storageDirectory,
-        modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2024-11-01',
-        durableObjects: { SIGNALING_ROOM: { className: 'SignalingRoom', useSQLite: true }, USAGE_GUARD: { className: 'UsageGuard', useSQLite: true } },
+        modules: true, ...source, compatibilityDate: '2024-11-01',
+        durableObjects: { SIGNALING_ROOM: { className: 'SignalingRoom', useSQLite: true }, USAGE_GUARD: { className: 'UsageGuard', useSQLite: true },
+            APPLE_AUTH_ATTEMPT: { className: 'AppleAuthAttempt', useSQLite: true }, USER_ACCOUNT: { className: 'UserAccount', useSQLite: true } },
         bindings: { SERVICE_ENABLED: 'true', CLIENT_TOKENS_JSON: JSON.stringify({ [hash]: 'tester' }),
             CLOUDFLARE_SFU_APP_ID: 'test-app', CLOUDFLARE_SFU_APP_SECRET: 'test-secret',
             MAX_ROOM_PARTICIPANTS: '4', MAX_ACTIVE_SESSIONS: '16', MONTHLY_PARTICIPANT_SECONDS: '36000', LEASE_SECONDS: '600', ...overrides },
         outboundService: async request => {
+            if (request.url === 'https://appleid.apple.com/auth/keys') return Response.json({ keys: appleKeys });
             const text = await request.text();
             provider.requests.push({ url: request.url, method: request.method, body: text ? JSON.parse(text) : undefined });
             const isTurn = request.url.includes('/turn/keys/')

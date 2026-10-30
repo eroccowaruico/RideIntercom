@@ -3,6 +3,8 @@ main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
 [vars]
+APPLE_AUTH_ENABLED = "false"
+APPLE_CLIENT_ID = "com.yowamushi-inc.RideIntercom.RideIntercom"
 SERVICE_ENABLED = "false"
 TURN_ENABLED = "false"
 MAX_ROOM_PARTICIPANTS = "8"
@@ -16,15 +18,27 @@ class_name = "SignalingRoom"
 [[durable_objects.bindings]]
 name = "USAGE_GUARD"
 class_name = "UsageGuard"
+[[durable_objects.bindings]]
+name = "APPLE_AUTH_ATTEMPT"
+class_name = "AppleAuthAttempt"
+[[durable_objects.bindings]]
+name = "USER_ACCOUNT"
+class_name = "UserAccount"
 
 # Fresh, never-deployed development namespace: SQLite is available on Workers Free.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SignalingRoom", "UsageGuard"]
 
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["AppleAuthAttempt", "UserAccount"]
+
 # Previews inherit the SFU values and device registry from Previews Base.
 # Ordinary variables and env bindings must be declared separately from production.
 [previews.vars]
+APPLE_AUTH_ENABLED = "false"
+APPLE_CLIENT_ID = "com.yowamushi-inc.RideIntercom.RideIntercom"
 SERVICE_ENABLED = "true"
 TURN_ENABLED = "false"
 MAX_ROOM_PARTICIPANTS = "8"
@@ -38,3 +52,9 @@ class_name = "SignalingRoom"
 [[previews.durable_objects.bindings]]
 name = "USAGE_GUARD"
 class_name = "UsageGuard"
+[[previews.durable_objects.bindings]]
+name = "APPLE_AUTH_ATTEMPT"
+class_name = "AppleAuthAttempt"
+[[previews.durable_objects.bindings]]
+name = "USER_ACCOUNT"
+class_name = "UserAccount"

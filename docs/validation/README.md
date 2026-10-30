@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## Apple認証serverと端末資格（2026-10-30）
+
+使い捨てnonce、Apple署名・issuer・audience・期限の照合、ユーザーと端末の対応、端末資格の発行・置換・自己失効をWorkerへ実装した。公開登録はProduction/Previewとも無効を既定とする。契約と残るApp連携・公開運用は[Worker仕様](../spec/server/Worker.md#apple認証と端末資格)へ記載した。
+
+| 検証 | 結果と証跡 |
+|---|---|
+| Worker全体 | 既存22件＋認証9件、計31件成功、失敗・skip・todoなし。`.validation/apple-backend-delivery/worker-final.log` |
+| 認証境界 | 不正署名・issuer・audience・nonce・期限・未来iat、同時再送、別ユーザー、再認証での端末資格置換、他端末を巻き込まない失効を確認。session所有者照合を追加した最終の認証9件も`account-final.log`で成功 |
+| 期限と保存 | 永続SQLiteを再利用するserver再起動とテスト側の時刻変更で、5分のnonceと30日の端末資格が復活しないことを確認。SQLite/WALに端末IDが存在し、Apple token・メール・生subject・端末秘密が存在しないことを確認 |
+| 上限と停止 | 8端末登録上限でも既存端末は再認証可能。通話サービス停止中でも自己資格を失効可能。WebRTCの同時端末数の検証ではない |
+| 通信契約 | 実Swift HTTP/WSとローカルWorker/DOの1件成功。`pair-final.log`。SFUはfixture |
+| 型と構成 | Wrangler生成binding、TypeScript型検査、文書検査、差分検査が成功。`typecheck-final.log`。`source-manifest.json`で対象を記録 |
+
+未実装のAPIを失敗テストで再現後に実装した。途中のKV iterableの扱いと、DO名のmetadataへApple生IDが残る問題も失敗記録に保持し、後者はハッシュ化して解消した。通常テストはApple鍵もローカルfixtureで、実Apple認証・実Cloudflare配置・運用上の削除を証明しない。今回App・RTCの実装変更は含まない。
+
 ## 通話サーバーの表示名保存を除去（2026-10-30）
 
 RTCのjoinとWorkerの永続member・peer一覧から表示名を除去した。既存のグループ鍵による暗号化presenceで名前を交換し、端末のグループ内表示に使う。新規開発のため旧client用の互換フィールド・データ移行は追加していない。契約は[Worker仕様](../spec/server/Worker.md#表示名を保存しない境界)を参照する。

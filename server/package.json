@@ -24,5 +24,8 @@
             "undici": "7.30.1",
             "sharp": "0.35.5"
         }
+    },
+    "dependencies": {
+        "jose": "6.2.14"
     }
 }

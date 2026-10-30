@@ -6,7 +6,8 @@
 
 | 責務 | 実装 |
 |---|---|
-| Worker入口 | SHA-256で登録された個別端末Bearerを検証。秘密の部屋capabilityでルーティング |
+| Worker入口 | Apple確認済みユーザーの端末Bearer、または試用registryの資格を検証。秘密の部屋capabilityでルーティング |
+| AppleAuthAttempt / UserAccount (SQLite DO) | 使い捨てnonceとApple署名の検証、ユーザーと端末の区別、端末資格の発行・照合・失効 |
 | SignalingRoom (SQLite DO) | 部屋最大8人。SFU establish / publish / subscribe / closeを所有者だけに許可。WSは参加者一覧・App dataに限定 |
 | UsageGuard (SQLite DO) | 全部屋共通の同時数、月の参加者秒、端末ごとの開始回数を直列予約 |
 | Realtime SFU | 音声媒体。端末ごとに1つのPeerConnection。Cloudflareが他の参加者の音声を配信 |
@@ -43,7 +44,29 @@ sequenceDiagram
 
 ## HTTP / WebSocket 契約
 
-`R = /api/rooms/{groupHash}`。groupHashは64桁hexの秘密capabilityで、招待secretからRTCが導出する。guessableなgroup IDだけで部屋に入れない。`/health`以外は端末Bearer必須。ClientにSFU App ID/Secretを返さない。
+`R = /api/rooms/{groupHash}`。groupHashは64桁hexの秘密capabilityで、招待secretからRTCが導出する。guessableなgroup IDだけで部屋に入れない。通話APIは端末Bearer必須。`/health`と下記のApple登録開始・交換はBearer不要。ClientにSFU App ID/Secretを返さない。
+
+### Apple認証と端末資格
+
+[Appleの検証手順](https://developer.apple.com/documentation/signinwithapple/verifying-a-user)に従い、固定のApple公開鍵からJOSEでRS256署名・issuer・audience・有効期限を検証し、serverが発行したnonceと照合する。Appの端末内ログインだけをserverの本人確認とは扱わない。
+
+| API / 条件 | 契約 |
+|---|---|
+| POST `/api/auth/apple/challenge` | UUIDの`deviceID`を受け、5分有効の`challengeID`・`nonce`・`expiresAt`を返す。native Apple requestのnonceへそのまま渡す |
+| POST `/api/auth/apple/session` | `challengeID`と最大16KiBの`identityToken`を照合し、`userID`・`deviceID`・`expiresAt`・`accessToken`を返す。nonceは並行再送でも1回だけ消費する |
+| GET `/api/auth/session` | 端末Bearerを照合し、ユーザーID・端末ID・期限だけ返す |
+| DELETE `/api/auth/session` | そのBearerの端末資格だけを失効。他の端末は維持。通話サービス停止中も操作できる |
+| 同一人物 | Apple subjectのハッシュでユーザーDOを解決する。同じAppleユーザーの複数端末は同じ不透明なuser IDへ対応。表示名やメールによる統合はしない |
+| 資格の保持 | 端末資格は30日有効、同一device IDの再認証で置換。serverには秘密のSHA-256と期限を保持し、秘密自体・Apple token・メール・Apple生IDを保存しない。DO名にもApple生IDを使用しない |
+| 登録数 | ユーザーごとの有効な登録資格は最大8端末。上限でも登録済み端末の再認証は可能。WebRTC同時接続数とは別の上限 |
+| 期限 | challengeと端末資格を期限時のalarmで整理し、照合時も期限を判定。server再起動後も期限は延びない |
+| 所有者 | 通話sessionのownerはuser IDとdevice IDの組合せ。同一ユーザーでも他端末のsessionを操作できない |
+| エラー | 不正bodyは400、検証失敗・期限切れ・再送は401、登録数上限は429、Apple鍵取得等の障害は503。tokenやApple応答内容はログ・エラーへ出さない |
+| 有効化 | `APPLE_AUTH_ENABLED=false`がProduction/Previewの既定。実Bundle IDを`APPLE_CLIENT_ID`へ指定する。新規登録を無効にしても発行済み資格の照合・自己失効は残す |
+
+このserver実装は公開運用の完了ではない。Appからの登録・失効、Apple認可コードの交換・refresh token・アカウント削除／Apple grant取消、サーバー通知、匿名登録入口のabuse制限は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
+
+試用の静的`CLIENT_TOKENS_JSON`も既存の運用入口として残る。`ri1.`資格が無効でも静的registryへfallbackしない。ユーザー単位の1端末WebRTC制限は[未実装課題](../../backlog/未実装課題.md#appleでのログインと通知先の識別)で管理し、今回の端末登録数制限で達成したとは扱わない。
 
 | Method / path | 入力 | 結果 |
 |---|---|---|
@@ -119,6 +142,8 @@ TURN資格は受け取った端末から別用途へ持ち出され得る。参�
 | 設定 | 既定 | 意図 |
 |---|---|---|
 | SERVICE_ENABLED | false | 無設定で課金対象処理を始めない。資格登録後、wrangler.tomlでtrueへ変更してdeploy |
+| APPLE_AUTH_ENABLED | false | 新規Apple認証・端末登録を明示的に有効化する。公開前にApp連携とabuse制限を整える |
+| APPLE_CLIENT_ID | com.yowamushi-inc.RideIntercom.RideIntercom | Apple identity tokenのaudience。iOS/macOS AppのBundle IDと一致させる |
 | MAX_ROOM_PARTICIPANTS | 8 | hard maximumも8 |
 | MAX_ACTIVE_SESSIONS | 32 | 全部屋共通、maximum512 |
 | MONTHLY_PARTICIPANT_SECONDS | 1,000,000 | UTC月でリセット。失敗/早期切断の予約も返金しない |
