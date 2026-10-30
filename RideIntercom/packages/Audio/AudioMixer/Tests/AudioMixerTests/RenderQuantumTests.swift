@@ -69,6 +69,28 @@ private final class QuantumFrames: @unchecked Sendable {
 // Hardware-clock checks run in XCTest's serial phase, separately from the
 // parallel offline graph tests that create and destroy many native Audio Units.
 final class RealtimeRenderBoundaryTests: XCTestCase {
+func testFirstPacketDoesNotWaitForAnAlreadyRunningDeviceClock() async throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("first-packet")
+    let source = try bus.addPCMSource(id: "voice", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    let received = QuantumFrames()
+    _ = try bus.installPCMSink(id: "probe", targetFormat: .init()) { frame, _ in received.append(frame) }
+    let muted = try mixer.createBus("muted"); muted.volume = 0
+    try mixer.route(bus, to: muted); try mixer.routeToOutput(muted)
+    try mixer.start()
+    defer { mixer.stop() }
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertFalse(received.snapshot.isEmpty, "The native device must already be rendering")
+    try source.schedule(.init(sequenceNumber: 0, capturedAt: 100,
+        samples: Array(repeating: 0.2, count: 480)))
+    XCTAssertEqual(source.bufferedDuration, 0.012, accuracy: 1 / 48000,
+        "A stopped player starts with its prepared first buffer; it needs no asynchronous render handoff allowance")
+    source.start()
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(received.snapshot.flatMap(\.samples).filter { $0 > 0.1 }.count, 480)
+}
+
 func testDelayedQuietBurstDoesNotCutTheReturningFade() async throws {
     let mixer = try AudioMixer(audioFormat: .init())
     let bus = try mixer.createBus("delayed-pause")
