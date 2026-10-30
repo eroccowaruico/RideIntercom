@@ -86,6 +86,8 @@ func testAdaptivePlayerPreparesItsClockBeforeTheFirstUtterance() async throws {
     XCTAssertTrue(received.snapshot.flatMap(\.samples).allSatisfy { $0 == 0 })
     try source.schedule(.init(sequenceNumber: 0, capturedAt: 100,
         samples: Array(repeating: 0.2, count: 480)))
+    XCTAssertLessThanOrEqual(source.bufferedDuration, 0.01425,
+        "Native handoff beyond the writable frontier must stay within 2 ms, independent of the device quantum")
     try await Task.sleep(for: .milliseconds(100))
     XCTAssertEqual(received.snapshot.flatMap(\.samples).filter { $0 > 0.1 }.count, 480,
         "Starting the clock early must not place the first capture timestamp in the past")

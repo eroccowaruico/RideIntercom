@@ -104,12 +104,14 @@ public final class MixerPCMSource {
 					throw AudioMixerError.pcmSourceScheduleFailed("Invalid capture timestamp")
 				}
                 // playbackPosition already advances past the current native
-                // block. Reserve one more for an asynchronous command handoff.
+                // block. Bound the additional command handoff to 2 ms rather
+                // than waiting another whole device quantum.
                 // A stopped player starts with its prepared first buffer and
                 // needs no handoff allowance. Offline rendering needs none.
                 let nativeLead = adaptivePlayout && playerNode.isPlaying
                     && playerNode.engine?.isInManualRenderingMode == false
-                    ? AVAudioFramePosition(renderClock.frameCount.load(ordering: .relaxed)) : 0
+                    ? min(AVAudioFramePosition(renderClock.frameCount.load(ordering: .relaxed)),
+                        AVAudioFramePosition((0.002 * mixerFormat.sampleRate).rounded(.up))) : 0
                 // Device handoff and arrival jitter are independent. Taking
                 // their maximum silently removes the configured jitter margin.
                 let requestedLead = nativeLead + AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded())
