@@ -98,7 +98,7 @@ PCMFrame(format A)
 | `codec` | `CodecIdentifier` | `pcm16` | なし | 全codec |
 | `format` | `AudioCore.AudioFormat` | `48_000Hz / mono` | `AudioFormat` の範囲正規化 | 全codec |
 | `aacELDv2Options.bitRate` | `Int` | `32_000` | `12_000...128_000` | `mpeg4AACELDv2` |
-| `opusOptions.bitRate` | `Int` | `32_000` | `6_000...128_000` | `opus` |
+| `opusOptions.bitRate` | `Int` | `48_000` | `48_000...128_000` | `opus` |
 
 | format項目 | 範囲 | 備考 |
 |---|---|---|
@@ -226,7 +226,7 @@ RideIntercomのLocal / Internet / 中継は同じ符号化済みpacket経路を�
 | 観点 | 確認 |
 |---|---|
 | codec identifier | PCM16 / AAC-ELD v2 / Opus が期待する AudioToolbox format ID を持つ |
-| default configuration | PCM16 / `48_000Hz` / mono / AAC `32kbps` / Opus `32kbps` |
+| default configuration | PCM16 / `48_000Hz` / mono / AAC `32kbps` / Opus `48kbps` |
 | option normalization | AAC / Opus bit rate が範囲内へ丸められる |
 | AudioCore frame | sequence、format、timestamp、sample count を encoded metadata に保持する |
 | format mismatch | 暗黙変換せず拒否する |
@@ -261,12 +261,13 @@ bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverter�
 |---|---|
 | StreamingCodecEncoder | 送信stream専有のnative変換器を保持。各入力でEOS/resetせず、historyと部分packetを維持する。入力は最大1秒 |
 | suppressesSilence | 既定false。trueでは完全な0の入力が100ms続くまでnative末尾を送り、その後は符号化とpacket生成を休止する。音量閾値による小声の除去はしない。次の非無音入力を同じ呼出しで処理し、省略した時刻の不連続によりstream identityとnative履歴を更新する。各packetにcookieを保持し、信頼あり通信への依存を追加しない |
-| Opus | native frameを10msへ指定。既定20msのpacket完成待ちを減らす |
+| Opus | native frameは5msのCELT-only。10ms入力の2frameを同じ送信packetに格納し、送信回数を増やさず短時間の波形乱れを防ぐ。制約付き可変bitrateで短い変化へbitを配分し、選択したbitrateをstreamの目標として維持する。既定20msのpacket完成待ちを減らす |
 | AAC-ELD | ELD v1 monoのnative変換。480sample/frame（48/24/16kHzで10/20/30ms）。long-term average bitrateで発話過渡音と無音へのbit配分を行う |
 | availableEncodingBitRates | OSが当該codec/PCM formatで受け入れるencode bitrate一覧。App側の品質下限とは別の能力情報 |
 | stream identity | UUIDをpayloadに含め、入力clockが2sampleを超えて不連続ならencoder履歴をリセットしてidentityを更新 |
 | 無音復帰のpriming | 新streamの先頭にnative 1packet分の無音を内部で供給する。primingFrameCountで明示し、復号時に初期欠落分とともに消費して再生へ出さない。Opusの初期2.5msで発話を削らず、無音prefixによる再生待ちも増やさない |
 | StreamingCodecDecoder | 相手ごとに保持。stream identity / codec / format変更時だけnative decoderを交換。初期遅延を除いたsample数に合わせcapture時刻を進める |
+| transitionDrainDuration | 設定変更時に旧形式のfadeを送り切る区間。native primingのleading/trailingの大きい方に、AACは1packet、Opusはpostfilterの尾を含む3個の5ms packetを加える。PCMは0。通常会話の遅延には加えない。16/24/48kHzで復号末尾と切替上限を検証する |
 | stream切替 | PCMStreamTransitionで2msずつfade out/in。100msを超える入力空白では過去の最終sampleを再生しない。通常PCMを変更しない |
 | input provider | AudioConverterが要求したpacket/frame数だけ渡す。残りを保持し、一度に与えて末尾を捨てない。継続入力がない場合はnoDataNow |
 | 独立frame API | CodecEncoder / CodecDecoderと排他的なconverter poolは独立frame用途として残す。通話streamの各packetでは使用しない |
@@ -278,3 +279,7 @@ AAC-ELD v2の識別子は既存payloadの明示判定用に保持する。v2非�
 compressed envelopeはFoundation JSONのCodableを維持し、内部CodingKeysを短縮する。packet descriptionはFoundationの3要素配列（offset、variable frame count、byte count）とし、余分な要素も拒否する。stream UUID・各packetのcookie・frame数・priming情報を毎回保持し、再送や信頼ありの別経路で状態を同期しない。独自binary parserは追加しない。サイズ・allocation・offsetの検証は維持する。旧key形式は受理しないため、通信相手は同じRTC v2形式へ更新する。
 
 Streamingの外側EncodedCodecFrameのsampleCountとcapturedAtは、内部primingを除いた実音声を表す。native packet数・buffer容量を表すenvelope内のsourceFrameCountとは区別する。復号後にもprimingを足し直さず、実音声時刻を保持する。
+
+Opusの範囲は初期化・Codableでの旧設定読み込み・property変更の各入口で共通に正規化する。最低48kbpsでは、16bit量子化を含む12位相×3振幅×2入力の72条件で、2ms窓の波形誤差上限0.006を維持する。Appの既定値とUIもこのpackageの範囲を使う。
+
+継続streamの受信では、無音後にstream IDだけ変わりcodec・PCM format・magic cookieが一致する場合、専有decoderを`reset()`して再利用する。設定が変わる場合はnative converterを作り直す。履歴を共有せず、独立decoderと同じ全sample結果（明示的な復帰fade込み）になることを16/24/48kHzのOpus/AACで検証する。

@@ -25,7 +25,7 @@ Codec は App の送信設定として選ぶ。Codec package の availability �
 | `preferredTransmitCodec` | segmented picker。既定 `.mpeg4AACELD` | `CodecEncodingConfiguration.codec` と `RTCAudioPolicy.preferredCodecs` の先頭 | 常時 |
 | `rtcAudioFormatPreset` | segmented picker。既定 `48 kHz` | `CodecEncodingConfiguration.format`、`RTCAudioPolicy.preferredSendFormat`、TX `MixerPCMSink.targetFormat` | 常時 |
 | `aacELDv2BitRate` | stepper または menu。既定 `48_000`。OS対応値と音声品質下限の共通部分 | `CodecEncodingConfiguration.aacELDv2Options.bitRate` | `preferredTransmitCodec == .mpeg4AACELD` |
-| `opusBitRate` | stepper または menu。既定 `32_000` | `CodecEncodingConfiguration.opusOptions.bitRate` | `preferredTransmitCodec == .opus` |
+| `opusBitRate` | stepper または menu。既定 `48_000` | `CodecEncodingConfiguration.opusOptions.bitRate` | `preferredTransmitCodec == .opus` |
 | selected / fallback codec | Diagnostics の Codec 行 | `CodecRuntimeReport` と `RTCAudioPolicy.preferredCodecs` の結果 | 常時 |
 
 Diagnostics は codec の希望値と実際に選ばれた codec を分けて表示する。要求 codec が使えない状態は設定ミスではなく、環境差異または route capability 差異として扱う。

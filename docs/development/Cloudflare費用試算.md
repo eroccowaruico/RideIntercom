@@ -50,16 +50,21 @@ RealtimeKit は完成した会議機能を含む別製品であり、SFUを自�
 
 | 測定・仮定 | 値と境界 |
 |---|---|
-| `RelayTests` fixture、AAC payload 80 bytes / 20ms | 外側ApplicationDataMessageまで753 bytes / 20ms = 301.2kbps。符号化音声の品質や実ネットワーク速度を測った値ではない |
-| 同fixture、PCM48k mono 960 samples | 2607 bytes / 20ms = 1042.8kbps。DTLS/SCTP/IPはまだ含まない |
+| 2026-10-21の`RelayTests` fixture、AAC payload 80 bytes / 20ms | 当時の外側ApplicationDataMessageまで753 bytes / 20ms = 301.2kbps。符号化音声の品質や実ネットワーク速度を測った値ではない |
+| 2026-10-30の同条件fixture、AAC payload 80 bytes / 20ms | metadata変更直前772→変更後643 bytes / 20ms。現行値は257.2kbps。ID等のfixture条件差を含むため753からの単一差分とはしない |
+| 同fixture、PCM48k mono 960 samples | 2607→2478 bytes / 20ms = 現行991.2kbps。DTLS/SCTP/IPはまだ含まない |
 | 直送AACの参考仮定 | 384kbps。短いpath・通常ID長の参考値 |
 | 中継AACの既定仮定 | 512kbps。名前・ID・path長・制御reportで増減する。連続送信を仮定 |
 | PCM fallbackの参考仮定 | 1536kbps。無圧縮へfallbackしても低価格が保証されるわけではない |
 | 複数中継 | `relayCopies=1`が通常の選出済み中継。分散したLocal隣接グラフや収束中の複数gatewayでは増える。2などで感度分析する |
 | 以前の64kbps表 | RTP Opus方式を仮定した旧試算。現行group relayの試算として無効。試算テストでは比較基準として明示指定して残す |
-| 現行形式 | Foundationのbinary PropertyListを使用。小型化案は[改善候補](../backlog/改善候補.md)で管理 |
+| 現行形式 | Foundationのbinary PropertyListを維持し、反復keyを短縮。codec envelopeもFoundation Codableの短いkeyと固定配列を用いる。独自binary parserは導入しない |
 
 全peerへSFUがfanoutする保守的モデル。実際にSFUへ接続しないLocal-onlyの人数やLocal優先で抑制できる配信分を割り引いていない。一方、再送・制御payloadの増加・複数gatewayなどはこの既定値を超え得る。最大payload制約をwire帯域のハードキャップとは扱わない。
+
+2026-10-30に[SFU料金](https://developers.cloudflare.com/realtime/sfu/platform/pricing/)と[DO Hibernation](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)を再確認。無音時はnative末尾の排出後に符号化・音声送信を休止し、通常会話fixtureでpacket数を約39〜51%削減、1〜3秒の無音を挟む短い応答fixtureでcodec payloadを約82〜87%削減した。短いkeyによる削減と無音休止の削減は別に測定する。詳細・現行ソースの検証状態は[無音通信と電力負荷の削減](../validation/history/無音通信と電力負荷の削減.md)を参照する。音声は再送しない。制御の信頼あり通信による増分は別に残る。
+
+これらはfixtureと実装層のbyte測定で、無線・DTLS/SCTP/IP・実際の発話率を含む請求値ではない。512kbpsの容量計画と参加者秒の保守的予約は変更せず、実配信量と請求を確認してから見直す。既存SignalingRoomのHibernationと300秒ごとのlease更新を維持し、音声や無音通知をWorkerへ流さない。
 
 ## 月額比較
 
