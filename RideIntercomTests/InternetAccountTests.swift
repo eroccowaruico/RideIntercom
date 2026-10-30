@@ -54,12 +54,27 @@ struct InternetAccountTests {
         await f.authorization.prepare(url: "https://account.test")
         let request = ASAuthorizationAppleIDProvider().createRequest()
         f.authorization.configure(request)
-        AccountHTTPStub.respond(status: 409, path: "/api/auth/apple/session")
+        AccountHTTPStub.respond(status: 409, path: "/api/auth/apple/session", code: "device_limit_reached")
         await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
         #expect(f.saved == nil)
         #expect(f.authorization.message?.contains("8 registered devices") == true)
         #expect(f.authorization.message?.contains("Sign out") == true)
         #expect(!f.authorization.isReady && !f.authorization.isBusy)
+    }
+
+    @Test(arguments: ["deletion_pending", "unknown"])
+    func pendingDeletionAndUnknownConflictAreNotDeviceCapacity(code: String) async {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        AccountHTTPStub.respond(status: 409, path: "/api/auth/apple/session", code: code)
+        await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
+        #expect(f.saved == nil && !f.authorization.isBusy && !f.authorization.isReady)
+        #expect(f.authorization.message?.contains("8 registered devices") == false)
+        if code == "deletion_pending" {
+            #expect(f.authorization.message?.contains("deletion is still pending") == true)
+        }
     }
 
     @Test func lateThrottleCannotRestoreCancelledStateOrBlockAnotherService() async {
@@ -295,14 +310,15 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var delayed = false
     nonisolated(unsafe) private static var responseStatus = 200
     nonisolated(unsafe) private static var responsePath: String?
+    nonisolated(unsafe) private static var responseCode: String?
     nonisolated(unsafe) private static var retryAfter: String?
     static var requests: [URLRequest] { lock.withLock { recorded } }
     static func reset(deviceID: String) { lock.withLock {
         recorded = []; Self.deviceID = deviceID; delayed = false; locator = String(repeating: "d", count: 64)
-        responseStatus = 200; responsePath = nil; retryAfter = nil; identityChanges = [:]
+        responseStatus = 200; responsePath = nil; retryAfter = nil; responseCode = nil; identityChanges = [:]
     } }
-    static func respond(status: Int, path: String? = nil, retryAfter: String? = nil) { lock.withLock {
-        responseStatus = status; responsePath = path; Self.retryAfter = retryAfter
+    static func respond(status: Int, path: String? = nil, retryAfter: String? = nil, code: String? = nil) { lock.withLock {
+        responseStatus = status; responsePath = path; Self.retryAfter = retryAfter; responseCode = code
     } }
     static func changeIdentity(_ changes: [String: String]) { lock.withLock { identityChanges = changes } }
     static func setLocator(_ value: String) { lock.withLock { locator = value } }
@@ -312,7 +328,7 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let device = Self.lock.withLock { Self.recorded.append(request); return Self.deviceID }
         let account = String(repeating: "a", count: 64)
-        let body: [String: Any]
+        var body: [String: Any]
         if request.url!.path.hasSuffix("/challenge") {
             body = ["challengeID": account, "nonce": String(repeating: "b", count: 64), "deviceID": device,
                     "expiresAt": Date().addingTimeInterval(300).timeIntervalSince1970 * 1000]
@@ -325,6 +341,7 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
         } else if request.httpMethod == "DELETE" { body = [:] }
         else { body = ["userID": account, "deviceID": device, "expiresAt": Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000,
                        "accessToken": "ri1.\(Self.lock.withLock { Self.locator }).\(device).\(String(repeating: "c", count: 64))"] }
+        if let code = Self.lock.withLock({ Self.responseCode }), Self.lock.withLock({ Self.responsePath }) == request.url?.path { body = ["code": code] }
         let data = try! JSONSerialization.data(withJSONObject: body)
         let (status, retryAfter) = Self.lock.withLock {
             (Self.responsePath == nil || Self.responsePath == request.url?.path ? Self.responseStatus : 200, Self.retryAfter)

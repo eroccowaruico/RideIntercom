@@ -26,7 +26,7 @@ final class AccountDeletion {
     var canFinish: Bool {
         guard let record else { return false }
         return record.localErased && (record.access == nil || record.serverResult?.deleted == true)
-            && record.serverResult?.appleRevocationPending != true && !isBusy && !storageUnavailable
+            && record.serverResult?.cleanupPending != true && !isBusy && !storageUnavailable
     }
     var requiresManualAppleRemoval: Bool { record?.serverResult?.appleAuthorizationRevoked != true && record?.serverResult?.newerAccountPreserved != true }
     private let keychain: KeychainSecretStoring
@@ -66,7 +66,7 @@ final class AccountDeletion {
         isBusy = true; message = nil
         defer { isBusy = false }
         do {
-            if let access = next.access, next.serverResult == nil || next.serverResult?.appleRevocationPending == true {
+            if let access = next.access, next.serverResult == nil || next.serverResult?.cleanupPending == true {
                 next.serverResult = try await client.deleteAccount(origin: access.workerURL, accessToken: access.accessToken,
                     proof: next.serverResult == nil ? next.proof : nil, expectedUserID: access.userID)
                 // Once the server accepted deletion, the code is no longer needed.
@@ -78,9 +78,12 @@ final class AccountDeletion {
                 next.localErased = true
                 try persist(next)
             }
-            message = next.serverResult?.appleRevocationPending == true
-                ? "Your account data has been deleted. Apple authorization removal is pending. Retry when online."
-                : "Your data on this device has been deleted."
+            switch (next.serverResult?.mediaCleanupPending == true, next.serverResult?.appleRevocationPending == true) {
+            case (true, true): message = "Your data on this device has been deleted. Internet call cleanup and Apple authorization removal are pending. Retry when online."
+            case (true, false): message = "Your data on this device has been deleted. Internet call cleanup is pending. Retry when online."
+            case (false, true): message = "Your data on this device has been deleted. Apple authorization removal is pending. Retry when online."
+            case (false, false): message = "Your data on this device has been deleted."
+            }
         } catch InternetAccountClient.Failure.deletionReauthenticationRequired {
             // The server may have completed cancellation and expired its receipt
             // while this device was offline. Preserve local erasure and the target

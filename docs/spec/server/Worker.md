@@ -72,7 +72,7 @@ AppのSettingsからnonce取得・native Apple認証・資格保存と、サイ�
 
 [CloudflareのRate Limiting API](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)はlocation単位で非同期に集計する近似制限であり、分散攻撃の厳密な全世界上限・請求額上限ではない。共有回線では登録枠を共有する。公開時のedge対策・請求監視・緊急停止は別途整備する。
 
-このserver実装は公開運用の完了ではない。Apple認可コードの交換・refresh token・Appからのアカウント削除完結／Apple grant取消、サーバー通知は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
+このserver実装は公開運用の完了ではない。Apple認可取消とAppからの削除は後述の契約を実装済みであり、実サービス受入・削除対象サービスの範囲・サーバー通知は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。端末の自己資格失効後は新規APIとlease更新を拒否し、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。アカウント削除では次節の即時回収を開始する。
 
 ### ユーザーと端末の署名付き証明
 
@@ -95,18 +95,21 @@ AppのSettingsからnonce取得・native Apple認証・資格保存と、サイ�
 |---|---|
 | API | `DELETE /api/auth/account`。端末Bearerが示すアカウントDOだけを対象にする。有効資格、または後述のfresh Apple本人確認で認可する。`expectedUserID`は削除対象の世代条件であり、他アカウントの選択には使わない |
 | 削除範囲 | 対象アカウントの公開userIDと全端末資格を同じSQLite transactionで削除する。他アカウントの資格は維持する。登録入口・通話サービスの停止中も削除を受け付ける |
-| 再登録 | 新しい公開userIDを発行し、古いIDの関係を引き継がない。並行する登録は同じ新IDを使う。WebRTCの接続枠は内部アカウントIDで管理し、削除前の通話資源が未回収なら再登録でも409を返す。関係・通知許可を内部IDへ結び付けない |
+| 再登録 | 新しい公開userIDを発行し、古いIDの関係を引き継がない。並行する登録は同じ新IDを使う。WebRTCの接続枠は内部アカウントIDで管理し、Apple取消または削除前の通話資源が未回収なら登録を`409 deletion_pending`で拒否する。関係・通知許可を内部IDへ結び付けない |
 | Apple取消用の再認証 | 同じAPIへ任意の`challengeID`・`identityToken`・`authorizationCode`を一緒に渡せる。challengeの端末とBearerの端末、Apple subjectから求めたアカウントDOを照合する。コード交換応答の署名・audience・subject・nonceも確認し、別人のコードを取消へ使わない。通常ログインではApple refresh tokenを追加保存しない |
 | 失効後の復旧 | 再認証proofに保存済みの公開`expectedUserID`を追加できる。Apple subjectがBearerのDOと一致し、challengeの端末も一致した場合だけ、失効・30日期限切れ・受領記録の失効後も復旧を許す。現在の公開IDが対象と違う場合は`deleted: true, appleAuthorizationRevoked: false, newerAccountPreserved: true`を返し、新規登録・Apple認可を保持する。元の対象が存在しないことを確認した結果であり、新しいアカウントを削除した意味ではない。コード交換も行わない |
 | Appleへの通信 | 固定originの`/auth/token`と`/auth/revoke`だけを使用し、redirectを追わない。native認証のためredirect_uriを送らない。client secretは環境別の`APPLE_CLIENT_SECRET`、コード最大8192文字・identity token最大16384文字、交換応答最大32768byte、各HTTP要求8秒。取消の200を成功とし、過去に取消済みの場合も同じ結果として扱う |
-| 応答 | データ削除は`deleted: true`。Apple取消の200を確認した場合だけ`appleAuthorizationRevoked: true`。トークンを保持して再試行中なら`appleAuthorizationRevoked: false, appleRevocationPending: true`。Apple証明を送らない削除は従来どおりfalseで、手動取消が必要。どの応答も端末内のデータ消去や稼働媒体の回収までの完了を意味しない |
-| 同時実行 | Appleコード交換前に30秒の準備参照を永続化し、同じアカウントの二重交換・再登録・別の削除を抑止する。交換失敗は準備を解除し、データを保持する。取得したrefresh tokenと資格削除を同じtransactionで保存してから取消へ進む。取消待ち中の再登録は`409 deletion_pending`。成功した古い削除の再送ではAppleコードを再交換しない |
+| 応答 | データ削除は`deleted: true`。Apple取消の200を確認した場合だけ`appleAuthorizationRevoked: true`。トークンを保持して再試行中なら`appleAuthorizationRevoked: false, appleRevocationPending: true`。Apple証明を送らない削除は従来どおりfalseで、手動取消が必要。稼働媒体の回収待ちは`mediaCleanupPending: true`で別に返し、回収後は省略する。`deleted`単独は媒体回収や端末内消去の完了を意味しない |
+| 同時実行 | Appleコード交換前に30秒の準備参照を永続化し、同じアカウントの二重交換・再登録・別の削除を抑止する。交換失敗は準備を解除し、データを保持する。取得したrefresh tokenと資格削除を同じtransactionで保存してから取消へ進む。取消または媒体回収待ち中の再登録は`409 deletion_pending`。成功した古い削除の再送ではAppleコードを再交換しない |
 | 取消再試行 | 最初の失敗から1分・5分・30分・2時間・6時間の順でalarmを予約し、自動実行は初回を含め最大6回。以後は利用者の同じDELETE再送で再試行し、最低1分間隔を保持する。試行前に次回時刻を保存し、並行DELETE・alarm・再起動で頻度を増やさない。未完のrefresh tokenは受領記録の24時間を超えても保持し、取消成功時に消す |
 | 応答を失った再送 | 削除対象の公開userID、削除元のdeviceID・資格hash・削除時刻・Apple取消状態を含む受領記録を1件、完了から24時間保持する。取消待ちの場合だけrefresh tokenと試行状態も保持する。同じ資格での再送は成功を返すが、その後の新規登録へ削除を再適用しない。別の失効済み資格だけでは401。同じ本人のfresh proofと対象IDが一致した別端末は、最大8件の再試行用deviceID・資格hashを追加でき、元の端末も引き続き再送できる。受領記録の有効期間内に新規登録があった場合も、古い再送には`newerAccountPreserved`を返して新しいApple認可の解除を案内させない。既存の取消tokenを再利用し、追加のAppleコード交換はしない |
 | 登録との競合 | challengeの発行時刻が保持中の削除時刻以前なら登録を401で拒否する。新しいchallengeから再認証する。時刻はserverで設定し、clientの申告値を使わない |
-| 回収と限界 | alarmで期限切れ受領記録を削除する。実行中の通話状態・利用枠は既存lease回収に従う。バックアップの物理削除や他端末内のデータ消去をこのAPIの完了として扱わない |
+| 通話回収の参照 | 公開資格のroom操作前にUserAccountへroom DO参照を登録し、公開IDの一致も再確認する。最大8参照。媒体のないroomは参照を外す。削除transactionで参照を受領記録へ移し、進行中のjoin応答もroomの直列処理後に回収する。表示名・グループ情報は追加保存しない |
+| 媒体回収 | 削除対象の公開IDに属するmember／準備中TURNだけを失効させ、WebSocketへCloseを送り、参加者通知から除外する。SFU channel・TURN資格を既存の確認付き回収処理で閉じ、内部account ID・公開IDの世代・roomが一致する予約だけを解放する。他ユーザーの通話は維持する。内部回収pathは公開APIとしてルーティングしない |
+| 媒体回収の再試行 | Apple取消とは独立に、同じ1分・5分・30分・2時間・6時間、初回込み最大6回のaccount alarmを使う。以後は最低1分間隔のDELETE再送。roomの既存lease回収も継続する。未完のroom参照は24時間を超えて保持し、全回収後に除去する。再起動・応答喪失でも同じ公開IDの回収だけを再実行する |
+| 回収と限界 | 完了後24時間で受領記録を削除する。provider障害・タイムアウト中は回収待ちを返し、物理ネットワーク切断の即時完了を保証しない。バックアップの物理削除や他端末内のオフラインデータ消去をこのAPIの完了として扱わない |
 
-Appの再認証・削除確認・復旧・取消待ち／手動取消の案内・端末内データ消去は[App仕様](../App/通信仕様.md#アカウント削除と端末内消去)を参照する。別端末の稼働媒体回収とサービス範囲の整理は[残課題](../../backlog/未実装課題.md)で続ける。Apple tokenを持たない場合でもデータ削除を進め、必要なら手動の認可取消を案内する方針は[Apple TN3194](https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple)に基づく。
+Appの再認証・削除確認・復旧・取消待ち／手動取消の案内・端末内データ消去は[App仕様](../App/通信仕様.md#アカウント削除と端末内消去)を参照する。稼働媒体回収の実サービス受入とサービス範囲の整理は[残課題](../../backlog/未実装課題.md)で続ける。Apple tokenを持たない場合でもデータ削除を進め、必要なら手動の認可取消を案内する方針は[Apple TN3194](https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple)に基づく。
 
 Appleとのコード交換・取消の契約は[Token validation](https://developer.apple.com/documentation/signinwithapplerestapi/generate-and-validate-tokens)と[Token revocation](https://developer.apple.com/documentation/signinwithapplerestapi/revoke-tokens)を適用した。
 
@@ -122,7 +125,7 @@ Appleとのコード交換・取消の契約は[Token validation](https://develo
 | 追加接続 | HTTP 409 / `account_in_use`。先の接続を追い出さず、追加側へ既存通話の終了を案内する。受信したX-User・X-Ownerは信用せずWorkerが置き換える |
 | 更新・解放 | 同じ予約の重複準備・更新を許す。終了と準備取消はSFU/TURNの回収後に解放。SFU session作成後の失敗も回収まで予約を保持する |
 | 再起動・通信断 | 予約と内部アカウントIDの対応を永続化。通信断で終了要求が届かない場合、既存leaseの満了後に新規予約が可能になる。無効な資格の更新は認めない |
-| 保持情報 | 既存のroom/participant予約に内部アカウントIDを対応付ける。メール・本名・表示名・ユーザー一覧は追加保存しない。解放・期限切れ整理で対応も削除する |
+| 保持情報 | 既存のroom/participant予約に内部アカウントIDと公開ID・端末ID由来のownerを対応付ける。メール・本名・表示名・ユーザー一覧は追加保存しない。解放・期限切れ整理で対応も削除する |
 
 これは有効な接続予約の制御であり、lease満了とprovider上の実媒体回収は同時完了の保証ではない。alarm遅延やprovider障害時には旧媒体が回収まで残り得る。任意に新旧2端末を併用する切替機能は提供していない。復旧時の重複の上限・切替方針は[残課題](../../backlog/未実装課題.md#appleでのログインと通知先の識別)で継続する。Appの案内は[通信仕様](../App/通信仕様.md#rtc-error-の扱い)を参照する。
 

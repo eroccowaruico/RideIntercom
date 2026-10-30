@@ -1,5 +1,22 @@
 # 検証状況と証跡
 
+## アカウント削除と稼働中通話の回収（2026-10-31）
+
+削除対象の公開IDに属するsignaling・SFU channel・準備中を含むTURN資格を回収し、成功後に接続枠を解放する。失敗は永続化して再試行し、Appも媒体回収待ちの間は削除完了・再ログインへ進めない。別ユーザーの通話は維持する。[Worker契約](../spec/server/Worker.md#アカウントの端末登録削除)と[App契約](../spec/App/通信仕様.md#アカウント削除と端末内消去)を参照。
+
+証跡は`.validation/deletion-media-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| TDD | 回収されない媒体と、回収待ちをAppが完了扱いする失敗を確認してから実装。最小WorkerでもClose送信後のTCP終了待ちを再現し、受信フレームの1000と理由を確認するテストへ整理。途中証跡は`development/` |
+| Worker | 型検査・全59件成功、失敗・skipなし。他人の通話維持と所有者だけのClose、TURN回収失敗と再起動、SFU失敗時の再登録拒否、参加応答待ちと削除の競合・回収後の新規接続を確認。`server/` |
+| Swiftとの結合 | ローカルWorker/DOへの実HTTP/WS結合1件成功。削除のApple／SFU／TURNはfixture、App HTTPはURLProtocolであり、実サービス削除の受入を意味しない |
+| App全体 | macOS・iOS各267件成功、失敗・skip・runtime warningなし。媒体回収とApple取消の独立したpending・再起動・段階的完了・矛盾応答拒否、削除待ち409と端末上限409の表示分離を確認。`macos/`・`ios/` |
+| UI・整合 | 専用iOS Simulatorの削除操作1件成功、終了後shutdown。iOS前後288ファイルの一致、Worker検証後のserver・scripts一致を記録。変更のないpackage・独立音声E2Eを今回の検証件数へ加算しない |
+
+実Apple・実Cloudflare・実機には接続していない。ローカルTCP終了待ちの限界は[未確認事項](未確認事項.md)へ記録した。既知のAppIntents未使用metadata省略warningは継続。未知サービス／別端末のオフライン保存への削除反映、独立duplex音声E2E、全体の最終受入は残る。
+
+
 ## 失効後のアカウント削除復旧（2026-10-31）
 
 Bearer失効・30日期限切れ・削除受領記録の期限切れでも、同じApple本人を確認して保存済みの公開IDだけを削除対象として復旧する。復旧のための新規登録は作らない。再登録後の別IDがあるときは、受領記録の期限内・期限後の両方で新しい登録とApple認可を保持した結果を返し、Appから手動解除を勧めない。[Worker契約](../spec/server/Worker.md#アカウントの端末登録削除)と[App契約](../spec/App/通信仕様.md#アカウント削除と端末内消去)を参照。

@@ -36,6 +36,30 @@ struct AccountDeletionTests {
         #expect(session.deletion.canFinish && !session.deletion.requiresManualAppleRemoval)
     }
 
+    @Test(arguments: [false, true]) func mediaCleanupBlocksCompletionAcrossRestart(applePending: Bool) async throws {
+        let f = DeletionFixture(); defer { f.remove() }
+        let session = f.session(); f.signIn(session)
+        try session.deletion.begin(userID: "owner", access: f.access, proof: nil)
+        let client = f.client(body: ["deleted": true, "appleAuthorizationRevoked": !applePending,
+                                   "appleRevocationPending": applePending, "mediaCleanupPending": true])
+        await session.resumeDeletion(client: client)
+        #expect(session.deletion.record?.localErased == true)
+        #expect(!session.deletion.canFinish)
+        #expect(session.deletion.message?.contains("Internet call cleanup") == true)
+        #expect(throws: (any Error).self) { try session.deletion.finish() }
+        let restarted = f.session()
+        #expect(restarted.deletion.blocksSignIn && !restarted.deletion.canFinish)
+        DeletionHTTPStub.respond(body: ["deleted": true, "appleAuthorizationRevoked": true, "mediaCleanupPending": true])
+        await restarted.resumeDeletion(client: client)
+        #expect(!restarted.deletion.canFinish)
+        DeletionHTTPStub.respond(body: ["deleted": true, "appleAuthorizationRevoked": true])
+        await restarted.resumeDeletion(client: client)
+        #expect(restarted.deletion.canFinish)
+        #expect(DeletionHTTPStub.requests.count == 3)
+        try restarted.deletion.finish()
+        #expect(!f.session().deletion.blocksSignIn)
+    }
+
     @Test func failedJournalWriteDoesNotRevokeLogin() throws {
         let f = AccountFixture(); defer { f.remove() }
         f.signIn()
@@ -91,7 +115,8 @@ struct AccountDeletionTests {
         ["deleted": false, "appleAuthorizationRevoked": true],
         ["deleted": true, "appleAuthorizationRevoked": true, "appleRevocationPending": true],
         ["deleted": true],
-        ["deleted": true, "appleAuthorizationRevoked": true, "newerAccountPreserved": true]
+        ["deleted": true, "appleAuthorizationRevoked": true, "newerAccountPreserved": true],
+        ["deleted": true, "appleAuthorizationRevoked": false, "newerAccountPreserved": true, "mediaCleanupPending": true]
     ])
     func malformedSuccessCannotEraseLocalData(body: [String: Bool]) async throws {
         let f = DeletionFixture(); defer { f.remove() }

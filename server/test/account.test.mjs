@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import WebSocket from 'ws';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
@@ -428,20 +429,22 @@ test('public identity survives all-device sign-out and expiry, but not account d
     } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
 });
 
-test('re-enrollment after deletion cannot bypass an uncollected account connection reservation', async () => {
+test('re-enrollment waits until failed SFU deletion cleanup completes', async () => {
     const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
     try {
         const one = await enrolled(runtime);
         assert.equal((await call(runtime, `/api/rooms/${room}/join`, { participantId: one.deviceID, offer }, one.accessToken)).status, 200);
-        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
-        const replacement = await enrolled(runtime);
-        assert.notEqual(replacement.userID, one.userID);
+        provider.upstreamFails = true;
+        const deletion = await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE');
+        assert.equal(deletion.status, 200);
+        assert.equal((await deletion.json()).mediaCleanupPending, true);
         const count = provider.requests.length;
-        const response = await call(runtime, `/api/rooms/${'b'.repeat(64)}/join`, { participantId: replacement.deviceID, offer }, replacement.accessToken);
-        assert.equal(response.status, 409);
-        assert.equal((await response.json()).code, 'account_in_use');
+        const registration = await signIn(runtime, await challenge(runtime));
+        assert.equal(registration.status, 409);
+        assert.equal((await registration.json()).code, 'deletion_pending');
         assert.equal(provider.requests.length, count);
-    } finally { await runtime.dispose(); }
+        assert.equal((await call(runtime, '/api/auth/session', undefined, one.accessToken, 'GET')).status, 401);
+    } finally { provider.upstreamFails = false; await runtime.dispose(); }
 });
 
 
@@ -733,4 +736,91 @@ test('deletion recovery lets another authenticated owner device observe pending 
         for (const user of [one, two]) assert.equal((await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE')).status, 200);
         assert.equal(exchanges, 1);
     } finally { await runtime.dispose(); }
+});
+
+test('account deletion media cleanup stops only its owner and releases the account slot', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    let removedSocket, otherSocket;
+    try {
+        const user = await enrolled(runtime), other = await enrolled(runtime, 'another-caller');
+        const join = async (credential, id) => (await call(runtime, `/api/rooms/${room}/join`, { participantId: id, offer }, credential.accessToken)).json();
+        const a = await join(user, 'deleted-peer'), b = await join(other, 'remaining-peer');
+        for (const [credential, session] of [[user, a], [other, b]]) {
+            await call(runtime, `/api/rooms/${room}/sessions/${session.sessionId}/publish`, {}, credential.accessToken);
+            const url = new URL(`/api/rooms/${room}/sessions/${session.sessionId}/signal`, await runtime.ready);
+            url.protocol = 'ws:';
+            // workerd can leave TCP half-open after sending Close. Bound the standard
+            // client handshake wait; the assertions below still require its real Close frame.
+            const socket = new WebSocket(url, { closeTimeout: 250, headers: { Authorization: `Bearer ${credential.accessToken}` } });
+            await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
+            if (credential === user) removedSocket = socket; else otherSocket = socket;
+        }
+        const closed = new Promise(resolve => removedSocket.addEventListener('close', resolve, { once: true }));
+        const result = await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE');
+        assert.equal(result.status, 200); assert.equal((await result.json()).mediaCleanupPending, undefined);
+        assert.ok(provider.requests.some(r => r.url.endsWith(`/sessions/${a.sessionId}/datachannels/close`)), 'Deleted media was not closed');
+        let timer;
+        const event = await Promise.race([closed, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Deleted signaling stayed open')), 3000); })]).finally(() => clearTimeout(timer));
+        assert.equal(event.code, 1000);
+        assert.equal(event.reason, 'Account deleted');
+        assert.equal(otherSocket.readyState, 1);
+        assert.equal((await call(runtime, `/api/rooms/${room}/sessions/${b.sessionId}/renew`, {}, other.accessToken)).status, 200);
+        const fresh = await enrolled(runtime);
+        assert.equal((await call(runtime, `/api/rooms/${'d'.repeat(64)}/join`, { participantId: 'new-account', offer }, fresh.accessToken)).status, 200);
+        assert.ok(provider.requests.some(r => r.url.endsWith(`/sessions/${a.sessionId}/datachannels/close`)));
+        assert.ok(!provider.requests.some(r => r.url.endsWith(`/sessions/${b.sessionId}/datachannels/close`)));
+    } finally { removedSocket?.close(); otherSocket?.close(); await runtime.dispose(); }
+});
+
+test('account deletion media cleanup retains failed TURN revocation across restart', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-delete-media-'));
+    const config = { ...options, TURN_ENABLED: 'true', CLOUDFLARE_TURN_KEY_ID: 'test-turn', CLOUDFLARE_TURN_API_TOKEN: 'test-turn-secret' };
+    let runtime = await makeRuntime(config, { storageDirectory, appleKeys: [publicKey] });
+    try {
+        const user = await enrolled(runtime);
+        const ice = await call(runtime, `/api/rooms/${room}/ice/orphan`, { leaseID: 'delete-ice' }, user.accessToken);
+        assert.equal(ice.status, 200);
+        provider.revokeFails = true;
+        const response = await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE');
+        assert.equal(response.status, 200); assert.equal((await response.json()).mediaCleanupPending, true);
+        assert.equal((await signIn(runtime, await challenge(runtime))).status, 409);
+        await runtime.dispose(); provider.revokeFails = false;
+        runtime = await makeRuntime(config, { storageDirectory, appleKeys: [publicKey], clockOffsetMs: 61000 });
+        const retried = await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE');
+        assert.equal(retried.status, 200); assert.equal((await retried.json()).mediaCleanupPending, undefined);
+        assert.ok(provider.requests.some(r => r.url.includes('/credentials/') && r.url.endsWith('/revoke')));
+    } finally { provider.revokeFails = false; await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+
+test('account deletion collects a join already waiting for the SFU response', { timeout: 15000 }, async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    let entered, release;
+    const started = new Promise(resolve => { entered = resolve; });
+    const gate = new Promise(resolve => { release = resolve; });
+    provider.onEstablish = async () => { entered(); await gate; };
+    try {
+        const user = await enrolled(runtime);
+        const joining = call(runtime, `/api/rooms/${room}/join`, { participantId: 'joining-peer', offer }, user.accessToken);
+        await started;
+        const deleting = call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE');
+        const deadline = Date.now() + 3000;
+        let retired = false;
+        while (Date.now() < deadline) {
+            if ((await call(runtime, '/api/auth/session', undefined, user.accessToken, 'GET')).status === 401) { retired = true; break; }
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        release();
+        assert.ok(retired, 'Credentials must retire while provider join is pending');
+        const joined = await joining;
+        assert.equal(joined.status, 200);
+        const session = await joined.json();
+        const deleted = await deleting;
+        assert.equal(deleted.status, 200);
+        assert.equal((await deleted.json()).mediaCleanupPending, undefined);
+        assert.ok(provider.requests.some(request => request.url.endsWith(`/sessions/${session.sessionId}/datachannels/close`)));
+        assert.equal((await call(runtime, `/api/rooms/${room}/sessions/${session.sessionId}/renew`, {}, user.accessToken)).status, 401);
+        const fresh = await enrolled(runtime);
+        assert.equal((await call(runtime, `/api/rooms/${room}/join`, { participantId: 'fresh-peer', offer }, fresh.accessToken)).status, 200);
+    } finally { release(); delete provider.onEstablish; await runtime.dispose(); }
 });

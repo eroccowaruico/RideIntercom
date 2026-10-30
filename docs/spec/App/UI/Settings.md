@@ -152,7 +152,7 @@ Apple認証の登録入口はserver側で有効化されている必要があり
 | 削除確認 | `accountDeletionConfirmation` | 自分の端末内ユーザー・グループ・設定・鍵、接続済みInternetサービスの全端末登録という削除範囲を説明。別端末・他人への共有済み情報と購入解約は別扱い。Cancelで戻る |
 | Apple再認証 | `verifyAppleDeletionButton` | Prepare Apple Verificationでserver nonceを取得後、標準Continue with Appleを表示。同じ本人・request state・有効期限・現在のログイン世代を確認し、identity tokenとauthorization codeを削除要求へ渡す。メール・本名を要求しない |
 | Apple確認なしの削除 | `deleteWithoutAppleButton` | 別の破壊的確認を経て実行。Apple側で手動解除が必要なことを明示する。Internet登録がこの端末になければ、この端末のデータ削除だけを提示し、他端末のInternet登録は消せないと説明する |
-| 削除中と再開 | `accountDeletionProgress` | 確定後は通話を停止し、通常画面とログインを閉じる。保存失敗・HTTP拒否・Apple取消待ちを完了と扱わず、Retry Deletionを表示する。server受理前はAppleの再確認、または明示的な確認なし削除へ変更できる |
-| 削除の終了 | `finishAccountDeletionButton` | 端末内消去と必要なserver受理が済み、Apple取消待ちがない場合だけReturn to Sign Inを表示。Apple取消が未実施ならApple Accountへのリンクと手動解除手順を示す。押すと削除記録を除去してログインへ戻る |
+| 削除中と再開 | `accountDeletionProgress` | 確定後は通話を停止し、通常画面とログインを閉じる。保存失敗・HTTP拒否・Apple取消待ち・Internet通話回収待ちを完了と扱わず、Retry Deletionを表示する。server受理前はAppleの再確認、または明示的な確認なし削除へ変更できる |
+| 削除の終了 | `finishAccountDeletionButton` | 端末内消去と必要なserver受理が済み、Apple取消待ち・Internet通話回収待ちがない場合だけReturn to Sign Inを表示。Apple取消が未実施ならApple Accountへのリンクと手動解除手順を示す。押すと削除記録を除去してログインへ戻る |
 
 削除処理はsheetの寿命に依存しない。再起動しても削除記録を先に読み、未完了なら同じ再開画面へ戻る。削除記録・保存資格を読み出せない場合、空のアカウントとして削除を進めない。資格の期限切れ・失効、または取消待ちの受領記録失効でserverが401を返すと、保存済みの公開IDを対象としてApple再認証へ戻る。再認証は新しいInternet登録を作らない。元のアカウントが既に削除され、新しい公開IDで登録されている場合は、元の端末内データだけを消し、新しい登録とApple認可は維持したと表示する。この場合はAppleの手動解除を案内しない。公開IDを確認できない手入力資格は削除開始前に拒否し、SettingsからAppleでInternet接続を再確認するよう案内する。

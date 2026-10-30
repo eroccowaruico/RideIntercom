@@ -10,9 +10,52 @@ export class SignalingRoom {
     private lease(m: Member) { return { sessionId: m.sessionId, expiresAt: m.expiresAt, renewAfterSeconds: limit(this.env.LEASE_SECONDS, 600, 3600) / 2 } }
     async fetch(request: Request): Promise<Response> {
         return this.state.blockConcurrencyWhile(async () => {
-            try { return await this.handle(request) }
+            try {
+                if (new URL(request.url).pathname === '/retire-account') return await this.retireAccount(await readJSON(request))
+                const accountID = request.headers.get('X-User'), publicUserID = request.headers.get('X-Owner')?.split(':')[0]
+                if (accountID && publicUserID) {
+                    const account = this.env.USER_ACCOUNT.get(this.env.USER_ACCOUNT.idFromString(accountID))
+                    if (!await account.attachRoom(publicUserID, this.state.id.toString())) return json({ error: 'Account access ended' }, 403)
+                    await this.state.storage.put(`account:${publicUserID}`, accountID)
+                }
+                try { return await this.handle(request) }
+                finally { if (accountID && publicUserID) await this.detachIfEmpty(publicUserID, accountID) }
+            }
             catch (e) { const invalid = e instanceof Error && e.message === 'body'; return json({ error: invalid ? 'Invalid body' : 'SFU operation failed' }, invalid ? 400 : 502) }
         })
+    }
+    private async detachIfEmpty(publicUserID: string, accountID: string) {
+        const prefix = publicUserID + ':'
+        if ((await this.members()).some(m => m.owner.startsWith(prefix)) || (await this.turn.all()).some(ice => ice.owner.startsWith(prefix))) return
+        await this.env.USER_ACCOUNT.get(this.env.USER_ACCOUNT.idFromString(accountID)).detachRoom(publicUserID, this.state.id.toString())
+        await this.state.storage.delete(`account:${publicUserID}`)
+    }
+    private async retireAccount(body: { publicUserID: string; accountID: string }): Promise<Response> {
+        if (!/^[a-f0-9]{64}$/.test(body.publicUserID) || !/^[a-f0-9]{64}$/.test(body.accountID)) return json({ error: 'Invalid account' }, 400)
+        const prefix = body.publicUserID + ':'
+        const members = (await this.members()).filter(m => m.owner.startsWith(prefix))
+        const owned = new Set(members.map(m => m.id))
+        const orphans = (await this.turn.all()).filter(ice => ice.owner.startsWith(prefix) && !owned.has(ice.peer))
+        // End signaling and admission before contacting external media providers.
+        for (const member of members) {
+            member.expiresAt = 0
+            await this.state.storage.put(`member:${member.sessionId}`, member)
+            for (const ws of this.state.getWebSockets(member.sessionId)) { try { ws.close(1000, 'Account deleted') } catch { /* closed */ } }
+        }
+        for (const ice of orphans) { ice.expiresAt = 0; await this.state.storage.put(`ice:${ice.peer}`, ice) }
+        await this.scheduleExpiry()
+        await this.broadcastPeers()
+        await Promise.all([...members.map(async member => { try { await this.close(member) } catch { /* Retain for retry. */ } }),
+            ...orphans.map(async ice => { try { await this.turn.remove(ice) } catch { /* Retain for retry. */ } })])
+        await this.scheduleExpiry()
+        if ((await this.members()).some(m => m.owner.startsWith(prefix)) || (await this.turn.all()).some(ice => ice.owner.startsWith(prefix))) return json({ pending: true }, 503)
+        // Release by both private account and public generation. A delayed old
+        // cleanup must not release a newly registered account's reservation.
+        const released = await this.usage('release-account-room', { ...body, roomID: this.state.id.toString() })
+        if (!released.ok) return released
+        await this.detachIfEmpty(body.publicUserID, body.accountID)
+        await this.scheduleExpiry()
+        return json({})
     }
     private async handle(request: Request): Promise<Response> {
         const url = new URL(request.url), owner = request.headers.get('X-Owner')!
@@ -218,6 +261,7 @@ export class SignalingRoom {
         const ice = await this.turn.all()
         const deadlines = [...members.map(m => m.expiresAt), ...ice.map(m => m.expiresAt)]
         if (deadlines.length) await this.state.storage.setAlarm(Math.max(Date.now() + 1000, Math.min(...deadlines)))
+        else if ((await this.state.storage.list({ prefix: 'account:' })).size) await this.state.storage.setAlarm(Date.now() + 30000)
         else await this.state.storage.deleteAlarm()
     }
     async alarm(): Promise<void> {
@@ -236,6 +280,9 @@ export class SignalingRoom {
             try { await this.turn.remove(ice); await this.usage('release', { id: `${this.state.id}:${ice.peer}` }) } catch { /* Retain for retry/TTL expiry. */ }
         })])
         await this.broadcastPeers()
+        for (const [key, accountID] of await this.state.storage.list<string>({ prefix: 'account:' })) {
+            try { await this.detachIfEmpty(key.slice('account:'.length), accountID) } catch { /* Retry with the room alarm. */ }
+        }
         const remaining = await this.members()
         if (remaining.some(m => m.expiresAt <= Date.now()) || (await this.turn.all()).some(m => m.expiresAt <= Date.now())) await this.state.storage.setAlarm(Date.now() + 30000)
         else await this.scheduleExpiry()

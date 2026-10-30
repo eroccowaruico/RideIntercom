@@ -28,6 +28,8 @@ nonisolated struct InternetAccountDeletionResult: Codable, Sendable {
     let appleAuthorizationRevoked: Bool
     var appleRevocationPending: Bool?
     var newerAccountPreserved: Bool?
+    var mediaCleanupPending: Bool?
+    var cleanupPending: Bool { appleRevocationPending == true || mediaCleanupPending == true }
 }
 
 nonisolated struct InternetAccountClient: Sendable {
@@ -37,7 +39,7 @@ nonisolated struct InternetAccountClient: Sendable {
         self.session = session
     }
     enum Failure: Error {
-        case invalidAddress, rejected, invalidResponse, deviceLimitReached, deletionReauthenticationRequired
+        case invalidAddress, rejected, invalidResponse, deviceLimitReached, deletionPending, deletionReauthenticationRequired
         case rateLimited(retryAfter: Int)
     }
     static func origin(_ text: String) throws -> URL {
@@ -85,10 +87,11 @@ nonisolated struct InternetAccountClient: Sendable {
         }
         let result: InternetAccountDeletionResult = try await send(origin: origin, path: "api/auth/account", method: "DELETE", body: body, token: accessToken)
         guard result.deleted, !(result.appleAuthorizationRevoked && result.appleRevocationPending == true),
-              result.newerAccountPreserved != true || (expectedUserID != nil && !result.appleAuthorizationRevoked && result.appleRevocationPending != true) else { throw Failure.invalidResponse }
+              result.newerAccountPreserved != true || (expectedUserID != nil && !result.appleAuthorizationRevoked && !result.cleanupPending) else { throw Failure.invalidResponse }
         return result
     }
     private struct Empty: Decodable, Sendable {}
+    private struct Rejection: Decodable { let code: String? }
     private func send<T: Decodable & Sendable>(origin: URL, path: String, method: String = "POST", body: [String: String]? = nil, token: String? = nil) async throws -> T {
         var request = URLRequest(url: origin.appendingPathComponent(path), timeoutInterval: 10)
         request.httpMethod = method
@@ -104,12 +107,19 @@ nonisolated struct InternetAccountClient: Sendable {
             let proposed = Int(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 60
             throw Failure.rateLimited(retryAfter: proposed > 0 ? min(proposed, 3600) : 60)
         }
-        if method == "POST", path == "api/auth/apple/session", response.statusCode == 409 { throw Failure.deviceLimitReached }
-        guard response.statusCode == 200 else { throw Failure.rejected }
+        let enrollmentConflict = method == "POST" && path == "api/auth/apple/session" && response.statusCode == 409
+        guard response.statusCode == 200 || enrollmentConflict else { throw Failure.rejected }
         var data = Data()
         for try await byte in bytes {
             guard data.count < 32768 else { throw Failure.invalidResponse }
             data.append(byte)
+        }
+        if enrollmentConflict {
+            switch (try? JSONDecoder().decode(Rejection.self, from: data))?.code {
+            case "device_limit_reached": throw Failure.deviceLimitReached
+            case "deletion_pending": throw Failure.deletionPending
+            default: throw Failure.rejected
+            }
         }
         return try JSONDecoder().decode(T.self, from: data)
     }
@@ -221,6 +231,8 @@ final class InternetAccountAuthorization {
         case InternetAccountClient.Failure.rateLimited(let seconds):
             retryNotBefore = Date().addingTimeInterval(TimeInterval(seconds)); retryOrigin = origin
             return retryMessage(seconds: seconds)
+        case InternetAccountClient.Failure.deletionPending:
+            return "Account deletion is still pending. Finish deletion on the device where you started it, then set up Internet calling again."
         case InternetAccountClient.Failure.deviceLimitReached:
             return "This account has 8 registered devices. Sign out of RideIntercom on another device, then set up Internet calling again."
         default: return fallback

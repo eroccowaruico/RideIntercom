@@ -13,10 +13,11 @@ interface Challenge { deviceID: string; nonce: string; issuedAt: number; expires
 interface DeletionReceipt {
     userID?: string; observers?: { deviceID: string; tokenHash: string }[]
     deviceID: string; tokenHash: string; deletedAt: number; expiresAt: number
+    rooms?: string[]; mediaAttempts?: number; mediaRetryAt?: number
     appleToken?: string; appleAuthorizationRevoked?: boolean; attempts?: number; retryAt?: number
 }
 interface DeletionPreparation { id: string; expiresAt: number }
-interface DeletionResult { deleted: true; appleAuthorizationRevoked: boolean; appleRevocationPending?: true; newerAccountPreserved?: true }
+interface DeletionResult { deleted: true; appleAuthorizationRevoked: boolean; appleRevocationPending?: true; newerAccountPreserved?: true; mediaCleanupPending?: true }
 const retryDelays = [60000, 300000, 1800000, 7200000, 21600000]
 interface Device { tokenHash: string; expiresAt: number }
 export interface DeviceIdentity { userID: string; deviceID: string; expiresAt: number }
@@ -68,7 +69,7 @@ export class UserAccount extends DurableObject<Env> {
     async register(deviceID: string, tokenHash: string, issuedAt: number): Promise<DeviceIdentity | 'stale-proof' | 'deletion-pending' | null> {
         this.prune()
         const deletion = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
-        if (deletion?.appleToken || this.ctx.storage.kv.get('deletionPreparation')) return 'deletion-pending'
+        if (deletion?.appleToken || deletion?.rooms?.length || this.ctx.storage.kv.get('deletionPreparation')) return 'deletion-pending'
         if (deletion && (!Number.isFinite(issuedAt) || issuedAt <= deletion.deletedAt)) return 'stale-proof'
         if (!this.ctx.storage.kv.get(`device:${deviceID}`) && [...this.ctx.storage.kv.list({ prefix: 'device:' })].length >= 8) return null
         const expiresAt = Date.now() + 30 * 86400000
@@ -82,6 +83,19 @@ export class UserAccount extends DurableObject<Env> {
         })
         await this.scheduleExpiry()
         return { userID, deviceID, expiresAt }
+    }
+
+    attachRoom(publicUserID: string, roomID: string): boolean {
+        if (!objectPattern.test(roomID) || this.ctx.storage.kv.get('userID') !== publicUserID) return false
+        const key = `room:${roomID}`
+        if (!this.ctx.storage.kv.get(key) && [...this.ctx.storage.kv.list({ prefix: 'room:' })].length >= 8) return false
+        // Index before any provider allocation. Deletion atomically transfers this
+        // reference into its outbox, including operations still queued in the room.
+        this.ctx.storage.kv.put(key, publicUserID)
+        return true
+    }
+    detachRoom(publicUserID: string, roomID: string): void {
+        if (this.ctx.storage.kv.get(`room:${roomID}`) === publicUserID) this.ctx.storage.kv.delete(`room:${roomID}`)
     }
 
     authenticate(deviceID: string, tokenHash: string): DeviceIdentity | null {
@@ -107,7 +121,8 @@ export class UserAccount extends DurableObject<Env> {
         // Receipt retries must not tell an old device to remove a new Apple grant.
         if (this.ctx.storage.kv.get('userID')) return { deleted: true, appleAuthorizationRevoked: false, newerAccountPreserved: true }
         return { deleted: true, appleAuthorizationRevoked: receipt.appleAuthorizationRevoked === true,
-            ...(receipt.appleToken ? { appleRevocationPending: true as const } : {}) }
+            ...(receipt.appleToken ? { appleRevocationPending: true as const } : {}),
+            ...(receipt.rooms?.length ? { mediaCleanupPending: true as const } : {}) }
     }
 
     async eraseWithAppleProof(deviceID: string, tokenHash: string, code: string, subject: string, nonce: string, expectedUserID?: string): Promise<DeletionResult | null> {
@@ -127,7 +142,7 @@ export class UserAccount extends DurableObject<Env> {
                 this.ctx.storage.kv.put('deletion', receipt)
                 return this.erase(deviceID, tokenHash)
             }
-            if (receipt?.appleToken) throw new Error('Previous Apple revocation pending')
+            if (receipt?.appleToken || receipt?.rooms?.length) throw new Error('Previous deletion cleanup pending')
         } else if (!this.authenticate(deviceID, tokenHash)) return null
         if (this.ctx.storage.kv.get('deletionPreparation')) throw new Error('Deletion preparation pending')
         const preparation = { id: crypto.randomUUID(), expiresAt: Date.now() + 30000 }
@@ -150,17 +165,45 @@ export class UserAccount extends DurableObject<Env> {
             const userID = this.ctx.storage.kv.get<string>('userID')
             if (expectedUserID === undefined ? !this.authenticate(deviceID, tokenHash) : userID && userID !== expectedUserID) return null
             const now = Date.now()
+            const rooms = [...this.ctx.storage.kv.list<string>({ prefix: 'room:' })].filter(([, owner]) => owner === userID).map(([key]) => key.slice('room:'.length))
             this.ctx.storage.transactionSync(() => {
                 this.ctx.storage.kv.delete('userID')
-                for (const [key] of this.ctx.storage.kv.list({ prefix: 'device:' })) this.ctx.storage.kv.delete(key)
+                for (const prefix of ['device:', 'room:']) for (const [key] of this.ctx.storage.kv.list({ prefix })) this.ctx.storage.kv.delete(key)
                 // The token is held only for deletion retries, never routine login.
                 this.ctx.storage.kv.put('deletion', { userID: userID ?? expectedUserID, deviceID, tokenHash, deletedAt: now, expiresAt: now + 86400000,
-                    ...(appleToken ? { appleToken, attempts: 0, retryAt: now } : {}) })
+                    ...(appleToken ? { appleToken, attempts: 0, retryAt: now } : {}),
+                    ...(rooms.length ? { rooms, mediaAttempts: 0, mediaRetryAt: now } : {}) })
             })
         }
-        await this.retryAppleRevocation()
+        await Promise.all([this.retryAppleRevocation(), this.retryMediaCleanup()])
         await this.scheduleExpiry()
         return this.deletionResult(deviceID, tokenHash)
+    }
+
+    private async retryMediaCleanup() {
+        const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
+        if (!receipt?.rooms?.length || !receipt.userID || receipt.mediaRetryAt === undefined || receipt.mediaRetryAt > Date.now()) return
+        const attempt = receipt.mediaAttempts ?? 0
+        receipt.mediaAttempts = Math.min(attempt + 1, retryDelays.length + 1)
+        receipt.mediaRetryAt = Date.now() + (retryDelays[attempt] ?? 60000)
+        this.ctx.storage.kv.put('deletion', receipt)
+        await this.scheduleExpiry()
+        const completed = await Promise.all(receipt.rooms.map(async room => {
+            try {
+                const response = await this.env.SIGNALING_ROOM.get(this.env.SIGNALING_ROOM.idFromString(room)).fetch(new Request('https://internal/retire-account', {
+                    method: 'POST', body: JSON.stringify({ publicUserID: receipt.userID, accountID: this.ctx.id.toString() })
+                }))
+                return response.ok ? room : null
+            } catch { return null }
+        }))
+        const current = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
+        if (current?.tokenHash !== receipt.tokenHash || current.userID !== receipt.userID) return
+        current.rooms = current.rooms?.filter(room => !completed.includes(room))
+        if (!current.rooms?.length) {
+            delete current.rooms; delete current.mediaAttempts; delete current.mediaRetryAt
+            current.expiresAt = Date.now() + 86400000
+        }
+        this.ctx.storage.kv.put('deletion', current)
     }
 
     private async retryAppleRevocation() {
@@ -187,7 +230,7 @@ export class UserAccount extends DurableObject<Env> {
         const preparation = this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')
         if (preparation && preparation.expiresAt <= Date.now()) this.ctx.storage.kv.delete('deletionPreparation')
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
-        if (receipt && !receipt.appleToken && receipt.expiresAt <= Date.now()) this.ctx.storage.kv.delete('deletion')
+        if (receipt && !receipt.appleToken && !receipt.rooms?.length && receipt.expiresAt <= Date.now()) this.ctx.storage.kv.delete('deletion')
         for (const [key, device] of this.ctx.storage.kv.list<Device>({ prefix: 'device:' })) {
             if (device.expiresAt <= Date.now()) this.ctx.storage.kv.delete(key)
         }
@@ -196,12 +239,15 @@ export class UserAccount extends DurableObject<Env> {
         const devices = [...this.ctx.storage.kv.list<Device>({ prefix: 'device:' })].map(([, device]) => device)
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
         const preparation = this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')
+        const pending = !!receipt?.appleToken || !!receipt?.rooms?.length
         const deadlines = [...devices.map(device => device.expiresAt), ...(preparation ? [preparation.expiresAt] : []),
-            ...(receipt?.appleToken ? (receipt.retryAt !== undefined && (receipt.attempts ?? 0) <= retryDelays.length ? [receipt.retryAt] : []) : receipt ? [receipt.expiresAt] : [])]
+            ...(receipt?.appleToken && receipt.retryAt !== undefined && (receipt.attempts ?? 0) <= retryDelays.length ? [receipt.retryAt] : []),
+            ...(receipt?.rooms?.length && receipt.mediaRetryAt !== undefined && (receipt.mediaAttempts ?? 0) <= retryDelays.length ? [receipt.mediaRetryAt] : []),
+            ...(receipt && !pending ? [receipt.expiresAt] : [])]
         if (deadlines.length) await this.ctx.storage.setAlarm(Math.min(...deadlines))
         else await this.ctx.storage.deleteAlarm()
     }
-    async alarm(): Promise<void> { this.prune(); await this.retryAppleRevocation(); await this.scheduleExpiry() }
+    async alarm(): Promise<void> { this.prune(); await Promise.all([this.retryAppleRevocation(), this.retryMediaCleanup()]); await this.scheduleExpiry() }
 }
 
 function deviceCredential(token: string, env: Env) {

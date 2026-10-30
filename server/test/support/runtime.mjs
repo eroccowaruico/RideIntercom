@@ -44,6 +44,7 @@ export async function makeRuntime(overrides = {}, { storageDirectory, appleKeys 
             if (url.pathname.endsWith('/revoke') && provider.onRevoke) await provider.onRevoke();
             if (url.pathname.endsWith('/revoke')) return provider.revokeFails ? Response.json({}, { status: 503 }) : new Response(null, { status: 204 });
             if (url.pathname.endsWith('/sessions/new')) return Response.json({ sessionId: `sfu-${++provider.serial}` }, { status: 201 });
+            if (url.pathname.endsWith('/datachannels/establish') && provider.onEstablish) await provider.onEstablish();
             if (url.pathname.endsWith('/datachannels/establish') && provider.establishFails) return Response.json({}, { status: 503 });
             if (url.pathname.endsWith('/datachannels/establish')) return Response.json({ sessionDescription: { type: 'answer', sdp: 'mock-sfu-sdp' }, dataChannel: { id: 0 } });
             if (url.pathname.endsWith('/datachannels/new')) return Response.json({ dataChannels: provider.requests.at(-1).body.dataChannels.map(c => ({ ...c, id: ++provider.serial })) });
