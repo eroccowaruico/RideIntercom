@@ -23,7 +23,7 @@ final class GroupRepository {
         do {
             var current = try store.read() ?? migrate(localMemberID: localMemberID)
             _ = try validateIdentity(current, localMemberID: localMemberID)
-            if current.version < 4 {
+            if current.version < 5 {
                 current = current.upgraded()
                 try store.commit(current)
                 guard try store.read() == current else { throw GroupStorageError.verificationFailed }
@@ -74,7 +74,7 @@ final class GroupRepository {
     }
 
     func save(_ groups: [IntercomGroup]) throws { try update(groups, credential: nil) }
-    func save(_ groups: [IntercomGroup], credential: GroupAccessCredential, acceptedInvitation: DirectInvitationReceipt? = nil) throws {
+    func save(_ groups: [IntercomGroup], credential: GroupAccessCredential, acceptedInvitation: AcceptedDirectInvitation? = nil) throws {
         try update(groups, credential: credential) { next in
             if let receipt = acceptedInvitation { try self.storeAcceptedInvitation(receipt, in: &next) }
         }
@@ -135,14 +135,15 @@ final class GroupRepository {
         try update(snapshot.groups.map { try $0.group() }, credential: nil, users: snapshot.users.filter { $0.id != id })
     }
 
-    func acceptInvitation(_ receipt: DirectInvitationReceipt, inviterName: String) throws {
+    func acceptInvitation(_ accepted: AcceptedDirectInvitation, inviterName: String) throws {
         guard let snapshot else { throw GroupStorageError.invalidUpdate }
         try update(snapshot.groups.map { try $0.group() }, credential: nil) { next in
-            try self.storeAcceptedInvitation(receipt, inviterName: inviterName, in: &next)
+            try self.storeAcceptedInvitation(accepted, inviterName: inviterName, in: &next)
         }
     }
 
-    private func storeAcceptedInvitation(_ receipt: DirectInvitationReceipt, inviterName: String? = nil, in next: inout GroupSnapshot) throws {
+    private func storeAcceptedInvitation(_ accepted: AcceptedDirectInvitation, inviterName: String? = nil, in next: inout GroupSnapshot) throws {
+        let receipt = accepted.receipt
         guard receipt.isValid, receipt.kind == .accepted, receipt.invitation != nil, receipt.proof != nil,
               receipt.inviteeMemberID == localMemberID,
               let index = next.groups.firstIndex(where: { $0.id == receipt.groupID }),
@@ -151,16 +152,47 @@ final class GroupRepository {
         }
         let name = inviterName ?? next.groups[index].members.first(where: { $0.id == receipt.inviterMemberID })?.displayName
         guard let name, IntercomGroup.isValidName(name) else { throw GroupStorageError.invalidUpdate }
-        Self.remember(.init(id: receipt.inviterMemberID, displayName: name), in: &next)
+        if !next.groups[index].receivedInvitationIDs.contains(receipt.id) {
+            try Self.remember(.init(id: receipt.inviterMemberID, displayName: name), identity: accepted.inviter, in: &next)
+            next.groups[index].receivedInvitationIDs.append(receipt.id)
+        }
         next.groups[index].pendingInvitation = receipt
     }
 
-    private static func remember(_ member: GroupMember, in snapshot: inout GroupSnapshot) {
-        if let index = snapshot.users.firstIndex(where: { $0.memberIDs.contains(member.id) }) {
-            snapshot.users[index].displayName = member.displayName
-            return
+    private static func remember(_ member: GroupMember, identity: VerifiedDeviceProof, in snapshot: inout GroupSnapshot) throws {
+        guard identity.memberID == member.id else { throw GroupStorageError.identityConflict }
+        let memberIndex = snapshot.users.firstIndex { $0.memberIDs.contains(member.id) }
+        let accountIndex = identity.principal.flatMap { principal in snapshot.users.firstIndex { $0.principal == principal } }
+        if let memberIndex {
+            let existing = snapshot.users[memberIndex]
+            guard existing.deviceKeys?[member.id] == identity.publicKey,
+                  existing.principal == nil || identity.principal == nil || existing.principal == identity.principal else {
+                throw GroupStorageError.identityConflict
+            }
         }
-        snapshot.users.append(SavedUser(displayName: member.displayName, memberIDs: [member.id]))
+        if let memberIndex, let accountIndex, memberIndex != accountIndex {
+            let first = min(memberIndex, accountIndex), second = max(memberIndex, accountIndex)
+            let other = snapshot.users[second]
+            // Preserve local naming choices. Conflicting nicknames require an
+            // explicit resolution instead of silently discarding either one.
+            guard snapshot.users[first].localName == nil || other.localName == nil
+                || snapshot.users[first].localName == other.localName else { throw GroupStorageError.identityConflict }
+            snapshot.users[first].localName = snapshot.users[first].localName ?? other.localName
+            snapshot.users[first].memberIDs.append(contentsOf: other.memberIDs)
+            snapshot.users[first].deviceKeys = (snapshot.users[first].deviceKeys ?? [:]).merging(other.deviceKeys ?? [:]) { old, _ in old }
+            snapshot.users[first].principal = identity.principal
+            snapshot.users[first].displayName = member.displayName
+            snapshot.users.remove(at: second)
+        } else if let index = memberIndex ?? accountIndex {
+            if !snapshot.users[index].memberIDs.contains(member.id) { snapshot.users[index].memberIDs.append(member.id) }
+            var keys = snapshot.users[index].deviceKeys ?? [:]; keys[member.id] = identity.publicKey
+            snapshot.users[index].deviceKeys = keys
+            snapshot.users[index].principal = identity.principal ?? snapshot.users[index].principal
+            snapshot.users[index].displayName = member.displayName
+        } else {
+            snapshot.users.append(SavedUser(displayName: member.displayName, memberIDs: [member.id],
+                deviceKeys: [member.id: identity.publicKey], principal: identity.principal))
+        }
     }
 
     func pendingInvitation(for groupID: UUID) -> DirectInvitationReceipt? {
@@ -176,7 +208,7 @@ final class GroupRepository {
         guard !record.receivedInvitationIDs.contains(receipt.id) else { return }
         try update(snapshot.groups.map { try $0.group() }, credential: nil) { next in
             guard let index = next.groups.firstIndex(where: { $0.id == receipt.groupID }) else { throw GroupStorageError.invalidUpdate }
-            Self.remember(.init(id: receipt.inviteeMemberID, displayName: receipt.displayName), in: &next)
+            try Self.remember(.init(id: receipt.inviteeMemberID, displayName: receipt.displayName), identity: verified.identity, in: &next)
             next.groups[index].receivedInvitationIDs.append(receipt.id)
         }
     }
@@ -187,7 +219,10 @@ final class GroupRepository {
               let pending = snapshot.groups[index].pendingInvitation,
               pending.id == receipt.id, pending.inviterMemberID == receipt.inviterMemberID,
               pending.inviteeMemberID == receipt.inviteeMemberID,
-              pending.invitation == receipt.invitation, pending.proof == receipt.proof else { return }
+              pending.invitation == receipt.invitation, pending.proof == receipt.proof,
+              let proof = receipt.acknowledgementProof,
+              proof.publicKey == pending.invitation?.inviterDeviceKey else { return }
+        guard (try? proof.verify(receipt.acknowledgementMessage(), purpose: .acknowledgeInvitation, memberID: receipt.inviterMemberID)) != nil else { return }
         try update(snapshot.groups.map { try $0.group() }, credential: nil) { next in next.groups[index].pendingInvitation = nil }
     }
 

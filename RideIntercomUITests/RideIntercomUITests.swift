@@ -129,17 +129,25 @@ final class RideIntercomUITests: XCTestCase {
         attachScreen("Signed Out Apple Login")
     }
 
+    private var invitationKeys: [String: P256.Signing.PrivateKey] = [:]
+
     @MainActor
     private func openSavedUserInvitation(inviter: String, sharedName: String? = nil) throws {
         let groupID = UUID()
         let secret = "ui-test-invitation-key"
         let issuedAt = floor(Date().timeIntervalSince1970)
         let expiresAt = issuedAt + 3600
-        let version = 4
+        let version = 5
+        let signingKey = invitationKeys[inviter] ?? P256.Signing.PrivateKey()
+        invitationKeys[inviter] = signingKey
+        func base64url(_ bytes: Data) -> String {
+            bytes.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        }
+        let publicKey = base64url(signingKey.publicKey.x963Representation)
         // Synthetic remote inviter capability. The UI test never contacts a real account.
-        struct Context: Encodable { let id: UUID; let groupID: UUID; let inviterMemberID: String; let expiresAt: Double }
+        struct Context: Encodable { let id: UUID; let groupID: UUID; let inviterMemberID: String; let inviterDeviceKey: String; let expiresAt: Double }
         struct Grant: Encodable { let context: Context; let secret: String }
-        let grant = Grant(context: .init(id: UUID(), groupID: groupID, inviterMemberID: inviter, expiresAt: expiresAt),
+        let grant = Grant(context: .init(id: UUID(), groupID: groupID, inviterMemberID: inviter, inviterDeviceKey: publicKey, expiresAt: expiresAt),
                           secret: Data(repeating: 42, count: 32).base64EncodedString())
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let grantData = try encoder.encode(grant)
@@ -148,10 +156,17 @@ final class RideIntercomUITests: XCTestCase {
         let message = fields.joined(separator: "|")
         let signature = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: SymmetricKey(data: Data(secret.utf8)))
             .map { String(format: "%02x", $0) }.joined()
+        var signed = Data("rideintercom.device-proof.v1\0".utf8)
+        for field in [Data("issueInvitation".utf8), Data(inviter.utf8), Data(publicKey.utf8), Data(), Data(), Data(signature.utf8)] {
+            var count = UInt32(field.count).bigEndian
+            withUnsafeBytes(of: &count) { signed.append(contentsOf: $0) }
+            signed.append(field)
+        }
+        let identityProof = ["publicKey": publicKey, "signature": base64url(try signingKey.signature(for: signed).rawRepresentation)]
         var object: [String: Any] = [
             "version": version, "groupID": groupID.uuidString, "groupName": "Talk Group", "groupSecret": secret,
             "inviterMemberID": inviter, "issuedAt": issuedAt, "expiresAt": expiresAt,
-            "directInvitation": try JSONSerialization.jsonObject(with: grantData), "signature": signature
+            "directInvitation": try JSONSerialization.jsonObject(with: grantData), "signature": signature, "identityProof": identityProof
         ]
         object["inviterDisplayName"] = sharedName
         let token = try JSONSerialization.data(withJSONObject: object)

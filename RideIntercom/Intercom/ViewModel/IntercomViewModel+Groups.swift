@@ -211,9 +211,8 @@ extension IntercomViewModel {
             throw GroupInviteTokenError.incompatibleCall
         }
 
-        guard let grant = token.directInvitation else { throw GroupInviteTokenError.invalidTokenEncoding }
-        let receipt = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: localMemberIdentity.memberID,
-                                                       displayName: localMemberIdentity.displayName)
+        let accepted = try token.accept(signer: internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID),
+                                        displayName: localMemberIdentity.displayName, trust: try internetSettingsStore.identityTrust(), now: now)
         let previous = try groupRepository.credential(for: token.groupID)
         // Simultaneous first invitations converge on the smaller member ID's key.
         // Do not replace a call that has already connected; reconnect explicitly.
@@ -227,7 +226,7 @@ extension IntercomViewModel {
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
             let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             do {
-                try groupRepository.acceptInvitation(receipt, inviterName: name)
+                try groupRepository.acceptInvitation(accepted, inviterName: name)
                 refreshGroupStorageStatus()
             } catch { reportGroupStorageError(error); throw error }
             selectGroup(existing)
@@ -256,7 +255,7 @@ extension IntercomViewModel {
             updated.insert(group, at: 0)
         }
         do {
-            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitation: receipt)
+            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitation: accepted)
             refreshGroupStorageStatus()
         }
         catch {

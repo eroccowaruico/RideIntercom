@@ -186,20 +186,16 @@ extension IntercomViewModel {
 
     var selectedGroupInviteURL: URL? {
         guard let selectedGroup else { return nil }
-        let inviterMemberID: String
-        if selectedGroup.members.contains(where: { $0.id == localMemberIdentity.memberID }) {
-            inviterMemberID = localMemberIdentity.memberID
-        } else if let firstMemberID = selectedGroup.members.first?.id {
-            inviterMemberID = firstMemberID
-        } else {
-            return nil
-        }
+        let inviterMemberID = localMemberIdentity.memberID
+        guard selectedGroup.members.contains(where: { $0.id == inviterMemberID }),
+              let signer = try? internetSettingsStore.invitationSigner(memberID: inviterMemberID) else { return nil }
 
         guard let credential = try? credential(for: selectedGroup) else { return nil }
         let recipient = directCallRecipient(for: selectedGroup)
         guard selectedGroup.kind != .direct || recipient != nil else { return nil }
         let token = try? GroupInviteToken.make(
             authority: invitationAuthority,
+            signer: signer,
             groupID: selectedGroup.id,
             groupName: selectedGroup.name,
             groupSecret: credential.secret,

@@ -69,7 +69,6 @@ final class InternetConnectionSettingsStore {
     }
 
     func deviceSigningKey() throws -> P256.Signing.PrivateKey {
-        guard permitsServiceAccess else { throw ValidationError.disabledDuringLocalTests }
         if let key = try storedDeviceSigningKey() { return key }
         let raw = try keychain.createSecretIfAbsent(P256.Signing.PrivateKey().rawRepresentation.base64EncodedString(), service: service, account: "identity-key")
         return try decodeSigningKey(raw)
@@ -90,6 +89,24 @@ final class InternetConnectionSettingsStore {
         guard let key = try storedDeviceSigningKey(), identity.memberID == memberID,
               identity.deviceKey == IdentityEncoding.encode(key.publicKey.x963Representation) else { throw KeychainSecretStoreError.invalidData }
         return identity
+    }
+
+    func invitationSigner(memberID: String, expectedPublicKey: String? = nil) throws -> DeviceIdentitySigner {
+        let key: P256.Signing.PrivateKey
+        if let expectedPublicKey {
+            guard let stored = try storedDeviceSigningKey(), IdentityEncoding.encode(stored.publicKey.x963Representation) == expectedPublicKey else {
+                throw KeychainSecretStoreError.invalidData
+            }
+            key = stored
+        } else { key = try deviceSigningKey() }
+        return try DeviceIdentitySigner(memberID: memberID, key: key, identity: try? loadIdentity(memberID: memberID))
+    }
+    func identityTrust() throws -> DeviceIdentityTrust? {
+        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey),
+              let raw = try keychain.secret(service: service, account: "current") else { return nil }
+        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
+        guard let certificate = saved.identity else { return nil }
+        return DeviceIdentityTrust(origin: saved.workerURL, issuerKey: certificate.issuerKey)
     }
 
     func accountDeviceID() throws -> String {

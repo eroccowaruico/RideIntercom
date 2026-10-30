@@ -35,6 +35,10 @@ extension IntercomViewModel {
         groupKeyCleanupPending = groupRepository.needsCleanup
     }
     func reportGroupStorageError(_ error: Error) {
+        if error as? GroupStorageError == .identityConflict {
+            groupErrorMessage = "This invitation conflicts with a saved rider's identity or nickname. Check the rider before removing the old entry or changing its nickname. Existing groups and calls are unchanged."
+            return
+        }
         groupStorageIssue = .classify(error)
         groupErrorMessage = groupStorageIssue?.message
     }

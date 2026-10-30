@@ -7,11 +7,13 @@ struct DirectInvitationContext: Codable, Equatable {
     var id = UUID()
     var groupID: UUID
     var inviterMemberID: String
+    var inviterDeviceKey: String?
     var recipientMemberID: String?
     var expiresAt: TimeInterval
 
     var isValid: Bool {
-        IntercomGroup.isValidMemberID(inviterMemberID)
+        inviterDeviceKey.map(DeviceIdentityProof.isValidPublicKey) == true
+        && IntercomGroup.isValidMemberID(inviterMemberID)
         && !inviterMemberID.hasPrefix(GroupMember.pendingInvitePrefix)
         && (recipientMemberID.map { IntercomGroup.isValidMemberID($0)
             && !$0.hasPrefix(GroupMember.pendingInvitePrefix) && $0 != inviterMemberID } ?? true)
@@ -27,7 +29,8 @@ struct DirectInvitationGrant: Codable, Equatable {
 
 struct VerifiedDirectInvitation {
     let receipt: DirectInvitationReceipt
-    fileprivate init(_ receipt: DirectInvitationReceipt) { self.receipt = receipt }
+    let identity: VerifiedDeviceProof
+    fileprivate init(_ receipt: DirectInvitationReceipt, identity: VerifiedDeviceProof) { self.receipt = receipt; self.identity = identity }
 }
 
 final class DirectInvitationAuthority {
@@ -55,7 +58,7 @@ final class DirectInvitationAuthority {
         return DirectInvitationGrant(context: context, secret: try Self.derive(context, using: master).base64EncodedString())
     }
 
-    func verify(_ receipt: DirectInvitationReceipt, now: TimeInterval = Date().timeIntervalSince1970) throws -> VerifiedDirectInvitation? {
+    func verify(_ receipt: DirectInvitationReceipt, trust: DeviceIdentityTrust? = nil, now: TimeInterval = Date().timeIntervalSince1970) throws -> VerifiedDirectInvitation? {
         guard receipt.isValid, receipt.kind == .accepted, let context = receipt.invitation,
               receipt.id == DirectInvitationReceipt.receiptID(invitationID: context.id, inviteeMemberID: receipt.inviteeMemberID),
               now.isFinite, now < context.expiresAt,
@@ -64,7 +67,10 @@ final class DirectInvitationAuthority {
               let master = Self.key(stored) else { return nil }
         let secret = SymmetricKey(data: try Self.derive(context, using: master))
         guard HMAC<SHA256>.isValidAuthenticationCode(code, authenticating: try receipt.proofMessage(), using: secret) else { return nil }
-        return VerifiedDirectInvitation(receipt)
+        guard let proof = receipt.acceptanceProof else { return nil }
+        guard let identity = try? proof.verify(receipt.identityMessage(), purpose: .acceptInvitation,
+                                               memberID: receipt.inviteeMemberID, trust: trust, now: Date(timeIntervalSince1970: now)) else { return nil }
+        return VerifiedDirectInvitation(receipt, identity: identity)
     }
 
     fileprivate static func key(_ value: String) -> SymmetricKey? {

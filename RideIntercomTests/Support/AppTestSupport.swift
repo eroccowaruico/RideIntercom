@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import CryptoKit
 import AudioCore
 import AudioMixer
 import Codec
@@ -50,12 +51,16 @@ enum AppTestSupport {
         let identityStore = InMemoryLocalMemberIdentityStore(
             identity: LocalMemberIdentity(memberID: localMemberID ?? groups.first?.members.first?.id ?? "member-local", displayName: "You")
         )
+        let identityNamespace = "RideIntercom.Tests." + UUID().uuidString
+        let identityKeychain = DictionaryKeychain()
+        try! identityKeychain.saveSecret(TestDeviceIdentities.key(localMemberID ?? groups.first?.members.first?.id ?? "member-local").rawRepresentation.base64EncodedString(),
+                                        service: identityNamespace + ".InternetConnection", account: "identity-key")
         let viewModel = IntercomViewModel(
             accountSession: accountSession ?? signedInAccount(),
             callSession: callSession,
             groupRepository: GroupRepository(store: groupStore, credentials: credentialStore),
             appSettingsStore: appSettingsStore ?? InMemoryAppSettingsStore(),
-            internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: InternetTestKeychain(), namespace: "RideIntercom.Tests." + UUID().uuidString),
+            internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: identityKeychain, namespace: identityNamespace),
             localMemberIdentityStore: identityStore,
             invitationAuthority: invitationAuthority ?? testInvitationAuthority(),
             audioSessionManager: AudioSessionManager(backend: audioSessionBackend),

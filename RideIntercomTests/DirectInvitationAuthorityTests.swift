@@ -8,8 +8,8 @@ import Testing
 struct DirectInvitationAuthorityTests {
     @Test func receiptCannotBeReassignedOrExtendedByAGroupObserver() throws {
         let authority = testInvitationAuthority()
-        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", expiresAt: 200))
-        let original = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "friend", displayName: "Friend")
+        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey, expiresAt: 200))
+        let original = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
         #expect(try authority.verify(original, now: 199.99) != nil)
         #expect(try authority.verify(original, now: 200) == nil)
         #expect(try authority.verify(original, now: .nan) == nil)
@@ -23,20 +23,33 @@ struct DirectInvitationAuthorityTests {
         changed = original; changed.proof = nil; mutations.append(changed)
         for receipt in mutations { #expect(try authority.verify(receipt, now: 100) == nil) }
         changed = original; changed.displayName = "New shared name"
-        #expect(try authority.verify(changed, now: 100) != nil)
+        #expect(try authority.verify(changed, now: 100) == nil)
+    }
+
+    @Test func groupObserverCannotSubstituteItsOwnKeyOnAValidReceipt() throws {
+        let authority = testInvitationAuthority()
+        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey, expiresAt: 200))
+        var observed = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
+        let impostor = try DeviceIdentitySigner(memberID: "friend", key: P256.Signing.PrivateKey())
+        observed.acceptanceProof = try impostor.sign(observed.identityMessage(), purpose: .acceptInvitation)
+        #expect(try authority.verify(observed, now: 100) == nil)
+        observed.inviteeDeviceKey = impostor.publicKey
+        observed.acceptanceProof = try impostor.sign(observed.identityMessage(), purpose: .acceptInvitation)
+        #expect(try authority.verify(observed, now: 100) == nil) // Changing the key also invalidates the invitation HMAC.
+
     }
 
     @Test func reopeningTheSameInvitationHasTheSameReceiptIdentity() throws {
         let authority = testInvitationAuthority()
-        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", expiresAt: 200))
-        let first = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "friend", displayName: "Friend")
-        let reopened = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "friend", displayName: "Renamed")
+        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey, expiresAt: 200))
+        let first = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
+        let reopened = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Renamed")
         #expect(first.id == reopened.id)
         #expect(first.proof == reopened.proof)
-        let other = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "other", displayName: "Other")
+        let other = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("other"), inviteeMemberID: "other", displayName: "Other")
         #expect(first.id != other.id)
-        let freshGrant = try authority.issue(.init(groupID: grant.context.groupID, inviterMemberID: "author", expiresAt: 200))
-        let fresh = try DirectInvitationReceipt.make(grant: freshGrant, inviteeMemberID: "friend", displayName: "Friend")
+        let freshGrant = try authority.issue(.init(groupID: grant.context.groupID, inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey, expiresAt: 200))
+        let fresh = try DirectInvitationReceipt.make(grant: freshGrant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
         #expect(first.id != fresh.id)
         var invented = first; invented.id = UUID()
         invented.proof = Data(HMAC<SHA256>.authenticationCode(for: try invented.proofMessage(),
@@ -47,8 +60,8 @@ struct DirectInvitationAuthorityTests {
     @Test func privateAuthorKeySurvivesRestartAndIsNotReplacedWhenUnreadable() throws {
         let keychain = AccountTestKeychain()
         let authority = testInvitationAuthority(keychain: keychain)
-        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", expiresAt: 200))
-        let receipt = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "friend", displayName: "Friend")
+        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey, expiresAt: 200))
+        let receipt = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
         let retained = try #require(keychain.value)
         let restarted = testInvitationAuthority(keychain: keychain)
         #expect(try restarted.verify(receipt, now: 100) != nil)
@@ -66,9 +79,9 @@ struct DirectInvitationAuthorityTests {
         let keychain = DictionaryKeychain()
         let a = DirectInvitationAuthority(keychain: keychain, namespace: "account-a")
         let b = DirectInvitationAuthority(keychain: keychain, namespace: "account-b")
-        let context = DirectInvitationContext(groupID: UUID(), inviterMemberID: "author", expiresAt: 200)
+        let context = DirectInvitationContext(groupID: UUID(), inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey, expiresAt: 200)
         let grant = try a.issue(context)
-        let receipt = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "friend", displayName: "Friend")
+        let receipt = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
         _ = try b.issue(context)
         #expect(try b.verify(receipt, now: 100) == nil)
         #expect(try a.verify(receipt, now: 100) != nil)
@@ -81,8 +94,8 @@ struct DirectInvitationAuthorityTests {
     @Test func concurrentFirstIssuanceAdoptsTheKeyInstalledByAnotherProcess() throws {
         let keychain = InvitationKeyRace()
         let authority = testInvitationAuthority(keychain: keychain)
-        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", expiresAt: 200))
-        let receipt = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "friend", displayName: "Friend")
+        let grant = try authority.issue(.init(groupID: UUID(), inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey, expiresAt: 200))
+        let receipt = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
         #expect(try authority.verify(receipt, now: 100) != nil)
         #expect(!keychain.overwroteWinner)
     }
@@ -90,13 +103,13 @@ struct DirectInvitationAuthorityTests {
     @Test func verificationDoesNotCreateAuthorKeysAndDirectedGrantRejectsOtherRecipients() throws {
         let keychain = InternetTestKeychain()
         let unknownAuthor = testInvitationAuthority(keychain: keychain)
-        let grant = try testInvitationAuthority().issue(.init(groupID: UUID(), inviterMemberID: "author",
+        let grant = try testInvitationAuthority().issue(.init(groupID: UUID(), inviterMemberID: "author", inviterDeviceKey: testIdentitySigner("author").publicKey,
                                                              recipientMemberID: "friend", expiresAt: 200))
-        let receipt = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "friend", displayName: "Friend")
+        let receipt = try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("friend"), inviteeMemberID: "friend", displayName: "Friend")
         #expect(try unknownAuthor.verify(receipt, now: 100) == nil)
         #expect(keychain.value == nil)
         #expect(throws: GroupInviteTokenError.invalidTokenEncoding) {
-            try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: "stranger", displayName: "Stranger")
+            try DirectInvitationReceipt.make(grant: grant, signer: testIdentitySigner("stranger"), inviteeMemberID: "stranger", displayName: "Stranger")
         }
     }
 
@@ -119,17 +132,31 @@ struct DirectInvitationAuthorityTests {
         let snapshot = try friend.groupStore.snapshot.encoded()
         #expect(!String(decoding: snapshot, as: UTF8.self).contains(grant.secret))
         author.callSession.authenticate([b.localMemberIdentity.memberID, "stranger"])
+        var invalidName = try JSONDecoder().decode(DirectInvitationReceipt.self, from: sent.payload)
+        invalidName.displayName = "Forged name"
+        a.handleTransportEvent(.receivedApplicationData(peerID: b.localMemberIdentity.memberID,
+            message: .init(namespace: DirectInvitationReceipt.namespace, payload: try JSONEncoder().encode(invalidName))))
+        #expect(a.groupStorageIssue == nil) // A bad peer signature cannot disable editing.
+        #expect(a.savedUsers.isEmpty)
         a.handleTransportEvent(.receivedApplicationData(peerID: b.localMemberIdentity.memberID, message: sent))
         #expect(a.savedUsers.map(\.memberIDs) == [[b.localMemberIdentity.memberID]])
         let acknowledgement = try #require(author.callSession.sentApplicationDataMessages.last { $0.namespace == DirectInvitationReceipt.namespace })
+        var invalidACK = try JSONDecoder().decode(DirectInvitationReceipt.self, from: acknowledgement.payload)
+        invalidACK.displayName = "Forged acknowledgement"
+        b.handleTransportEvent(.receivedApplicationData(peerID: "author",
+            message: .init(namespace: DirectInvitationReceipt.namespace, payload: try JSONEncoder().encode(invalidACK))))
+        #expect(b.groupStorageIssue == nil)
+        #expect(b.groupRepository.pendingInvitation(for: group.id) != nil)
         b.handleTransportEvent(.receivedApplicationData(peerID: "author", message: acknowledgement))
         #expect(b.groupRepository.pendingInvitation(for: group.id) == nil)
         #expect(!a.savedUsers.flatMap(\.memberIDs).contains("stranger"))
         #expect(!b.savedUsers.flatMap(\.memberIDs).contains("stranger"))
+        #expect(b.removeSavedUser(try #require(b.savedUsers.first).id))
         #expect(a.removeSavedUser(try #require(a.savedUsers.first).id))
         a.handleTransportEvent(.receivedApplicationData(peerID: b.localMemberIdentity.memberID, message: sent))
         #expect(a.savedUsers.isEmpty)
-        try b.acceptInviteURL(url) // Reopening an old link still cannot restore the deleted entry.
+        try b.acceptInviteURL(url) // Reopening an old link still cannot restore either deleted entry.
+        #expect(b.savedUsers.isEmpty)
         b.sendPendingInvitationReceipt()
         let reopened = try #require(friend.callSession.sentApplicationDataMessages.last { $0.namespace == DirectInvitationReceipt.namespace })
         a.handleTransportEvent(.receivedApplicationData(peerID: b.localMemberIdentity.memberID, message: reopened))

@@ -7,5 +7,7 @@ struct SavedUser: Codable, Equatable, Identifiable {
     var displayName: String
     var memberIDs: [String]
     var localName: String?
+    var deviceKeys: [String: String]?
+    var principal: AccountPrincipal?
     var resolvedDisplayName: String { localName ?? displayName }
 }

@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 struct GroupInviteToken: Codable, Equatable {
-    static let currentVersion = 4
+    static let currentVersion = 5
 
     let version: Int
     let groupID: UUID
@@ -15,6 +15,7 @@ struct GroupInviteToken: Codable, Equatable {
     let expiresAt: TimeInterval?
     let directInvitation: DirectInvitationGrant?
     let signature: String
+    let identityProof: DeviceIdentityProof?
 
     init(
         version: Int = GroupInviteToken.currentVersion,
@@ -27,7 +28,8 @@ struct GroupInviteToken: Codable, Equatable {
         issuedAt: TimeInterval,
         expiresAt: TimeInterval?,
         directInvitation: DirectInvitationGrant? = nil,
-        signature: String
+        signature: String,
+        identityProof: DeviceIdentityProof? = nil
     ) throws {
         guard version == Self.currentVersion else {
             throw GroupInviteTokenError.unsupportedVersion
@@ -44,10 +46,12 @@ struct GroupInviteToken: Codable, Equatable {
         self.expiresAt = expiresAt
         self.directInvitation = directInvitation
         self.signature = signature
+        self.identityProof = identityProof
     }
 
     static func make(
         authority: DirectInvitationAuthority,
+        signer: DeviceIdentitySigner,
         groupID: UUID,
         groupName: String,
         groupSecret: String,
@@ -57,34 +61,28 @@ struct GroupInviteToken: Codable, Equatable {
         issuedAt: TimeInterval = Date().timeIntervalSince1970,
         expiresAt: TimeInterval? = nil
     ) throws -> GroupInviteToken {
-        let version = currentVersion
+        guard signer.memberID == inviterMemberID else { throw GroupInviteTokenError.invalidTokenEncoding }
         let expiresAt = expiresAt ?? issuedAt + 7 * 24 * 60 * 60
-        let grant = try authority.issue(.init(groupID: groupID, inviterMemberID: inviterMemberID,
+        let grant = try authority.issue(.init(groupID: groupID, inviterMemberID: inviterMemberID, inviterDeviceKey: signer.publicKey,
                                              recipientMemberID: recipientMemberID, expiresAt: expiresAt))
-        return try GroupInviteToken(
-            version: version,
-            groupID: groupID,
-            groupName: groupName,
-            groupSecret: groupSecret,
-            inviterMemberID: inviterMemberID,
-            inviterDisplayName: inviterDisplayName,
-            recipientMemberID: recipientMemberID,
-            issuedAt: issuedAt,
-            expiresAt: expiresAt,
-            directInvitation: grant,
-            signature: makeSignature(
-                version: version,
-                groupID: groupID,
-                groupName: groupName,
-                groupSecret: groupSecret,
-                inviterMemberID: inviterMemberID,
-                inviterDisplayName: inviterDisplayName,
-                recipientMemberID: recipientMemberID,
-                issuedAt: issuedAt,
-                expiresAt: expiresAt,
-                directInvitation: grant
-            )
-        )
+        let signature = makeSignature(version: currentVersion, groupID: groupID, groupName: groupName, groupSecret: groupSecret,
+            inviterMemberID: inviterMemberID, inviterDisplayName: inviterDisplayName, recipientMemberID: recipientMemberID,
+            issuedAt: issuedAt, expiresAt: expiresAt, directInvitation: grant)
+        return try GroupInviteToken(groupID: groupID, groupName: groupName, groupSecret: groupSecret, inviterMemberID: inviterMemberID,
+            inviterDisplayName: inviterDisplayName, recipientMemberID: recipientMemberID, issuedAt: issuedAt, expiresAt: expiresAt,
+            directInvitation: grant, signature: signature,
+            identityProof: signer.sign(Data(signature.utf8), purpose: .issueInvitation))
+    }
+
+    func accept(signer: DeviceIdentitySigner, displayName: String, trust: DeviceIdentityTrust? = nil,
+                now: TimeInterval = Date().timeIntervalSince1970) throws -> AcceptedDirectInvitation {
+        try validate()
+        guard verifySignature(), let identityProof, let grant = directInvitation else { throw GroupInviteTokenError.invalidSignature }
+        guard !isExpired(now: now) else { throw GroupInviteTokenError.expired }
+        let inviter = try identityProof.verify(Data(signature.utf8), purpose: .issueInvitation, memberID: inviterMemberID,
+                                              trust: trust, now: Date(timeIntervalSince1970: now))
+        let receipt = try DirectInvitationReceipt.make(grant: grant, signer: signer, inviteeMemberID: signer.memberID, displayName: displayName)
+        return AcceptedDirectInvitation(receipt: receipt, inviter: inviter)
     }
 
     func verifySignature() -> Bool {
@@ -105,6 +103,7 @@ struct GroupInviteToken: Codable, Equatable {
     func validate() throws {
         guard version == Self.currentVersion else { throw GroupInviteTokenError.unsupportedVersion }
         guard let directInvitation, directInvitation.isValid,
+              let identityProof, identityProof.publicKey == directInvitation.context.inviterDeviceKey,
               directInvitation.context.groupID == groupID,
               directInvitation.context.inviterMemberID == inviterMemberID,
               directInvitation.context.recipientMemberID == recipientMemberID,
@@ -162,6 +161,12 @@ struct GroupInviteToken: Codable, Equatable {
     }
 }
 
+struct AcceptedDirectInvitation {
+    let receipt: DirectInvitationReceipt
+    let inviter: VerifiedDeviceProof
+    fileprivate init(receipt: DirectInvitationReceipt, inviter: VerifiedDeviceProof) { self.receipt = receipt; self.inviter = inviter }
+}
+
 enum GroupInviteTokenError: Error, Equatable {
     case unsupportedVersion
     case invalidURL
@@ -202,6 +207,7 @@ enum GroupInviteTokenCodec {
         guard token.verifySignature() else {
             throw GroupInviteTokenError.invalidSignature
         }
+        _ = try token.identityProof?.verify(Data(token.signature.utf8), purpose: .issueInvitation, memberID: token.inviterMemberID)
         return token
     }
 }

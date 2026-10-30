@@ -56,6 +56,9 @@ struct DeviceIdentityCertificateTests {
         let service = namespace + ".InternetConnection"
         try keychain.deleteSecret(service: service, account: "identity-key")
         #expect(throws: (any Error).self) { try store.loadIdentity(memberID: "member-fixture") }
+        #expect(throws: (any Error).self) {
+            try store.invitationSigner(memberID: "member-fixture", expectedPublicKey: IdentityEncoding.encode(device.publicKey.x963Representation))
+        }
         #expect(try keychain.secret(service: service, account: "identity-key") == nil)
         try keychain.saveSecret("corrupt", service: service, account: "identity-key")
         #expect(throws: (any Error).self) { try store.deviceSigningKey() }
