@@ -38,7 +38,7 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 
 | 項目名（日本語） | 項目ID | 目的 | 実装 | 更新周期 | 表示仕様 |
 |---|---|---|---|---|---|
-| 診断画面 | `diagnosticsScrollView` | package runtime report と App 状態を要約する | `DiagnosticsView` | 0.5 秒 | `TimelineView` + `ScrollView` |
+| 診断画面 | `diagnosticsScrollView` | package runtime report と App 状態を要約する | `DiagnosticsView` | 表示中0.5秒。開く時点は即時、非表示のsnapshot作成は5秒 | `TimelineView` + `ScrollView` |
 | 送信パイプライン | `liveTransmitPipelineView` | ローカル送信がどこまで進んでいるかを読む | `LiveTransmitPipelineView` | 0.5 秒 | compact row。effect chain は TX bus 内に内包表示 |
 | 受信パイプライン | `liveReceivePipelineView` | 受信音声が出力までどこまで進んでいるかを読む | `LiveReceivePipelineView` | 0.5 秒 | compact row。peer bus は複数行一覧、effect chain は該当 bus 内に内包表示。RX master FXは実グラフの内容のみを表示する |
 | 現在状態一覧 | `diagnosticsOverviewGrid` | pipeline と重複しない App 状態を見る | `DiagnosticsOverviewGrid` | 0.5 秒 | 先頭のadaptive grid。Audio Path / Call / Network Quality / Invite |

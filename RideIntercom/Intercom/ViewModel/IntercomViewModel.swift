@@ -178,6 +178,7 @@ final class IntercomViewModel {
     var remoteRuntimeStatuses: [String: RTCRuntimeStatus] = [:]
     var lastRuntimePackageReports: [RTCRuntimePackageReport] = []
     var lastRuntimePackageReportPublishedAt: TimeInterval?
+    var isDiagnosticsVisible = false
 
     init(
         callSession: CallSession? = nil,

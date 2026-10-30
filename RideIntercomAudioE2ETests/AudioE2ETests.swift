@@ -76,7 +76,7 @@ final class AudioE2ETests: XCTestCase {
                                          output: rendered.samples, outputRate: rendered.rate)
             }.value
             let measurement: [String: Any] = ["scenario": name, "role": "pipeline", "transport": "none",
-                "remoteFixture": "speech-ja", "continuityPassed": continuity.passed,
+                "remoteFixture": "speech-ja", "continuityPassed": continuity.passed && continuity.missingActiveRatio == 0,
                 "continuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(continuity)),
                 "renderedSamples": rendered.samples.count, "sampleRate": rendered.rate,
                 "outputPlaybackResets": resets, "mixer": mixer, "processingFailures": processingFailures]
@@ -408,7 +408,7 @@ final class AudioE2ETests: XCTestCase {
                 "localFixture": localFixture, "remoteFixture": remoteFixture,
                 "localFixtureDurationSeconds": Double(input.samples.count) / 48_000,
                 "continuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(continuity)),
-                "continuityPassed": continuity.passed,
+                "continuityPassed": continuity.passed && continuity.missingActiveRatio == 0 && (replies?.passed ?? true),
                 "acknowledgements": try replies.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) } ?? NSNull(),
                 "outputPlaybackResets": playbackResets,
                 "firstCaptureHostTime": firstCapture as Any? ?? NSNull(),

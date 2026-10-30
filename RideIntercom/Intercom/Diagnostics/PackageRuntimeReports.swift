@@ -49,7 +49,7 @@ extension IntercomViewModel {
     ) {
         if !force,
            let lastRuntimePackageReportPublishedAt,
-           now - lastRuntimePackageReportPublishedAt < Self.runtimePackageReportPublishInterval {
+           now - lastRuntimePackageReportPublishedAt < (isDiagnosticsVisible ? Self.runtimePackageReportPublishInterval : 5) {
             return
         }
         refreshPackageRuntimeSnapshots(now: now)

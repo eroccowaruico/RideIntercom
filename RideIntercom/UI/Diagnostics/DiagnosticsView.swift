@@ -38,5 +38,10 @@ struct DiagnosticsView: View {
             }
             .accessibilityIdentifier("diagnosticsScrollView")
         }
+        .onAppear {
+            viewModel.isDiagnosticsVisible = true
+            viewModel.publishRuntimePackageReports(force: true)
+        }
+        .onDisappear { viewModel.isDiagnosticsVisible = false }
     }
 }

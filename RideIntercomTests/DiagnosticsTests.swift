@@ -61,6 +61,23 @@ struct DiagnosticsTests {
         }
     }
 
+    @Test func hiddenDiagnosticsAvoidsFastSnapshotsButVisibleMetersStayLive() {
+        let harness = AppTestSupport.makeHarness()
+        let model = harness.viewModel
+        model.publishRuntimePackageReports(force: true, now: 100)
+        let before = harness.callSession.runtimePackageReports.count
+        model.publishRuntimePackageReports(now: 100.6)
+        #expect(harness.callSession.runtimePackageReports.count == before)
+        model.isDiagnosticsVisible = true
+        model.publishRuntimePackageReports(now: 101.2)
+        #expect(harness.callSession.runtimePackageReports.count == before + 1)
+        model.isDiagnosticsVisible = false
+        model.publishRuntimePackageReports(now: 106.2)
+        #expect(harness.callSession.runtimePackageReports.count == before + 2)
+        model.publishRuntimePackageReports(force: true, now: 106.3)
+        #expect(harness.callSession.runtimePackageReports.count == before + 3, "Settings reports remain immediate")
+    }
+
     @Test func viewModelPublishesPackageRuntimeReportsForDiagnosticsAndRTC() throws {
         let harness = AppTestSupport.makeHarness()
         let peerID = "member-108"
