@@ -93,6 +93,12 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
     }
 
     func updateIsolation(enabled: Bool) throws {
+        // Settings/lifecycle share their serial owner. Prepare the disconnected
+        // unit before taking the capture lock so the current stream keeps moving.
+        let preparation = lock.withLock {
+            enabled && isolation?.avAudioUnitEffect.bypass == true ? processor?.bus : nil
+        }
+        try preparation?.prepareEffect(id: "sound-isolation")
         lock.lock(); defer { lock.unlock() }
         guard let effect = isolation, let bus = processor?.bus,
               effect.avAudioUnitEffect.bypass != !enabled else { return }

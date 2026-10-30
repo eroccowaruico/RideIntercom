@@ -142,6 +142,16 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
     /// A native graph mutation is the explicit bounded-silence exception.
     /// Protect hardware output while its receive connections change.
     func updateIsolation(master enabled: Bool, peers: [String: Bool]) throws {
+        // Allocate only effects requested ON, while the old graph still plays.
+        // Capture/receive workers do not mutate topology; settings and lifecycle
+        // must retain their existing serial ownership across this preparation.
+        let preparation = lock.withLock {
+            effects.compactMap { id, effect -> MixerBus? in
+                let value = id == "rx-master" ? enabled : peers[String(id.dropFirst("rx-peer-".count))] ?? false
+                return value && effect.avAudioUnitEffect.bypass ? mixer?.bus(id) : nil
+            }
+        }
+        for bus in preparation { try bus.prepareEffect(id: "sound-isolation") }
         lock.lock(); defer { lock.unlock() }
         configuration.receiveMasterSoundIsolationEnabled = enabled
         configuration.peerSoundIsolationEnabled = peers
