@@ -53,13 +53,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		B17000000000000000000022 /* BuildNumber.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = BuildNumber.xcconfig; path = Configuration/BuildNumber.xcconfig; sourceTree = "<group>"; };
 		9306F0272FA8DFBA0030B045 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		9306F0292FA8DFD30030B045 /* AVFAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFAudio.framework; path = System/Library/Frameworks/AVFAudio.framework; sourceTree = SDKROOT; };
 		931D63253092FBA0004F8BCC /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		931D837530935FB5004F8BCC /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		931DA0FE30936182004F8BCC /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		931DBE96309362EA004F8BCC /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
+		935FA9DD3094687B00BF0812 /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
+		935FC89C309482F700BF0812 /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		9374C4C92FA3657700D259B2 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		9374C4D72FA3670400D259B2 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = SDKROOT; };
 		9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
@@ -74,6 +75,7 @@
 		93F300C82F93829C0046716D /* RideIntercom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300D92F93829D0046716D /* RideIntercomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300E32F93829D0046716D /* RideIntercomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B17000000000000000000022 /* BuildNumber.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = BuildNumber.xcconfig; path = Configuration/BuildNumber.xcconfig; sourceTree = "<group>"; };
 		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomAudioE2ETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -231,6 +233,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		935FA9DE3094687B00BF0812 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		935FC89D309482F700BF0812 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		9374C4BB2FA3652B00D259B2 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -262,6 +278,8 @@
 				931D63253092FBA0004F8BCC /* RideIntercom.xcodeproj */,
 				931D837530935FB5004F8BCC /* RideIntercom.xcodeproj */,
 				931DA0FE30936182004F8BCC /* RideIntercom.xcodeproj */,
+				931DBE96309362EA004F8BCC /* RideIntercom.xcodeproj */,
+				935FA9DD3094687B00BF0812 /* RideIntercom.xcodeproj */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -476,24 +494,16 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 9391C7153088EDA000FDB74A /* Products */;
-					ProjectRef = 9391C7143088EDA000FDB74A /* RideIntercom.xcodeproj */;
-				},
-				{
-					ProductGroup = 9391AC8E3088ED4400FDB74A /* Products */;
-					ProjectRef = 9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */;
+					ProductGroup = 935FC89D309482F700BF0812 /* Products */;
+					ProjectRef = 935FC89C309482F700BF0812 /* RideIntercom.xcodeproj */;
 				},
 				{
 					ProductGroup = 931DA0FF30936182004F8BCC /* Products */;
 					ProjectRef = 931DA0FE30936182004F8BCC /* RideIntercom.xcodeproj */;
 				},
 				{
-					ProductGroup = 9391FC3F3088F95B00FDB74A /* Products */;
-					ProjectRef = 9391FC3E3088F95B00FDB74A /* RideIntercom.xcodeproj */;
-				},
-				{
-					ProductGroup = 931D63263092FBA0004F8BCC /* Products */;
-					ProjectRef = 931D63253092FBA0004F8BCC /* RideIntercom.xcodeproj */;
+					ProductGroup = 935FA9DE3094687B00BF0812 /* Products */;
+					ProjectRef = 935FA9DD3094687B00BF0812 /* RideIntercom.xcodeproj */;
 				},
 				{
 					ProductGroup = 931DBE97309362EA004F8BCC /* Products */;
@@ -506,6 +516,22 @@
 				{
 					ProductGroup = 9391E1A53088EE5400FDB74A /* Products */;
 					ProjectRef = 9391E1A43088EE5400FDB74A /* RideIntercom.xcodeproj */;
+				},
+				{
+					ProductGroup = 9391C7153088EDA000FDB74A /* Products */;
+					ProjectRef = 9391C7143088EDA000FDB74A /* RideIntercom.xcodeproj */;
+				},
+				{
+					ProductGroup = 9391AC8E3088ED4400FDB74A /* Products */;
+					ProjectRef = 9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */;
+				},
+				{
+					ProductGroup = 9391FC3F3088F95B00FDB74A /* Products */;
+					ProjectRef = 9391FC3E3088F95B00FDB74A /* RideIntercom.xcodeproj */;
+				},
+				{
+					ProductGroup = 931D63263092FBA0004F8BCC /* Products */;
+					ProjectRef = 931D63253092FBA0004F8BCC /* RideIntercom.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -545,8 +571,6 @@
 		B17000000000000000000021 /* Prepare Archive Build Number */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
 			inputPaths = (
 				"$(SRCROOT)/scripts/prepare_archive_info.py",
 				"$(SRCROOT)/RideIntercom/Info.plist",
@@ -558,9 +582,11 @@
 				"$(SRCROOT)/Configuration/BuildNumber.lock",
 				"$(SRCROOT)/Configuration/BuildNumber.next",
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "python3 \"$SRCROOT/scripts/prepare_archive_info.py\"\n";
+			shellScript = (
+				"python3 \"$SRCROOT/scripts/prepare_archive_info.py\"",
+				"",
+			);
 			showEnvVarsInLog = 0;
 		};
 		D70000000000000000000005 /* Check Development Setup */ = {
@@ -670,7 +696,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -735,7 +761,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
