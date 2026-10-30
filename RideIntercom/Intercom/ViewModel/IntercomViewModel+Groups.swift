@@ -107,6 +107,7 @@ extension IntercomViewModel {
     }
 
     func deleteGroup(_ groupID: UUID) {
+        guard canEditSavedGroups else { groupErrorMessage = groupStorageNotice; return }
         let remaining = groups.filter { $0.id != groupID }
         do { try groupRepository.delete(groupID, remaining: remaining) }
         catch { reportGroupStorageError(error); return }
@@ -194,6 +195,7 @@ extension IntercomViewModel {
     }
 
     func acceptInviteURL(_ url: URL, now: TimeInterval = Date().timeIntervalSince1970) throws {
+        guard canStartCalls else { throw IntercomGroupError.storageUnavailable }
         groupErrorMessage = nil
         let token = try GroupInviteTokenCodec.decodeJoinURL(url)
         guard !token.isExpired(now: now) else {

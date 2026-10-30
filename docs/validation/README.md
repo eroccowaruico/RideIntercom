@@ -1,5 +1,21 @@
 # 検証状況と証跡
 
+## ログイン世代と機能間の境界（2026-10-31）
+
+残タスク全体の関連を点検し、同じアカウントへの再ログインで古い操作主体が復活する問題と、ログアウト後の保存・招待・Internet資格設定の入口を修正した。ログイン世代はメモリ内だけに持ち、通常の資格確認で通話モデルを作り直さない。Keychain読取失敗からの再読込では新しいログインを画面へ通知する。[現行契約](../spec/App/通信仕様.md#appleログインと端末内データ)と[未完成の接続点](../backlog/未実装課題.md#実装の接続点と残作業の再点検)を区別する。
+
+証跡は`.validation/account-boundary-app-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| Mac App | 211件成功、失敗・skip・runtime warningなし。独立Macホストのsandbox無効化は従来の検証限定条件を継続。`macos/` |
+| iOS AppとUI | 214件成功（App 211件＋ログイン・Internet設定・サインアウトのUI 3件）、失敗・skip・runtime warningなし。専用Simulatorを終了。`ios/` |
+| 回帰 | 同一アカウント再ログイン・別アカウント切替・失効callback中の拒否・ログアウト後の保存と資格変更・Keychain復旧を追加。修正前の失敗も`red-macos-tests.log`、`recovery-red-macos-tests.log`に保持 |
+| ソース・静的確認 | Appとtestのソースhashは最終検証の前後で一致。`source-manifest.json`。文書・開発設定・diff検査成功 |
+
+これはAppの変更範囲の検証であり、全package・Worker・音声E2Eを含む最終受入の完了ではない。実Apple認証・実機・Apple grant取消は未確認。直接招待receiptに発行の裏付けがない問題、ユーザーと端末の対応、削除後の再登録は修正対象として残している。
+
+
 ## アカウント端末登録の削除API（2026-10-31）
 
 認証したアカウントの全端末資格を削除し、成功応答を失った再送で再登録後の資格を消さないserver処理を追加した。App操作とApple認可取消は後続であり、機能全体の完了とは扱わない。[契約](../spec/server/Worker.md#アカウントの端末登録削除)を参照する。

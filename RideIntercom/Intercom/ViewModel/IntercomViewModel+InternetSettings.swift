@@ -8,7 +8,10 @@ extension IntercomViewModel {
         if let fixture = AppleAccountFixture.makeInternetAuthorization(viewModel: self) { return fixture }
         #endif
         return InternetAccountAuthorization(expectedUserID: accountUserID, deviceID: try internetSettingsStore.accountDeviceID(),
-            currentUser: { [weak self] in self?.accountSession.userID }, save: { [weak self] origin, credential in
+            currentUser: { [weak self] in
+                guard let self, self.canStartCalls else { return nil }
+                return self.accountUserID
+            }, save: { [weak self] origin, credential in
                 guard let self, self.canStartCalls else { throw InternetAccountClient.Failure.rejected }
                 try self.saveInternetConnection(url: origin.absoluteString, token: credential.accessToken)
             })
@@ -35,6 +38,7 @@ extension IntercomViewModel {
         }
     }
     func saveInternetConnection(url: String, token: String) throws {
+        guard canStartCalls else { throw InternetAccountClient.Failure.rejected }
         try internetSettingsStore.save(url: url, token: token)
         guard let configuration = try internetSettingsStore.load() else { throw InternetConnectionSettingsStore.ValidationError.missingToken }
         internetCheckGeneration = UUID()
@@ -47,7 +51,7 @@ extension IntercomViewModel {
     }
 
     func checkInternetService(session: URLSession = .shared) async {
-        guard !isCheckingInternet else { return }
+        guard canStartCalls, !isCheckingInternet else { return }
         let stored: CloudflareRealtimeConfiguration?
         do { stored = try internetSettingsStore.load() }
         catch { internetCheckMessage = "Could not read saved Internet credentials. Try again."; return }

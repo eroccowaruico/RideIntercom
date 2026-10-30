@@ -13,6 +13,8 @@ enum AppleCredentialState: Sendable {
 @Observable
 final class AppleAccountSession {
     private(set) var userID: String?
+    // A new login must never reactivate work retained from a retired session.
+    private(set) var accessID = UUID()
     private(set) var isSigningIn = false
     private(set) var storageUnavailable = false
     private(set) var message: String?
@@ -64,6 +66,10 @@ final class AppleAccountSession {
         do {
             let saved = try keychain.secret(service: service, account: "current")
             if let saved, !Self.validIdentifier(saved) { throw KeychainSecretStoreError.invalidData }
+            if userID != saved {
+                accessID = UUID()
+                if userID != nil { onAccessRevoked?() }
+            }
             cachedUserID = saved
             userID = saved
             storageUnavailable = false
@@ -138,7 +144,10 @@ final class AppleAccountSession {
         do {
             try keychain.saveSecret(userID, service: service, account: "current")
             defaults.set(false, forKey: Self.requiresSignInKey)
-            if self.userID != nil && self.userID != userID { onAccessRevoked?() }
+            if self.userID != userID {
+                accessID = UUID()
+                if self.userID != nil { onAccessRevoked?() }
+            }
             generation = UUID()
             cachedUserID = userID
             self.userID = userID
@@ -160,6 +169,7 @@ final class AppleAccountSession {
         // Persist the denial before touching Keychain: a failed delete must not
         // resurrect the session on the next offline launch.
         defaults.set(true, forKey: Self.requiresSignInKey)
+        accessID = UUID()
         generation = UUID()
         requestState = nil
         userID = nil

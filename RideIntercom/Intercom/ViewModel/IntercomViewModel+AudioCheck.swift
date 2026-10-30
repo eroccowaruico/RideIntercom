@@ -4,7 +4,7 @@ import SessionManager
 
 extension IntercomViewModel {
     var canStartAudioCheck: Bool {
-        !hasAnyActiveGroupConnection && !isAudioReady && audioCheckPhase != .recording && audioCheckPhase != .playing
+        canStartCalls && !hasAnyActiveGroupConnection && !isAudioReady && audioCheckPhase != .recording && audioCheckPhase != .playing
     }
 
     func startAudioCheck(recordDuration: Duration = .seconds(5), playbackDuration: Duration = .seconds(5)) {

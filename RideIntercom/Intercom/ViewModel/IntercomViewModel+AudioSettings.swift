@@ -400,6 +400,7 @@ extension IntercomViewModel {
     }
 
     private func saveAppSettings() {
+        guard canStartCalls else { return }
         appSettingsStore.save(AppSettings(
             audioSessionProfile: audioSessionProfile,
             vadSensitivity: vadSensitivity,

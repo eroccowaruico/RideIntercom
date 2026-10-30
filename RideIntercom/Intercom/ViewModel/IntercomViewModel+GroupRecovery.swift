@@ -20,8 +20,9 @@ enum GroupStorageIssue: Equatable {
 }
 
 extension IntercomViewModel {
-    var canEditSavedGroups: Bool { groupStorageIssue == nil }
+    var canEditSavedGroups: Bool { canStartCalls && groupStorageIssue == nil }
     var groupStorageNotice: String? {
+        if !canStartCalls { return "This sign-in has ended. Open your current account to continue." }
         if let groupStorageIssue { return groupStorageIssue.message }
         if groupKeyCleanupPending { return "Groups were saved. Unused group keys will be removed on the next reload." }
         if !groupsMissingKeys.isEmpty { return "Some groups have no saved key. Ask a member for a new invitation to those groups." }
@@ -38,6 +39,7 @@ extension IntercomViewModel {
         groupErrorMessage = groupStorageIssue?.message
     }
     func reloadSavedGroups() {
+        guard canStartCalls else { groupErrorMessage = groupStorageNotice; return }
         // The persisted identity list must not overwrite active runtime state.
         guard activeGroupID == nil else {
             groupErrorMessage = "Disconnect before reloading saved groups."
@@ -50,6 +52,7 @@ extension IntercomViewModel {
         } catch { reportGroupStorageError(error) }
     }
     func resetSavedGroups() {
+        guard canStartCalls else { groupErrorMessage = groupStorageNotice; return }
         guard groupStorageIssue != .unsupportedVersion else { return }
         disconnect()
         do {

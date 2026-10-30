@@ -33,6 +33,68 @@ struct AppleAccountTests {
         allowed.viewModel.connectLocal()
         #expect(allowed.callSession.connectedGroup == nil && allowed.callSession.startMediaCallCount == count)
     }
+    @Test(arguments: ["apple-user", "other-account"])
+    func retiredModelCannotRegainAccessAfterAnotherLogin(nextUser: String) throws {
+        let f = AccountFixture(); defer { f.remove() }
+        f.signIn()
+        let old = AppTestSupport.makeHarness(accountSession: f.session)
+        defer { old.viewModel.disconnect() }
+        let group = try #require(old.viewModel.groups.first)
+        old.viewModel.selectGroup(group)
+        f.session.signOut()
+        f.signIn(nextUser)
+        #expect(!old.viewModel.canStartCalls)
+        #expect(!old.viewModel.canEditSavedGroups)
+        #expect(!old.viewModel.canStartAudioCheck)
+        old.viewModel.connectLocal()
+        #expect(old.callSession.connectedGroup == nil)
+        #expect(old.viewModel.selectedGroupInviteURL == nil)
+        #expect(!old.viewModel.setLocalDisplayName("Stale name"))
+        let fresh = AppTestSupport.makeHarness(accountSession: f.session)
+        defer { fresh.viewModel.disconnect() }
+        #expect(fresh.viewModel.canStartCalls)
+        #expect(fresh.viewModel.canEditSavedGroups)
+    }
+
+    @Test func signedOutOperationsCannotChangeSavedDataOrCredentials() throws {
+        let f = AccountFixture(); defer { f.remove() }
+        f.signIn()
+        let settings = InMemoryAppSettingsStore()
+        let internet = InternetConnectionSettingsStore(keychain: InternetTestKeychain(), namespace: "retired-model")
+        let h = AppTestSupport.makeHarness(accountSession: f.session, appSettingsStore: settings, internetSettingsStore: internet)
+        let vm = h.viewModel
+        defer { vm.disconnect() }
+        let group = try #require(vm.groups.first)
+        vm.selectGroup(group)
+        let invite = try #require(vm.selectedGroupInviteURL)
+        let before = h.groupStore.snapshot
+        let previousSettings = settings.load()
+        f.session.signOut()
+        #expect(!vm.createTalkGroup(name: "Stale operation"))
+        #expect(!vm.commitGroups([]))
+        vm.deleteGroup(group.id)
+        vm.resetSavedGroups()
+        #expect(throws: (any Error).self) { try vm.acceptInviteURL(invite) }
+        #expect(throws: (any Error).self) { try vm.credential(for: group) }
+        #expect(throws: (any Error).self) { try vm.saveInternetConnection(url: "https://account.test", token: "stale-token") }
+        vm.setOpusBitRate(16_000)
+        #expect(h.groupStore.snapshot == before)
+        #expect(settings.load() == previousSettings)
+        #expect(try internet.load() == nil)
+    }
+
+    @Test func accountReplacementRevokesOldAccessBeforeShutdownCallback() {
+        let f = AccountFixture(); defer { f.remove() }
+        f.signIn()
+        let h = AppTestSupport.makeHarness(accountSession: f.session)
+        var accessDuringShutdown: Bool?
+        f.session.onAccessRevoked = { accessDuringShutdown = h.viewModel.canStartCalls }
+        f.signIn("other-account")
+        #expect(accessDuringShutdown == false)
+        f.signIn()
+        #expect(!h.viewModel.canStartCalls)
+    }
+
     @Test func loginRequiresMatchingRequestAndPersistsOnlyIdentifier() throws {
         let f = AccountFixture(); defer { f.remove() }
         #expect(f.session.userID == nil)
@@ -151,6 +213,23 @@ struct AppleAccountTests {
         continuation?.resume(returning: .authorized)
         await task.value
         #expect(restored.userID == nil)
+    }
+
+    @Test func keychainRecoveryPublishesANewAccessForTheSignedInScreen() async {
+        let f = AccountFixture(); defer { f.remove() }
+        f.signIn()
+        f.keychain.fails = true
+        let recovered = f.restart { _ in .authorized }
+        let unavailableAccess = recovered.accessID
+        #expect(recovered.userID == nil && recovered.storageUnavailable)
+        f.keychain.fails = false
+        await recovered.reload()
+        #expect(recovered.userID == "apple-user")
+        #expect(recovered.accessID != unavailableAccess)
+        let validAccess = recovered.accessID
+        await recovered.refresh()
+        await recovered.reload()
+        #expect(recovered.accessID == validAccess) // Refresh must not replace a live call owner.
     }
 
     @Test func accountNamespaceIsStableAndIsolated() {

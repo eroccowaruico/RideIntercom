@@ -181,6 +181,7 @@ extension IntercomViewModel {
 
     @discardableResult
     func commitGroups(_ updated: [IntercomGroup]) -> Bool {
+        guard canStartCalls else { groupErrorMessage = groupStorageNotice; return false }
         do {
             try groupRepository.save(updated)
             groups = updated
@@ -197,6 +198,7 @@ extension IntercomViewModel {
     }
 
     func credential(for group: IntercomGroup) throws -> GroupAccessCredential? {
+        guard canStartCalls else { throw IntercomGroupError.storageUnavailable }
         let secret = try groupRepository.credential(for: group.id)?.secret ?? group.accessSecret
         guard let secret, !secret.isEmpty else { return nil }
         return GroupAccessCredential(groupID: group.id, secret: secret)

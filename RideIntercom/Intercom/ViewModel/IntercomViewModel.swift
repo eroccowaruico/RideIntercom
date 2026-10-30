@@ -16,7 +16,10 @@ import VADGate
 final class IntercomViewModel {
     let accountSession: AppleAccountSession
     let accountUserID: String?
-    var canStartCalls: Bool { accountUserID != nil && accountSession.userID == accountUserID }
+    let accountAccessID: UUID
+    var canStartCalls: Bool {
+        accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
+    }
     static let pendingInviteMemberPrefix = GroupMember.pendingInvitePrefix
     nonisolated static let defaultSoundIsolationEnabled = true
     nonisolated static let defaultReceiveSoundIsolationEnabled = false
@@ -202,6 +205,7 @@ final class IntercomViewModel {
     ) {
         self.accountSession = accountSession
         self.accountUserID = accountSession.userID
+        self.accountAccessID = accountSession.accessID
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()

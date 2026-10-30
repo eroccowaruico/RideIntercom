@@ -24,10 +24,11 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: ASAuthorizationAppleIDProvider.credentialRevokedNotification)) { _ in
             account.revoke()
         }
-        .onChange(of: account.userID, initial: true) { previous, _ in
+        .onChange(of: account.accessID, initial: true) { _, _ in
             // Every window shares one call owner. Opening another scene must
             // neither reconnect nor leave another account's media running.
-            guard viewModel?.accountUserID != account.userID else { return }
+            guard viewModel?.accountAccessID != account.accessID else { return }
+            let previous = viewModel?.accountUserID
             viewModel?.disconnect()
             viewModel = IntercomViewModel.makeForCurrentProcess(accountSession: account)
             if previous != nil { pendingInviteURL = nil }
