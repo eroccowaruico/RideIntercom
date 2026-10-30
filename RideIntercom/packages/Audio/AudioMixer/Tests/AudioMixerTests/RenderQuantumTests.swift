@@ -163,6 +163,37 @@ func testDelayedQuietBurstDoesNotCutTheReturningFade() async throws {
     XCTAssertTrue(gaps.isEmpty, "Unexpected render edges: \(gaps.prefix(20).map { ($0.offset, $0.element.0, $0.element.1) })")
     XCTAssertEqual(source.playbackResetCount, 0)
 }
+func testQuietRecoveryKeepsTheCaptureClockAcrossOmittedSilence() async throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("pause-clock")
+    let source = try bus.addPCMSource(id: "voice", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    let received = QuantumFrames()
+    _ = try bus.installPCMSink(id: "probe", targetFormat: .init()) { frame, _ in received.append(frame) }
+    let muted = try mixer.createBus("muted"); muted.volume = 0
+    try mixer.route(bus, to: muted); try mixer.routeToOutput(muted)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let start = ContinuousClock.now
+    for index in 0..<170 {
+        try await Task.sleep(until: start + .milliseconds(index * 10 + (index == 10 ? 50 : 0)), clock: .continuous)
+        if (50..<150).contains(index) { continue }
+        let audible = (30..<50).contains(index) || index >= 150
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: 100 + Double(index) / 100,
+            samples: Array(repeating: audible ? 0.2 : 0, count: 480)))
+    }
+    try await Task.sleep(for: .milliseconds(100))
+    let samples = received.snapshot.flatMap(\.samples)
+    let onsets = samples.indices.filter { samples[$0] > 0.1 && ($0 == 0 || samples[$0 - 1] <= 0.1) }
+    XCTAssertEqual(onsets.count, 2)
+    if onsets.count == 2 {
+        XCTAssertEqual(onsets[1] - onsets[0], 57600, accuracy: 2,
+            "Quiet recovery must not leave implicit and explicit native reservations on different clocks")
+    }
+    XCTAssertEqual(samples.filter { $0 > 0.1 }.count, 19200)
+    XCTAssertEqual(source.playbackResetCount, 0)
+}
+
 func testLiveEffectInsertionKeepsTimestampedRemoteVoiceAudible() async throws {
     let mixer = try AudioMixer(audioFormat: .init())
     let peer = try mixer.createBus("remote")

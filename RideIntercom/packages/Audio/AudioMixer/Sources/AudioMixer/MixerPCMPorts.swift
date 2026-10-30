@@ -85,7 +85,6 @@ public final class MixerPCMSource {
 			let position = playbackPosition
             let rendered = position.writable
 			var options: AVAudioPlayerNodeBufferOptions = []
-            var followsPrevious = false
 			let duration = Double(buffer.frameLength) / mixerFormat.sampleRate
             // Native lossy codecs can leave isolated sub-milliscale samples
             // after a pause. A peak-only -80 dB test mistakes this inaudible
@@ -126,7 +125,6 @@ public final class MixerPCMSource {
                     // or trims the preceding or following packet.
                     if contiguous {
                         target = Double(scheduledEndSample)
-                        followsPrevious = true
                     }
                     let resumed = lastCapturedEnd.map { capturedAt - $0 > 0.25 } ?? false
                     // Packetization can deliver multiple adjacent packets in one
@@ -152,7 +150,6 @@ public final class MixerPCMSource {
                     let expired = target < Double(contiguous ? position.completed : rendered)
                     if expired || resumedWithExcessWait || canReduceDelay {
                         target = Double(max(delayedStart, lastAudibleEnd > rendered ? scheduledEndSample : delayedStart))
-                        followsPrevious = false
                         playoutAnchor = (capturedAt, AVAudioFramePosition(target))
                         if canReduceDelay {
                             options = .interrupts // only queued silence is replaced
@@ -168,7 +165,6 @@ public final class MixerPCMSource {
 					|| target > Double(rendered) + limit * mixerFormat.sampleRate
 					|| lastCapturedAt.map({ capturedAt <= $0 }) == true {
 					playoutAnchor = (capturedAt, delayedStart)
-					followsPrevious = false
 					startSample = delayedStart
 					if scheduledEndSample > rendered { options = .interrupts }
 					playbackResetCount += 1
@@ -191,9 +187,10 @@ public final class MixerPCMSource {
 			scheduledEndSample = startSample + AVAudioFramePosition(buffer.frameLength)
             if audible { lastAudibleEnd = scheduledEndSample }
 			// Timestamped sources preserve omitted silence and absorb arrival jitter.
-			// Consecutive sources follow the actual queue, including after underrun.
-			// A last-render snapshot is already in the past when the render thread runs.
-			let time = captureTimePlayoutDelay == nil || followsPrevious
+			// Keep capture-time sources explicit even when adjacent: after an
+            // interrupt, native implicit adjacency can retain a different clock
+            // until the next omitted pause. Ordinary untimed sources use the queue.
+			let time = captureTimePlayoutDelay == nil
 				? nil : AVAudioTime(sampleTime: startSample, atRate: mixerFormat.sampleRate)
 			playerNode.scheduleBuffer(buffer, at: time, options: options)
             if startRequested && !playerNode.isPlaying { playerNode.play() }
