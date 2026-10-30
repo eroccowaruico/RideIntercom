@@ -188,18 +188,17 @@ final class AppAudioPipeline {
         transmitter.stop()
     }
 
-    func updateCodec(preferred: AudioCodecIdentifier, aacELDv2BitRate: Int, opusBitRate: Int) {
-        configuration.preferredCodec = preferred
-        configuration.aacELDv2BitRate = aacELDv2BitRate
-        configuration.opusBitRate = opusBitRate
-        transmitter.updateEncoding(configuration.codecRuntimeReport.activeConfiguration)
-    }
-
-    func updateTransmitFormat(_ format: AudioFormat) throws {
-        guard configuration.rtcSendFormat != format else { return }
+    /// Codec, rate and bitrates form one replaceable setting. Never expose an
+    /// intermediate format to capture or publish a configuration rejected by DSP.
+    func updateEncoding(preferred: AudioCodecIdentifier, format: AudioFormat,
+                        aacELDv2BitRate: Int, opusBitRate: Int) throws {
+        guard format.isValid else { throw AppAudioPipelineError.invalidFormat }
         var updated = configuration
+        updated.preferredCodec = preferred
         updated.rtcSendFormat = format
-        try transmitter.updateFormat(updated.codecRuntimeReport.activeConfiguration)
+        updated.aacELDv2BitRate = aacELDv2BitRate
+        updated.opusBitRate = opusBitRate
+        try transmitter.updateEncoding(updated.codecRuntimeReport.activeConfiguration)
         configuration = updated
     }
 

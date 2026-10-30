@@ -21,8 +21,8 @@ struct RealtimeConversationTests {
         defer { transmitter.stop() }
         for index in 0..<130 {
             if index == 100 {
-                try transmitter.updateFormat(.init(codec: .mpeg4AACELD, format: .init(sampleRate: 16000, channelCount: 1)))
-                try transmitter.updateFormat(.init(codec: .mpeg4AACELD, format: .init(sampleRate: 24000, channelCount: 1)))
+                try transmitter.updateEncoding(.init(codec: .mpeg4AACELD, format: .init(sampleRate: 16000, channelCount: 1)))
+                try transmitter.updateEncoding(.init(codec: .mpeg4AACELD, format: .init(sampleRate: 24000, channelCount: 1)))
             }
             try transmitter.process(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100,
                 samples: (0..<480).map { Float(0.15 * sin(Double(index * 480 + $0) * 2 * .pi * 600 / 48000)) }))
@@ -270,7 +270,19 @@ struct RealtimeConversationTests {
         try pipeline.processPlaybackFrame(.init(sequenceNumber: 0, samples: Array(repeating: 0.1, count: 480)))
         let before = pipeline.snapshot
         let nodes = engine.attachedNodes
-        try pipeline.updateTransmitFormat(.init(sampleRate: 16000, channelCount: 1))
+        try pipeline.updateEncoding(preferred: .opus, format: .init(sampleRate: 16000, channelCount: 1),
+            aacELDv2BitRate: 32000, opusBitRate: 64000)
+        #expect(pipeline.codecRuntimeReport.activeConfiguration.codec == .opus)
+        #expect(pipeline.codecRuntimeReport.activeConfiguration.activeBitRate == 64000)
+        let valid = pipeline.codecRuntimeReport.activeConfiguration
+        var invalid = AudioFormat()
+        invalid.sampleRate = .nan // Bypass the public initializer's normalization, as malformed decoded state can.
+        #expect(throws: AppAudioPipelineError.invalidFormat) {
+            try pipeline.updateEncoding(preferred: .mpeg4AACELD, format: invalid,
+                aacELDv2BitRate: 48000, opusBitRate: 48000)
+        }
+        #expect(pipeline.codecRuntimeReport.activeConfiguration == valid,
+            "Invalid configuration must not reach native converters or replace the accepted configuration")
         let after = pipeline.snapshot
         #expect(engine.isRunning)
         #expect(engine.attachedNodes == nodes)

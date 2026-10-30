@@ -133,21 +133,10 @@ extension IntercomViewModel {
     }
 
     func setPreferredTransmitCodec(_ codec: AudioCodecIdentifier) {
+        guard preferredTransmitCodec != codec else { return }
         preferredTransmitCodec = codec
-        refreshPackageRuntimeSnapshots()
-        updateAudioPipelineCodecSettings()
-        setLocalActiveCodec(selectedTransmitCodec)
-        saveAppSettings()
-        AppLoggers.settings.info(
-            "settings.codec.changed",
-            metadata: .event("settings.codec.changed", [
-                "codec": "\(codec.rawValue)",
-                "selectedCodec": "\(selectedTransmitCodec.rawValue)"
-            ])
-        )
-        logCodecFallbackIfNeeded()
-        broadcastMetadataKeepalive()
-        publishRuntimePackageReports(force: true)
+        applyEncodingSettings(event: "settings.codec.changed", metadata: ["codec": "\(codec.rawValue)"],
+            announcesCodec: true)
     }
 
     var availableAACBitRates: [Int] {
@@ -155,35 +144,19 @@ extension IntercomViewModel {
     }
 
     func setAACELDv2BitRate(_ bitRate: Int) {
-        aacELDv2BitRate = AppAudioCodecBridge.normalizedAACBitRate(bitRate, format: rtcAudioFormatPreset.audioFormat)
-        refreshPackageRuntimeSnapshots()
-        setLocalActiveCodec(selectedTransmitCodec)
-        updateAudioPipelineCodecSettings()
-        saveAppSettings()
-        AppLoggers.settings.info(
-            "settings.codec.bitrate_changed",
-            metadata: .event("settings.codec.bitrate_changed", [
-                "codec": "\(AudioCodecIdentifier.mpeg4AACELD.rawValue)",
-                "bitRate": "\(aacELDv2BitRate)"
-            ])
-        )
-        publishRuntimePackageReports(force: true)
+        let normalized = AppAudioCodecBridge.normalizedAACBitRate(bitRate, format: rtcAudioFormatPreset.audioFormat)
+        guard aacELDv2BitRate != normalized else { return }
+        aacELDv2BitRate = normalized
+        applyEncodingSettings(event: "settings.codec.bitrate_changed", metadata: [
+            "codec": "\(AudioCodecIdentifier.mpeg4AACELD.rawValue)", "bitRate": "\(normalized)"])
     }
 
     func setOpusBitRate(_ bitRate: Int) {
-        opusBitRate = Codec.OpusOptions(bitRate: bitRate).bitRate
-        refreshPackageRuntimeSnapshots()
-        setLocalActiveCodec(selectedTransmitCodec)
-        updateAudioPipelineCodecSettings()
-        saveAppSettings()
-        AppLoggers.settings.info(
-            "settings.codec.bitrate_changed",
-            metadata: .event("settings.codec.bitrate_changed", [
-                "codec": "\(AudioCodecIdentifier.opus.rawValue)",
-                "bitRate": "\(opusBitRate)"
-            ])
-        )
-        publishRuntimePackageReports(force: true)
+        let normalized = Codec.OpusOptions(bitRate: bitRate).bitRate
+        guard opusBitRate != normalized else { return }
+        opusBitRate = normalized
+        applyEncodingSettings(event: "settings.codec.bitrate_changed", metadata: [
+            "codec": "\(AudioCodecIdentifier.opus.rawValue)", "bitRate": "\(normalized)"])
     }
 
     func setRTCAudioFormatPreset(_ preset: RTCAudioFormatPreset) {
@@ -191,21 +164,24 @@ extension IntercomViewModel {
         rtcAudioFormatPreset = preset
         aacELDv2BitRate = AppAudioCodecBridge.normalizedAACBitRate(aacELDv2BitRate, format: preset.audioFormat)
         opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
+        applyEncodingSettings(event: "settings.rtc_audio_format.changed", metadata: [
+            "preset": "\(preset.rawValue)", "sampleRate": "\(Int(preset.audioFormat.sampleRate))"])
+    }
+
+    /// UI differences end at normalization. Every encoding setting uses the same
+    /// complete snapshot, DSP transition and RTC policy publication, in that order.
+    private func applyEncodingSettings(event: String, metadata: Logging.Logger.Metadata, announcesCodec: Bool = false) {
         refreshPackageRuntimeSnapshots()
-        do {
-            if isAudioReady { try audioPipeline.updateTransmitFormat(preset.audioFormat) }
-            updateAudioPipelineCodecSettings()
-        } catch {
-            audioErrorMessage = "Audio format change failed"
-        }
+        updateAudioPipelineCodecSettings()
+        setLocalActiveCodec(selectedTransmitCodec)
         saveAppSettings()
-        AppLoggers.settings.info(
-            "settings.rtc_audio_format.changed",
-            metadata: .event("settings.rtc_audio_format.changed", [
-                "preset": "\(preset.rawValue)",
-                "sampleRate": "\(Int(preset.audioFormat.sampleRate))"
-            ])
-        )
+        var values = metadata
+        if announcesCodec { values["selectedCodec"] = "\(selectedTransmitCodec.rawValue)" }
+        AppLoggers.settings.info("\(event)", metadata: .event(event, values))
+        if announcesCodec {
+            logCodecFallbackIfNeeded()
+            broadcastMetadataKeepalive()
+        }
         publishRuntimePackageReports(force: true)
     }
 

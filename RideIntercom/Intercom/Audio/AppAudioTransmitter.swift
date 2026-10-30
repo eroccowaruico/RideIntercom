@@ -90,13 +90,7 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
         isolation = nil; dynamics = nil; limiter = nil
     }
 
-    func updateEncoding(_ configuration: CodecEncodingConfiguration) {
-        lock.withLock {
-            do { try requestEncoding(configuration) }
-            catch { failures += 1; observation.failure = String(describing: type(of: error)) }
-        }
-    }
-    func updateFormat(_ configuration: CodecEncodingConfiguration) throws {
+    func updateEncoding(_ configuration: CodecEncodingConfiguration) throws {
         lock.lock(); defer { lock.unlock() }
         try requestEncoding(configuration)
     }

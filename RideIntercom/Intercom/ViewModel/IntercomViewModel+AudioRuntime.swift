@@ -115,11 +115,16 @@ extension IntercomViewModel {
     }
 
     func updateAudioPipelineCodecSettings() {
-        if isAudioReady {
-            audioPipeline.updateCodec(preferred: preferredTransmitCodec,
-                aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
+        do {
+            if isAudioReady {
+                try audioPipeline.updateEncoding(preferred: preferredTransmitCodec,
+                    format: rtcAudioFormatPreset.audioFormat,
+                    aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
+            }
+            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+        } catch {
+            audioErrorMessage = "Audio encoding change failed"
         }
-        callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
     }
 
     func updateAudioPipelineOutputSettings() {

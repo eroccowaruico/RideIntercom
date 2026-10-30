@@ -14,6 +14,18 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct SettingsTests {
+    @Test func unchangedEncodingSettingsDoNotRepublishRTCPPolicy() {
+        let h = AppTestSupport.makeHarness()
+        let policies = h.callSession.audioPolicies
+        for _ in 0..<100 {
+            h.viewModel.setPreferredTransmitCodec(h.viewModel.preferredTransmitCodec)
+            h.viewModel.setRTCAudioFormatPreset(h.viewModel.rtcAudioFormatPreset)
+            h.viewModel.setAACELDv2BitRate(h.viewModel.aacELDv2BitRate)
+            h.viewModel.setOpusBitRate(h.viewModel.opusBitRate)
+        }
+        #expect(h.callSession.audioPolicies == policies)
+    }
+
     @Test func viewModelAppliesMasterOutputSettingsThroughAudioMixer() async {
         let harness = AppTestSupport.makeHarness()
 
