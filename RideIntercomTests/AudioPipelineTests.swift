@@ -545,7 +545,8 @@ struct AudioPipelineTests {
     }
 
     @Test func transmitProcessingPreservesCaptureClockWithoutPlaybackReservations() async throws {
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         let collected = Mutex<[RTC.RTCAudioPacket]>([])
         pipeline.onTransmitPacket = { packet in collected.withLock { $0.append(packet) } }
         try pipeline.rebuild(configuration: .init(preferredCodec: .pcm16,

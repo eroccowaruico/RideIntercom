@@ -37,6 +37,23 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testInternetAppleSetupKeepsLocalLoginWhenRegistrationIsUnavailable() throws {
+        openSettingsTab()
+        app.buttons["configureInternetConnection"].tap()
+        let url = app.textFields["internetWorkerURL"]
+        XCTAssertTrue(url.waitForExistence(timeout: 3))
+        url.tap(); url.typeText("https://account.test")
+        app.buttons["prepareInternetAppleSignIn"].tap()
+        let status = app.staticTexts["internetAppleSignInStatus"]
+        XCTAssertTrue(status.waitForExistence(timeout: 3))
+        XCTAssertTrue(status.label.contains("unavailable"))
+        attachScreen("Internet Apple Setup Unavailable with Local Login Retained")
+        app.buttons["closeInternetConnection"].tap()
+        XCTAssertFalse(app.otherElements["appleSignInScreen"].exists)
+        XCTAssertTrue(app.buttons["signOutButton"].exists)
+    }
+
+    @MainActor
     func testSignOutEndsCallAndReturnsToAppleSignIn() throws {
         createTalkGroupAndOpenCall()
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))

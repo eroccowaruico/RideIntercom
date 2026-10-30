@@ -7,11 +7,14 @@ final class InternetConnectionSettingsStore {
     private let service: String
     private let developmentDefaults: [String: String]?
     private let permitsServiceAccess: Bool
+    private let defaults: UserDefaults
+    private let deniedKey = "InternetAccount.requiresSignIn"
     init(keychain: KeychainSecretStoring = SystemKeychainSecretStore(), namespace: String = "RideIntercom",
          developmentDefaults: [String: String]? = nil, permitsServiceAccess: Bool = true) {
         self.keychain = keychain; self.service = namespace + ".InternetConnection"
         self.developmentDefaults = developmentDefaults
         self.permitsServiceAccess = permitsServiceAccess
+        defaults = UserDefaults(suiteName: namespace)!
     }
 
     static func makeForCurrentProcess(
@@ -42,9 +45,10 @@ final class InternetConnectionSettingsStore {
         guard permitsServiceAccess else { throw ValidationError.disabledDuringLocalTests }
         let data = try JSONEncoder().encode(validated(url: url, token: token))
         try keychain.saveSecret(String(decoding: data, as: UTF8.self), service: service, account: "current")
+        defaults.set(false, forKey: deniedKey)
     }
     func load() throws -> RTC.CloudflareRealtimeConfiguration? {
-        guard permitsServiceAccess else { return nil }
+        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey) else { return nil }
         let saved: Saved
         if let value = try keychain.secret(service: service, account: "current") {
             let decoded = try JSONDecoder().decode(Saved.self, from: Data(value.utf8))
@@ -55,5 +59,34 @@ final class InternetConnectionSettingsStore {
             return nil
         }
         return .init(workerURL: saved.workerURL, accessToken: saved.accessToken)
+    }
+
+    func accountDeviceID() throws -> String {
+        guard permitsServiceAccess else { throw ValidationError.disabledDuringLocalTests }
+        if let stored = try keychain.secret(service: service, account: "device-id") {
+            guard UUID(uuidString: stored) != nil else { throw KeychainSecretStoreError.invalidData }
+            return stored.lowercased()
+        }
+        let id = UUID().uuidString.lowercased()
+        try keychain.saveSecret(id, service: service, account: "device-id")
+        return id
+    }
+
+    func retireAppleCredential() throws -> RTC.CloudflareRealtimeConfiguration? {
+        guard permitsServiceAccess else { return nil }
+        defaults.set(true, forKey: deniedKey)
+        return try pendingRevocation()
+    }
+    func pendingRevocation() throws -> RTC.CloudflareRealtimeConfiguration? {
+        guard permitsServiceAccess, defaults.bool(forKey: deniedKey),
+              let raw = try keychain.secret(service: service, account: "current") else { return nil }
+        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
+        let value = try validated(url: saved.workerURL.absoluteString, token: saved.accessToken)
+        guard value.accessToken.hasPrefix("ri1.") else { return nil }
+        return .init(workerURL: value.workerURL, accessToken: value.accessToken)
+    }
+    func finishRevocation(_ retired: RTC.CloudflareRealtimeConfiguration) throws {
+        guard let pending = try pendingRevocation(), pending == retired else { return }
+        try keychain.deleteSecret(service: service, account: "current")
     }
 }

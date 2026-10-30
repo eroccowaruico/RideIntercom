@@ -408,7 +408,7 @@ struct InternetConnectionPanel: View {
             Button("Configure Internet Connection") { isEditing = true }
                 .accessibilityIdentifier("configureInternetConnection")
         } header: { Label("Internet Connection", systemImage: "globe") }
-        footer: { Text("Set the service URL and this device's access token before trying Internet calling.") }
+        footer: { Text("Set the service address and connect with Apple, or enter a device token for testing.") }
     }
 }
 
@@ -430,6 +430,9 @@ private struct InternetConnectionEditor: View {
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     #endif
+            }
+            InternetAppleSignInSection(viewModel: viewModel, workerURL: workerURL)
+            Section {
                 SecureField("Device access token", text: $token)
                     .focused($focusedField, equals: .token)
                     .autocorrectionDisabled()
@@ -450,12 +453,12 @@ private struct InternetConnectionEditor: View {
                 .disabled(workerURL.isEmpty || token.isEmpty)
                 .accessibilityIdentifier("saveInternetConnection")
                 if !status.isEmpty { Text(status).font(.footnote) }
-            } header: { Label("Internet Connection", systemImage: "globe") }
+            } header: { Label("Manual Access Token", systemImage: "globe") }
             footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
-            .onAppear {
-                workerURL = viewModel.internetWorkerURL
-                if viewModel.hasInternetCredentials { status = "A device token is configured." }
-            }
+        }
+        .onAppear {
+            workerURL = viewModel.internetWorkerURL
+            if viewModel.hasInternetCredentials { status = "A device token is configured." }
         }
     }
 }

@@ -1,8 +1,26 @@
 # 検証状況と証跡
 
+## Apple認証とInternet端末資格のApp連携（2026-10-30）
+
+Settingsからserver nonce取得、同じAppleユーザーのnative認証、端末資格のKeychain保存まで接続した。サインアウト時は通話を止め、古い資格を端末側で使用禁止にしてからserver失効を試みる。通信・Keychain失敗時は資格を復元せず、次にInternet設定を開いた際に失効を再試行する。保存失敗やキャンセル後に届いた不要な資格も失効を試みる。現在の契約は[App通信仕様](../spec/App/通信仕様.md#appleログインと端末内データ)、操作は[設定と音声効果](../manual/設定と音声効果.md)を参照する。
+
+証跡は`.validation/apple-app-delivery/`に保持する。実Apple認証と公開登録の受入は[未確認事項](未確認事項.md#appleログインの実受入)へ分ける。Production/Previewの新規登録は引き続き無効が既定であり、このApp接続を配置済み公開サービスの完成とは扱わない。
+
+| 検証 | 結果と証跡 |
+|---|---|
+| iOS App・UI | 最終コードでApp 192件＋設定・サインアウトUI 2件、計194件成功。失敗・skip・runtime warningなし。`apple-app-ios-verified/ios-tests.xcresult` |
+| macOS App | 最終コードで192件成功。失敗・skip・runtime warningなし。`apple-app-macos-verified/macos-tests.xcresult`。隔離hostのみsandboxを無効化し、製品設定は変更していない |
+| 認証・保存境界 | 新規8件でserver nonce、scopeなし、アカウント違い・再送・不正URLの拒否、保存失敗・中断後の発行資格失効、Keychain読出／削除失敗後の復元拒否、古い失効による新資格削除の防止を確認 |
+| 音声検証の独立性 | 一部Appテストが実機I/Oを初期化してSimulatorのAudio Unit RPC timeoutで停止した。既存の`OfflineAudioDriver`を注入し、nativeエフェクト・PCM処理・UI占有中の送受信などの検証条件を保持したまま全件成功。App製品コード・packageの音声動作は変更していない |
+| Release | Simulator向けRelease build成功。Info.plistに開発資格がなく、実行binaryに認証fixtureの選択文字列・識別子がないことを確認。`apple-app-release-isolation.json`。公開version設定は変更していない |
+| UI目視 | `apple-app-ui-view/`の設定エラー画面で、説明と操作が切れず表示されることを確認。これはnative Apple認証成功画面の証拠ではない |
+| ソース・資源 | 最終検証中のApp・テストのhash一致を確認。管理Simulatorを再利用してShutdown、所有Mac host終了を確認。projectの自動採番差分は機能差分から分離 |
+
+未実装APIによる赤テスト、途中のcompile失敗、音声I/OのRPC timeoutと調査のため中断した再実行も保持する。音声fixture修正前に成功したMac 192件と、修正後の最終192件は別記録。Swiftソースの新規warningはなく、AppIntents未使用のmetadata抽出省略warningは残る。独立音声E2E・実機・Bluetooth・実Cloudflare・Apple実認証は今回再実行していない。リポジトリ全体の`all --clean`受入ではない。
+
 ## Apple認証serverと端末資格（2026-10-30）
 
-使い捨てnonce、Apple署名・issuer・audience・期限の照合、ユーザーと端末の対応、端末資格の発行・置換・自己失効をWorkerへ実装した。公開登録はProduction/Previewとも無効を既定とする。契約と残るApp連携・公開運用は[Worker仕様](../spec/server/Worker.md#apple認証と端末資格)へ記載した。
+使い捨てnonce、Apple署名・issuer・audience・期限の照合、ユーザーと端末の対応、端末資格の発行・置換・自己失効をWorkerへ実装した。公開登録はProduction/Previewとも無効を既定とする。契約と公開運用の残件は[Worker仕様](../spec/server/Worker.md#apple認証と端末資格)へ記載した。
 
 | 検証 | 結果と証跡 |
 |---|---|

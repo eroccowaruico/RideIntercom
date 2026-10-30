@@ -64,7 +64,9 @@ sequenceDiagram
 | エラー | 不正bodyは400、検証失敗・期限切れ・再送は401、登録数上限は429、Apple鍵取得等の障害は503。tokenやApple応答内容はログ・エラーへ出さない |
 | 有効化 | `APPLE_AUTH_ENABLED=false`がProduction/Previewの既定。実Bundle IDを`APPLE_CLIENT_ID`へ指定する。新規登録を無効にしても発行済み資格の照合・自己失効は残す |
 
-このserver実装は公開運用の完了ではない。Appからの登録・失効、Apple認可コードの交換・refresh token・アカウント削除／Apple grant取消、サーバー通知、匿名登録入口のabuse制限は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
+AppのSettingsからnonce取得・native Apple認証・資格保存と、サインアウト時の自己資格失効を接続した。端末側の失効再試行と保存失敗時の扱いは[App通信仕様](../App/通信仕様.md#appleログインと端末内データ)を参照する。
+
+このserver実装は公開運用の完了ではない。Apple認可コードの交換・refresh token・アカウント削除／Apple grant取消、サーバー通知、匿名登録入口のabuse制限は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
 
 試用の静的`CLIENT_TOKENS_JSON`も既存の運用入口として残る。`ri1.`資格が無効でも静的registryへfallbackしない。ユーザー単位の1端末WebRTC制限は[未実装課題](../../backlog/未実装課題.md#appleでのログインと通知先の識別)で管理し、今回の端末登録数制限で達成したとは扱わない。
 

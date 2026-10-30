@@ -270,6 +270,6 @@ final class IntercomViewModel {
         self.callTicker.onTick = { [weak self] now in
             self?.handleCallTick(now: now)
         }
-        accountSession.onAccessRevoked = { [weak self] in self?.disconnect() }
+        accountSession.onAccessRevoked = { [weak self] in self?.endAccountAccess() }
     }
 }

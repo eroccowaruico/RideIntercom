@@ -42,8 +42,9 @@ struct RealtimeConversationTests {
 
     @Test func receiveWaitingBehindStopCannotEnterTheRebuiltGraph() throws {
         let receiver = AppAudioReceiver()
+        let driver = OfflineAudioDriver()
         let config = AppAudioPipelineConfiguration(transmitSoundIsolationEnabled: false)
-        try receiver.rebuild(engine: AVAudioEngine(), configuration: config, peers: [],
+        try receiver.rebuild(engine: driver.makeEngine(), configuration: config, peers: [],
             rendersToHardware: false, onOutput: { _ in })
         defer { receiver.stop() }
         // Hold the real owner lock to reproduce an already-arrived packet
@@ -66,7 +67,7 @@ struct RealtimeConversationTests {
         #expect(entered.wait(timeout: .now() + 1) == .success)
         #expect(completed.wait(timeout: .now() + .milliseconds(30)) == .timedOut)
         receiver.stop()
-        try receiver.rebuild(engine: AVAudioEngine(), configuration: config, peers: [],
+        try receiver.rebuild(engine: driver.makeEngine(), configuration: config, peers: [],
             rendersToHardware: false, onOutput: { _ in })
         lock.unlock(); held = false
         #expect(completed.wait(timeout: .now() + 1) == .success)
@@ -157,7 +158,8 @@ struct RealtimeConversationTests {
     }
 
     @Test func changingTransmitIsolationDoesNotSuspendReceiving() async throws {
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { pipeline.stop() }
         let packet = try AppTestSupport.receivedAudioPacket(peerID: "peer",
@@ -183,7 +185,8 @@ struct RealtimeConversationTests {
     }
 
     @Test func inputReconfigurationDiscardsIncomingAudioWithoutWaiting() async throws {
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { pipeline.stop() }
         let packet = try AppTestSupport.receivedAudioPacket(peerID: "peer",
@@ -205,7 +208,8 @@ struct RealtimeConversationTests {
     }
 
     @Test func receiveIsolationRetainsItsNativeParametersAfterGraphChanges() throws {
-        let engine = AVAudioEngine()
+        let driver = OfflineAudioDriver()
+        let engine = driver.makeEngine()
         let pipeline = AppAudioPipeline(makeEngine: { engine })
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { pipeline.stop() }
@@ -224,7 +228,8 @@ struct RealtimeConversationTests {
 
     @Test(arguments: [false, true])
     func stoppingOrMutingDiscardsPendingSpeech(mute: Bool) throws {
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: [])
         defer { pipeline.stop() }
         pipeline.applyVADSensitivity(.noisy)
@@ -270,7 +275,8 @@ struct RealtimeConversationTests {
     }
 
     @Test func cancelledRTCConsumerCannotScheduleIntoTheCurrentGraph() async throws {
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { pipeline.stop() }
         let packet = try AppTestSupport.receivedAudioPacket(peerID: "peer",
@@ -290,7 +296,8 @@ struct RealtimeConversationTests {
     }
 
     @Test func transmitDSPAndEncodingDoNotWaitForTheUIActor() async throws {
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: [])
         defer { pipeline.stop() }
         let completion = DispatchSemaphore(value: 0)
@@ -305,7 +312,8 @@ struct RealtimeConversationTests {
     }
 
     @Test func receiveDecodeAndScheduleDoNotWaitForTheUIActor() async throws {
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { pipeline.stop() }
         let packet = try AppTestSupport.receivedAudioPacket(peerID: "peer",
@@ -325,7 +333,8 @@ struct RealtimeConversationTests {
     }
 
     @Test func transmitFormatChangeKeepsReceiveGraphRunning() throws {
-        let engine = AVAudioEngine()
+        let driver = OfflineAudioDriver()
+        let engine = driver.makeEngine()
         let pipeline = AppAudioPipeline(makeEngine: { engine })
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { pipeline.stop() }

@@ -1,0 +1,159 @@
+import AuthenticationServices
+import Foundation
+import Observation
+import RTC
+
+nonisolated struct InternetAccountCredential: Codable, Sendable {
+    let userID: String
+    let deviceID: String
+    let expiresAt: Double
+    let accessToken: String
+}
+
+nonisolated struct InternetAccountChallenge: Decodable, Sendable {
+    let challengeID: String
+    let nonce: String
+    let deviceID: String
+    let expiresAt: Double
+}
+
+nonisolated struct InternetAccountClient: Sendable {
+    let session: URLSession
+    private static let sharedSession = URLSession(configuration: .ephemeral, delegate: AccountRedirectPolicy(), delegateQueue: nil)
+    init(session: URLSession = sharedSession) {
+        self.session = session
+    }
+    enum Failure: Error { case invalidAddress, rejected, invalidResponse }
+    static func origin(_ text: String) throws -> URL {
+        guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)), url.scheme == "https",
+              url.host != nil, url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
+              url.path.isEmpty || url.path == "/" else { throw Failure.invalidAddress }
+        return url
+    }
+    func challenge(origin: URL, deviceID: String) async throws -> InternetAccountChallenge {
+        let value: InternetAccountChallenge = try await send(origin: origin, path: "api/auth/apple/challenge", body: ["deviceID": deviceID])
+        guard value.deviceID == deviceID, Self.hex(value.challengeID), Self.hex(value.nonce),
+              value.expiresAt.isFinite, value.expiresAt > Date().timeIntervalSince1970 * 1000 else { throw Failure.invalidResponse }
+        return value
+    }
+    func exchange(origin: URL, challenge: InternetAccountChallenge, token: Data) async throws -> InternetAccountCredential {
+        guard let token = String(data: token, encoding: .utf8), !token.isEmpty, token.utf8.count <= 16384 else { throw Failure.invalidResponse }
+        let value: InternetAccountCredential = try await send(origin: origin, path: "api/auth/apple/session",
+            body: ["challengeID": challenge.challengeID, "identityToken": token])
+        let parts = value.accessToken.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        guard Self.hex(value.userID), value.deviceID == challenge.deviceID, value.expiresAt.isFinite,
+              value.expiresAt > Date().timeIntervalSince1970 * 1000,
+              parts.count == 4, parts[0] == "ri1", parts[1] == value.userID, parts[2] == value.deviceID, Self.hex(parts[3]) else { throw Failure.invalidResponse }
+        return value
+    }
+    func revoke(_ configuration: CloudflareRealtimeConfiguration) async throws {
+        let _: Empty = try await send(origin: configuration.workerURL, path: "api/auth/session", method: "DELETE", token: configuration.accessToken)
+    }
+    private struct Empty: Decodable, Sendable {}
+    private func send<T: Decodable & Sendable>(origin: URL, path: String, method: String = "POST", body: [String: String]? = nil, token: String? = nil) async throws -> T {
+        var request = URLRequest(url: origin.appendingPathComponent(path), timeoutInterval: 10)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let body { request.httpBody = try JSONEncoder().encode(body) }
+        if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
+        let (bytes, response) = try await session.bytes(for: request)
+        guard let response = response as? HTTPURLResponse, response.url == request.url else { throw Failure.rejected }
+        // An already revoked credential needs no further server cleanup.
+        if method == "DELETE", response.statusCode == 401 { return try JSONDecoder().decode(T.self, from: Data("{}".utf8)) }
+        guard response.statusCode == 200 else { throw Failure.rejected }
+        var data = Data()
+        for try await byte in bytes {
+            guard data.count < 32768 else { throw Failure.invalidResponse }
+            data.append(byte)
+        }
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+    private static func hex(_ value: String) -> Bool { value.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } }
+}
+
+nonisolated private final class AccountRedirectPolicy: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) { completionHandler(nil) }
+}
+
+@MainActor @Observable
+final class InternetAccountAuthorization {
+    private(set) var isBusy = false
+    private(set) var message: String?
+    var isReady: Bool { challenge != nil && !isBusy }
+    private let expectedUserID: String
+    private let deviceID: String
+    private let client: InternetAccountClient
+    private let currentUser: () -> String?
+    private let save: (URL, InternetAccountCredential) throws -> Void
+    private var challenge: InternetAccountChallenge?
+    private var origin: URL?
+    private var state: String?
+    private var generation = UUID()
+
+    init(expectedUserID: String, deviceID: String, client: InternetAccountClient = .init(), currentUser: @escaping () -> String?,
+         save: @escaping (URL, InternetAccountCredential) throws -> Void) {
+        self.expectedUserID = expectedUserID; self.deviceID = deviceID; self.client = client; self.currentUser = currentUser; self.save = save
+    }
+    func cancel() { generation = UUID(); challenge = nil; origin = nil; state = nil; isBusy = false }
+    func prepare(url: String) async {
+        cancel(); message = nil
+        let operation = generation
+        isBusy = true
+        do {
+            guard currentUser() == expectedUserID else { throw InternetAccountClient.Failure.rejected }
+            let address = try InternetAccountClient.origin(url)
+            let value = try await client.challenge(origin: address, deviceID: deviceID)
+            guard generation == operation else { return }
+            guard currentUser() == expectedUserID else { cancel(); return }
+            origin = address; challenge = value
+        } catch {
+            guard generation == operation else { return }
+            message = "Internet sign-in could not be prepared. Check the service address and try again."
+        }
+        if generation == operation { isBusy = false }
+    }
+    func configure(_ request: ASAuthorizationAppleIDRequest) {
+        request.requestedScopes = []
+        guard currentUser() == expectedUserID, let challenge, challenge.expiresAt > Date().timeIntervalSince1970 * 1000 else {
+            cancel(); message = "Prepare Internet sign-in again."; return
+        }
+        state = UUID().uuidString
+        request.state = state; request.nonce = challenge.nonce
+        isBusy = true
+    }
+    func complete(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential, let token = credential.identityToken else {
+                cancel(); message = "Apple sign-in could not be completed."; return
+            }
+            Task { await exchange(userID: credential.user, state: credential.state, identityToken: token) }
+        case .failure(let error):
+            cancel()
+            message = (error as? ASAuthorizationError)?.code == .canceled ? nil : "Apple sign-in could not be completed."
+        }
+    }
+    func exchange(userID: String, state: String?, identityToken: Data) async {
+        guard let expectedState = self.state, state == expectedState, userID == expectedUserID,
+              currentUser() == expectedUserID, let challenge, let origin else {
+            cancel(); message = "Use the Apple Account currently signed in to RideIntercom."; return
+        }
+        self.state = nil; self.challenge = nil
+        let operation = generation
+        do {
+            let credential = try await client.exchange(origin: origin, challenge: challenge, token: identityToken)
+            do {
+                guard generation == operation, currentUser() == expectedUserID else { throw InternetAccountClient.Failure.rejected }
+                try save(origin, credential)
+            } catch {
+                try? await client.revoke(.init(workerURL: origin, accessToken: credential.accessToken))
+                throw error
+            }
+            if generation == operation { message = "Internet calling is connected to your Apple Account." }
+        } catch {
+            if generation == operation { message = "Internet sign-in could not be saved. Prepare sign-in and try again." }
+        }
+        if generation == operation { isBusy = false }
+    }
+}

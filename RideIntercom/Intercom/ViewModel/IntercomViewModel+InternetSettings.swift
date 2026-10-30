@@ -2,6 +2,35 @@ import Foundation
 import RTC
 
 extension IntercomViewModel {
+    func makeInternetAccountAuthorization() throws -> InternetAccountAuthorization {
+        guard canStartCalls, let accountUserID else { throw InternetAccountClient.Failure.rejected }
+        return InternetAccountAuthorization(expectedUserID: accountUserID, deviceID: try internetSettingsStore.accountDeviceID(),
+            currentUser: { [weak self] in self?.accountSession.userID }, save: { [weak self] origin, credential in
+                guard let self, self.canStartCalls else { throw InternetAccountClient.Failure.rejected }
+                try self.saveInternetConnection(url: origin.absoluteString, token: credential.accessToken)
+            })
+    }
+    func endAccountAccess() {
+        disconnect()
+        internetCheckGeneration = UUID()
+        isCheckingInternet = false
+        // Disable saved Internet access before the asynchronous server request.
+        do { _ = try internetSettingsStore.retireAppleCredential() }
+        catch { internetCheckMessage = "Could not read Internet access for sign-out. Saved data has been preserved." }
+        hasInternetCredentials = false
+        Task { await retryInternetAccountRevocation() }
+    }
+    func retryInternetAccountRevocation(client: InternetAccountClient = .init()) async {
+        let generation = internetCheckGeneration
+        do {
+            guard let pending = try internetSettingsStore.pendingRevocation() else { return }
+            try await client.revoke(pending)
+            try internetSettingsStore.finishRevocation(pending)
+        } catch {
+            guard generation == internetCheckGeneration else { return }
+            internetCheckMessage = "Internet access is disabled on this device. Server sign-out is pending; retry when online."
+        }
+    }
     func saveInternetConnection(url: String, token: String) throws {
         try internetSettingsStore.save(url: url, token: token)
         guard let configuration = try internetSettingsStore.load() else { throw InternetConnectionSettingsStore.ValidationError.missingToken }

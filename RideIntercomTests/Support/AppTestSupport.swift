@@ -53,7 +53,7 @@ enum AppTestSupport {
             callSession: callSession,
             groupRepository: GroupRepository(store: groupStore, credentials: credentialStore),
             appSettingsStore: appSettingsStore ?? InMemoryAppSettingsStore(),
-            internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: InternetTestKeychain()),
+            internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: InternetTestKeychain(), namespace: "RideIntercom.Tests." + UUID().uuidString),
             localMemberIdentityStore: identityStore,
             audioSessionManager: AudioSessionManager(backend: audioSessionBackend),
             audioInputCapture: AudioInputStreamCapture(

@@ -21,7 +21,8 @@ struct TransportAdapterTests {
         adapter.startMedia()
         adapter.sendAudioPacket(.init(sequenceNumber: 999, codec: .pcm16, payload: Data([0, 0])))
         await AppTestSupport.waitUntil { rtc.sentAudioSequences == [999] }
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(preferredCodec: codec, transmitSoundIsolationEnabled: false), peerIDs: [])
         pipeline.onTransmitPacket = adapter.audioPacketSink
         let delivery = AudioFrameDelivery { _ in }
@@ -49,7 +50,8 @@ struct TransportAdapterTests {
     @Test func incomingAudioIsProcessedWhileTheUIActorIsOccupied() async throws {
         let rtc = FakeRTCCallSession()
         let adapter = RideIntercomCallSessionAdapter(rtcSession: rtc)
-        let pipeline = AppAudioPipeline()
+        let driver = OfflineAudioDriver()
+        let pipeline = AppAudioPipeline(makeEngine: driver.makeEngine)
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { adapter.disconnect(); pipeline.stop() }
         let completed = DispatchSemaphore(value: 0)
