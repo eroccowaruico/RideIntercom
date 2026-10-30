@@ -256,6 +256,10 @@ public actor RouteManager: CallSession {
     /// gap, presence expiry, retry, or explicitly enabled diagnostics.
     private func scheduleMaintenance() {
         guard isConnectionStarted else { return }
+        if configuration.enabledRoutes.isSubset(of: blocked) {
+            timer?.cancel(); timer = nil; maintenanceDeadline = nil
+            return
+        }
         var deadline = lastPresence + 2
         if let gap = receiveBuffer.nextDeadline { deadline = min(deadline, gap) }
         if let retry = retries.values.map(\.deadline).min() { deadline = min(deadline, retry) }

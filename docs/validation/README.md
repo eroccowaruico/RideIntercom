@@ -27,6 +27,8 @@ RTC packageが既知の409 codeを解釈し、HTTP再送・route再接続を繰�
 | Swift–Worker | 分離したローカルDOとのHTTP/WS契約1件成功。`pair-typed.log` |
 | 文書・差分 | package仕様のリンク・diff検査成功。`documentation.log` |
 
+続く点検で、全routeが手動復帰待ちでも定期処理のタイマーが残る点を修正した。`.validation/blocked-route-idle/`に赤テストと成功した4件を保持する。全route待機時の停止、Local併用時の継続、明示再開、通常再試行・診断処理を確認した。packageだけの変更で、AppのAPI・表示は変えていない。
+
 初回の専用案内テストは未実装のHTTP文言で失敗した。route試験の初回compileでは新しいeventの未定義に加えてtest内の選択mode名の誤りがあり、正しい既存modeに直した。通常のpackage実行では別工程用WorkerPairがskipとなるため、その実行は最終合格の根拠にせず、規定の対象分離で検証する。
 
 ## ユーザー単位のWebRTC予約（2026-10-31）

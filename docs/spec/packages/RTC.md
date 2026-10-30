@@ -187,7 +187,7 @@ Local識別子は[MCPeerIDの制約](https://developer.apple.com/documentation/m
 | Worker応答 | HTTP 409と32KiB以内のJSONの`code: account_in_use`が一致したときだけ、同じアカウントの既存通話を終了して再操作する案内へ変換する。サーバーの任意のerror本文は表示しない。不明code・不正JSON・別statusは既存のHTTP失敗として扱う |
 | Signaling | `WebRTCSignalingEvent.blocked`で手動復帰を通知。通常の`failed`と区別し、この接続試行が所有するICE/sessionだけを回収する |
 | Route | `RouteEvent.connectionBlocked`を通知して当該媒体を停止。RouteManagerはそのrouteの自動再試行を次のprepareまで止め、共通`CallSessionError.connectionBlocked`で理由と手動復帰の必要性をAppへ渡す。特定serviceの文字列をAppやRouteManagerで判定しない |
-| 他経路 | 利用できるLocal経路は維持する。全有効routeが手動復帰待ちなら全体をfailedとし、reconnectingを繰り返さない |
+| 他経路 | 利用できるLocal経路は維持する。全有効routeが手動復帰待ちなら全体をfailedとし、reconnectingを繰り返さない。presence・診断・受信整理の定期タイマーも停止し、次の明示prepare/startで再開する |
 | 明示的な再操作 | 新しいprepareで抑止を解除する。既存通話の強制切断・他端末の追い出しは行わない。通信断した端末の予約回収はWorkerのleaseに従う |
 
 ## 音声の連続性とLocal配送

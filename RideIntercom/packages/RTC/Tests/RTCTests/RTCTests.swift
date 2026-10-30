@@ -323,13 +323,16 @@ func blockedRouteWaitsForExplicitRestartAndPreservesOtherRoutes(localAvailable: 
     #expect(values.contains(.error(.connectionBlocked(.webRTC, "End the existing call"))))
     if localAvailable {
         #expect(local.startConnectionCount == 1)
+        #expect(await manager.maintenanceDeadline != nil)
         #expect(values.contains { if case .routeChanged(let snapshot) = $0 { snapshot.availableRoutes.contains(.multipeer) } else { false } })
     } else {
         #expect(values.contains(.stateChanged(.failed)))
         #expect(!values.contains(.stateChanged(.reconnecting)))
+        #expect(await manager.maintenanceDeadline == nil, "User action wait must not keep a periodic timer alive")
     }
     await manager.prepare(request); await manager.startConnection()
     #expect(internet.startConnectionCount == 2)
+    #expect(await manager.maintenanceDeadline != nil)
     await manager.stopConnection()
 }
 
