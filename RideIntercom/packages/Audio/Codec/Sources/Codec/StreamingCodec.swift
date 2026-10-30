@@ -2,6 +2,23 @@ import AudioCore
 import AVFAudio
 import Foundation
 
+/// The capture quantum and native codec frame can have different periods.
+/// Only their remainder varies the emission time: 20 ms input / 30 ms AAC
+/// emits at 40/20 ms intervals and needs 10 ms, while aligned quanta need zero.
+struct CodecPacketizationTiming {
+    let nativeFrames: Int
+    private var divisor: Int
+    private var maximumQuantum = 0
+    init(nativeFrames: Int) { self.nativeFrames = max(1, nativeFrames); divisor = max(1, nativeFrames) }
+    mutating func observe(quantumFrames: Int) {
+        maximumQuantum = max(maximumQuantum, quantumFrames)
+        var a = divisor, b = quantumFrames
+        while b > 0 { (a, b) = (b, a % b) }
+        divisor = a
+    }
+    var jitterFrames: Int { max(0, min(maximumQuantum, nativeFrames) - divisor) }
+}
+
 /// One encoder per uninterrupted sender stream. Native codec history and
 /// partial packets survive each input quantum; no per-packet EOS/reset.
 public final class StreamingCodecEncoder {
@@ -14,6 +31,7 @@ public final class StreamingCodecEncoder {
     private var inputEnd: TimeInterval?
     private var emittedFrames = 0
     private var primingFrames = 0
+    private var packetizationTiming: CodecPacketizationTiming
     private let suppressesSilence: Bool
     private var silentDuration: TimeInterval = 0
 
@@ -57,6 +75,7 @@ public final class StreamingCodecEncoder {
         }
         pcmFormat = pcm
         compressedFormat = compressed
+        packetizationTiming = .init(nativeFrames: Int(compressed.streamDescription.pointee.mFramesPerPacket))
         if configuration.codec == .pcm16 { converter = nil }
         else {
             guard let native = AVAudioConverter(from: pcm, to: compressed) else {
@@ -86,6 +105,7 @@ public final class StreamingCodecEncoder {
         }
         guard frame.frameCount > 0 else { return nil }
         guard frame.frameCount <= Int(frame.format.sampleRate) else { throw CodecError.malformedPayload(configuration.codec) }
+        packetizationTiming.observe(quantumFrames: frame.frameCount)
         if suppressesSilence {
             if frame.samples.allSatisfy({ $0 == 0 }) {
                 if silentDuration >= 0.1 { return nil }
@@ -146,7 +166,9 @@ public final class StreamingCodecEncoder {
             sourceSampleCount: count * frame.format.channelCount, sourceFrameCount: UInt32(count),
             maximumPacketSize: output.maximumPacketSize, packetCount: output.packetCount,
             packetDescriptions: packetDescriptions, magicCookie: converter.magicCookie,
-            primingFrameCount: UInt32(primed), data: Data(bytes: output.data, count: Int(output.byteLength)))
+            primingFrameCount: UInt32(primed),
+            packetizationJitterFrames: packetizationTiming.jitterFrames > 0 ? UInt32(packetizationTiming.jitterFrames) : nil,
+            data: Data(bytes: output.data, count: Int(output.byteLength)))
         return EncodedCodecFrame(sequenceNumber: frame.sequenceNumber, codec: configuration.codec,
             format: frame.format, capturedAt: timestamp + Double(primed) / frame.format.sampleRate,
             sampleCount: (count - primed) * frame.format.channelCount,
@@ -157,6 +179,9 @@ public final class StreamingCodecEncoder {
 /// Owned by one remote peer. A new stream identity resets only that peer's
 /// native decoder; different peers/codecs never share codec history.
 public final class StreamingCodecDecoder {
+    /// Extra arrival variability introduced by capture/codec framing, not a
+    /// codec identifier or a network estimate. Absent legacy metadata means zero.
+    public private(set) var packetizationJitterDuration: TimeInterval = 0
     private var streamID: UUID?
     private var converter: AVAudioConverter?
     private var compressedFormat: AVAudioFormat?
@@ -170,6 +195,7 @@ public final class StreamingCodecDecoder {
     public init() {}
 
     public func decode(_ frame: EncodedCodecFrame) throws -> PCMFrame {
+        packetizationJitterDuration = 0
         if frame.codec == .pcm16 {
             let changed = codec != nil && (codec != frame.codec || format != frame.format)
             codec = frame.codec; format = frame.format; streamID = nil; converter = nil; magicCookie = nil
@@ -178,6 +204,7 @@ public final class StreamingCodecDecoder {
         guard frame.format.isValid, frame.capturedAt.isFinite,
               frame.payload.count <= CodecDecoder.maximumPayloadBytes else { throw CodecError.malformedPayload(frame.codec) }
         let envelope = try CompressedPayloadEnvelope.decode(frame.payload, expectedCodec: frame.codec)
+        packetizationJitterDuration = Double(envelope.packetizationJitterFrames ?? 0) / frame.format.sampleRate
         guard let identity = envelope.streamID else { return try CodecDecoder().decode(frame) }
         guard envelope.primingFrameCount <= envelope.sourceFrameCount,
               frame.sampleCount == envelope.sourceSampleCount - Int(envelope.primingFrameCount) * frame.format.channelCount,

@@ -73,8 +73,11 @@ public final class MixerPCMSource {
 	}
 
 	@discardableResult
-	public func schedule(_ frame: PCMFrame) throws -> AudioProcessingReport {
+	public func schedule(_ frame: PCMFrame, packetizationJitter: TimeInterval = 0) throws -> AudioProcessingReport {
 		do {
+            guard packetizationJitter.isFinite, (0...0.06).contains(packetizationJitter) else {
+                throw AudioMixerError.pcmSourceScheduleFailed("Invalid packetization timing")
+            }
 			let normalized = try normalizer.normalize(frame, to: mixerFormat, operation: .normalizeSource)
             guard normalized.frame.frameCount > 0 else {
                 recordSchedule(frame, normalized.report, nil)
@@ -114,7 +117,9 @@ public final class MixerPCMSource {
                         AVAudioFramePosition((0.002 * mixerFormat.sampleRate).rounded(.up))) : 0
                 // Device handoff and arrival jitter are independent. Taking
                 // their maximum silently removes the configured jitter margin.
-                let requestedLead = nativeLead + AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded())
+                // Reserve only the sender's measured capture/codec remainder.
+                // This is independent of network jitter; aligned codecs add zero.
+                let requestedLead = nativeLead + AVAudioFramePosition(((delay + packetizationJitter) * mixerFormat.sampleRate).rounded())
                 let boundedLead = min(requestedLead, AVAudioFramePosition((limit * mixerFormat.sampleRate).rounded(.down)) - 1)
 				let delayedStart = rendered + boundedLead
 				if playoutAnchor == nil { playoutAnchor = (capturedAt, delayedStart) }

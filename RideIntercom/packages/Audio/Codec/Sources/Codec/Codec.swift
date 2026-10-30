@@ -703,6 +703,7 @@ struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
         case streamID = "i", codec = "c", sourceSampleCount = "s", sourceFrameCount = "f"
         case maximumPacketSize = "m", packetCount = "n", packetDescriptions = "p"
         case magicCookie = "k", primingFrameCount = "r", data = "d"
+        case packetizationJitterFrames = "j"
     }
     struct PacketDescription: Codable, Equatable, Sendable {
         var startOffset: Int64
@@ -748,6 +749,7 @@ struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
     var packetDescriptions: [PacketDescription]
     var magicCookie: Data? = nil
     var primingFrameCount: UInt32
+    var packetizationJitterFrames: UInt32? = nil
     var data: Data
 
     static func empty(codec: CodecIdentifier) -> CompressedPayloadEnvelope {
@@ -779,6 +781,7 @@ struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
             // Validate every size before AVAudioCompressedBuffer allocation and memcpy.
             let count = Int(envelope.packetCount)
             guard envelope.sourceFrameCount <= CodecDecoder.maximumDecodedFrameCount,
+                  (envelope.packetizationJitterFrames ?? 0) <= 480,
                   envelope.primingFrameCount <= 8_192,
                   (envelope.magicCookie?.count ?? 0) <= 16_384,
                   envelope.sourceSampleCount >= 0,

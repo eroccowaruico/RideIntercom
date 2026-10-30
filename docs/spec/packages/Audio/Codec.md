@@ -24,7 +24,7 @@
 | `EncodedCodecFrame -> PCMFrame` | channel mix |
 | codec identifier | gain / volume |
 | codec option / bit rate | mixer routing |
-| encode / decode availability | packet envelope / encryption / jitter |
+| encode / decode availability | RTC packet envelope / encryption / network jitter |
 | fallback runtime report | WebRTC native codec negotiation |
 | payload validation | hardware capture / render |
 
@@ -283,3 +283,9 @@ Streamingの外側EncodedCodecFrameのsampleCountとcapturedAtは、内部primin
 Opusの範囲は初期化・Codableでの旧設定読み込み・property変更の各入口で共通に正規化する。最低48kbpsでは、16bit量子化を含む12位相×3振幅×2入力の72条件で、2ms窓の波形誤差上限0.006を維持する。Appの既定値とUIもこのpackageの範囲を使う。
 
 継続streamの受信では、無音後にstream IDだけ変わりcodec・PCM format・magic cookieが一致する場合、専有decoderを`reset()`して再利用する。設定が変わる場合はnative converterを作り直す。履歴を共有せず、独立decoderと同じ全sample結果（明示的な復帰fade込み）になることを16/24/48kHzのOpus/AACで検証する。
+
+## 入力量とcodecフレーム周期の差
+
+StreamingCodecEncoderは入力quantumとnative codec frameの剰余が生む送出間隔の揺れを計算する。両者のsample数の最大公約数を使い、`min(最大入力quantum, native frame) - gcd` sampleだけを上限とする。20ms入力・16kHz AAC-ELDの30ms frameでは10ms、整合する10ms入力では0となる。codec名による受信側分岐や一律の再生待ちは追加しない。
+
+0でない場合だけpayloadの任意key `j` にsample数を付ける。既存payloadで省略された場合は0とし、未知keyを無視する旧decoderとの後方互換を維持する。0〜480 sampleに制限し、StreamingCodecDecoderの`packetizationJitterDuration`へ秒で公開する。上限480はAAC-ELDのnative frame sizeであり、最小対応8kHzでは60msとなる。PCMと周期が整合するcodecではfield自体を送らない。無音抑制・codec履歴・元の音声timestampは変更しない。

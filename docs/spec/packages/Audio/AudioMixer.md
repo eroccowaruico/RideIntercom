@@ -482,3 +482,7 @@ adaptive再生はcapture時計に対応する明示時刻を使う。render capt
 独立した全入力一括のnative参照と、任意のcapture分割後の全sampleを1e-6以内で比較する。従来の「位相遅延ゼロの直線補間」を期待する比較をnative参照へ置き換え、毎captureのsample数誤差1以内、600Hzの振幅差0.0002未満、不要成分0.00002未満、impulseの伝搬遅延1ms未満、左右channel独立も同時に要求する。独立音声E2Eの音質・途切れ・125ms判定は変更しない。
 
 端数rate変換は、入出力formatが同じ無音復帰では既存converterを`reset()`し、format変更時だけ再生成する。filter履歴・sample phase・capture epochは復帰時に初期化し、独立converterとの全sample一致を検証する。初期化のために語頭を待たせない。
+
+## codec由来の送出間隔の揺れ
+
+`MixerPCMSource.schedule(_:packetizationJitter:)` はcodecやtransportから独立した秒数を受け取り、capture時刻を最初に再生時刻へ写す際の余裕へ加える。既定0、有限の0〜60msのみ許可する。native command handoff、設定したnetwork jitter余裕、codecの周期差は独立に扱い、総量は既存の最大buffer時間を超えない。30ms codec frameを20ms入力から作る40/20ms交互到着でも、必要な10msだけでsample隣接性を維持する。後続の正常音声を移動・重複・伸縮しない。無音中の余剰遅延除去はこの必要分を保つ。

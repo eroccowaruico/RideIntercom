@@ -516,3 +516,39 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     #expect(try mixer.engine.renderOffline(480, to: output) == .success)
     #expect((0..<480).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.00001 })
 }
+
+@Test func thirtyMillisecondCodecFramesFromTwentyMillisecondCaptureRemainSampleAdjacent() throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("codec-cadence")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.engine.enableManualRenderingMode(.offline, format: mixer.format, maximumFrameCount: 480)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = try #require(AVAudioPCMBuffer(pcmFormat: mixer.format, frameCapacity: 480))
+    var rendered: [Float] = []
+    var packet = 0
+    for tick in 0..<30 {
+        // A 30 ms AAC frame filled by 20 ms input arrives 40/20/40/20 ms apart.
+        if tick % 6 == 0 || tick % 6 == 4 {
+            let frame = PCMFrame(sequenceNumber: UInt64(packet), capturedAt: Double(packet) * 0.03,
+                samples: (0..<1440).map { Float(0.1 * sin(Double(packet * 1440 + $0) * 2 * .pi * 1270 / 48000)) })
+            try source.schedule(frame, packetizationJitter: 0.01)
+            packet += 1
+            Thread.sleep(forTimeInterval: 0.001)
+        }
+        #expect(try mixer.engine.renderOffline(480, to: output) == .success)
+        rendered += Array(UnsafeBufferPointer(start: output.floatChannelData![0], count: 480))
+    }
+    let lead = 576 // 2 ms network margin + the measured 10 ms codec/capture remainder.
+    var error: Float = 0
+    let angularStep = 2.0 * Double.pi * 1270.0 / 48000.0
+    for i in lead..<rendered.count {
+        let expected = Float(0.1 * sin(Double(i - lead) * angularStep))
+        error = max(error, abs(rendered[i] - expected))
+    }
+    #expect(error < 0.00001)
+    #expect(source.playoutAdjustmentCount == 0)
+    #expect(source.playbackResetCount == 0)
+}
