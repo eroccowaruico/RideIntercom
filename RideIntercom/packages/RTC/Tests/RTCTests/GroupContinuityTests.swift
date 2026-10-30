@@ -3,6 +3,35 @@ import Testing
 @testable import RTC
 
 @Suite struct GroupContinuityTests {
+    @Test(.timeLimit(.minutes(1))) func eightLocalPeersTalkWhileInternetIsUnavailable() async throws {
+        let network = VirtualNetwork(internetAvailable: false)
+        var managers: [RouteManager] = [], records: [CallRecorder] = [], tasks: [Task<Void, Never>] = []
+        for i in 0..<8 {
+            let id = PeerID(rawValue: "offline-\(i)")
+            let config = CallRouteConfiguration(enabledRoutes: [.multipeer, .webRTC], preferredRoute: .multipeer, fallbackDelay: 0)
+            let manager = RouteManager(routes: [RouteKind.multipeer, .webRTC].map { VirtualRoute(peer: id, kind: $0, network: network) },
+                runtimeStatusPolicy: .init(isAutomaticBroadcastEnabled: false))
+            let record = CallRecorder(), events = manager.events
+            tasks.append(Task { for await event in events { await record.record(event) } })
+            managers.append(manager); records.append(record)
+            await manager.prepare(.init(sessionID: "offline", localPeer: .init(id: id, displayName: "Rider"),
+                credential: .derived(groupID: "offline", secret: "fixture"), configuration: config))
+            await manager.startConnection(); await manager.startMedia()
+        }
+        defer { tasks.forEach { $0.cancel() } }
+        for record in records { try await eventually { await record.memberCount == 7 } }
+        for i in managers.indices {
+            await managers[i].sendAudioPacket(.init(sequenceNumber: 0, codec: .pcm16, payload: Data(repeating: UInt8(i), count: 960)))
+        }
+        for i in records.indices {
+            try await eventually { await records[i].audio.count == 7 }
+            let received = await records[i].audio
+            #expect(Set(received.compactMap { $0.packet.payload.first }) == Set((0..<8).filter { $0 != i }.map(UInt8.init)))
+        }
+        #expect(await network.routes[.webRTC] == nil)
+        for manager in managers { await manager.stopConnection() }
+    }
+
     @Test(.timeLimit(.minutes(1))) func localOnlyMemberKeepsTalkingAcrossMixedRoutesAndGatewayDeparture() async throws {
         let network = VirtualNetwork()
         let ids = ["a", "b", "c", "d"]
@@ -61,7 +90,10 @@ private actor CallRecorder {
 }
 private actor VirtualNetwork {
     var routes: [RouteKind: [PeerID: EventSource<RouteEvent>]] = [:]
+    let internetAvailable: Bool
+    init(internetAvailable: Bool = true) { self.internetAvailable = internetAvailable }
     func join(_ peer: PeerID, kind: RouteKind, source: EventSource<RouteEvent>) {
+        if kind == .webRTC && !internetAvailable { source.yield(.stateChanged(kind, .failed)); return }
         routes[kind, default: [:]][peer] = source
         publish(kind)
     }
@@ -89,7 +121,10 @@ private actor VirtualRoute: RTCCallRoute {
     func prepare(_ request: CallStartRequest) async {}
     func startConnection() async { await network.join(peer, kind: kind, source: source) }
     func stopConnection() async { await network.leave(peer, kind: kind) }
-    func sendApplicationData(_ message: ApplicationDataMessage) async { await network.send(peer, kind: kind, message: message) }
+    func sendApplicationData(_ message: ApplicationDataMessage) async -> Set<PeerID> {
+        await network.send(peer, kind: kind, message: message)
+        return Set(await network.routes[kind, default: [:]].keys).subtracting([peer])
+    }
 }
 private func eventually(_ predicate: () async -> Bool) async throws {
     for _ in 0..<300 { if await predicate() { return }; try await Task.sleep(for: .milliseconds(20)) }

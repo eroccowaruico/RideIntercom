@@ -77,9 +77,10 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         eventSource.yield(.stateChanged(kind, .disconnected))
     }
 
-    public func sendApplicationData(_ message: ApplicationDataMessage) async {
-        guard let payload = try? MultipeerPayloadBuilder.makeApplicationDataPayload(message) else { return }
-        transport?.send(payload)
+    @discardableResult
+    public func sendApplicationData(_ message: ApplicationDataMessage) async -> Set<PeerID> {
+        guard let payload = try? MultipeerPayloadBuilder.makeApplicationDataPayload(message) else { return [] }
+        return transport?.send(payload) ?? []
     }
 
 
@@ -255,12 +256,12 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
         }
     }
 
-    func send(_ payload: TransportPayload) {
+    @discardableResult
+    func send(_ payload: TransportPayload) -> Set<PeerID> {
         if let audio = payload.groupAudio {
             let peers = mediaLock.withLock { mediaStopped ? [] : Array(storedMediaPeers) }
-            guard !peers.isEmpty else { return }
-            _ = datagrams?.send(audio, to: peers)
-            return
+            guard !peers.isEmpty else { return [] }
+            return datagrams?.send(audio, to: peers) ?? []
         }
         onQueue { [self] in
             guard !isStopped else { return }
@@ -271,8 +272,8 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             } catch {
                 onEvent?(.failed("Multipeer payload send failed"))
             }
-
         }
+        return []
     }
 
     func accept(_ handshake: RouteHandshakeMessage, from peerID: PeerID) -> Bool {

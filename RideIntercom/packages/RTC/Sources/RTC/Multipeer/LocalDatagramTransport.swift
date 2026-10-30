@@ -7,6 +7,14 @@ import Network
 /// stream ordering, batching or backlog while an endpoint is unavailable.
 final class LocalDatagramTransport: @unchecked Sendable {
     static let serviceType = "_ride-audio._udp"
+    static func parameters() -> NWParameters {
+        let parameters = NWParameters.udp
+        parameters.includePeerToPeer = true
+        // Nearby voice must work without an AP and never use a cellular path.
+        // Do not require a specific interface: that disables peer-to-peer opt-in.
+        parameters.prohibitedInterfaceTypes = [.cellular]
+        return parameters
+    }
     private let queue = DispatchQueue(label: "rtc.local.datagrams", qos: .userInteractive)
     private let peerID: PeerID
     private let prefix: String
@@ -49,8 +57,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
         try queue.sync {
             stopOnQueue()
             let token = generation
-            let parameters = NWParameters.udp
-            parameters.includePeerToPeer = true
+            let parameters = Self.parameters()
             let listener = try NWListener(using: parameters)
             listener.service = .init(name: serviceName(for: peerID), type: Self.serviceType)
             listener.stateUpdateHandler = { [weak self] state in
@@ -118,8 +125,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
         if let current = endpoints[serviceName], current != endpoint { removeOutgoing(serviceName) }
         endpoints[serviceName] = endpoint
         guard outgoing[serviceName] == nil, outgoing.count < 7 else { return }
-        let parameters = NWParameters.udp
-        parameters.includePeerToPeer = true
+        let parameters = Self.parameters()
         let connection = NWConnection(to: endpoint, using: parameters)
         outgoing[serviceName] = connection
         let token = generation

@@ -40,7 +40,8 @@ flowchart LR
 | 既存のautomatic 2値 | ともにグループ接続維持として扱う。1経路へ切り替えて他の接続を切る旧動作は廃止 |
 | Local専用A、両経路B、Internet専用C | A↔B↔Cで元の話者を保持して中継。AはCloudflare資格を持たなくてよい |
 | 中継候補が複数 | Local近隣でInternet媒体がreadyと通知された候補の最小PeerIDを選ぶ。直接Internetへ送る話者の再出版は抑止 |
-| 全員近くにいる | 開始済みのLocal / Internet両方へ音声を送り、先着した認証済みenvelopeだけ再生。接続の有無だけで速い経路を抑止しない |
+| 全員近くにいる | Localへ先に即時送信し、Internetの既知の全参加者がそのUDP送信受付集合に含まれればInternet音声コピーを省く。制御接続だけ、空のInternet参加者集合、UDP未準備・上限超過ではこの省略を行わない。受領確認・再送待ちは追加しない |
+| 遠隔参加者がいる | Internet音声も配送する。SFUは全購読者へfan-outするため、この場合は近隣にもInternetコピーが届き得る。先着した認証済みenvelopeだけ再生する。Internetの制御・参加者探索は維持する |
 | 複雑なLocal接続グラフ | Localは重複破棄付き転送。近隣ごとに候補が異なる間は重複転送があり得るが、再生は1回。最大8hop |
 | 中継離脱・接続障害 | 残る経路を停止しない。membership/presence更新で中継候補を再評価し、失敗した経路だけ2〜30秒間隔で再試行 |
 | 接続経路がなくなる | 接続を作れるまで音声は届かない。無音や探索中を接続成功とみなさない。presence失効は8秒 |
@@ -184,17 +185,23 @@ GroupRelayの認証・replay protection用sequenceと音声専用sequenceを分�
 
 途中参加や受信再開では最初のsequenceが0とは限らない。受信履歴がない相手の先頭packetは、その番号を基準に即時配送する。履歴から実際の欠番を確認した場合だけ並べ替え猶予を使い、欠番が埋まったらタイマーを待たずに配送する。
 
-音声はLocalのNetwork.framework UDP、Internetのunordered・maxRetransmits=0 DataChannelで配送する。InternetのICEはTCP候補を無効にし、STUN/TURNのUDP URLだけを許可する。TURN/TCP・TURN/TLSへのfallbackは行わない。TCP相当の順序保証待ち・再送・信頼性ありコピーは使用しない。接続・認証・ミュート等の制御メッセージのreliable配送とは分ける。複数の独立経路が有効なら、同じ認証済み音声を即時配送し、先着だけを再生する。
+音声はLocalのNetwork.framework UDP、Internetのunordered・maxRetransmits=0 DataChannelで配送する。InternetのICEはTCP候補を無効にし、STUN/TURNのUDP URLだけを許可する。TURN/TCP・TURN/TLSへのfallbackは行わない。TCP相当の順序保証待ち・再送・信頼性ありコピーは使用しない。接続・認証・ミュート等の制御メッセージのreliable配送とは分ける。Localを優先し、Localで即時送信を受け付けられない相手や遠隔参加者がいる場合はInternetへも同じ認証済み音声を即時配送する。重複は先着だけを再生する。
 
 
 ### Local datagramの所有と再接続
 
 MCSessionは探索・認証・制御を所有する。別の`_ride-audio._udp` Bonjour serviceをNetwork.frameworkで探索し、Peer-to-Peer Wi-Fiを許可したUDP listenerへ送る。音声にはGroupRelayの暗号化・認証・epoch・重複排除を引き続き適用する。UDPの先頭にある直近hop識別子だけでは認証しない。
 
+探索・待受・送信は共通のUDP parametersを使い、`includePeerToPeer = true`、セルラー禁止、特定interfaceへの固定なしとする。Bonjourのservice endpointもinterfaceを固定せず解決する。アクセスポイント・InternetがなくてもApple peer-to-peer Wi-Fiを使用できる。これはMCSessionの音声配送ではなく、同じ端末間近距離無線上の別UDP媒体である。Wi-Fi機能OFF時のBluetooth単独音声は提供しない。
+
+`RTCCallRoute.sendApplicationData`は即時配送を受け付けた直接peerの集合を返す。Localの音声では認証済みかつUDP ready・送信中bytes上限内のpeerだけを返す。受領ACKではなく、無線上の到着・遅延・損失の保証でもない。個別受付先を取得できないSFUと制御送信は空集合を返す。RouteManagerがこの共通契約でLocal優先を決め、Appへnative transport判定を持ち出さない。
+
 UDP送受信はBonjourと制御を所有するMainActorを経由しない。認証済み媒体peerのsnapshotだけを短いlockで取得し、送信はdatagram queue、受信は有界event sourceへ直接渡す。停止時は媒体許可を先に取り消す。native Bonjour資源の作成・変更・最終解放はMainActorで行う。
 
 送信endpointが準備できないときはその音声を保持しない。送信処理中のbytesには上限を設け、接続失敗後に古いpacketを再送しない。受信flowは16個までとし、UDPに切断handshakeがないことを考慮して最も古いflowを解放する。endpoint変更・stopで所有資源を閉じ、前世代のcallbackを拒否する。
 
 制御接続の切断時にはMCSession上の認証を取り消して再handshakeを要求するが、同じ通話で認証済みのUDP媒体資格は保持する。期限切れ・離脱済み話者の音声はGroupRelayで拒否し、音声が途絶えた資格を音声packetだけで復活させない。通話stop時に両方を破棄する。
+
+圏外での成立条件とMultipeerの信頼なし配送を調べた根拠は[近距離オフライン通信の検証](../../validation/history/近距離オフライン通信.md)を参照する。
 
 検証結果と残る音声E2Eの問題は[RTC音声の再送禁止と即時配送](../../validation/history/RTC音声の再送禁止と即時配送.md)に記録する。

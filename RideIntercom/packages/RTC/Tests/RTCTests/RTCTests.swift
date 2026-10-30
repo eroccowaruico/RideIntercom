@@ -516,7 +516,7 @@ private func makeFilteredPacketAudioPacket(
     }
     #expect(route.sentApplicationData.count == before, "Repeated diagnostic snapshots must not serialize/send or query native stats immediately")
     await manager.setLocalMute(true)
-    let statuses = try relayMessages(route.sentApplicationData).compactMap { try? RTCRuntimeStatusTransport.decode($0) }
+    let statuses = relayMessages(route.sentApplicationData).compactMap { try? RTCRuntimeStatusTransport.decode($0) }
     #expect(statuses.last?.localMute == true, "User controls remain immediate")
     #expect(statuses.last?.packageReports.contains { $0.package == "AudioMixer" && $0.generatedAt == 99 } == true)
     let afterControl = route.sentApplicationData.count
@@ -534,6 +534,7 @@ private final class FakeRoute: RTCCallRoute, @unchecked Sendable {
     private(set) var prepareCount = 0
     private(set) var startConnectionCount = 0
     private(set) var sentApplicationData: [ApplicationDataMessage] = []
+    var immediateRecipients: Set<PeerID> = []
 
     init(kind: RouteKind) {
         self.kind = kind
@@ -559,8 +560,9 @@ private final class FakeRoute: RTCCallRoute, @unchecked Sendable {
 
     func stopConnection() async {}
 
-    func sendApplicationData(_ message: ApplicationDataMessage) async {
+    func sendApplicationData(_ message: ApplicationDataMessage) async -> Set<PeerID> {
         sentApplicationData.append(message)
+        return immediateRecipients
     }
 
 }
@@ -650,7 +652,7 @@ private func relayMessages(_ messages: [ApplicationDataMessage]) -> [Application
 }
 #endif
 
-@Test func audioUsesBothAvailablePathsEvenForTheSameNeighbor() async {
+@Test func controlConnectivityAloneCannotSuppressInternetAudio() async {
     let local = FakeRoute(kind: .multipeer), internet = FakeRoute(kind: .webRTC)
     let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer, .webRTC],
         preferredRoute: .multipeer, selectionMode: .automaticFallback, fallbackDelay: 0)
@@ -670,5 +672,46 @@ private func relayMessages(_ messages: [ApplicationDataMessage]) -> [Application
         #expect(relayBodies(route.sentApplicationData).contains { if case .audio = $0 { true } else { false } },
             "A connected Local link may be slower or lose media; the faster Internet copy must remain available")
     }
+    await manager.stopConnection()
+}
+
+@Test func nearbyAudioAvoidsInternetCopiesAndFallsBackWithoutWaiting() async throws {
+    let local = FakeRoute(kind: .multipeer), internet = FakeRoute(kind: .webRTC)
+    let config = CallRouteConfiguration(enabledRoutes: [.multipeer, .webRTC],
+        preferredRoute: .multipeer, fallbackDelay: 0)
+    let manager = RouteManager(routes: [local, internet], runtimeStatusPolicy: .init(isAutomaticBroadcastEnabled: false))
+    await manager.prepare(makeRequest(configuration: config))
+    await manager.startConnection()
+    try await Task.sleep(for: .milliseconds(20))
+    let nearby = (1...7).map { PeerDescriptor(id: .init(rawValue: "near-\($0)"), displayName: "Neighbor") }
+    let members = nearby.map { CallMemberState(peer: $0, route: .multipeer, isConnected: true) }
+    for route in [local, internet] {
+        route.yield(.membersChanged(route.kind, members))
+        route.yield(.stateChanged(route.kind, .mediaReady))
+    }
+    try await Task.sleep(for: .milliseconds(20))
+    await manager.startMedia()
+    local.immediateRecipients = Set(nearby.map(\.id))
+    func audioCount(_ route: FakeRoute) -> Int { route.sentApplicationData.filter { $0.delivery == .unreliable }.count }
+    // Eight participants have Internet, but all seven destinations accept UDP locally.
+    await manager.sendAudioPacket(makePacket(sequenceNumber: 0))
+    #expect(audioCount(local) == 1)
+    #expect(audioCount(internet) == 0, "Healthy nearby speech must not pay for an Internet copy")
+    // One missing UDP endpoint must not make the other six wait or queue old speech.
+    local.immediateRecipients.remove(nearby[0].id)
+    await manager.sendAudioPacket(makePacket(sequenceNumber: 1))
+    #expect(audioCount(local) == 2)
+    #expect(audioCount(internet) == 1)
+    local.immediateRecipients.insert(nearby[0].id)
+    await manager.sendAudioPacket(makePacket(sequenceNumber: 2))
+    #expect(audioCount(internet) == 1, "Resume Local preference on the very next packet")
+    // A distant participant still needs the SFU; never disconnect them for a nearby peer.
+    let distant = CallMemberState(peer: .init(id: .init(rawValue: "far"), displayName: "Distant"), route: .webRTC, isConnected: true)
+    internet.yield(.membersChanged(.webRTC, Array(members.dropLast()) + [distant]))
+    try await Task.sleep(for: .milliseconds(20))
+    await manager.sendAudioPacket(makePacket(sequenceNumber: 3))
+    #expect(audioCount(internet) == 2)
+    #expect(local.sentApplicationData.contains { $0.delivery == .reliable })
+    #expect(internet.sentApplicationData.contains { $0.delivery == .reliable })
     await manager.stopConnection()
 }

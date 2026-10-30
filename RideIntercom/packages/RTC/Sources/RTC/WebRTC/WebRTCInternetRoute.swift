@@ -124,9 +124,12 @@ public actor WebRTCInternetRoute: RTCCallRoute {
         eventSource.yield(.stateChanged(kind, finalState))
     }
 
-    public func sendApplicationData(_ message: ApplicationDataMessage) async {
-        guard connecting else { return }
+    @discardableResult
+    public func sendApplicationData(_ message: ApplicationDataMessage) async -> Set<PeerID> {
+        guard connecting else { return [] }
         await engine.sendApplicationData(message, to: sfuPeer.id)
+        // SFU fan-out does not report immediate per-subscriber delivery.
+        return []
     }
 
     private func bindSignalingEvents() {

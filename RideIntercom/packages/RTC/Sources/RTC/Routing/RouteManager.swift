@@ -166,17 +166,22 @@ public actor RouteManager: CallSession {
     }
     private func broadcast(_ body: RelayBody) async {
         guard let data = try? relay?.make(body, now: ProcessInfo.processInfo.systemUptime), data.count <= 32768 else { return }
-        // Connection presence says nothing about media latency or loss. Keep
-        // both usable copies; GroupRelay accepts the first authenticated arrival
-        // exactly once, so a slow Local link cannot suppress faster Internet audio.
-        await forward(data, delivery: body.delivery)
+        await forward(data, body: body)
     }
-    private func forward(_ data: Data, delivery: ApplicationDataDelivery, excluding: RouteKind? = nil) async {
+    private func forward(_ data: Data, body: RelayBody, excluding: RouteKind? = nil) async {
         let token = generation
-        let message = ApplicationDataMessage(namespace: GroupRelay.namespace, payload: data, delivery: delivery)
-        for kind in started.sorted(by: { $0.rawValue < $1.rawValue }) where kind != excluding {
-            await routes[kind]?.sendApplicationData(message)
+        let message = ApplicationDataMessage(namespace: GroupRelay.namespace, payload: data, delivery: body.delivery)
+        var localRecipients: Set<PeerID> = []
+        // Local always gets the first immediate attempt. A control connection
+        // alone is insufficient: only the UDP sender can report accepted peers.
+        for kind in [RouteKind.multipeer, .webRTC] where started.contains(kind) && kind != excluding {
+            if case .audio = body, kind == .webRTC {
+                let internetPeers = routeMembers[.webRTC, default: []]
+                if !internetPeers.isEmpty, internetPeers.isSubset(of: localRecipients) { continue }
+            }
+            let recipients = await routes[kind]?.sendApplicationData(message) ?? []
             guard generation == token else { return }
+            if kind == .multipeer { localRecipients = recipients }
         }
     }
     private func handle(_ event: RouteEvent, generation token: UUID) async {
@@ -237,7 +242,7 @@ public actor RouteManager: CallSession {
                     let originHasInternet = relay?.internetGateways(now: ProcessInfo.processInfo.systemUptime).contains(result.peer.id) == true
                     if originHasInternet || elected != request?.localPeer.id { excluded = .webRTC }
                 }
-                await forward(bytes, delivery: result.body.delivery, excluding: excluded)
+                await forward(bytes, body: result.body, excluding: excluded)
             }
         case .metricsChanged(let metrics): emit(.metricsChanged(metrics))
         case .error(_, let error): emit(.error(error))

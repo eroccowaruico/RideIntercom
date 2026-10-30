@@ -144,6 +144,7 @@
 | 文書 | 役割 / 表題 |
 |---|---|
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
+| [validation/history/近距離オフライン通信.md](<validation/history/近距離オフライン通信.md>) | AP・セルラー不在とLocal優先の調査・検証 |
 | [validation/history/音声同一性と途切れの再現.md](<validation/history/音声同一性と途切れの再現.md>) | 複数発話の全文照合と通信なし結合試験による途切れの再現 |
 | [validation/history/Cloudflare検証.md](<validation/history/Cloudflare検証.md>) | Cloudflare 試用準備の検証記録 |
 | [validation/history/初期構想と対応経緯.md](<validation/history/初期構想と対応経緯.md>) | 初期構想と対応経緯 |

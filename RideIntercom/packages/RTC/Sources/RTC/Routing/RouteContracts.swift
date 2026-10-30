@@ -26,7 +26,10 @@ public protocol RTCCallRoute: AnyObject, Sendable {
     func prepare(_ request: CallStartRequest) async
     func startConnection() async
     func stopConnection() async
-    func sendApplicationData(_ message: ApplicationDataMessage) async
+    /// Direct peers accepted for immediate delivery, not delivery acknowledgements.
+    /// Return an empty set when the backend cannot report individual recipients.
+    @discardableResult
+    func sendApplicationData(_ message: ApplicationDataMessage) async -> Set<PeerID>
 }
 
 public extension RTCCallRoute {

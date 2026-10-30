@@ -81,3 +81,12 @@ private final class DatagramRecording: @unchecked Sendable {
     #expect(aRecording.packets.map { $0.1 } == [Data([2])])
     #expect(bRecording.packets.map { $0.1 } == [Data([1])])
 }
+
+@Test func localUDPAllowsInfrastructureFreeDiscoveryButProhibitsCellular() throws {
+    let parameters = LocalDatagramTransport.parameters()
+    #expect(parameters.includePeerToPeer)
+    #expect(parameters.requiredInterface == nil)
+    #expect(parameters.requiredInterfaceType == .other)
+    #expect(parameters.prohibitedInterfaceTypes == [.cellular])
+    #expect(parameters.defaultProtocolStack.transportProtocol is NWProtocolUDP.Options)
+}
