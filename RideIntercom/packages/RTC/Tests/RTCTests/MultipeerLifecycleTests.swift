@@ -18,6 +18,13 @@ private func nativeResource<T>(_ transport: MultipeerConnectionTransport, _ name
 }
 
 extension RealtimeTransportTests {
+@Test func localControlRuntimePreparationCompletesWithoutNetworkOrAPeer() async {
+    await withTaskGroup(of: Bool.self) { group in
+        for _ in 0..<32 { group.addTask { await MultipeerStreamRuntime.prepare() } }
+        for await ready in group { #expect(ready) }
+    }
+}
+
 @Test func localTransportCapabilitiesDoNotFreezeTheInitialCodecPreference() {
     let routes = CallSessionFactory.makeRoutes(.init(
         routeConfiguration: .init(enabledRoutes: [.multipeer]), audioPolicy: .init(preferredCodecs: [.pcm16])))

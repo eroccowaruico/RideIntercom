@@ -64,6 +64,9 @@ public actor MultipeerLocalRoute: RTCCallRoute {
 
     public func startConnection() async {
         guard let transport else { return }
+        let token = generation
+        _ = await MultipeerStreamRuntime.prepare()
+        guard generation == token, !Task.isCancelled else { return }
         transport.start()
         eventSource.yield(.stateChanged(kind, .connecting))
     }
