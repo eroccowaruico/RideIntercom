@@ -15,6 +15,36 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct AudioPipelineTests {
+    @Test(arguments: [true, false])
+    func hardwareMeteringBatchesObserversWithoutDelayingPlayback(rendersToHardware: Bool) async throws {
+        let engine = AVAudioEngine()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 128)
+        let receiver = AppAudioReceiver()
+        let frames = Mutex<[PCMFrame]>([])
+        try receiver.rebuild(engine: engine, configuration: .init(transmitSoundIsolationEnabled: false),
+            peers: ["peer"], rendersToHardware: rendersToHardware) { frame in frames.withLock { $0.append(frame) } }
+        defer { receiver.stop() }
+        try receiver.play(.init(sequenceNumber: 0, format: .intercomMixer, capturedAt: 0,
+            samples: (0..<3840).map { Float(0.1 * sin(Double($0) * 2 * .pi * 400 / 48_000)) }), peer: "peer")
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 128)!
+        var hardware: [Float] = []
+        for _ in 0..<30 {
+            #expect(try engine.renderOffline(128, to: buffer) == .success)
+            hardware += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: 128))
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        await AppTestSupport.waitUntil { frames.withLock { $0.flatMap(\.samples).count >= 3840 } }
+        let observed = frames.withLock { $0 }
+        #expect(observed.flatMap(\.samples).count == 3840, "Metering must retain every rendered sample")
+        #expect(observed.count == (rendersToHardware ? 4 : 30), "Only hardware observers may wait for a 20 ms batch")
+        if rendersToHardware {
+            #expect((hardware.firstIndex { abs($0) > 0.01 } ?? 3840) < 480,
+                "Hardware must play before the first 20 ms observer callback")
+            #expect(zip(hardware, observed.flatMap(\.samples)).allSatisfy { abs($0 - $1) < 0.00001 })
+        }
+    }
+
     @Test(arguments: [256, 480])
     func vadLookaheadKeepsPacketCadenceAcrossConversationPauses(frameCount: Int) {
         var controller = AudioTransmissionController()

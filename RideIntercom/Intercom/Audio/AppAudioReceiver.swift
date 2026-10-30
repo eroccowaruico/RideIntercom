@@ -47,7 +47,11 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
         let output = try mixer.createBus("rx-output")
         limiter = try AppAudioPipeline.installLimiter(on: output)
         try mixer.route(master, to: output)
+        // Hardware playback follows the graph directly. Batch only its meter
+        // observer, avoiding one MainActor delivery per native render quantum.
+        // The fallback output consumes these frames, so it must never wait.
         _ = try output.installPCMSink(id: "speaker-output", targetFormat: configuration.outputHardwareFormat,
+            packetDuration: rendersToHardware ? 0.02 : nil,
             maximumFrameDuration: 0.02) { frame, _ in onOutput(frame) }
         let device = try mixer.createBus("engine-output")
         device.volume = rendersToHardware ? 1 : 0
