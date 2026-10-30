@@ -21,7 +21,6 @@ extension AudioE2ETests {
         let capture = AudioInputStreamCapture(configuration: .intercom(voiceProcessing: processing), backend: input)
         let output = SystemAudioOutputStreamBackend(engine: engine)
         engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { probe.append($0, time: $1) }
-        let hardware = try output.startRendering(configuration: .intercomCall)
         let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
         let failures = Mutex<[String]>([])
         defer {
@@ -34,6 +33,8 @@ extension AudioE2ETests {
             do { _ = try pipeline.processReceivedAudioPacket(.init(peerID: .init(rawValue: "peer"), packet: packet)) }
             catch { failures.withLock { $0.append(String(describing: error)) } }
         }
+        XCTAssertEqual(capture.start().result, .applied)
+        let hardware = try output.startRendering(configuration: .intercomCall)
         try pipeline.rebuild(configuration: .init(outputHardwareFormat: hardware, preferredCodec: .pcm16,
             transmitSoundIsolationEnabled: false, receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peerIDs: ["peer"])
         capture.setRuntimeEventHandler { event in
@@ -41,7 +42,6 @@ extension AudioE2ETests {
             do { try pipeline.processCapturedFrame(frame) }
             catch { failures.withLock { $0.append(String(describing: error)) } }
         }
-        XCTAssertEqual(capture.start().result, .applied)
         try await Task.sleep(for: .seconds(1))
         var rows: [[String: Any]] = []
         for enabled in [false, true, false, true] {
@@ -79,11 +79,10 @@ extension AudioE2ETests {
         try input.updateVoiceProcessing(.init(soundIsolationEnabled: false, otherAudioDuckingEnabled: true))
         let output = SystemAudioOutputStreamBackend(engine: engine)
         engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
-        let hardware = try output.startRendering(configuration: .intercomCall)
         let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
         let failureStore = Mutex<[String]>([])
         let rejectedReceives = Mutex<[(start: Double, end: Double)]>([])
-        let delivery = AudioFrameDelivery { _ in }
+        let delivery = AudioFrameDelivery(initiallyActive: false) { _ in }
         defer {
             try? input.stopCapture(); delivery.finish(); pipeline.stop()
             pipeline.onTransmitPacket = nil
@@ -99,14 +98,17 @@ extension AudioE2ETests {
             catch { failureStore.withLock { $0.append(String(describing: error)) } }
         }
         pipeline.onOutputFrame = { mixedProbe.append($0) }
-        try pipeline.rebuild(configuration: .init(outputHardwareFormat: hardware, preferredCodec: .pcm16,
-            transmitSoundIsolationEnabled: false, maximumBufferedDuration: 0.2,
-            receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peerIDs: ["peer"])
         _ = try input.startCapture(configuration: .intercom(voiceProcessing: .init())) { frame in
+            guard delivery.isActive else { return }
             do { try pipeline.processCapturedFrame(frame) }
             catch { failureStore.withLock { $0.append(String(describing: error)) } }
             delivery.yield(frame)
         }
+        let hardware = try output.startRendering(configuration: .intercomCall)
+        try pipeline.rebuild(configuration: .init(outputHardwareFormat: hardware, preferredCodec: .pcm16,
+            transmitSoundIsolationEnabled: false, maximumBufferedDuration: 0.2,
+            receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peerIDs: ["peer"])
+        delivery.activate()
         try await Task.sleep(for: .seconds(1))
         probe.reset(); decodedProbe.reset(); mixedProbe.reset()
         let stages = ["PCM", "isolation-on", "Opus", "AAC-48k", "AAC-16k", "AAC-24k", "AAC-48k-high", "isolation-off",
