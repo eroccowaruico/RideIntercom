@@ -53,6 +53,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B17000000000000000000022 /* BuildNumber.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = BuildNumber.xcconfig; path = Configuration/BuildNumber.xcconfig; sourceTree = "<group>"; };
 		9306F0272FA8DFBA0030B045 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		9306F0292FA8DFD30030B045 /* AVFAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFAudio.framework; path = System/Library/Frameworks/AVFAudio.framework; sourceTree = SDKROOT; };
 		931D63253092FBA0004F8BCC /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
@@ -289,6 +290,7 @@
 		93F300BF2F93829C0046716D = {
 			isa = PBXGroup;
 			children = (
+				B17000000000000000000022 /* BuildNumber.xcconfig */,
 				D70000000000000000000001 /* Repository */,
 				D70000000000000000000002 /* .vscode */,
 				D70000000000000000000003 /* .codex */,
@@ -327,6 +329,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 93F300EC2F93829D0046716D /* Build configuration list for PBXNativeTarget "RideIntercom" */;
 			buildPhases = (
+				B17000000000000000000021 /* Prepare Archive Build Number */,
 				D70000000000000000000005 /* Check Development Setup */,
 				93F300C42F93829C0046716D /* Sources */,
 				93F300C52F93829C0046716D /* Frameworks */,
@@ -539,6 +542,27 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		B17000000000000000000021 /* Prepare Archive Build Number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(SRCROOT)/scripts/prepare_archive_info.py",
+				"$(SRCROOT)/RideIntercom/Info.plist",
+			);
+			name = "Prepare Archive Build Number";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/RideIntercom-Info.plist",
+				"$(SRCROOT)/Configuration/BuildNumber.xcconfig",
+				"$(SRCROOT)/Configuration/BuildNumber.lock",
+				"$(SRCROOT)/Configuration/BuildNumber.next",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "python3 \"$SRCROOT/scripts/prepare_archive_info.py\"\n";
+			showEnvVarsInLog = 0;
+		};
 		D70000000000000000000005 /* Check Development Setup */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -623,8 +647,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = RideIntercom/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercom-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -688,8 +712,8 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = RideIntercom/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercom-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -732,6 +756,7 @@
 		};
 		93F300EF2F93829D0046716D /* Debug configuration for PBXProject "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B17000000000000000000022 /* BuildNumber.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -764,7 +789,6 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -792,12 +816,12 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
 		93F300F02F93829D0046716D /* Release configuration for PBXProject "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B17000000000000000000022 /* BuildNumber.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -830,7 +854,6 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -850,7 +873,6 @@
 				MTL_FAST_MATH = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};

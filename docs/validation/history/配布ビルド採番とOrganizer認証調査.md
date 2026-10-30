@@ -34,3 +34,32 @@ Xcode 27.1（27A9275）の配布ログとmacOSのクラッシュ記録を照合�
 ## 採用しなかった方式
 
 schemeのArchive Pre-actionで`agvtool`を実行すると、project上は新番号でも、そのArchiveには読み込み済みの旧番号が入った。Archiveを開始する前に採番する専用入口を採用した。また、ターゲットごとに番号が異なる状態では`agvtool`が低い番号を基準にしたため、project共通設定を全ターゲットに継承させた。通常Buildでの採番や生成Info.plistの独自前処理は最終変更に含めていない。
+
+
+## Xcode標準Archiveへの統合（2026-10-30）
+
+利用者から、専用コマンドを基本NGとし、XcodeのArchiveで自動採番し、通常Run・Buildと公開バージョンは変更せず、XcodeのBuild欄・project設定・配布物を揃えるよう指示があった。上記の専用コマンド方式を置き換えた。要求は[開発方針](../../policies/開発方針.md#公開バージョンとビルド番号)へ追記し、[要求の入口](../../requirements/README.md)から参照する。
+
+| 修正 | 理由・境界 |
+|---|---|
+| 共通xcconfig | 既存の手元のApp設定7を`Configuration/BuildNumber.xcconfig`へ移し、projectのDebug・Releaseから全targetへ継承。ナビゲータ直下で見える。手元の公開バージョン1.0.0は変更せず、今回のコミットへ既存の公開バージョン差分を混ぜない |
+| Xcode内の採番 | AppのBuild Phaseから`prepare_archive_info.py`を呼び、Archiveのinstall actionでだけ採番。通常のbuild actionは読み取るだけ。CLIの専用入口と旧テストは削除 |
+| 読み込み済み設定への対策 | xcconfig更新だけでは当該Archiveのbuild settingsは古いため、ビルド専用の入力Info.plistへ予約番号を入れる。`GENERATE_INFOPLIST_FILE=NO`で旧番号の再上書きを避け、署名前の通常のplist処理へ渡す |
+| 古い版情報の生成を除去 | agvtoolを使わなくなったため`VERSIONING_SYSTEM=apple-generic`を除去。読み込み済みの旧番号を持つ`*_vers.c`を生成しない |
+| 並行実行と復旧 | file lock、atomic replace、各ビルド固有の生成先により番号と成果物を固定。破損・欠落は自動初期化せず停止。採番後の失敗は欠番として維持 |
+| 周辺処理の保護 | 実行中のXcode、アプリ、他のビルドを停止せず、既存DerivedDataも削除しなかった。検証は専用の一時コピー・DerivedDataと低優先度・2ジョブで実行 |
+
+検証コピーのsourceは`1913cc99`を基準とし、その後に手元のproject設定（公開バージョン1.0.0、ビルド7）と今回の変更を反映した。同時進行のRTC修正は含めない。元の作業ツリーでは検証のために採番していない。
+
+| 確認 | 結果 |
+|---|---|
+| 自動テスト | `python3 -m unittest discover -s scripts/tests -p test_archive_numbering.py -v`の8件成功。旧設定値を保持した環境での連続採番、8並列の重複防止、内部Buildの不変、欠落・破損・書込失敗、プラットフォーム別metadataを検証 |
+| 標準Archive | 専用コマンドを使わず、既存のRideIntercom schemeの`xcodebuild archive`でiOS 8→9、macOS 10の生成に成功。最終設定でもiOS 11、macOS 12の署名済みArchiveに成功し、`codesign --verify --deep --strict`成功 |
+| 内部Build | 間に実行したmacOS Release Buildは8を維持。iOS Debug Buildは10を維持し、実行前後のproject・ソースInfo.plist・xcconfigのSHA-256が一致 |
+| 設定・実体の一致 | 最終Archive内AppとOrganizerのApplicationPropertiesがそれぞれ1.0.0 (11)／1.0.0 (12)で一致。Xcodeの`-showBuildSettings`が共通xcconfigの最新番号を解決することも確認 |
+| 既存metadata | 変更前のiOS/macOS生成plistと全キーを比較。差分は採番したCFBundleVersionと、検証コピーへ引き継いだ既存の公開バージョン変更のみ。権限説明、暗号化免除、アイコン、URL scheme、Bonjour、背景音声、scene、launch、画面方向などを保持 |
+| IPA | 最終iOS Archiveを既存ExportOptionsで書き出し成功。IPA内Appも1.0.0 (11)を維持し、書き出しで再採番しない |
+| 構造確認 | 開発設定・文書・plist・差分検査成功。並行作業のproject参照・公開バージョン差分・RTCソース・検証文書は今回のコミットから除外 |
+| 残る境界 | 既存Xcode画面を操作してのArchiveクリックやBuild欄の再描画は実施せず、同じscheme/build phaseを標準xcodebuildで検証。AppIntents未使用のmetadata省略warningは従前どおり。アップロード、Apple受理、TestFlight配信は未実施 |
+
+主な証跡は`/tmp/ride-archive-integration-final11.log`、`/tmp/ride-archive-integration-final12-mac.log`、`/tmp/ride-archive-integration-mac-build.log`、`/tmp/ride-archive-integration-debug.log`、`/tmp/ride-archive-integration-final11-export.log`、`/tmp/ride-archive-integration-final-settings.json`。一時領域のため永続保存ではない。採番スクリプトのSHA-256は`499b62d64098bf063f6890e9baf6a79d2c0ee2dad4855135379e296fc9987d11`。

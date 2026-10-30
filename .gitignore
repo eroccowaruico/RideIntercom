@@ -22,7 +22,8 @@ server/.env.*
 # Reproducible validation output
 .validation/
 __pycache__/
-.archive-app-store.lock/
+/Configuration/BuildNumber.lock
+/Configuration/BuildNumber.next
 
 # Individually issued trial credentials (never application source)
 server/.trial-credentials/
