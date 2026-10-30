@@ -12,6 +12,34 @@ import VADGate
 extension AppTests {
 @MainActor
 struct RealtimeConversationTests {
+    @Test func receiverForwardsCodecCadenceWithoutCodecSpecificPlaybackBranches() throws {
+        let engine = AVAudioEngine()
+        let native = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        try engine.enableManualRenderingMode(.offline, format: native, maximumFrameCount: 4800)
+        let receiver = AppAudioReceiver()
+        try receiver.rebuild(engine: engine, configuration: .init(transmitSoundIsolationEnabled: false,
+            receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peers: ["cadence"],
+            rendersToHardware: false, onOutput: { _ in })
+        defer { receiver.stop() }
+        let format = AudioFormat(sampleRate: 16000, channelCount: 1)
+        let encoder = try StreamingCodecEncoder(configuration: .init(codec: .mpeg4AACELD, format: format))
+        for i in 0..<8 {
+            guard let encoded = try encoder.encode(.init(sequenceNumber: UInt64(i), format: format,
+                capturedAt: Double(i) * 0.02, samples: Array(repeating: 0.1, count: 320))) else { continue }
+            let frame = try receiver.receive(.init(peerID: .init(rawValue: "cadence"), packet: .init(
+                sequenceNumber: encoded.sequenceNumber, codec: .mpeg4AACELD, format: .init(sampleRate: 16000, channelCount: 1),
+                capturedAt: encoded.capturedAt, sampleCount: encoded.sampleCount, payload: encoded.payload)))
+            if !frame.samples.isEmpty {
+                let state = try #require(receiver.playoutDiagnostics(peer: "cadence"))
+                let margin = state.bufferedDuration - Double(frame.frameCount) / 16000
+                #expect(abs(margin - 0.012) < 3 / 48000.0)
+                #expect(state.adjustments == 0 && state.resets == 0)
+                return
+            }
+        }
+        Issue.record("AAC never produced a decoded frame")
+    }
+
     @Test func receiveWaitingBehindStopCannotEnterTheRebuiltGraph() throws {
         let receiver = AppAudioReceiver()
         let config = AppAudioPipelineConfiguration(transmitSoundIsolationEnabled: false)

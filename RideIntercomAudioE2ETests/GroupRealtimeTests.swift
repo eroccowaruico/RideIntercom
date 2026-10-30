@@ -33,6 +33,8 @@ extension AudioE2ETests {
         let records = (0..<8).map { _ in GroupAudioRecord() }
         var sent = Array(repeating: UInt64(0), count: 8)
         var decoded: [String: [PCMFrame]] = [:]
+        var playoutChanges: [[String: Any]] = []
+        var playoutCounts: [String: (Int, Int)] = [:]
         for index in 0..<8 {
             let peer = PeerID(rawValue: String(index))
             let routes = kinds[index].map { DelayedGroupRoute(peer: peer, kind: $0, network: network) }
@@ -46,7 +48,17 @@ extension AudioE2ETests {
                     case .receivedAudioPacket(let received):
                         records[index].sequences[received.peerID.rawValue, default: []].append(received.packet.sequenceNumber)
                         if index == 0 {
-                            do { decoded[received.peerID.rawValue, default: []].append(try pipeline.processReceivedAudioPacket(received)) }
+                            do {
+                                let peer = received.peerID.rawValue
+                                decoded[peer, default: []].append(try pipeline.processReceivedAudioPacket(received))
+                                if let state = pipeline.receivePlayoutDiagnostics(peerID: peer),
+                                   playoutCounts[peer]?.0 != state.adjustments || playoutCounts[peer]?.1 != state.resets {
+                                    playoutCounts[peer] = (state.adjustments, state.resets)
+                                    playoutChanges.append(["peer": peer, "hostTime": ProcessInfo.processInfo.systemUptime,
+                                        "capturedAt": received.packet.capturedAt, "bufferedDuration": state.bufferedDuration,
+                                        "adjustments": state.adjustments, "resets": state.resets])
+                                }
+                            }
                             catch { errors.append(String(describing: error)) }
                         }
                     default: break
@@ -138,6 +150,7 @@ extension AudioE2ETests {
         let measurement: [String:Any] = ["scenario":"eight-person-mixed", "role":"pipeline", "transport":"none",
             "participants":8,"mixedRoutes":true,"sentPackets":sent,"lostPackets":losses,"duplicatePackets":duplicates,
             "maximumSendIterationSeconds":maximumSendIteration,"waveform":waveform.dictionary,
+            "playoutChanges":playoutChanges,"firstOutputHostTime":probe.firstOutputTime ?? 0,
             "processingFailures":errors,"renderedSamples":rendered.samples.count,"sampleRate":rendered.rate,
             "continuityPassed":waveform.passed && losses == 0 && duplicates == 0 && errors.isEmpty]
         let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: measurement, options: [.sortedKeys]), uniformTypeIdentifier: "public.json")

@@ -94,14 +94,16 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
         let decoder = decoders[id] ?? StreamingCodecDecoder()
         decoders[id] = decoder
         let frame = try AppAudioCodecBridge.decode(received.packet, using: decoder)
-        if !frame.samples.isEmpty { try play(frame, peer: id) }
+        if !frame.samples.isEmpty {
+            try play(frame, peer: id, packetizationJitter: decoder.packetizationJitterDuration)
+        }
         return frame
     }
 
-    func play(_ frame: PCMFrame, peer: String = "audio-check") throws {
+    func play(_ frame: PCMFrame, peer: String = "audio-check", packetizationJitter: TimeInterval = 0) throws {
         lock.lock(); defer { lock.unlock() }
         let source = try source(for: peer)
-        _ = try source.schedule(frame)
+        _ = try source.schedule(frame, packetizationJitter: packetizationJitter)
         if !source.playerNode.isPlaying { source.start() }
     }
 
