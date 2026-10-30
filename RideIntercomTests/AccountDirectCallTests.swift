@@ -144,6 +144,61 @@ struct AccountDirectCallTests {
         #expect(try a.viewModel.internetSettingsStore.loadPrincipal(memberID: "a") == nil)
     }
 
+    @Test(arguments: [false, true]) func signedOutInternetRegistrationKeepsOfflineCallIdentityAfterNativeLogin(peerHasCertificate: Bool) throws {
+        let f = AccountCallFixture(); defer { f.disconnect() }
+        let a = try f.peer("a", account: "a"), b = try f.peer("b", account: "b"), a2 = try f.peer("a2", account: "a")
+        try f.introduce(b, to: a); try f.introduce(a2, to: a)
+        let user = try #require(a.viewModel.savedRemoteUsers.first)
+        #expect(a.viewModel.selectUser(user.id))
+        let group = try #require(a.viewModel.selectedGroup)
+        let credential = try a.viewModel.groupRepository.credential(for: group.id)
+        let count = a.viewModel.groups.count
+        a.viewModel.disconnect()
+        let store = a.viewModel.internetSettingsStore
+        let retired = try #require(try store.retireAppleCredential())
+        try store.finishRevocation(retired)
+        let restarted = try f.restart(a)
+        #expect(restarted.viewModel.localAccountPrincipal == a.viewModel.localAccountPrincipal)
+        #expect(!restarted.viewModel.hasInternetCredentials)
+        #expect(try store.load() == nil && store.loadIdentity(memberID: "a") == nil)
+        #expect(restarted.viewModel.savedRemoteUsers.map(\.id) == [user.id])
+        #expect(restarted.viewModel.selectUser(user.id))
+        #expect(restarted.viewModel.selectedGroup?.id == group.id)
+        #expect(restarted.viewModel.groups.count == count)
+        #expect(try restarted.viewModel.groupRepository.credential(for: group.id) == credential)
+        #expect(restarted.viewModel.makeSelectedGroupInviteURL() == nil)
+        restarted.callSession.authenticate(["b"])
+        try f.deliverProfile(from: b, to: restarted, certified: peerHasCertificate)
+        #expect(restarted.viewModel.peerProfiles["b"]?.verified != nil)
+        #expect(Set(IntercomViewModel.admittedMemberships(in: restarted.viewModel.peerProfiles).keys.map(\.rawValue)) == ["b"])
+        // Offline trust still verifies a current peer certificate. A new account
+        // reusing the old device key must not inherit the old account's call.
+        restarted.callSession.authenticate([]); restarted.callSession.authenticate(["b"])
+        let key = try b.viewModel.internetSettingsStore.deviceSigningKey()
+        let changed = try testIdentityCertificate(signer: f.issuer, userID: String(repeating: "c", count: 64),
+            memberID: "b", deviceKey: IdentityEncoding.encode(key.publicKey.x963Representation))
+        let identity = try changed.verify(origin: URL(string: "https://account.test")!, trustedIssuerKey: changed.issuerKey)
+        let profile = try testPeerProfile(restarted.viewModel, peerID: "b", displayName: "Same device, different account",
+            signer: DeviceIdentitySigner(memberID: "b", key: key, identity: identity))
+        restarted.viewModel.handleTransportEvent(.receivedApplicationData(peerID: "b",
+            message: .init(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(profile))))
+        #expect(restarted.viewModel.peerProfiles["b"]?.verified == nil)
+    }
+
+    @Test func missingLocalAccountIdentityCannotDowngradeASavedAccountCallToDeviceIDs() throws {
+        let f = AccountCallFixture(); defer { f.disconnect() }
+        let a = try f.peer("a", account: "a"), b = try f.peer("b", account: "b")
+        try f.introduce(b, to: a)
+        let user = try #require(a.viewModel.savedRemoteUsers.first)
+        #expect(a.viewModel.selectUser(user.id))
+        let original = a.groupStore.snapshot
+        try a.viewModel.saveInternetConnection(url: "https://account.test", token: "manual-without-account-identity")
+        #expect(a.viewModel.localAccountPrincipal == nil)
+        #expect(!a.viewModel.selectUser(user.id))
+        #expect(a.groupStore.snapshot == original)
+        #expect(a.viewModel.groupErrorMessage?.contains("Verify your account") == true)
+    }
+
     @Test func schemaFiveUpgradePreservesSignedPendingReceiptAndCredential() throws {
         let f = AccountCallFixture(); defer { f.disconnect() }
         let a = try f.peer("a", account: "a"), b = try f.peer("b", account: "b")
@@ -176,6 +231,7 @@ struct AccountDirectCallTests {
     let issuer = P256.Signing.PrivateKey()
     var peers: [AppTestSupport.Harness] = []
     var namespaces: [String] = []
+    var credentialStores: [String: InMemoryGroupCredentialStore] = [:]
     func peer(_ memberID: String, account: String, at date: Date = Date()) throws -> AppTestSupport.Harness {
         let namespace = "RideIntercom.AccountCallTests." + UUID().uuidString
         namespaces.append(namespace)
@@ -184,8 +240,18 @@ struct AccountDirectCallTests {
         let certificate = try testIdentityCertificate(signer: issuer, userID: String(repeating: account, count: 64),
             memberID: memberID, deviceKey: IdentityEncoding.encode(key.publicKey.x963Representation), now: date)
         let identity = try certificate.verify(origin: URL(string: "https://account.test")!, trustedIssuerKey: certificate.issuerKey, now: date)
-        try store.save(url: "https://account.test", token: "fixture-only", identity: identity)
-        let h = AppTestSupport.makeHarness(groups: [], internetSettingsStore: store, localMemberID: memberID)
+        try store.save(url: "https://account.test", token: "ri1.\(String(repeating: "d", count: 64)).\(identity.deviceID).\(String(repeating: "e", count: 64))", identity: identity)
+        let credentials = InMemoryGroupCredentialStore()
+        credentialStores[memberID] = credentials
+        let h = AppTestSupport.makeHarness(groups: [], credentialStore: credentials, internetSettingsStore: store, localMemberID: memberID)
+        peers.append(h)
+        return h
+    }
+    func restart(_ previous: AppTestSupport.Harness) throws -> AppTestSupport.Harness {
+        let memberID = previous.viewModel.localMemberIdentity.memberID
+        let credentials = try #require(credentialStores[memberID])
+        let h = AppTestSupport.makeHarness(groups: [], groupStore: previous.groupStore, credentialStore: credentials,
+            internetSettingsStore: previous.viewModel.internetSettingsStore, localMemberID: memberID)
         peers.append(h)
         return h
     }

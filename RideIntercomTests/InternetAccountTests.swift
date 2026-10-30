@@ -188,12 +188,20 @@ struct InternetAccountTests {
         #expect(try restarted.pendingRevocation() == nil)
         #expect(try restarted.loadIdentity(memberID: "member-fixture") == nil)
         #expect(try restarted.deletionAccess() == expected)
+        #expect(try restarted.identityTrust()?.issuerKey == identity.envelope.issuerKey)
         let isolated = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace, permitsServiceAccess: false)
         #expect(try isolated.deletionAccess() == nil)
+        #expect(try isolated.loadPrincipal(memberID: "member-fixture") == nil)
+        #expect(try isolated.identityTrust() == nil)
         let other = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace + ".other")
         #expect(try other.deletionAccess() == nil)
+        #expect(try other.loadPrincipal(memberID: "member-fixture") == nil)
+        #expect(try other.identityTrust() == nil)
+        #expect(throws: (any Error).self) { try restarted.loadPrincipal(memberID: "another-device") }
         try f.keychain.saveSecret("corrupt", service: f.namespace + ".InternetConnection", account: "deletion-account")
         #expect(throws: (any Error).self) { try restarted.deletionAccess() }
+        #expect(throws: (any Error).self) { try restarted.loadPrincipal(memberID: "member-fixture") }
+        #expect(throws: (any Error).self) { try restarted.identityTrust() }
     }
 
     @Test func differentAccountAndReplayedNativeCompletionNeverExchangeProof() async {

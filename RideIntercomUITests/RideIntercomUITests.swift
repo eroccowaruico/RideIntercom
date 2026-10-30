@@ -180,7 +180,7 @@ final class RideIntercomUITests: XCTestCase {
         let secret = "ui-test-invitation-key"
         let issuedAt = floor(Date().timeIntervalSince1970)
         let expiresAt = issuedAt + 3600
-        let version = 5
+        let version = 6
         let signingKey = invitationKeys[inviter] ?? P256.Signing.PrivateKey()
         invitationKeys[inviter] = signingKey
         func base64url(_ bytes: Data) -> String {

@@ -27,6 +27,7 @@ enum AppTestSupport {
     static func makeHarness(
         accountSession: AppleAccountSession? = nil,
         groups: [IntercomGroup]? = nil,
+        groupStore suppliedGroupStore: InMemoryGroupStore? = nil,
         credentialStore: GroupCredentialStoring? = nil,
         appSettingsStore: AppSettingsStoring? = nil,
         internetSettingsStore: InternetConnectionSettingsStore? = nil,
@@ -36,8 +37,8 @@ enum AppTestSupport {
         let groups = groups ?? IntercomSeedData.recentGroups
         let credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
         let callSession = RecordingCallSession()
-        let groupStore = InMemoryGroupStore(groups: groups)
-        for index in groups.indices {
+        let groupStore = suppliedGroupStore ?? InMemoryGroupStore(groups: groups)
+        for index in groups.indices where suppliedGroupStore == nil {
             if let secret = groups[index].accessSecret {
                 let reference = UUID()
                 try! credentialStore.saveSecret(secret, reference: reference)

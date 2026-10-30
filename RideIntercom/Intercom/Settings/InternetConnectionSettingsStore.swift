@@ -96,12 +96,11 @@ final class InternetConnectionSettingsStore {
         return identity
     }
 
-    /// Previously verified local identity survives certificate expiry for offline calls.
+    /// Previously verified local identity survives certificate expiry and Internet
+    /// sign-out. The native login still gates calls in the account-scoped model.
     /// This cache never certifies a new peer or signs a new account invitation.
     func loadPrincipal(memberID: String) throws -> AccountPrincipal? {
-        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey),
-              let raw = try keychain.secret(service: service, account: "current") else { return nil }
-        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
+        guard let saved = try retainedRegistration() else { return nil }
         if let binding = saved.binding {
             guard saved.memberID == memberID, binding.principal.isValid,
                   binding.principal.issuer == IdentityEncoding.origin(saved.workerURL),
@@ -123,11 +122,17 @@ final class InternetConnectionSettingsStore {
         return try DeviceIdentitySigner(memberID: memberID, key: key, identity: try? loadIdentity(memberID: memberID))
     }
     func identityTrust() throws -> DeviceIdentityTrust? {
-        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey),
-              let raw = try keychain.secret(service: service, account: "current") else { return nil }
-        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
-        guard let certificate = saved.identity else { return nil }
+        guard let saved = try retainedRegistration(), let certificate = saved.identity else { return nil }
         return DeviceIdentityTrust(origin: saved.workerURL, issuerKey: certificate.issuerKey)
+    }
+
+    /// Identity and issuer verification keys are not Internet credentials. A
+    /// replacement current record takes precedence, including one without proof.
+    private func retainedRegistration() throws -> Saved? {
+        guard permitsServiceAccess,
+              let raw = try keychain.secret(service: service, account: "current")
+                ?? keychain.secret(service: service, account: "deletion-account") else { return nil }
+        return try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
     }
 
     func accountDeviceID() throws -> String {
@@ -182,7 +187,8 @@ final class InternetConnectionSettingsStore {
         guard let pending = try pendingRevocation(), pending == retired,
               let raw = try keychain.secret(service: service, account: "current") else { return }
         // Preserve the target before removing the callable credential. This entry
-        // is read only by explicit account deletion, which requires a fresh proof.
+        // supplies offline identity and explicit account deletion, never access.
+        // Deletion of this retired registration requires a fresh Apple proof.
         try keychain.saveSecret(raw, service: service, account: "deletion-account")
         try keychain.deleteSecret(service: service, account: "current")
     }

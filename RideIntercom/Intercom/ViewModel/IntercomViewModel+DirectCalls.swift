@@ -24,8 +24,13 @@ extension IntercomViewModel {
             return false
         }
         let pair: AccountCallPair?
-        if let local = localAccountPrincipal, let remote = user.principal { pair = AccountCallPair(local, remote) }
-        else { pair = nil }
+        if let remote = user.principal {
+            guard let local = localAccountPrincipal else {
+                groupErrorMessage = "Verify your account in Internet Connection to call this user."
+                return false
+            }
+            pair = AccountCallPair(local, remote)
+        } else { pair = nil }
         guard pair != nil || user.memberIDs.count == 1 else {
             groupErrorMessage = "Verify your account in Internet Connection to call this user."
             return false
