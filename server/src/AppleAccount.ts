@@ -11,11 +11,12 @@ const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStar
 const digest = async (secret: string) => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret))))
 interface Challenge { deviceID: string; nonce: string; issuedAt: number; expiresAt: number }
 interface DeletionReceipt {
+    userID?: string; observers?: { deviceID: string; tokenHash: string }[]
     deviceID: string; tokenHash: string; deletedAt: number; expiresAt: number
     appleToken?: string; appleAuthorizationRevoked?: boolean; attempts?: number; retryAt?: number
 }
 interface DeletionPreparation { id: string; expiresAt: number }
-interface DeletionResult { deleted: true; appleAuthorizationRevoked: boolean; appleRevocationPending?: true }
+interface DeletionResult { deleted: true; appleAuthorizationRevoked: boolean; appleRevocationPending?: true; newerAccountPreserved?: true }
 const retryDelays = [60000, 300000, 1800000, 7200000, 21600000]
 interface Device { tokenHash: string; expiresAt: number }
 export interface DeviceIdentity { userID: string; deviceID: string; expiresAt: number }
@@ -101,15 +102,33 @@ export class UserAccount extends DurableObject<Env> {
     deletionResult(deviceID: string, tokenHash: string): DeletionResult | null {
         this.prune()
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
-        if (!receipt || receipt.deviceID !== deviceID || !crypto.subtle.timingSafeEqual(
-            new TextEncoder().encode(receipt.tokenHash), new TextEncoder().encode(tokenHash))) return null
+        if (!receipt || ![receipt, ...(receipt.observers ?? [])].some(observer => observer.deviceID === deviceID && crypto.subtle.timingSafeEqual(
+            new TextEncoder().encode(observer.tokenHash), new TextEncoder().encode(tokenHash)))) return null
+        // Receipt retries must not tell an old device to remove a new Apple grant.
+        if (this.ctx.storage.kv.get('userID')) return { deleted: true, appleAuthorizationRevoked: false, newerAccountPreserved: true }
         return { deleted: true, appleAuthorizationRevoked: receipt.appleAuthorizationRevoked === true,
             ...(receipt.appleToken ? { appleRevocationPending: true as const } : {}) }
     }
 
-    async eraseWithAppleProof(deviceID: string, tokenHash: string, code: string, subject: string, nonce: string): Promise<DeletionResult | null> {
+    async eraseWithAppleProof(deviceID: string, tokenHash: string, code: string, subject: string, nonce: string, expectedUserID?: string): Promise<DeletionResult | null> {
         if (this.deletionResult(deviceID, tokenHash)) return this.erase(deviceID, tokenHash)
-        if (!this.authenticate(deviceID, tokenHash)) return null
+        // This method is reached only after fresh Apple subject/device verification
+        // by the Worker. The public ID constrains the deletion generation; it is
+        // never used to select another account's DO.
+        if (expectedUserID !== undefined) {
+            if (!objectPattern.test(expectedUserID)) return null
+            const current = this.ctx.storage.kv.get<string>('userID')
+            if (current && current !== expectedUserID) return { deleted: true, appleAuthorizationRevoked: false, newerAccountPreserved: true }
+            const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
+            if (!current && receipt?.userID === expectedUserID) {
+                // A second owner device may resume a pending cancellation without
+                // minting another Apple token or invalidating the original receipt.
+                receipt.observers = [...(receipt.observers ?? []).filter(item => item.deviceID !== deviceID), { deviceID, tokenHash }].slice(-8)
+                this.ctx.storage.kv.put('deletion', receipt)
+                return this.erase(deviceID, tokenHash)
+            }
+            if (receipt?.appleToken) throw new Error('Previous Apple revocation pending')
+        } else if (!this.authenticate(deviceID, tokenHash)) return null
         if (this.ctx.storage.kv.get('deletionPreparation')) throw new Error('Deletion preparation pending')
         const preparation = { id: crypto.randomUUID(), expiresAt: Date.now() + 30000 }
         this.ctx.storage.kv.put('deletionPreparation', preparation)
@@ -118,23 +137,24 @@ export class UserAccount extends DurableObject<Env> {
             const token = await appleDeletionToken(this.env, code, subject, nonce)
             if (this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')?.id !== preparation.id) throw new Error('Deletion preparation expired')
             this.ctx.storage.kv.delete('deletionPreparation')
-            return await this.erase(deviceID, tokenHash, token)
+            return await this.erase(deviceID, tokenHash, token, expectedUserID)
         } finally {
             if (this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')?.id === preparation.id) this.ctx.storage.kv.delete('deletionPreparation')
             await this.scheduleExpiry()
         }
     }
 
-    async erase(deviceID: string, tokenHash: string, appleToken?: string): Promise<DeletionResult | null> {
+    async erase(deviceID: string, tokenHash: string, appleToken?: string, expectedUserID?: string): Promise<DeletionResult | null> {
         if (this.ctx.storage.kv.get('deletionPreparation')) throw new Error('Deletion preparation pending')
         if (!this.deletionResult(deviceID, tokenHash)) {
-            if (!this.authenticate(deviceID, tokenHash)) return null
+            const userID = this.ctx.storage.kv.get<string>('userID')
+            if (expectedUserID === undefined ? !this.authenticate(deviceID, tokenHash) : userID && userID !== expectedUserID) return null
             const now = Date.now()
             this.ctx.storage.transactionSync(() => {
                 this.ctx.storage.kv.delete('userID')
                 for (const [key] of this.ctx.storage.kv.list({ prefix: 'device:' })) this.ctx.storage.kv.delete(key)
                 // The token is held only for deletion retries, never routine login.
-                this.ctx.storage.kv.put('deletion', { deviceID, tokenHash, deletedAt: now, expiresAt: now + 86400000,
+                this.ctx.storage.kv.put('deletion', { userID: userID ?? expectedUserID, deviceID, tokenHash, deletedAt: now, expiresAt: now + 86400000,
                     ...(appleToken ? { appleToken, attempts: 0, retryAt: now } : {}) })
             })
         }
@@ -227,19 +247,20 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
             if (path === '/api/auth/account') {
                 if (request.method !== 'DELETE') return json({ error: 'Method not allowed' }, 405)
                 const previous = await credential.account.deletionResult(credential.deviceID, tokenHash)
-                if (!previous && !await credential.account.authenticate(credential.deviceID, tokenHash)) return json({ error: 'Unauthorized' }, 401)
                 if (!previous && request.body) {
                     if (!env.APPLE_CLIENT_SECRET) return json({ error: 'Apple authorization unavailable' }, 503)
                     const limited = await limitEnrollment(request, env); if (limited) return limited
                     const body = await readJSON(request)
                     if (typeof body.challengeID !== 'string' || !objectPattern.test(body.challengeID)
                         || typeof body.identityToken !== 'string' || !body.identityToken || body.identityToken.length > 16384
-                        || typeof body.authorizationCode !== 'string' || !body.authorizationCode || body.authorizationCode.length > 8192) return json({ error: 'Invalid proof' }, 400)
+                        || typeof body.authorizationCode !== 'string' || !body.authorizationCode || body.authorizationCode.length > 8192
+                        || (body.expectedUserID !== undefined && (typeof body.expectedUserID !== 'string' || !objectPattern.test(body.expectedUserID)))) return json({ error: 'Invalid proof' }, 400)
+                    if (body.expectedUserID === undefined && !await credential.account.authenticate(credential.deviceID, tokenHash)) return json({ error: 'Unauthorized' }, 401)
                     const attempt = env.APPLE_AUTH_ATTEMPT.get(env.APPLE_AUTH_ATTEMPT.idFromString(body.challengeID))
                     const proof = await attempt.exchange(body.identityToken)
                     if (!proof || proof.deviceID !== credential.deviceID
                         || env.USER_ACCOUNT.idFromName(await digest('apple:' + proof.subject)).toString() !== credential.accountID) return json({ error: 'Unauthorized' }, 401)
-                    const result = await credential.account.eraseWithAppleProof(credential.deviceID, tokenHash, body.authorizationCode, proof.subject, proof.nonce)
+                    const result = await credential.account.eraseWithAppleProof(credential.deviceID, tokenHash, body.authorizationCode, proof.subject, proof.nonce, body.expectedUserID as string | undefined)
                     return result ? json(result) : json({ error: 'Unauthorized' }, 401)
                 }
                 const result = await credential.account.erase(credential.deviceID, tokenHash)

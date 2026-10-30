@@ -153,7 +153,9 @@ final class InternetConnectionSettingsStore {
         guard parts.count == 4, UUID(uuidString: parts[2]) != nil,
               let device = try keychain.secret(service: service, account: "device-id"), device.lowercased() == parts[2]
         else { throw KeychainSecretStoreError.invalidData }
-        return .init(workerURL: value.workerURL, accessToken: value.accessToken, deviceID: device.lowercased())
+        guard let principal = saved.binding?.principal, principal.isValid,
+              principal.issuer == IdentityEncoding.origin(value.workerURL) else { throw KeychainSecretStoreError.invalidData }
+        return .init(workerURL: value.workerURL, accessToken: value.accessToken, deviceID: device.lowercased(), userID: principal.userID)
     }
 
     func retireAppleCredential() throws -> RTC.CloudflareRealtimeConfiguration? {

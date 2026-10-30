@@ -370,7 +370,9 @@ test('account deletion removes every device of only the authenticated account an
         assert.equal((await signIn(runtime, oldAttempt)).status, 401, 'A proof issued before deletion must not recreate device access');
         const replacement = await enrolled(runtime);
         assert.notEqual(replacement.userID, one.userID, 'Deletion must retire the previous public identity');
-        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
+        const replay = await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE');
+        assert.equal(replay.status, 200);
+        assert.deepEqual(await replay.json(), { deleted: true, appleAuthorizationRevoked: false, newerAccountPreserved: true });
         assert.equal((await call(runtime, '/api/auth/session', undefined, replacement.accessToken, 'GET')).status, 200, 'A repeated old deletion must not delete new registrations');
         assert.equal((await call(runtime, '/api/auth/account', undefined, two.accessToken, 'DELETE')).status, 401);
     } finally { await runtime.dispose(); }
@@ -630,4 +632,105 @@ test('pending Apple revocation outlives receipt expiry and retries remain bounde
         assert.equal(revocations, 7);
         assert.equal((await call(runtime, '/api/auth/session', undefined, user.accessToken, 'GET')).status, 401);
     } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+async function recoveryProof(attempt, changes = {}) {
+    return proof(attempt, { iat: Math.floor(attempt.issuedAt / 1000), exp: Math.floor(attempt.expiresAt / 1000), ...changes });
+}
+async function recoveryBody(attempt, userID, changes = {}) {
+    return { challengeID: attempt.challengeID, identityToken: await recoveryProof(attempt, changes),
+        authorizationCode: 'recovery-code', expectedUserID: userID };
+}
+
+test('deletion recovery authorizes revoked credentials only with same Apple subject and target', async () => {
+    let attempt, exchanges = 0;
+    const runtime = await makeRuntime({ ...options, APPLE_CLIENT_SECRET: 'fixture' }, { appleKeys: [publicKey], appleAuthorization: async path => {
+        if (path.endsWith('/revoke')) return new Response(null, { status: 200 });
+        exchanges++; return Response.json({ refresh_token: 'recovered', id_token: await recoveryProof(attempt) });
+    } });
+    try {
+        const user = await enrolled(runtime);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, user.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE')).status, 401);
+        attempt = await challenge(runtime, user.deviceID);
+        assert.equal((await call(runtime, '/api/auth/account', await recoveryBody(attempt, user.userID, { sub: 'another-person' }), user.accessToken, 'DELETE')).status, 401);
+        assert.equal(exchanges, 0);
+        const wrongDevice = await challenge(runtime);
+        assert.equal((await call(runtime, '/api/auth/account', await recoveryBody(wrongDevice, user.userID), user.accessToken, 'DELETE')).status, 401);
+        attempt = await challenge(runtime, user.deviceID);
+        const missingTarget = await recoveryBody(attempt, user.userID); delete missingTarget.expectedUserID;
+        assert.equal((await call(runtime, '/api/auth/account', missingTarget, user.accessToken, 'DELETE')).status, 401);
+        assert.equal((await call(runtime, '/api/auth/account', await recoveryBody(attempt, '../other'), user.accessToken, 'DELETE')).status, 400);
+        const body = await recoveryBody(attempt, user.userID);
+        const response = await call(runtime, '/api/auth/account', body, user.accessToken, 'DELETE');
+        assert.equal(response.status, 200);
+        assert.deepEqual(await response.json(), { deleted: true, appleAuthorizationRevoked: true });
+        assert.equal((await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE')).status, 200);
+        assert.equal(exchanges, 1);
+    } finally { await runtime.dispose(); }
+});
+
+test('deletion recovery survives credential expiry and later receipt expiry without registering an account', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-deletion-recovery-'));
+    let attempt, exchanges = 0;
+    const config = { ...options, APPLE_CLIENT_SECRET: 'fixture' };
+    const provider = { storageDirectory, appleKeys: [publicKey], appleAuthorization: async path => {
+        if (path.endsWith('/revoke')) return new Response(null, { status: 200 });
+        exchanges++; return Response.json({ refresh_token: 'recovered', id_token: await recoveryProof(attempt) });
+    } };
+    let runtime = await makeRuntime(config, provider);
+    try {
+        const user = await enrolled(runtime);
+        for (const days of [31, 33]) {
+            await runtime.dispose(); runtime = await makeRuntime(config, { ...provider, clockOffsetMs: days * 86400000 });
+            assert.equal((await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE')).status, 401);
+            attempt = await challenge(runtime, user.deviceID);
+            const result = await call(runtime, '/api/auth/account', await recoveryBody(attempt, user.userID), user.accessToken, 'DELETE');
+            assert.equal(result.status, 200);
+            assert.deepEqual(await result.json(), { deleted: true, appleAuthorizationRevoked: true });
+            assert.equal((await call(runtime, '/api/auth/session', undefined, user.accessToken, 'GET')).status, 401);
+        }
+        assert.equal(exchanges, 2);
+    } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+test('deletion recovery preserves a newer public account and never cancels its Apple grant', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-deletion-newer-'));
+    let exchanges = 0;
+    const config = { ...options, APPLE_CLIENT_SECRET: 'fixture' };
+    const provider = { storageDirectory, appleKeys: [publicKey], appleAuthorization: async () => { exchanges++; return new Response(null, { status: 500 }); } };
+    let runtime = await makeRuntime(config, provider);
+    try {
+        const user = await enrolled(runtime);
+        await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE');
+        await runtime.dispose(); runtime = await makeRuntime(config, { ...provider, clockOffsetMs: 2 * 86400000 });
+        const registration = await challenge(runtime);
+        const newer = await (await call(runtime, '/api/auth/apple/session', { challengeID: registration.challengeID, identityToken: await recoveryProof(registration) })).json();
+        assert.notEqual(newer.userID, user.userID);
+        const attempt = await challenge(runtime, user.deviceID);
+        const result = await call(runtime, '/api/auth/account', await recoveryBody(attempt, user.userID), user.accessToken, 'DELETE');
+        assert.equal(result.status, 200);
+        assert.deepEqual(await result.json(), { deleted: true, appleAuthorizationRevoked: false, newerAccountPreserved: true });
+        assert.equal(exchanges, 0);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, newer.accessToken, 'GET')).status, 200);
+    } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+test('deletion recovery lets another authenticated owner device observe pending revocation without a new grant', async () => {
+    let attempt, exchanges = 0;
+    const runtime = await makeRuntime({ ...options, APPLE_CLIENT_SECRET: 'fixture' }, { appleKeys: [publicKey], appleAuthorization: async path => {
+        if (path.endsWith('/revoke')) return new Response(null, { status: 503 });
+        exchanges++; return Response.json({ refresh_token: 'pending', id_token: await recoveryProof(attempt) });
+    } });
+    try {
+        const one = await enrolled(runtime), two = await enrolled(runtime);
+        attempt = await challenge(runtime, one.deviceID);
+        assert.equal((await call(runtime, '/api/auth/account', await recoveryBody(attempt, one.userID), one.accessToken, 'DELETE')).status, 200);
+        const other = await challenge(runtime, two.deviceID);
+        const response = await call(runtime, '/api/auth/account', await recoveryBody(other, two.userID), two.accessToken, 'DELETE');
+        assert.equal(response.status, 200);
+        assert.equal((await response.json()).appleRevocationPending, true);
+        for (const user of [one, two]) assert.equal((await call(runtime, '/api/auth/account', undefined, user.accessToken, 'DELETE')).status, 200);
+        assert.equal(exchanges, 1);
+    } finally { await runtime.dispose(); }
 });

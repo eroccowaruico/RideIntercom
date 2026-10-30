@@ -6,6 +6,36 @@ import Testing
 
 @MainActor @Suite(.serialized)
 struct AccountDeletionTests {
+    @Test(arguments: [true, false]) func newerServerAccountIsPreservedWithoutAdvisingAppleRemoval(withProof: Bool) async throws {
+        let f = DeletionFixture(); defer { f.remove() }
+        let session = f.session(); f.signIn(session)
+        try session.deletion.begin(userID: "owner", access: f.access,
+            proof: withProof ? .init(challengeID: "challenge", identityToken: "token", authorizationCode: "code") : nil)
+        await session.resumeDeletion(client: f.client(body: ["deleted": true, "appleAuthorizationRevoked": false, "newerAccountPreserved": true]))
+        #expect(session.deletion.canFinish)
+        #expect(!session.deletion.requiresManualAppleRemoval)
+        #expect(session.deletion.record?.serverResult?.newerAccountPreserved == true)
+        if withProof { #expect(DeletionHTTPStub.lastBody["expectedUserID"] == f.access.userID) }
+    }
+
+    @Test func expiredPendingReceiptRequiresFreshProofAndKeepsLocalErasure() async throws {
+        let f = DeletionFixture(); defer { f.remove() }
+        let session = f.session(); f.signIn(session)
+        try session.deletion.begin(userID: "owner", access: f.access, proof: nil)
+        let client = f.client(body: ["deleted": true, "appleAuthorizationRevoked": false, "appleRevocationPending": true])
+        await session.resumeDeletion(client: client)
+        DeletionHTTPStub.respond(status: 401, body: [:])
+        await session.resumeDeletion(client: client)
+        #expect(session.deletion.record?.localErased == true)
+        #expect(session.deletion.record?.serverResult == nil)
+        #expect(!session.deletion.canFinish)
+        let proof = InternetAccountDeletionProof(challengeID: "fresh", identityToken: "fresh-token", authorizationCode: "fresh-code")
+        try session.deletion.replaceProof(proof)
+        DeletionHTTPStub.respond(body: ["deleted": true, "appleAuthorizationRevoked": true])
+        await session.resumeDeletion(client: client)
+        #expect(session.deletion.canFinish && !session.deletion.requiresManualAppleRemoval)
+    }
+
     @Test func failedJournalWriteDoesNotRevokeLogin() throws {
         let f = AccountFixture(); defer { f.remove() }
         f.signIn()
@@ -60,7 +90,8 @@ struct AccountDeletionTests {
     @Test(arguments: [
         ["deleted": false, "appleAuthorizationRevoked": true],
         ["deleted": true, "appleAuthorizationRevoked": true, "appleRevocationPending": true],
-        ["deleted": true]
+        ["deleted": true],
+        ["deleted": true, "appleAuthorizationRevoked": true, "newerAccountPreserved": true]
     ])
     func malformedSuccessCannotEraseLocalData(body: [String: Bool]) async throws {
         let f = DeletionFixture(); defer { f.remove() }
@@ -186,7 +217,7 @@ struct AccountDeletionTests {
     let name = "RideIntercom.DeletionTests." + UUID().uuidString
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let keychain = DictionaryKeychain()
-    var access: AccountDeletion.ServiceAccess { .init(workerURL: URL(string: "https://deletion.test")!, accessToken: "ri1.fixture", deviceID: "11111111-1111-1111-1111-111111111111") }
+    var access: AccountDeletion.ServiceAccess { .init(workerURL: URL(string: "https://deletion.test")!, accessToken: "ri1.fixture", deviceID: "11111111-1111-1111-1111-111111111111", userID: String(repeating: "a", count: 64)) }
     func client(status: Int = 200, body: [String: Bool] = ["deleted": true, "appleAuthorizationRevoked": true]) -> InternetAccountClient {
         DeletionHTTPStub.reset(status: status, body: body)
         let config = URLSessionConfiguration.ephemeral
@@ -215,13 +246,29 @@ private final class DeletionHTTPStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var status = 200
     nonisolated(unsafe) private static var body: [String: Bool] = [:]
     nonisolated(unsafe) private static var recorded: [URLRequest] = []
+    nonisolated(unsafe) private static var input: [String: String] = [:]
+    static var lastBody: [String: String] { lock.withLock { input } }
     static var requests: [URLRequest] { lock.withLock { recorded } }
-    static func reset(status: Int, body: [String: Bool]) { lock.withLock { Self.status = status; Self.body = body; recorded = [] } }
-    static func respond(body: [String: Bool]) { lock.withLock { Self.body = body } }
+    static func reset(status: Int, body: [String: Bool]) { lock.withLock { Self.status = status; Self.body = body; recorded = []; input = [:] } }
+    static func respond(status: Int = 200, body: [String: Bool]) { lock.withLock { Self.status = status; Self.body = body } }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        let (status, body) = Self.lock.withLock { Self.recorded.append(request); return (Self.status, Self.body) }
+        var bytes = request.httpBody ?? Data()
+        if let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                bytes.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        let (status, body) = Self.lock.withLock {
+            Self.recorded.append(request)
+            Self.input = (try? JSONDecoder().decode([String: String].self, from: bytes)) ?? [:]
+            return (Self.status, Self.body)
+        }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
         var data = try! JSONEncoder().encode(body)
         if request.url!.path.hasSuffix("/challenge") {

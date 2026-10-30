@@ -9,6 +9,7 @@ final class AccountDeletion {
         let workerURL: URL
         let accessToken: String
         let deviceID: String
+        var userID: String? = nil
     }
     struct Record: Codable {
         let userID: String
@@ -27,7 +28,7 @@ final class AccountDeletion {
         return record.localErased && (record.access == nil || record.serverResult?.deleted == true)
             && record.serverResult?.appleRevocationPending != true && !isBusy && !storageUnavailable
     }
-    var requiresManualAppleRemoval: Bool { record?.serverResult?.appleAuthorizationRevoked != true }
+    var requiresManualAppleRemoval: Bool { record?.serverResult?.appleAuthorizationRevoked != true && record?.serverResult?.newerAccountPreserved != true }
     private let keychain: KeychainSecretStoring
     private let service: String
     private let eraser: AccountDataEraser
@@ -67,7 +68,7 @@ final class AccountDeletion {
         do {
             if let access = next.access, next.serverResult == nil || next.serverResult?.appleRevocationPending == true {
                 next.serverResult = try await client.deleteAccount(origin: access.workerURL, accessToken: access.accessToken,
-                    proof: next.serverResult == nil ? next.proof : nil)
+                    proof: next.serverResult == nil ? next.proof : nil, expectedUserID: access.userID)
                 // Once the server accepted deletion, the code is no longer needed.
                 next.proof = nil
                 try persist(next)
@@ -80,6 +81,15 @@ final class AccountDeletion {
             message = next.serverResult?.appleRevocationPending == true
                 ? "Your account data has been deleted. Apple authorization removal is pending. Retry when online."
                 : "Your data on this device has been deleted."
+        } catch InternetAccountClient.Failure.deletionReauthenticationRequired {
+            // The server may have completed cancellation and expired its receipt
+            // while this device was offline. Preserve local erasure and the target
+            // identity, but allow an explicit fresh Apple proof to recover.
+            do {
+                next.serverResult = nil
+                try persist(next)
+                message = "Verify with Apple again to finish deleting this account. Your data stays unavailable."
+            } catch { message = "Could not save the deletion recovery state. Try again." }
         } catch {
             message = "Deletion has not finished. Your account stays unavailable. Check your connection and try again. If Apple verification expired, verify again."
         }

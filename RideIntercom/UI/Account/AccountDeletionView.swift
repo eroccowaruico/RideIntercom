@@ -58,7 +58,7 @@ struct AccountDeletionView: View {
                     isCurrent: { viewModel.canStartCalls }, accept: { proof in try start(proof: proof) })
             }
             loaded = true; message = nil
-        } catch { message = "Could not read your saved Internet account. Your data has been preserved. Try again." }
+        } catch { message = "Could not verify your saved Internet account. Your data has been preserved. Reconnect Internet calling with Apple in Settings, then try again." }
     }
     private func start(proof: InternetAccountDeletionProof?) throws {
         guard viewModel.canStartCalls, let user = viewModel.accountUserID,
@@ -108,7 +108,9 @@ struct AccountDeletionProgressView: View {
                 if let text = account.message { Text(text) }
                 if let message { Text(message) }
                 if deletion.canFinish {
-                    if deletion.requiresManualAppleRemoval {
+                    if deletion.record?.serverResult?.newerAccountPreserved == true {
+                        Text("Your previous account is deleted. A newer account is registered with Apple; its registration and Apple authorization have been kept.")
+                    } else if deletion.requiresManualAppleRemoval {
                         Text("Apple authorization has not been removed. Open your Apple Account settings, choose Sign in with Apple, and remove RideIntercom.")
                         Link("Open Apple Account", destination: URL(string: "https://account.apple.com/")!)
                     }

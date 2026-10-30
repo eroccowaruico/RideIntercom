@@ -27,6 +27,7 @@ nonisolated struct InternetAccountDeletionResult: Codable, Sendable {
     let deleted: Bool
     let appleAuthorizationRevoked: Bool
     var appleRevocationPending: Bool?
+    var newerAccountPreserved: Bool?
 }
 
 nonisolated struct InternetAccountClient: Sendable {
@@ -36,7 +37,7 @@ nonisolated struct InternetAccountClient: Sendable {
         self.session = session
     }
     enum Failure: Error {
-        case invalidAddress, rejected, invalidResponse, deviceLimitReached
+        case invalidAddress, rejected, invalidResponse, deviceLimitReached, deletionReauthenticationRequired
         case rateLimited(retryAfter: Int)
     }
     static func origin(_ text: String) throws -> URL {
@@ -76,10 +77,15 @@ nonisolated struct InternetAccountClient: Sendable {
     func revoke(_ configuration: CloudflareRealtimeConfiguration) async throws {
         let _: Empty = try await send(origin: configuration.workerURL, path: "api/auth/session", method: "DELETE", token: configuration.accessToken)
     }
-    func deleteAccount(origin: URL, accessToken: String, proof: InternetAccountDeletionProof?) async throws -> InternetAccountDeletionResult {
-        let body = proof.map { ["challengeID": $0.challengeID, "identityToken": $0.identityToken, "authorizationCode": $0.authorizationCode] }
+    func deleteAccount(origin: URL, accessToken: String, proof: InternetAccountDeletionProof?, expectedUserID: String? = nil) async throws -> InternetAccountDeletionResult {
+        let body = proof.map {
+            var fields = ["challengeID": $0.challengeID, "identityToken": $0.identityToken, "authorizationCode": $0.authorizationCode]
+            if let expectedUserID { fields["expectedUserID"] = expectedUserID }
+            return fields
+        }
         let result: InternetAccountDeletionResult = try await send(origin: origin, path: "api/auth/account", method: "DELETE", body: body, token: accessToken)
-        guard result.deleted, !(result.appleAuthorizationRevoked && result.appleRevocationPending == true) else { throw Failure.invalidResponse }
+        guard result.deleted, !(result.appleAuthorizationRevoked && result.appleRevocationPending == true),
+              result.newerAccountPreserved != true || (expectedUserID != nil && !result.appleAuthorizationRevoked && result.appleRevocationPending != true) else { throw Failure.invalidResponse }
         return result
     }
     private struct Empty: Decodable, Sendable {}
@@ -93,6 +99,7 @@ nonisolated struct InternetAccountClient: Sendable {
         guard let response = response as? HTTPURLResponse, response.url == request.url else { throw Failure.rejected }
         // An already revoked credential needs no further server cleanup.
         if method == "DELETE", path == "api/auth/session", response.statusCode == 401 { return try JSONDecoder().decode(T.self, from: Data("{}".utf8)) }
+        if method == "DELETE", path == "api/auth/account", response.statusCode == 401 { throw Failure.deletionReauthenticationRequired }
         if response.statusCode == 429 {
             let proposed = Int(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 60
             throw Failure.rateLimited(retryAfter: proposed > 0 ? min(proposed, 3600) : 60)

@@ -1,5 +1,22 @@
 # 検証状況と証跡
 
+## 失効後のアカウント削除復旧（2026-10-31）
+
+Bearer失効・30日期限切れ・削除受領記録の期限切れでも、同じApple本人を確認して保存済みの公開IDだけを削除対象として復旧する。復旧のための新規登録は作らない。再登録後の別IDがあるときは、受領記録の期限内・期限後の両方で新しい登録とApple認可を保持した結果を返し、Appから手動解除を勧めない。[Worker契約](../spec/server/Worker.md#アカウントの端末登録削除)と[App契約](../spec/App/通信仕様.md#アカウント削除と端末内消去)を参照。
+
+証跡は`.validation/deletion-recovery-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| TDD | 失効・期限切れ・別端末からの復旧が401となる4件を先に確認。再登録後に有効な受領記録を再送した場合も保持結果が必要なことを追加確認し、Appがその応答を拒否する負例まで修正。`development/` |
+| Worker | 型検査・全56件成功、失敗・skipなし。subject違い、device違い、対象IDなし／不正、31日後の資格失効、33日後の受領記録失効、新しい公開IDの保護、別本人端末から取消待ちを再開しても交換回数が増えないことを確認。`server/` |
+| Swiftとの結合 | 実Swift HTTP/WS clientからローカルWorker/DOへの既存join・renew・peer交換・再参加1件成功。削除のApple providerはWorker側fixture、AppのHTTP境界はURLProtocolで検証しており、この結合1件を実Apple削除の受入と扱わない |
+| App全体 | macOS・iOS各265件成功、失敗・skip・runtime warningなし。公開IDの保存・要求body、401で端末内消去済み状態を維持して再認証へ戻る、受領記録再送でも新アカウント保持を表示する、矛盾する成功応答を拒否することを確認。`macos/`・`ios/` |
+| UI・整合 | 専用iOS Simulatorの削除UI 1件成功。Simulatorをshutdown済み。最終iOS検証前後の288ファイルはsource/configuration一致。App接続後も検証済みserverのソース・テスト・設定は一致。文書・開発設定・diff検査成功。検証scriptsは前回73件成功時から変更なし |
+
+実Apple・実Cloudflare・実機には接続していない。既知のAppIntents未使用metadata省略warningは継続。実行中の遠隔媒体回収、未知サービス／別端末への削除反映、独立duplex音声E2Eと全体の最終受入は残る。
+
+
 ## Appのアカウント削除と再開（2026-10-31）
 
 Settingsの削除確認、Apple再認証、server削除、端末内消去、再起動後の再開を接続した。通常サインアウトが削除用Bearerを先に失効しないこと、別アカウントを消さないこと、失敗を完了と扱わないことを横断して確認した。現行動作は[通信仕様](../spec/App/通信仕様.md#アカウント削除と端末内消去)、画面は[Settings](../spec/App/UI/Settings.md#アカウント削除)を参照。

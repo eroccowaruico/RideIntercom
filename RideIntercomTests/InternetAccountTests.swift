@@ -134,7 +134,9 @@ struct InternetAccountTests {
         let credential = try #require(f.saved), identity = try #require(f.savedIdentity)
         let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
         try store.save(url: "https://account.test", token: credential.accessToken, identity: identity)
+        try f.keychain.saveSecret(credential.deviceID, service: f.namespace + ".InternetConnection", account: "device-id")
         let restarted = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        #expect(try restarted.deletionAccess()?.userID == credential.userID)
         #expect(try restarted.loadIdentity(memberID: "member-fixture")?.userID == credential.userID)
         #expect(try restarted.deviceSigningKey().rawRepresentation == f.signingKey.rawRepresentation)
         #expect(throws: (any Error).self) { try restarted.loadIdentity(memberID: "another-member") }
