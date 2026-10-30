@@ -40,6 +40,20 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testInvitationShareUsesSystemSheetAndReturnsToCall() throws {
+        createTalkGroupAndOpenCall()
+        let invite = app.buttons["inviteButton"]
+        XCTAssertTrue(invite.waitForExistence(timeout: 3))
+        invite.tap()
+        let copy = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 5), "The native share sheet must offer the invitation URL")
+        attachScreen("Invitation Native Share Sheet")
+        copy.tap()
+        XCTAssertTrue(invite.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["groupErrorLabel"].exists)
+    }
+
+    @MainActor
     func testInternetEnrollmentThrottleKeepsAccountAndShowsRetryInstruction() throws {
         openInternetSettings()
         let url = app.textFields["internetWorkerURL"]

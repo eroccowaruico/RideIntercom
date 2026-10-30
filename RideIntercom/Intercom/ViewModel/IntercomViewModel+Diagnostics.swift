@@ -106,7 +106,7 @@ extension IntercomViewModel {
     }
 
     private var inviteSummary: String {
-        groupErrorMessage ?? inviteStatusMessage ?? (selectedGroupInviteURL != nil ? "INVITE READY" : "INVITE NONE")
+        groupErrorMessage ?? inviteStatusMessage ?? (canShareSelectedGroup ? "INVITE READY" : "INVITE NONE")
     }
 
     var diagnosticsOverviewRows: [DiagnosticsOverviewRow] {
@@ -144,7 +144,7 @@ extension IntercomViewModel {
                 icon: "square.and.arrow.up",
                 summary: inviteSummary,
                 detail: selectedGroupSummary,
-                severity: selectedGroupInviteURL != nil ? .ok : .neutral,
+                severity: canShareSelectedGroup ? .ok : .neutral,
                 accessibilityIdentifier: "inviteDebugSummaryLabel"
             )
         ]
@@ -184,28 +184,7 @@ extension IntercomViewModel {
         authenticatedPeerIDs.count
     }
 
-    var selectedGroupInviteURL: URL? {
-        guard let selectedGroup else { return nil }
-        let inviterMemberID = localMemberIdentity.memberID
-        guard selectedGroup.members.contains(where: { $0.id == inviterMemberID }),
-              let signer = try? internetSettingsStore.invitationSigner(memberID: inviterMemberID) else { return nil }
 
-        guard let credential = try? credential(for: selectedGroup) else { return nil }
-        let recipient = directCallRecipient(for: selectedGroup)
-        guard selectedGroup.kind != .direct || recipient != nil else { return nil }
-        let token = try? GroupInviteToken.make(
-            authority: invitationAuthority,
-            signer: signer,
-            groupID: selectedGroup.id,
-            groupName: selectedGroup.name,
-            groupSecret: credential.secret,
-            inviterMemberID: inviterMemberID,
-            inviterDisplayName: localMemberIdentity.displayName,
-            recipientMemberID: recipient,
-            expiresAt: Date().timeIntervalSince1970 + 7 * 24 * 60 * 60
-        )
-        return token.flatMap { try? GroupInviteTokenCodec.joinURL(for: $0) }
-    }
 }
 
 struct DiagnosticsOverviewRow: Equatable, Identifiable {

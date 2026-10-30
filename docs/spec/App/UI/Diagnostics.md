@@ -148,7 +148,7 @@ AudioMixer package は UI 描画用の専用 DTO ではなく、現在の信号�
 |---|---|---|---|---|---|
 | 通話カード | `diag-call-route-summary` | `Call` | `connectionLabel`, selected group summary | `CALL {state}` / selected group | 接続中は ok、未接続は neutral |
 | network qualityカード | `diag-network-quality-summary` | `Network Quality` | `RouteMetrics.rtt`, `RouteMetrics.packetLoss`, `RouteMetrics.jitter` | RTT、loss、jitter。route / RX / drop / queue は pipeline 側を見る | loss は warning |
-| 招待カード | `diag-invite-summary` | `Invite` | invite URL、invite status、selected group | `INVITE ...` / group summary | 招待可能なら ok |
+| 招待カード | `diag-invite-summary` | `Invite` | 招待可否、invite status、selected group | `INVITE ...` / group summary | 招待操作の前提が揃えば ok。表示更新では鍵の読込・作成や招待署名を行わない |
 
 ## 一覧性のルール
 

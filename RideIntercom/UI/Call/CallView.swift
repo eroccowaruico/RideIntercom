@@ -269,17 +269,19 @@ struct CallView: View {
         .accessibilityValue(viewModel.callPresenceLabel)
     }
 
-    private func inviteLink(_ inviteURL: URL) -> some View {
+    private func inviteLink(_ group: IntercomGroup) -> some View {
         ShareLink(
-            item: inviteURL,
+            item: GroupInvitationShare(viewModel: viewModel, groupID: group.id),
             subject: Text("RideIntercom Invite"),
-            message: Text(viewModel.selectedGroup?.kind == .direct ? "Join me for a call on RideIntercom." : "Join \(viewModel.selectedGroup?.name ?? "RideIntercom")")
+            message: Text(group.kind == .direct ? "Join me for a call on RideIntercom." : "Join \(group.name)"),
+            preview: SharePreview(Text(viewModel.callTitle(for: group)))
         ) {
             Label(viewModel.selectedGroup?.kind == .direct ? "Share Call Invite" : "Invite", systemImage: "square.and.arrow.up")
         }
         .appSecondaryButtonStyle()
         .controlSize(.large)
         .simultaneousGesture(TapGesture().onEnded {
+            guard viewModel.selectedGroup?.id == group.id, viewModel.canShareSelectedGroup else { return }
             viewModel.reserveInviteMemberSlot()
         })
         .accessibilityLabel(viewModel.selectedGroup?.kind == .direct ? "Share Call Invite" : "Invite Group")
@@ -307,8 +309,8 @@ struct CallView: View {
 
     @ViewBuilder
     private var inviteAction: some View {
-        if let inviteURL = viewModel.selectedGroupInviteURL {
-            inviteLink(inviteURL)
+        if viewModel.canShareSelectedGroup, let group = viewModel.selectedGroup {
+            inviteLink(group)
         }
     }
 

@@ -120,7 +120,7 @@ struct DirectInvitationAuthorityTests {
         let a = author.viewModel; let b = friend.viewModel
         defer { a.disconnect(); b.disconnect() }
         a.selectGroup(group)
-        let url = try #require(a.selectedGroupInviteURL)
+        let url = try #require(a.makeSelectedGroupInviteURL())
         let token = try GroupInviteTokenCodec.decodeJoinURL(url)
         let grant = try #require(token.directInvitation)
         try b.acceptInviteURL(url)

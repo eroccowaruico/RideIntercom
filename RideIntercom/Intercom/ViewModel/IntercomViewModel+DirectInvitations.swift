@@ -2,6 +2,32 @@ import Foundation
 import RTC
 
 extension IntercomViewModel {
+    // Presentation must not load keys or issue an invitation.
+    var canShareSelectedGroup: Bool {
+        guard canEditSavedGroups, let group = selectedGroup,
+              groups.contains(where: { $0.id == group.id }),
+              group.members.contains(where: { $0.id == localMemberIdentity.memberID }),
+              !groupsMissingKeys.contains(group.id) || group.accessSecret != nil else { return false }
+        return group.kind != .direct || directCallRecipient(for: group) != nil
+    }
+
+    func makeSelectedGroupInviteURL(expectedGroupID: UUID? = nil) -> URL? {
+        guard canShareSelectedGroup, let group = selectedGroup,
+              expectedGroupID == nil || expectedGroupID == group.id else { return nil }
+        do {
+            guard let credential = try credential(for: group) else {
+                groupErrorMessage = "This group has no saved key. Ask a member for a new invitation."
+                return nil
+            }
+            let signer = try internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID)
+            let token = try GroupInviteToken.make(authority: invitationAuthority, signer: signer,
+                groupID: group.id, groupName: group.name, groupSecret: credential.secret,
+                inviterMemberID: localMemberIdentity.memberID, inviterDisplayName: localMemberIdentity.displayName,
+                recipientMemberID: directCallRecipient(for: group))
+            return try GroupInviteTokenCodec.joinURL(for: token)
+        } catch { reportGroupStorageError(error); return nil }
+    }
+
     func sendPendingInvitationReceipt() {
         guard canEditSavedGroups, let groupID = activeGroupID,
               var receipt = groupRepository.pendingInvitation(for: groupID),

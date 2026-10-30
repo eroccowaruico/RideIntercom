@@ -1,5 +1,21 @@
 # 検証状況と証跡
 
+## 招待共有の遅延生成と実行時の再確認（2026-10-31）
+
+Call・Diagnosticsの表示更新から招待発行を外し、OSの共有データ要求時にURLを生成する。標準ShareLinkとURLの転送形式を使い、共有対象のgroup ID・現在のログイン世代・保存状態・個別通話の宛先を再確認する。[Call仕様](../spec/App/UI/Call.md#接続招待操作)と[通信仕様](../spec/App/通信仕様.md#永続化と入力検証の所有)を参照する。
+
+証跡は`.validation/invitation-sharing-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| 再現と修正 | 診断表示20回でKeychain読込・鍵作成が起きる失敗を先に再現。修正後はどちらもゼロ。共有時のURL転送互換性、最新の本人名、招待IDの新規発行、画面切替・group削除・再ログイン・保存競合後の古い共有拒否を確認。`development/` |
+| App | 最終ソースでmacOS・iOS各236件成功。失敗・skip・runtime warningなし。Macのsandbox無効化は検証ホスト限定。`macos/`、`ios/` |
+| 共有UI | iOSでOS共有画面の表示、Copy、Callへの復帰の1件成功。Appと合わせ237件成功。専用Simulator終了済み。スクリーンショットとアクセシビリティ階層は`ios/ios-tests.xcresult`に保持 |
+| 途中の検証 | 初回の個別通話UIは成功したが、共有UIはCopyをButtonとして探して失敗。実階層のCellへ修正して再検証した。iOSのテストマクロ警告2箇所も解消。初回結果は`ui-first/`へ保持し、全成功の最終runと区別する |
+| Release・静的 | iOS Simulator Release buildとfixture不在、文書・開発設定・diff検査成功。既知のAppIntents未使用metadata省略warningのみ。App/test 140ファイルの最終検証前後のhash一致。ReleaseのAppソースも一致。`source-manifest.json`、`release-source-manifest.json` |
+
+表示からの不要処理を除いた確認であり、実機の消費電力を測定した結果ではない。実機・macOSのロック解除を伴う共有操作・全package/Worker/音声E2Eを含む最終受入は未完。接続中の本人確認と保存ユーザー名更新、複数端末の1対1宛先、削除・通知の認可は残タスクとして継続する。
+
 ## 直接招待の端末署名と保存ユーザーの本人対応（2026-10-31）
 
 招待URL・受取証明・ACKを用途別の端末署名で保護し、受取人の端末鍵も招待専用秘密の認証対象にした。自分のHTTPS登録先から取得済みの発行鍵で確認できた公開ユーザーIDだけを保存ユーザーへ対応付ける。同じ本人の端末は呼び名を保持して統合し、端末IDの流用・鍵の変更・本人IDの不一致は拒否する。[現行契約](../spec/App/通信仕様.md#永続化と入力検証の所有)と[残る接続点](../backlog/未実装課題.md#実装の接続点と残作業の再点検)を参照する。

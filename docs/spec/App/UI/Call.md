@@ -38,7 +38,7 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 | Current Call | 進行中の個別通話を`activeDirectCallButton`で開く。ユーザー一覧から相手を削除しても終了操作へ戻れる |
 | Recent Groups | kind=groupだけを表示。個別通話の内部ID・group作成操作を要求しない |
 | 個別通話の画面 | タイトルは相手名。`directCallHelpLabel`は初回の招待共有と、通知を送らないことを説明。保存ユーザーを削除した後は、現在の通話を維持しDisconnectで終了できる説明へ切り替える。既存通話中はConnectまで切り替えない |
-| Share Call Invite | `inviteButton`は特定の相手宛てのversion 2招待をOS共有画面へ渡す。保存ユーザー削除後は表示しない。通常groupのInviteとは宛先制約が異なる |
+| Share Call Invite | `inviteButton`は特定の相手宛ての署名付き招待をOS共有画面へ渡す。保存ユーザー削除後は表示しない。通常groupのInviteとは宛先制約が異なる |
 | 参加者操作 | 個別通話ではAdd Saved Users、参加者Delete、招待枠の追加を提供しない。ミュート・音量・音声効果・Disconnectは既存の共通操作を使う |
 
 ## 保存済みユーザーの操作
@@ -86,7 +86,7 @@ CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。�
 | グループ一覧戻りボタン | `call-toolbar` | `showGroupsButton` | `Groups` | Action | 左上ボタン | 接続は維持する |
 | 接続ボタン | `call-primary-controls` | `connectButton` | `Connect` | `canDisconnectCall == false` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
 | 切断ボタン | `call-primary-controls` | `disconnectButton` | `Disconnect` | `canDisconnectCall == true` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
-| 招待ボタン | `call-primary-controls` | `inviteButton` | `Invite` | `selectedGroupInviteURL` | `ShareLink` | URL が作れない場合は表示しない |
+| 招待ボタン | `call-primary-controls` | `inviteButton` | `Invite` | `canShareSelectedGroup` | `ShareLink` / `GroupInvitationShare` | ログイン・保存状態・所属・宛先から表示可否を判断。共有データ要求時に対象IDと権限を再確認してURLを発行する |
 
 ## 参加者
 

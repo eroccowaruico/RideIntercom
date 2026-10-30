@@ -169,7 +169,7 @@ struct GroupLifecycleTests {
         #expect(Data(base64Encoded: saved.secret)?.count == 32)
         #expect(!saved.secret.contains(group.id.uuidString))
         #expect(h.callSession.connectedGroup?.accessSecret == saved.secret)
-        let url = try #require(h.viewModel.selectedGroupInviteURL)
+        let url = try #require(h.viewModel.makeSelectedGroupInviteURL())
         let token = try GroupInviteTokenCodec.decodeJoinURL(url)
         #expect(token.groupSecret == saved.secret)
         h.viewModel.disconnect()
@@ -186,7 +186,7 @@ struct GroupLifecycleTests {
         let h = AppTestSupport.makeHarness(groups: [group], credentialStore: credentials)
         h.viewModel.selectGroup(group)
         #expect(h.callSession.connectedGroup == nil)
-        #expect(h.viewModel.selectedGroupInviteURL == nil)
+        #expect(h.viewModel.makeSelectedGroupInviteURL() == nil)
         #expect(h.viewModel.activeGroupID == nil)
         #expect(h.viewModel.groupErrorMessage?.contains("key") == true)
     }

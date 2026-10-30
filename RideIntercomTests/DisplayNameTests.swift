@@ -79,7 +79,7 @@ struct DisplayNameTests {
         let h = AppTestSupport.makeHarness(); let vm = h.viewModel; defer { vm.disconnect() }
         vm.selectGroup(try #require(vm.groups.first))
         #expect(vm.setLocalDisplayName("雪 | ねこ"))
-        let url = try #require(vm.selectedGroupInviteURL)
+        let url = try #require(vm.makeSelectedGroupInviteURL())
         let invite = try GroupInviteTokenCodec.decodeJoinURL(url)
         #expect(invite.inviterDisplayName == "雪 | ねこ")
         let receiver = AppTestSupport.makeHarness(groups: [])

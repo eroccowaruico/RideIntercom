@@ -42,7 +42,7 @@ struct DirectCallTests {
         #expect(vm.activeGroupID == direct.id)
         #expect(vm.groups.contains { $0.id == direct.id })
         #expect(!vm.selectUser(user.id))
-        #expect(vm.selectedGroupInviteURL == nil)
+        #expect(vm.makeSelectedGroupInviteURL() == nil)
     }
 
     @Test func recipientBoundInviteIsSharedAndReusesSameCallOnBothSides() throws {
@@ -50,7 +50,7 @@ struct DirectCallTests {
         let b = try harness(local: "bob", remote: "alice")
         defer { a.viewModel.disconnect(); b.viewModel.disconnect() }
         #expect(a.viewModel.selectUser(try #require(a.viewModel.savedRemoteUsers.first).id))
-        let invite = try #require(a.viewModel.selectedGroupInviteURL)
+        let invite = try #require(a.viewModel.makeSelectedGroupInviteURL())
         let token = try GroupInviteTokenCodec.decodeJoinURL(invite)
         #expect(token.recipientMemberID == "bob")
         #expect(token.version == 5)
@@ -71,7 +71,7 @@ struct DirectCallTests {
         defer { a.viewModel.disconnect(); c.viewModel.disconnect() }
         #expect(a.viewModel.selectUser(try #require(a.viewModel.savedRemoteUsers.first).id))
         let before = c.groupStore.snapshot
-        let invite = try #require(a.viewModel.selectedGroupInviteURL)
+        let invite = try #require(a.viewModel.makeSelectedGroupInviteURL())
         #expect(throws: GroupInviteTokenError.wrongRecipient) { try c.viewModel.acceptInviteURL(invite) }
         #expect(c.groupStore.snapshot == before)
     }
@@ -95,8 +95,8 @@ struct DirectCallTests {
         defer { a.viewModel.disconnect(); b.viewModel.disconnect() }
         #expect(a.viewModel.selectUser(try #require(a.viewModel.savedRemoteUsers.first).id))
         #expect(b.viewModel.selectUser(try #require(b.viewModel.savedRemoteUsers.first).id))
-        let left = try #require(a.viewModel.selectedGroupInviteURL)
-        let right = try #require(b.viewModel.selectedGroupInviteURL)
+        let left = try #require(a.viewModel.makeSelectedGroupInviteURL())
+        let right = try #require(b.viewModel.makeSelectedGroupInviteURL())
         try a.viewModel.acceptInviteURL(right)
         try b.viewModel.acceptInviteURL(left)
         let id = try #require(a.viewModel.selectedGroup?.id)
@@ -186,7 +186,7 @@ struct DirectCallTests {
         let key = try #require(try vm.groupRepository.credential(for: id)).secret
         let groupInvite = try GroupInviteToken.make(authority: testInvitationAuthority(), signer: testIdentitySigner("bob"), groupID: id, groupName: "Direct Call", groupSecret: key, inviterMemberID: "bob")
         #expect(throws: GroupInviteTokenError.incompatibleCall) { try vm.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: groupInvite)) }
-        let token = try GroupInviteTokenCodec.decodeJoinURL(#require(vm.selectedGroupInviteURL))
+        let token = try GroupInviteTokenCodec.decodeJoinURL(#require(vm.makeSelectedGroupInviteURL()))
         let tampered = try GroupInviteToken(version: 5,
             groupID: IntercomGroup.directCallID(memberIDs: ["alice", "charlie"]), groupName: token.groupName,
             groupSecret: token.groupSecret, inviterMemberID: "alice", recipientMemberID: "charlie",

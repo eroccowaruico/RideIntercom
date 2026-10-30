@@ -48,7 +48,7 @@ struct AppleAccountTests {
         #expect(!old.viewModel.canStartAudioCheck)
         old.viewModel.connectLocal()
         #expect(old.callSession.connectedGroup == nil)
-        #expect(old.viewModel.selectedGroupInviteURL == nil)
+        #expect(old.viewModel.makeSelectedGroupInviteURL() == nil)
         #expect(!old.viewModel.setLocalDisplayName("Stale name"))
         let fresh = AppTestSupport.makeHarness(accountSession: f.session)
         defer { fresh.viewModel.disconnect() }
@@ -66,7 +66,7 @@ struct AppleAccountTests {
         defer { vm.disconnect() }
         let group = try #require(vm.groups.first)
         vm.selectGroup(group)
-        let invite = try #require(vm.selectedGroupInviteURL)
+        let invite = try #require(vm.makeSelectedGroupInviteURL())
         let before = h.groupStore.snapshot
         let previousSettings = settings.load()
         f.session.signOut()
