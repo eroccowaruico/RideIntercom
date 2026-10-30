@@ -54,6 +54,39 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testPersonalAndReceivedNamesCanBeEditedAndRestored() throws {
+        openSettingsTab()
+        let ownName = app.textFields["localDisplayNameField"]
+        XCTAssertTrue(ownName.waitForExistence(timeout: 3))
+        ownName.tap()
+        ownName.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (ownName.value as? String ?? "").count) + "Snow Cat")
+        app.buttons["saveLocalDisplayNameButton"].tap()
+        XCTAssertTrue(app.staticTexts["localDisplayNameSaved"].waitForExistence(timeout: 3))
+        try openSavedUserInvitation(inviter: "ui-name-rider", sharedName: "Mountain Rider")
+        openGroupsTab(); app.buttons["savedUsersButton"].tap()
+        let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 3)); edit.tap()
+        let original = app.descendants(matching: .any)["savedUserOriginalName"].firstMatch
+        XCTAssertTrue(original.waitForExistence(timeout: 3))
+        let name = app.textFields["savedUserNameField"]
+        name.tap(); name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String ?? "").count) + "Ski Friend")
+        app.buttons["saveUserNameButton"].tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 3)); edit.tap()
+        XCTAssertEqual(app.textFields["savedUserNameField"].value as? String, "Ski Friend")
+        XCTAssertTrue(original.waitForExistence(timeout: 3))
+        attachScreen("Local Alias and Original Shared Name")
+        let originalText = original.label + (original.value as? String ?? "") + original.staticTexts.allElementsBoundByIndex.map(\.label).joined()
+        XCTAssertTrue(originalText.contains("Mountain Rider"))
+        app.buttons["resetUserNameButton"].tap()
+        let user = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
+        XCTAssertTrue(user.waitForExistence(timeout: 3)); XCTAssertTrue(user.label.contains("Mountain Rider"))
+        app.buttons["closeSavedUsersButton"].tap()
+        app.terminate(); app.launch(); app.activate()
+        openSettingsTab()
+        XCTAssertTrue(ownName.waitForExistence(timeout: 3)); XCTAssertEqual(ownName.value as? String, "Snow Cat")
+    }
+
+    @MainActor
     func testSignOutEndsCallAndReturnsToAppleSignIn() throws {
         createTalkGroupAndOpenCall()
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
@@ -72,17 +105,22 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    private func openSavedUserInvitation(inviter: String) throws {
+    private func openSavedUserInvitation(inviter: String, sharedName: String? = nil) throws {
         let groupID = UUID()
         let secret = "ui-test-invitation-key"
         let issuedAt = Date().timeIntervalSince1970
-        let message = ["1", groupID.uuidString, "Talk Group", secret, inviter, String(format: "%.3f", issuedAt), ""].joined(separator: "|")
+        let version = sharedName == nil ? 1 : 3
+        var fields = [String(version), groupID.uuidString, "Talk Group", secret, inviter, String(format: "%.3f", issuedAt), ""]
+        if let sharedName { fields += ["", Data(sharedName.utf8).base64EncodedString()] }
+        let message = fields.joined(separator: "|")
         let signature = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: SymmetricKey(data: Data(secret.utf8)))
             .map { String(format: "%02x", $0) }.joined()
-        let token = try JSONSerialization.data(withJSONObject: [
-            "version": 1, "groupID": groupID.uuidString, "groupName": "Talk Group", "groupSecret": secret,
+        var object: [String: Any] = [
+            "version": version, "groupID": groupID.uuidString, "groupName": "Talk Group", "groupSecret": secret,
             "inviterMemberID": inviter, "issuedAt": issuedAt, "signature": signature
-        ])
+        ]
+        object["inviterDisplayName"] = sharedName
+        let token = try JSONSerialization.data(withJSONObject: object)
         let encoded = token.base64EncodedString().replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         app.open(try XCTUnwrap(URL(string: "rideintercom://join?token=\(encoded)")))
@@ -141,8 +179,9 @@ final class RideIntercomUITests: XCTestCase {
         app.terminate(); app.launch(); app.activate()
         openGroupsTab()
         app.buttons["savedUsersButton"].tap()
-        let toggle = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        let firstUser = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
+        XCTAssertTrue(firstUser.waitForExistence(timeout: 3))
+        let toggle = app.switches[firstUser.identifier]
         app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch.tap()
         let field = app.textFields["savedUserNameField"]
         XCTAssertTrue(field.waitForExistence(timeout: 3))

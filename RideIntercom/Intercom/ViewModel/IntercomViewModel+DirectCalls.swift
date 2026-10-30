@@ -6,7 +6,7 @@ extension IntercomViewModel {
 
     func callTitle(for group: IntercomGroup) -> String {
         guard group.kind == .direct else { return group.name }
-        return group.members.first { $0.id != localMemberIdentity.memberID }?.displayName ?? "Call"
+        return group.members.first { $0.id != localMemberIdentity.memberID }?.resolvedDisplayName ?? "Call"
     }
 
     var selectedCallTitle: String { selectedGroup.map(callTitle) ?? "Call" }
@@ -24,7 +24,7 @@ extension IntercomViewModel {
             return false
         }
         let members = [GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName),
-                       GroupMember(id: user.memberIDs[0], displayName: user.displayName)]
+                       GroupMember(id: user.memberIDs[0], displayName: user.displayName, localName: user.localName)]
         let id = IntercomGroup.directCallID(memberIDs: members.map(\.id))
         if let existing = groups.first(where: { $0.id == id }) {
             guard existing.kind == .direct else {

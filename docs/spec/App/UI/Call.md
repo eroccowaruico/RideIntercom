@@ -45,7 +45,7 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 
 Groupsの`Saved Users`（`savedUsersButton`）から標準Formを開く。名前入力（`savedUsersGroupNameField`）、ユーザー選択（`selectUser-{UUID}`）、`Create Group`（`saveUserSelectionButton`）で保存済みの相手を使うグループを作成する。`Cancel`（`closeSavedUsersButton`）では変更しない。
 
-鉛筆ボタン（`editUser-{UUID}`）は表示名編集を開き、`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
+鉛筆ボタン（`editUser-{UUID}`）は表示名編集を開き、本人名（`savedUserOriginalName`）も表示する。`Use Shared Name`（`resetUserNameButton`）で端末の呼び名を解除して最新の本人名へ戻せる。`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
 
 CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、参加にはInviteの共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
 
@@ -154,3 +154,7 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | createGroupButton | Create Talk Group | 保存読込に失敗している間は無効。鍵欠落・回収待ちだけなら他groupの利用を妨げない |
 
 resetでrider identity・音声設定・Internet資格は変更しない。退避失敗なら元データを保持してerrorを表示する。一般commandの待機上限超過はCallの案内から、停止完了後の明示Connectを促す。
+
+### グループ内の名前編集
+
+参加者名（`participantName{index}`）は名前編集ボタン。対象groupを固定したFormで、`groupMemberNameField`にこの端末の呼び名、`groupMemberOriginalName`に本人名を表示する。`saveGroupMemberNameButton`で保存、`resetGroupMemberNameButton`で本人名へ戻す。保存ユーザーなら一覧の呼び名も更新し、それ以外は対象groupだけへ保存する。編集を理由にユーザー登録・通知をしない。

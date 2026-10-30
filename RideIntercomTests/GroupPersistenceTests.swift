@@ -37,7 +37,7 @@ struct GroupPersistenceTests {
     @Test func decodedInviteRejectsUnsupportedVersionAndOversizedURL() throws {
         let token = try GroupInviteToken.make(groupID: UUID(), groupName: "Group", groupSecret: "shared", inviterMemberID: "remote")
         var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(token)) as? [String: Any])
-        json["version"] = 3
+        json["version"] = 99
         let data = try JSONSerialization.data(withJSONObject: json)
         let encoded = data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         let url = try #require(URL(string: "rideintercom://join?token=\(encoded)"))

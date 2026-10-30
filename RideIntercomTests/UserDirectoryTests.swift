@@ -169,7 +169,7 @@ struct UserDirectoryTests {
         let restarted = f.restart()
         #expect(try restarted.load(localMemberID: "local").map(\.id) == [group.id])
         #expect(try restarted.credential(for: group.id)?.secret == "key")
-        #expect(try f.file.read()?.version == 3)
+        #expect(try f.file.read()?.version == 4)
         let again = f.restart()
         _ = try again.load(localMemberID: "local")
         #expect(again.users == restarted.users)
@@ -226,15 +226,15 @@ struct UserDirectoryTests {
         try f.repository.save([first, second])
         let restarted = f.restart()
         let groups = try restarted.load(localMemberID: "local")
-        #expect(groups.allSatisfy { $0.members.last?.displayName == "Alex" })
+        #expect(groups.allSatisfy { $0.members.last?.resolvedDisplayName == "Alex" })
         #expect(try restarted.credential(for: first.id)?.secret == "key")
         f.store.failCommit = true
         #expect(throws: (any Error).self) { try restarted.renameUser(user.id, displayName: "Lost") }
-        #expect(restarted.users.first { $0.id == user.id }?.displayName == "Alex")
+        #expect(restarted.users.first { $0.id == user.id }?.resolvedDisplayName == "Alex")
         f.store.failCommit = false
         _ = try restarted.load(localMemberID: "local")
         try restarted.save([])
-        #expect(restarted.users.first { $0.id == user.id }?.displayName == "Alex")
+        #expect(restarted.users.first { $0.id == user.id }?.resolvedDisplayName == "Alex")
     }
 
     @Test func userSelectionCreatesGroupsAndAddsMembersWithoutAuthenticatingThem() throws {
@@ -252,12 +252,12 @@ struct UserDirectoryTests {
         #expect(vm.authenticatedPeerIDs.isEmpty)
         #expect(try vm.credential(for: created) != nil)
         #expect(vm.renameSavedUser(rider.id, displayName: "Alex"))
-        #expect(vm.selectedGroup?.members.last?.displayName == "Alex")
+        #expect(vm.selectedGroup?.members.last?.resolvedDisplayName == "Alex")
         vm.disconnect()
         #expect(vm.createTalkGroup())
         let solo = try #require(vm.groups.first)
         #expect(vm.addSavedUsers([rider.id], to: solo.id))
-        #expect(vm.selectedGroup?.members.last?.displayName == "Alex")
+        #expect(vm.selectedGroup?.members.last?.resolvedDisplayName == "Alex")
         #expect(!vm.addSavedUsers([rider.id], to: solo.id))
         #expect(!vm.createTalkGroup(userIDs: [UUID()]))
         #expect(vm.groups.count == 2)

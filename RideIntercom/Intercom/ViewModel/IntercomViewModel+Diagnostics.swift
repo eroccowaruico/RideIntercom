@@ -203,6 +203,7 @@ extension IntercomViewModel {
             groupName: selectedGroup.name,
             groupSecret: credential.secret,
             inviterMemberID: inviterMemberID,
+            inviterDisplayName: localMemberIdentity.displayName,
             recipientMemberID: recipient,
             expiresAt: Date().timeIntervalSince1970 + 7 * 24 * 60 * 60
         )

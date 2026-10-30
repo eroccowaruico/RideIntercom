@@ -26,7 +26,7 @@ struct GroupSelectionView: View {
                 Section {
                     ForEach(viewModel.savedRemoteUsers) { user in
                         Button { viewModel.selectUser(user.id) } label: {
-                            Label(user.displayName, systemImage: "person.crop.circle")
+                            Label(user.resolvedDisplayName, systemImage: "person.crop.circle")
                                 .frame(minHeight: 44)
                         }
                         .accessibilityHint("Opens your individual call with this user.")

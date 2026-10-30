@@ -220,7 +220,7 @@ extension IntercomViewModel {
             return
         }
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
-            let name = savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
+            let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             do {
                 try groupRepository.acceptInvitation(from: .init(id: token.inviterMemberID, displayName: name), to: token.groupID)
                 refreshGroupStorageStatus()
@@ -235,7 +235,7 @@ extension IntercomViewModel {
         }
         var members = [GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)]
         if token.inviterMemberID != localMemberIdentity.memberID {
-            let name = savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
+            let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             members.append(GroupMember(id: token.inviterMemberID, displayName: name))
         }
         let group = try IntercomGroup(

@@ -20,6 +20,14 @@ Settings はアカウントのサインアウト、通信経路、Audio Session�
 | Voice Activity設定 | `voiceActivityPanel` | 発話検出の感度を調整する | `VoiceActivityPanel` | 常時 | `Voice Activity` section |
 | 設定リセット | `resetSettingsPanel` | 調整値だけを既定へ戻す | `ResetSettingsPanel` | 常時 | 最下部 |
 
+## 自分の表示名
+
+| 項目 | ID | 操作 |
+|---|---|---|
+| Your name | `localDisplayNameField` | 本人が相手へ伝える名前を入力 |
+| Save Name | `saveLocalDisplayNameButton` | 前後空白を除き保存。通話を維持して参加者へ更新を送る |
+| 保存済み | `localDisplayNameSaved` | 保存成功を表示。再編集すると表示を消す |
+
 ## Communication
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 異常系の考え方 |

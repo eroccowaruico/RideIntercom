@@ -29,13 +29,13 @@ struct SavedUsersView: View {
                     }
                     ForEach(users) { user in
                         HStack {
-                            Toggle(user.displayName, isOn: Binding(
+                            Toggle(user.resolvedDisplayName, isOn: Binding(
                                 get: { selection.contains(user.id) },
                                 set: { if $0 { selection.insert(user.id) } else { selection.remove(user.id) } }
                             ))
                             .accessibilityIdentifier("selectUser-\(user.id)")
                             Button { editingUser = user } label: {
-                                Label("Edit \(user.displayName)", systemImage: "pencil")
+                                Label("Edit \(user.resolvedDisplayName)", systemImage: "pencil")
                                     .labelStyle(.iconOnly)
                                     .frame(minWidth: 44, minHeight: 44)
                             }
@@ -94,14 +94,22 @@ private struct SavedUserNameView: View {
 
     init(viewModel: IntercomViewModel, user: SavedUser) {
         self.viewModel = viewModel; self.user = user
-        _name = State(initialValue: user.displayName)
+        _name = State(initialValue: user.resolvedDisplayName)
     }
+
+    private var currentUser: SavedUser { viewModel.savedUsers.first { $0.id == user.id } ?? user }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Display name", text: $name).accessibilityIdentifier("savedUserNameField")
-                Text("This name is saved on this device and used in your groups.").font(.footnote)
+                TextField("Name on this device", text: $name).accessibilityIdentifier("savedUserNameField")
+                LabeledContent("Name shared by this person", value: currentUser.displayName)
+                    .accessibilityIdentifier("savedUserOriginalName")
+                Button("Use Shared Name") {
+                    if viewModel.resetSavedUserName(user.id) { dismiss() }
+                }
+                .accessibilityIdentifier("resetUserNameButton")
+                Text("Your name for this person stays on this device. Use Shared Name removes your edit and follows their name updates.").font(.footnote)
                 if let message = viewModel.groupErrorMessage { Text(message).foregroundStyle(AppColorPalette.danger) }
             }
             .navigationTitle("Edit User")

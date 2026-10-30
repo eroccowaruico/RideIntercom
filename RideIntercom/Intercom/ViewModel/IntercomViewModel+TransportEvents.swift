@@ -19,6 +19,7 @@ extension IntercomViewModel {
     }
 
     func sendStateMetadataSnapshot() {
+        sendSharedDisplayName(requestsReply: true)
         broadcastControl(.peerMuteState(isMuted: isMuted))
         broadcastMetadataKeepalive()
     }
@@ -92,6 +93,7 @@ extension IntercomViewModel {
             guard authenticatedPeerIDs.contains(peerID) else { return }
             remoteRuntimeStatuses[peerID] = status
         case .receivedApplicationData(let peerID, let message):
+            receiveSharedDisplayName(peerID: peerID, message: message)
             receiveInvitationReceipt(peerID: peerID, message: message)
         case .disconnected:
             networkDiagnostics = nil

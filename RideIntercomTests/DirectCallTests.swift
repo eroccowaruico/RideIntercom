@@ -53,7 +53,7 @@ struct DirectCallTests {
         let invite = try #require(a.viewModel.selectedGroupInviteURL)
         let token = try GroupInviteTokenCodec.decodeJoinURL(invite)
         #expect(token.recipientMemberID == "bob")
-        #expect(token.version == 2)
+        #expect(token.version == 3)
         try b.viewModel.acceptInviteURL(invite)
         #expect(b.viewModel.selectedGroup?.kind == .direct)
         let id = try #require(a.viewModel.selectedGroup?.id)
@@ -174,7 +174,7 @@ struct DirectCallTests {
         #expect(try restarted.load(localMemberID: "local").first?.kind == .group)
         #expect(restarted.users == users)
         #expect(try restarted.credential(for: group.id)?.secret == "key")
-        #expect(try f.file.read()?.version == 3)
+        #expect(try f.file.read()?.version == 4)
     }
 
     @Test func tamperedRecipientOrGroupKindCannotReinterpretExistingCall() throws {

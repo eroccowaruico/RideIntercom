@@ -52,6 +52,7 @@ struct LocalMicrophoneHeaderControl: View {
 }
 
 struct RemoteParticipantRowView: View {
+    @State private var editingGroup: IntercomGroup?
     @Bindable var viewModel: IntercomViewModel
     let index: Int
     let member: GroupMember
@@ -60,7 +61,12 @@ struct RemoteParticipantRowView: View {
         VStack(alignment: .leading, spacing: AppSpacing.l) {
             HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xl) {
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    Text(member.displayName)
+                    Button { editingGroup = viewModel.selectedGroup } label: {
+                        Label(member.resolvedDisplayName, systemImage: "pencil")
+                            .frame(minHeight: 44, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Edit name for \(member.resolvedDisplayName)")
                         .font(AppTypography.rowTitle)
                         .lineLimit(2)
                         .accessibilityIdentifier("participantName\(index)")
@@ -94,8 +100,11 @@ struct RemoteParticipantRowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .appCallCardStyle()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(member.displayName)
+        .accessibilityLabel(member.resolvedDisplayName)
         .accessibilityValue("\(statusSummary), \(codecLabel)")
+        .sheet(item: $editingGroup) { group in
+            GroupMemberNameView(viewModel: viewModel, groupID: group.id, member: member)
+        }
     }
 
     private var participantMeter: some View {
@@ -134,7 +143,7 @@ struct RemoteParticipantRowView: View {
                 ),
                 in: 0...1
             )
-            .accessibilityLabel("\(member.displayName) Output")
+            .accessibilityLabel("\(member.resolvedDisplayName) Output")
             .accessibilityValue(participantOutputPercentLabel)
             .accessibilityIdentifier("participantOutputSlider\(index)")
 
@@ -146,7 +155,7 @@ struct RemoteParticipantRowView: View {
                     Label("Voice Isolation", systemImage: "wand.and.sparkles")
                         .font(AppTypography.captionStrong)
                 }
-                .accessibilityLabel("\(member.displayName) Voice Isolation Effect")
+                .accessibilityLabel("\(member.resolvedDisplayName) Voice Isolation Effect")
                 .accessibilityValue(viewModel.isRemoteSoundIsolationEnabled(peerID: member.id) ? "Enabled" : "Bypassed")
                 .accessibilityIdentifier("participantVoiceIsolationToggle\(index)")
             }

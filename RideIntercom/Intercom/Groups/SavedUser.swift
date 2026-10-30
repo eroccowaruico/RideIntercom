@@ -6,4 +6,6 @@ struct SavedUser: Codable, Equatable, Identifiable {
     var id: UUID = UUID()
     var displayName: String
     var memberIDs: [String]
+    var localName: String?
+    var resolvedDisplayName: String { localName ?? displayName }
 }

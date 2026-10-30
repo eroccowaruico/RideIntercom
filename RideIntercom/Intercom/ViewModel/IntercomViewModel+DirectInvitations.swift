@@ -4,9 +4,10 @@ import RTC
 extension IntercomViewModel {
     func sendPendingInvitationReceipt() {
         guard canEditSavedGroups, let groupID = activeGroupID,
-              let receipt = groupRepository.pendingInvitation(for: groupID),
+              var receipt = groupRepository.pendingInvitation(for: groupID),
               receipt.inviteeMemberID == localMemberIdentity.memberID,
               authenticatedPeerIDs.contains(receipt.inviterMemberID) else { return }
+        receipt.displayName = localMemberIdentity.displayName
         sendInvitationReceipt(receipt)
     }
 

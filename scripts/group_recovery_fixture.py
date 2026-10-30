@@ -38,7 +38,7 @@ def prepare(directory):
 
 def verify(directory):
     manifest = json.loads((directory / 'groups.json').read_text())
-    if manifest.get('version') != 3 or manifest.get('groups') != [] or not isinstance(manifest.get('users'), list):
+    if manifest.get('version') != 4 or manifest.get('groups') != [] or not isinstance(manifest.get('users'), list):
         raise ValueError('Recovery did not commit a valid empty group manifest')
     archives = list(directory.glob('groups-corrupt-*.json'))
     if not any(path.read_bytes() == CORRUPT for path in archives):

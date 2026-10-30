@@ -232,7 +232,7 @@ struct ReceivePipelinePresentation {
                 let effectChain = input.receivePeerEffectChainSnapshot(peerID: member.id)
                 return ReceivePeerBusSnapshot(
                     id: member.id,
-                    displayName: member.displayName,
+                    displayName: member.resolvedDisplayName,
                     receivedFrameCount: member.receivedAudioPacketCount,
                     queuedFrameCount: member.queuedAudioFrameCount,
                     playedFrameCount: member.playedAudioFrameCount,

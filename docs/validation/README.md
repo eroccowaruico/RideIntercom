@@ -1,5 +1,25 @@
 # 検証状況と証跡
 
+## 本人名と端末内の呼び名を分離（2026-10-31）
+
+本人名をSettingsから保存し、署名付き招待と認証済みgroupの暗号化application dataで共有する。受取側は本人名を保持したまま呼び名を編集し、Use Shared Nameで最新の本人名へ戻せる。保存ユーザーは一覧と所属groupで共通、直接招待関係のない相手は対象group内だけに保持する。名前編集で通話を切ったり、ID・鍵・ユーザー登録・通知権限を変えたりしない。契約は[名前の仕様](../spec/App/通信仕様.md#本人名と端末内の呼び名)、操作は[使い方](../manual/使い方.md#グループを作る参加する)を参照する。
+
+証跡は`.validation/display-names-delivery/`に保持する。
+
+| 検証 | 結果と証跡 |
+|---|---|
+| iOS App・UI | 最終コードでApp198件と名前編集・復元、保存ユーザー再利用、個別通話のUI3件、計201件成功。失敗・skip・runtime warningなし。`names-ios-verified/ios-tests.xcresult` |
+| 画面 | `names-ui-view/`で本人名と端末内呼び名の同時表示、Use Shared Nameを目視確認。UI操作で変更・復元・再起動後の本人名保持を確認 |
+| macOS App | 製品・App testの最終コードで198件成功、失敗・skip・runtime warningなし。`names-macos-final/macos-tests.xcresult`。隔離hostのみsandbox無効、通常署名・実画面は別受入 |
+| 名前の境界 | 新規6件で本人名保存・ID維持、通話中の更新、再起動、別名維持と最新本人名への復元、group内限定、未認証・別group・不正名の拒否、署名付き招待・改ざん拒否、保存失敗時の元bytes保持を確認 |
+| ソースと資源 | 最終iOS検証中のApp・test 116 Swiftファイルのhash一致を確認。Mac検証後の変更はUIテストの要素選択だけで、製品・unit testソースは同一。管理Simulatorを再利用してShutdownし、所有Mac hostの終了を確認 |
+| 保存復旧fixture | schema 4へ追従した検証補助の5件成功。`names-recovery-fixture.log`。本実行では復旧画面UIの再実行は含めない |
+| 文書 | リンク・Settings網羅・差分検査が成功。`names-documentation.log` |
+
+未実装による赤テスト、追加した招待versionに対する旧期待値の失敗、UIのラベル集約と複数ユーザー時の対象選択による失敗も保持する。UIは元の名前が存在することと対象IDを検証する形へ修正し、最終201件で確認した。
+
+保存形式はschema 4、Appが発行する招待は本人名を含むversion 3へ更新した。旧版へ戻す場合にこれらの新形式を開けるとは扱わない。新しいサーバー保存は追加せず、packageとserverコードは変更していない。実端末、実Apple認証、実Cloudflare、独立音声E2Eの再測定は今回の対象外。AppIntents未使用のmetadata抽出省略warningは既存のまま。全体`all --clean`の完了記録ではない。
+
 ## Apple認証とInternet端末資格のApp連携（2026-10-30）
 
 Settingsからserver nonce取得、同じAppleユーザーのnative認証、端末資格のKeychain保存まで接続した。サインアウト時は通話を止め、古い資格を端末側で使用禁止にしてからserver失効を試みる。通信・Keychain失敗時は資格を復元せず、次にInternet設定を開いた際に失効を再試行する。保存失敗やキャンセル後に届いた不要な資格も失効を試みる。現在の契約は[App通信仕様](../spec/App/通信仕様.md#appleログインと端末内データ)、操作は[設定と音声効果](../manual/設定と音声効果.md)を参照する。

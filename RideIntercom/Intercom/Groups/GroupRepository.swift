@@ -23,7 +23,7 @@ final class GroupRepository {
         do {
             var current = try store.read() ?? migrate(localMemberID: localMemberID)
             _ = try validateIdentity(current, localMemberID: localMemberID)
-            if current.version < 3 {
+            if current.version < 4 {
                 current = current.upgraded()
                 try store.commit(current)
                 guard try store.read() == current else { throw GroupStorageError.verificationFailed }
@@ -90,8 +90,49 @@ final class GroupRepository {
         guard let snapshot, let index = snapshot.users.firstIndex(where: { $0.id == id }),
               IntercomGroup.isValidName(displayName) else { throw GroupStorageError.invalidUpdate }
         var users = snapshot.users
-        users[index].displayName = displayName
+        users[index].localName = displayName
         try update(snapshot.groups.map { try $0.group() }, credential: nil, users: users)
+    }
+
+    func resetUserName(_ id: UUID) throws {
+        guard let snapshot, let index = snapshot.users.firstIndex(where: { $0.id == id }) else { throw GroupStorageError.invalidUpdate }
+        var users = snapshot.users
+        users[index].localName = nil
+        try update(snapshot.groups.map { try $0.group() }, credential: nil, users: users)
+    }
+
+    func storedMembers(in groupID: UUID) -> [GroupSnapshot.Member] {
+        snapshot?.groups.first { $0.id == groupID }?.members ?? []
+    }
+
+    func setMemberName(_ memberID: String, in groupID: UUID, localName: String?) throws {
+        guard let snapshot, memberID != self.localMemberID,
+              let index = snapshot.groups.firstIndex(where: { $0.id == groupID }),
+              let member = snapshot.groups[index].members.firstIndex(where: { $0.id == memberID }),
+              localName.map(IntercomGroup.isValidName) ?? true else { throw GroupStorageError.invalidUpdate }
+        if let user = snapshot.users.first(where: { $0.memberIDs.contains(memberID) }) {
+            if let localName { try renameUser(user.id, displayName: localName) } else { try resetUserName(user.id) }
+            return
+        }
+        var groups = try snapshot.groups.map { try $0.group() }
+        groups[index].members[member].localName = localName
+        try update(groups, credential: nil)
+    }
+
+    func receiveDisplayName(_ name: String, from memberID: String, in groupID: UUID) throws {
+        guard let snapshot, memberID != localMemberID, IntercomGroup.isValidName(name),
+              let index = snapshot.groups.firstIndex(where: { $0.id == groupID }),
+              let member = snapshot.groups[index].members.firstIndex(where: { $0.id == memberID }) else { throw GroupStorageError.invalidUpdate }
+        var groups = try snapshot.groups.map { try $0.group() }
+        var users = snapshot.users
+        if let user = users.firstIndex(where: { $0.memberIDs.contains(memberID) }) {
+            guard users[user].displayName != name else { return }
+            users[user].displayName = name
+        } else {
+            guard groups[index].members[member].displayName != name else { return }
+            groups[index].members[member].displayName = name
+        }
+        try update(groups, credential: nil, users: users)
     }
 
     func removeUser(_ id: UUID) throws {
@@ -113,7 +154,10 @@ final class GroupRepository {
     }
 
     private static func remember(_ member: GroupMember, in snapshot: inout GroupSnapshot) {
-        guard !snapshot.users.contains(where: { $0.memberIDs.contains(member.id) }) else { return }
+        if let index = snapshot.users.firstIndex(where: { $0.memberIDs.contains(member.id) }) {
+            snapshot.users[index].displayName = member.displayName
+            return
+        }
         snapshot.users.append(SavedUser(displayName: member.displayName, memberIDs: [member.id]))
     }
 

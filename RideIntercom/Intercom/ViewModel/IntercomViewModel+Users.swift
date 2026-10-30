@@ -4,7 +4,7 @@ extension IntercomViewModel {
     var savedRemoteUsers: [SavedUser] {
         savedUsers.filter { !$0.memberIDs.contains(localMemberIdentity.memberID) }
             .sorted {
-                let order = $0.displayName.localizedStandardCompare($1.displayName)
+                let order = $0.resolvedDisplayName.localizedStandardCompare($1.resolvedDisplayName)
                 return order == .orderedSame ? $0.id.uuidString < $1.id.uuidString : order == .orderedAscending
             }
     }
@@ -20,7 +20,7 @@ extension IntercomViewModel {
             groupErrorMessage = "Some selected users are no longer available. Reload the user list and try again."
             return nil
         }
-        return users.flatMap { user in user.memberIDs.map { GroupMember(id: $0, displayName: user.displayName) } }
+        return users.flatMap { user in user.memberIDs.map { GroupMember(id: $0, displayName: user.displayName, localName: user.localName) } }
     }
 
     @discardableResult
@@ -74,10 +74,17 @@ extension IntercomViewModel {
     }
 
     func applySavedUserNames() {
-        let names = Dictionary(uniqueKeysWithValues: savedUsers.flatMap { user in user.memberIDs.map { ($0, user.displayName) } })
         for index in groups.indices {
+            let stored = groupRepository.storedMembers(in: groups[index].id)
             for member in groups[index].members.indices {
-                if let name = names[groups[index].members[member].id] { groups[index].members[member].displayName = name }
+                let id = groups[index].members[member].id
+                if id == localMemberIdentity.memberID {
+                    groups[index].members[member].displayName = localMemberIdentity.displayName
+                    groups[index].members[member].localName = nil
+                } else if let name = stored.first(where: { $0.id == id }) {
+                    groups[index].members[member].displayName = name.displayName
+                    groups[index].members[member].localName = name.localName
+                }
             }
         }
         if let id = selectedGroup?.id { selectedGroup = groups.first { $0.id == id } }

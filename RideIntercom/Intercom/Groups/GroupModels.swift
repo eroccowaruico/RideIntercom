@@ -5,6 +5,8 @@ struct GroupMember: Identifiable, Equatable, Hashable, Codable {
     static let pendingInvitePrefix = "invite-pending-"
     let id: String
     var displayName: String
+    var localName: String?
+    var resolvedDisplayName: String { localName ?? displayName }
     var isMuted: Bool
     var isTalking: Bool
     var voiceLevel: Float
@@ -19,6 +21,7 @@ struct GroupMember: Identifiable, Equatable, Hashable, Codable {
     init(
         id: String,
         displayName: String,
+        localName: String? = nil,
         isMuted: Bool = false,
         isTalking: Bool = false,
         voiceLevel: Float = 0,
@@ -32,6 +35,7 @@ struct GroupMember: Identifiable, Equatable, Hashable, Codable {
     ) {
         self.id = id
         self.displayName = displayName
+        self.localName = localName
         self.isMuted = isMuted
         self.isTalking = isTalking
         self.voiceLevel = voiceLevel
@@ -180,7 +184,7 @@ struct IntercomGroup: Identifiable, Equatable {
             throw IntercomGroupError.invalidMemberCount
         }
         guard Self.isValidName(name), Set(members.map(\.id)).count == members.count,
-              members.allSatisfy({ Self.isValidMemberID($0.id) && Self.isValidName($0.displayName) }) else {
+              members.allSatisfy({ Self.isValidMemberID($0.id) && Self.isValidName($0.displayName) && ($0.localName.map(Self.isValidName) ?? true) }) else {
             throw IntercomGroupError.invalidIdentity
         }
         if kind == .direct {
@@ -205,13 +209,13 @@ struct IntercomGroup: Identifiable, Equatable {
                            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
     }
 
-    static func isValidMemberID(_ value: String) -> Bool {
+    nonisolated static func isValidMemberID(_ value: String) -> Bool {
         (1...63).contains(value.utf8.count) && value.utf8.allSatisfy {
             (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95
         }
     }
 
-    static func isValidName(_ value: String) -> Bool {
+    nonisolated static func isValidName(_ value: String) -> Bool {
         !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && value.utf8.count <= 320
             && !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
     }

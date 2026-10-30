@@ -144,7 +144,8 @@ final class IntercomViewModel {
     let callTicker: CallTicking
     let groupRepository: GroupRepository
     let appSettingsStore: AppSettingsStoring
-    let localMemberIdentity: LocalMemberIdentity
+    var localMemberIdentity: LocalMemberIdentity
+    let localMemberIdentityStore: LocalMemberIdentityStoring
     let remoteTalkerTimeout: TimeInterval
     var inputFrameDelivery: AudioFrameDelivery?
     let audioPipeline: AppAudioPipeline
@@ -245,6 +246,7 @@ final class IntercomViewModel {
             self.internetCheckMessage = "Device token configured. Service not checked."
         }
         self.localMemberIdentity = localMemberIdentity
+        self.localMemberIdentityStore = localMemberIdentityStore
         self.audioSessionSnapshot = (try? sessionManager.snapshot()) ?? Self.defaultAudioSessionSnapshot()
         self.remoteTalkerTimeout = remoteTalkerTimeout
         self.audioSessionProfile = appSettings.audioSessionProfile

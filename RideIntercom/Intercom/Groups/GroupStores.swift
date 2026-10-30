@@ -7,6 +7,7 @@ struct LocalMemberIdentity: Equatable {
 
 protocol LocalMemberIdentityStoring: AnyObject {
     func loadOrCreate() -> LocalMemberIdentity
+    func saveDisplayName(_ displayName: String)
 }
 
 
@@ -26,6 +27,8 @@ final class UserDefaultsLocalMemberIdentityStore: LocalMemberIdentityStoring {
         self.makeID = makeID
         self.defaultDisplayName = defaultDisplayName
     }
+
+    func saveDisplayName(_ displayName: String) { defaults.set(displayName, forKey: displayNameKey) }
 
     func loadOrCreate() -> LocalMemberIdentity {
         let storedMemberID = defaults.string(forKey: memberIDKey)

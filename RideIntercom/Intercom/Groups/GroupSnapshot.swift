@@ -6,6 +6,7 @@ struct GroupSnapshot: Codable, Equatable {
         var id: String
         var displayName: String
         var userID: UUID?
+        var localName: String?
     }
     struct Record: Codable, Equatable {
         var id: UUID
@@ -18,7 +19,7 @@ struct GroupSnapshot: Codable, Equatable {
 
         init(_ group: IntercomGroup, credentialReference: UUID? = nil) {
             id = group.id; name = group.name
-            members = group.members.map { Member(id: $0.id, displayName: $0.displayName) }
+            members = group.members.map { Member(id: $0.id, displayName: $0.displayName, localName: $0.localName) }
             self.credentialReference = credentialReference
             kind = group.kind
         }
@@ -37,10 +38,10 @@ struct GroupSnapshot: Codable, Equatable {
             receivedInvitationIDs = try values.decodeIfPresent([UUID].self, forKey: .receivedInvitationIDs) ?? []
         }
         func group() throws -> IntercomGroup {
-            try IntercomGroup(id: id, name: name, members: members.map { GroupMember(id: $0.id, displayName: $0.displayName) }, kind: kind ?? .group)
+            try IntercomGroup(id: id, name: name, members: members.map { GroupMember(id: $0.id, displayName: $0.displayName, localName: $0.localName) }, kind: kind ?? .group)
         }
     }
-    var version = 3
+    var version = 4
     var generation = UUID()
     var groups: [Record] = []
     var users: [SavedUser] = []
@@ -64,9 +65,9 @@ struct GroupSnapshot: Codable, Equatable {
     }
 
     func upgraded() -> GroupSnapshot {
-        guard version < 3 else { return self }
+        guard version < 4 else { return self }
         var records = groups
-        for index in records.indices { records[index].kind = .group }
+        if version < 3 { for index in records.indices { records[index].kind = .group } }
         return GroupSnapshot(groups: records, users: users)
     }
 
@@ -79,15 +80,18 @@ struct GroupSnapshot: Codable, Equatable {
                 // Group presence is not a direct invitation. Keep group metadata
                 // without copying unrelated riders into the address book.
                 groups[groupIndex].members[index].userID = directory[member.id]?.id
-                if let user = directory[member.id] { groups[groupIndex].members[index].displayName = user.displayName }
+                if let user = directory[member.id] {
+                    groups[groupIndex].members[index].displayName = user.displayName
+                    groups[groupIndex].members[index].localName = user.localName
+                }
             }
         }
     }
 
     func validated() throws -> GroupSnapshot {
-        guard (1...3).contains(version) else { throw GroupStorageError.unsupportedVersion }
-        guard version != 3 || groups.allSatisfy({ $0.kind != nil }) else { throw IntercomGroupError.invalidStoredGroups }
-        guard version == 3 || groups.allSatisfy({ $0.kind == nil || $0.kind == .group }) else { throw IntercomGroupError.invalidStoredGroups }
+        guard (1...4).contains(version) else { throw GroupStorageError.unsupportedVersion }
+        guard version < 3 || groups.allSatisfy({ $0.kind != nil }) else { throw IntercomGroupError.invalidStoredGroups }
+        guard version >= 3 || groups.allSatisfy({ $0.kind == nil || $0.kind == .group }) else { throw IntercomGroupError.invalidStoredGroups }
         guard groups.count <= 256, Set(groups.map(\.id)).count == groups.count else { throw IntercomGroupError.invalidStoredGroups }
         let references = groups.compactMap(\.credentialReference)
         guard Set(references).count == references.count else { throw IntercomGroupError.invalidStoredGroups }
@@ -103,14 +107,14 @@ struct GroupSnapshot: Codable, Equatable {
             let memberIDs = users.flatMap(\.memberIDs)
             guard Set(users.map(\.id)).count == users.count,
                   Set(memberIDs).count == memberIDs.count,
-                  users.allSatisfy({ IntercomGroup.isValidName($0.displayName) && !$0.memberIDs.isEmpty }),
+                  users.allSatisfy({ IntercomGroup.isValidName($0.displayName) && ($0.localName.map(IntercomGroup.isValidName) ?? true) && !$0.memberIDs.isEmpty }),
                   memberIDs.allSatisfy({ IntercomGroup.isValidMemberID($0) && !$0.hasPrefix(GroupMember.pendingInvitePrefix) })
             else { throw IntercomGroupError.invalidStoredGroups }
             let directory = Dictionary(uniqueKeysWithValues: users.flatMap { user in user.memberIDs.map { ($0, user) } })
             guard groups.flatMap(\.members).allSatisfy({
                 if $0.id.hasPrefix(GroupMember.pendingInvitePrefix) { return $0.userID == nil }
                 if $0.userID == nil { return directory[$0.id] == nil }
-                return directory[$0.id]?.displayName == $0.displayName && directory[$0.id]?.id == $0.userID
+                return directory[$0.id]?.displayName == $0.displayName && directory[$0.id]?.id == $0.userID && directory[$0.id]?.localName == $0.localName
             }) else { throw IntercomGroupError.invalidStoredGroups }
         }
         return self
@@ -125,7 +129,7 @@ struct GroupSnapshot: Codable, Equatable {
         guard bytes.count <= 1_048_576 else { throw IntercomGroupError.invalidStoredGroups }
         // Inspect the version first, even when a future schema has different fields.
         struct Header: Decodable { let version: Int }
-        guard (1...3).contains(try JSONDecoder().decode(Header.self, from: bytes).version) else { throw GroupStorageError.unsupportedVersion }
+        guard (1...4).contains(try JSONDecoder().decode(Header.self, from: bytes).version) else { throw GroupStorageError.unsupportedVersion }
         do {
             return try JSONDecoder().decode(Self.self, from: bytes).validated()
         } catch is IntercomGroupError {
