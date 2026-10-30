@@ -64,16 +64,22 @@ public struct AACELDv2Options: Codable, Equatable, Sendable {
 }
 
 public struct OpusOptions: Codable, Equatable, Sendable {
-    public static let allowedBitRateRange: ClosedRange<Int> = 6_000...128_000
+    // The native low-delay encoder needs this floor to preserve short waveform
+    // detail, including quantized microphone input, at the supported rates.
+    public static let allowedBitRateRange: ClosedRange<Int> = 48_000...128_000
 
-    public var bitRate: Int
-
-    public init(bitRate: Int = 32_000) {
-        self.bitRate = Self.clamp(bitRate, Self.allowedBitRateRange)
+    public var bitRate: Int {
+        didSet { bitRate = min(max(bitRate, Self.allowedBitRateRange.lowerBound), Self.allowedBitRateRange.upperBound) }
     }
 
-    private static func clamp(_ value: Int, _ range: ClosedRange<Int>) -> Int {
-        min(max(value, range.lowerBound), range.upperBound)
+    public init(bitRate: Int = 48_000) {
+        self.bitRate = min(max(bitRate, Self.allowedBitRateRange.lowerBound), Self.allowedBitRateRange.upperBound)
+    }
+
+    private enum CodingKeys: String, CodingKey { case bitRate }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(bitRate: try values.decode(Int.self, forKey: .bitRate))
     }
 }
 

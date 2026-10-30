@@ -21,7 +21,7 @@ func silenceSuspensionPreservesQuietRepliesAndStopsSending(setting: (CodecIdenti
     let (codec, rate) = setting
     let format = AudioFormat(sampleRate: rate, channelCount: 1)
     let configuration = CodecEncodingConfiguration(codec: codec, format: format,
-        aacELDv2Options: .init(bitRate: 48000), opusOptions: .init(bitRate: 32000))
+        aacELDv2Options: .init(bitRate: 48000), opusOptions: .init(bitRate: 48000))
     let encoder = try StreamingCodecEncoder(configuration: configuration, suppressesSilence: true)
     let continuous = try StreamingCodecEncoder(configuration: configuration)
     let decoder = StreamingCodecDecoder()
@@ -82,8 +82,8 @@ func silenceSuspensionPreservesQuietRepliesAndStopsSending(setting: (CodecIdenti
     print("silence budget \(codec) \(rate): \(bytes)/\(continuousBytes) bytes, \(packets) packets")
 }
 
-@Test(arguments: [(CodecIdentifier.pcm16, 48000.0, 32000), (.opus, 48000, 32000),
-    (.opus, 24000, 16000), (.opus, 16000, 24000), (.mpeg4AACELD, 48000, 32000),
+@Test(arguments: [(CodecIdentifier.pcm16, 48000.0, 32000), (.opus, 48000, 48000),
+    (.opus, 24000, 64000), (.opus, 16000, 128000), (.mpeg4AACELD, 48000, 32000),
     (.mpeg4AACELD, 48000, 64000), (.mpeg4AACELD, 24000, 32000), (.mpeg4AACELD, 16000, 32000)])
 func conversationKeepsBriefRepliesAndOneToThreeSecondPauses(setting: (CodecIdentifier, Double, Int)) throws {
     let (codec, rate, bitRate) = setting

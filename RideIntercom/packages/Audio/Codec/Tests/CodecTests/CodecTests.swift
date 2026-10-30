@@ -16,7 +16,7 @@ import Testing
     #expect(configuration.codec == .pcm16)
     #expect(configuration.format == AudioFormat(sampleRate: 48_000, channelCount: 1))
     #expect(configuration.aacELDv2Options.bitRate == 32_000)
-    #expect(configuration.opusOptions.bitRate == 32_000)
+    #expect(configuration.opusOptions.bitRate == 48_000)
 }
 
 @Test func runtimeReportKeepsRequestedAndSelectedCodecInformationInPackage() {
@@ -34,7 +34,7 @@ import Testing
 @Test func codecSpecificOptionsClampBitRates() {
     #expect(AACELDv2Options(bitRate: 1_000).bitRate == 12_000)
     #expect(AACELDv2Options(bitRate: 256_000).bitRate == 128_000)
-    #expect(OpusOptions(bitRate: 1_000).bitRate == 6_000)
+    #expect(OpusOptions(bitRate: 1_000).bitRate == 48_000)
     #expect(OpusOptions(bitRate: 256_000).bitRate == 128_000)
 }
 
@@ -50,7 +50,7 @@ func opusBitRateChangesEncodedAudioRatherThanOnlyPacketMetadata(rate: Double) th
         try CodecEncoder(configuration: .init(codec: .opus, format: format,
             opusOptions: .init(bitRate: bitRate))).encode(pcm)
     }
-    let low = try encode(6_000), high = try encode(128_000)
+    let low = try encode(48_000), high = try encode(128_000)
     #expect(high.payload.count > low.payload.count)
     #expect(try CodecDecoder().decode(low).samples.count == samples.count)
     #expect(try CodecDecoder().decode(high).samples.count == samples.count)
@@ -244,4 +244,13 @@ func opusRoundTripPreservesSpeechAtTheEndOfEachPacket(sampleRate: Double) throws
     #expect(output.count == count)
     #expect(output.suffix(tail).contains { abs($0) > 0.1 },
         "Encoder priming must not replace the end of every speech packet")
+}
+
+@Test func opusQualityFloorAppliesToDecodedAndChangedSettings() throws {
+    var options = try JSONDecoder().decode(OpusOptions.self, from: Data(#"{"bitRate":16000}"#.utf8))
+    #expect(options.bitRate == 48_000)
+    options.bitRate = 32_000
+    #expect(options.bitRate == 48_000)
+    options.bitRate = 64_000
+    #expect(options.bitRate == 64_000)
 }

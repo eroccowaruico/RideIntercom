@@ -65,14 +65,19 @@ func continuousToneHasNoPacketBoundaryClicks(codec: CodecIdentifier) throws {
     #expect(jumps.max() ?? 1 < 0.04, "A 440 Hz sine at 0.3 amplitude has steps below 0.018; a packet seam must not create a click")
 }
 
-@Test(arguments: (0..<12).map { Double($0) * .pi / 6 }, [0.074, 0.075, 0.076])
-func opusSteadyToneDoesNotIntroduceShortBursts(phase: Double, amplitude: Double) throws {
-    let encoder = try StreamingCodecEncoder(configuration: .init(codec: .opus, opusOptions: .init(bitRate: 32000)))
+@Test(arguments: (0..<12).map { Double($0) * .pi / 6 },
+    [0.074, 0.075, 0.076].flatMap { amplitude in [false, true].map { (amplitude, $0) } })
+func opusSteadyToneDoesNotIntroduceShortBursts(phase: Double, input: (Double, Bool)) throws {
+    let (amplitude, quantized) = input
+    let encoder = try StreamingCodecEncoder(configuration: .init(codec: .opus, opusOptions: .init(bitRate: 48000)))
     let decoder = StreamingCodecDecoder()
     var output: [Double] = []
     var codecBytes = 0
     for index in 0..<200 {
-        let samples = (0..<480).map { Float(amplitude * sin(Double(index * 480 + $0) * 2 * .pi * 600 / 48000 + phase)) }
+        let samples = (0..<480).map {
+            let value = amplitude * sin(Double(index * 480 + $0) * 2 * .pi * 600 / 48000 + phase)
+            return Float(quantized ? (value * 32768).rounded() / 32768 : value)
+        }
         if let packet = try encoder.encode(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100, samples: samples)) {
             codecBytes += try CompressedPayloadEnvelope.decode(packet.payload, expectedCodec: .opus).data.count
             output += try decoder.decode(packet).samples.map { Double($0) / sqrt(2) }
@@ -94,8 +99,8 @@ func opusSteadyToneDoesNotIntroduceShortBursts(phase: Double, amplitude: Double)
     #expect(signal.count >= 80000)
     #expect(hypot(sine, cosine) >= 0.012)
     #expect(maximum <= 0.006, "Opus must not create an audible short burst in a stationary signal")
-    #expect(codecBytes * 8 <= 40000 * 2,
-        "Constrained variable bitrate must not silently raise the 32 kbps stream target without bound")
+    #expect(codecBytes * 8 <= 60000 * 2,
+        "Constrained variable bitrate must keep the 48 kbps target within its short-stream reservoir budget")
 }
 
 @Test(arguments: [16000.0, 24000.0, 48000.0])
