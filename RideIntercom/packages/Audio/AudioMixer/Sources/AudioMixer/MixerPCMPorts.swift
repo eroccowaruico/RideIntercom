@@ -109,7 +109,8 @@ public final class MixerPCMSource {
                 // handoff allowance. A fixed 2 ms can be shorter than one block.
                 let nativeLead = adaptivePlayout && playerNode.engine?.isInManualRenderingMode == false
                     ? AVAudioFramePosition(renderClock.frameCount.load(ordering: .relaxed)) * 2 : 0
-				let delayedStart = rendered + max(nativeLead, AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded()))
+                let boundedLead = min(nativeLead, AVAudioFramePosition((limit * mixerFormat.sampleRate).rounded(.down)) - 1)
+				let delayedStart = rendered + max(boundedLead, AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded()))
 				if playoutAnchor == nil { playoutAnchor = (capturedAt, delayedStart) }
 				let anchor = playoutAnchor!
 				var target = Double(anchor.sample) + (capturedAt - anchor.capturedAt) * mixerFormat.sampleRate

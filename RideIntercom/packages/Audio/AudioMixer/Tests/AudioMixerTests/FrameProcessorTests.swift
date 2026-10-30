@@ -50,6 +50,8 @@ import Testing
     try processor.bus.addEffect(effect, id: "isolation", bypassed: true)
     try processor.start()
     defer { processor.stop() }
+    #expect(processor.bus.processingLatency == 0)
+    #expect(!effect.auAudioUnit.renderResourcesAllocated, "Disabled SoundIsolation must not allocate a native render chain")
     effect.bypass = false
     try processor.bus.setEffectBypassed(id: "isolation", bypassed: false)
     #expect(processor.bus.processingLatency > 0, "The caller needs initialized native latency to bound the transition")
