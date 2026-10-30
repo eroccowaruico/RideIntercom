@@ -51,12 +51,14 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     let output = try #require(AVAudioPCMBuffer(pcmFormat: mixer.format, frameCapacity: 4800))
     #expect(try mixer.engine.renderOffline(4800, to: output) == .success)
     let samples = try #require(output.floatChannelData)[0]
+    let reference = rate == 44100 ? try nativeFractionalReference(
+        (0..<Int(rate / 10)).map { Float(0.1 + Double($0) / rate * 0.7) }, from: rate, to: 48000) : nil
     var error: Float = 0
     for index in 0..<4700 {
-        let expected = Float(0.1 + Double(index) / 48000.0 * 0.7)
+        let expected = reference?[index] ?? Float(0.1 + Double(index) / 48000.0 * 0.7)
         error = max(error, abs(samples[index + 96] - expected))
     }
-    #expect(error < 0.000001, "A linear signal must stay linear across every received packet boundary")
+    #expect(error < 0.000001, "Every received packet boundary must match uninterrupted conversion, including native filter startup")
     #expect(source.playbackResetCount == 0)
 }
 

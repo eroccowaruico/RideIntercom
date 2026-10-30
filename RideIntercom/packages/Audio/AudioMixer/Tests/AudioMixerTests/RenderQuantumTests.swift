@@ -126,7 +126,9 @@ func testDelayedQuietBurstDoesNotCutTheReturningFade() async throws {
     defer { mixer.stop() }
     let start = ContinuousClock.now
     var expected: [Float] = []
-    for index in 0..<200 {
+    let hostStart = ProcessInfo.processInfo.systemUptime
+    var arrivals: [(index: Int, late: Double, buffered: Double, adjustments: Int)] = []
+    for index in 0..<1000 {
         // A sender pauses for a native settings change, then delivers the
         // accumulated quiet packets. Speech resumes after that quiet burst.
         let position = index % 50
@@ -140,6 +142,8 @@ func testDelayedQuietBurstDoesNotCutTheReturningFade() async throws {
         }
         expected.append(contentsOf: samples.filter { $0 > 0 })
         try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: 100 + Double(index) * 0.01, samples: samples))
+        arrivals.append((index, ProcessInfo.processInfo.systemUptime - hostStart - Double(index) / 100,
+                         source.bufferedDuration, source.playoutAdjustmentCount))
     }
     try await Task.sleep(for: .milliseconds(150))
     let samples = received.snapshot.flatMap(\.samples)
@@ -147,6 +151,15 @@ func testDelayedQuietBurstDoesNotCutTheReturningFade() async throws {
     XCTAssertEqual(voiced.count, expected.count, "Every fade and voiced sample must survive delayed silence")
     XCTAssertTrue(zip(voiced, expected).allSatisfy { abs($0 - $1) < 0.00001 })
     let gaps = zip(samples, samples.dropFirst()).enumerated().filter { abs($0.element.0 - $0.element.1) >= 0.003 }
+    if !gaps.isEmpty {
+        let firstRender = (received.snapshot.first?.capturedAt ?? 0) - hostStart
+        let moments = gaps.prefix(20).map { Double($0.offset) / 48000 + firstRender }
+        let nearby = arrivals.filter { arrival in
+            moments.contains { abs(Double(arrival.index) / 100 - $0) < 0.1 }
+        }
+        print("Native pause arrivals near gaps: \(nearby)")
+        print("Native pause first render: \(firstRender)")
+    }
     XCTAssertTrue(gaps.isEmpty, "Unexpected render edges: \(gaps.prefix(20).map { ($0.offset, $0.element.0, $0.element.1) })")
     XCTAssertEqual(source.playbackResetCount, 0)
 }

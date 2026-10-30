@@ -85,6 +85,7 @@ public final class MixerPCMSource {
 			let position = playbackPosition
             let rendered = position.writable
 			var options: AVAudioPlayerNodeBufferOptions = []
+            var followsPrevious = false
 			let duration = Double(buffer.frameLength) / mixerFormat.sampleRate
             // Native lossy codecs can leave isolated sub-milliscale samples
             // after a pause. A peak-only -80 dB test mistakes this inaudible
@@ -123,7 +124,10 @@ public final class MixerPCMSource {
                     // Exact sample adjacency wins over host-time rounding. Each
                     // peer retains its own clock; a late arrival never overlaps
                     // or trims the preceding or following packet.
-                    if contiguous { target = Double(scheduledEndSample) }
+                    if contiguous {
+                        target = Double(scheduledEndSample)
+                        followsPrevious = true
+                    }
                     let resumed = lastCapturedEnd.map { capturedAt - $0 > 0.25 } ?? false
                     // Packetization can deliver multiple adjacent packets in one
                     // capture callback. Their normal tail is not stale latency.
@@ -141,8 +145,14 @@ public final class MixerPCMSource {
                     // pause was long; reduce only an accumulated excess wait.
                     let resumedWithExcessWait = resumed
                         && target > Double(delayedStart) + max(delay, duration) * mixerFormat.sampleRate
-                    if target < Double(rendered) || resumedWithExcessWait || canReduceDelay {
+                    // Native adjacency is authoritative for consecutive frames.
+                    // The conservative writable frontier includes the current
+                    // quantum; crossing it is not proof that queued audio ended.
+                    // Rebasing there inserts a whole extra gap into healthy speech.
+                    let expired = target < Double(contiguous ? position.completed : rendered)
+                    if expired || resumedWithExcessWait || canReduceDelay {
                         target = Double(max(delayedStart, lastAudibleEnd > rendered ? scheduledEndSample : delayedStart))
+                        followsPrevious = false
                         playoutAnchor = (capturedAt, AVAudioFramePosition(target))
                         if canReduceDelay {
                             options = .interrupts // only queued silence is replaced
@@ -158,6 +168,7 @@ public final class MixerPCMSource {
 					|| target > Double(rendered) + limit * mixerFormat.sampleRate
 					|| lastCapturedAt.map({ capturedAt <= $0 }) == true {
 					playoutAnchor = (capturedAt, delayedStart)
+					followsPrevious = false
 					startSample = delayedStart
 					if scheduledEndSample > rendered { options = .interrupts }
 					playbackResetCount += 1
@@ -182,7 +193,7 @@ public final class MixerPCMSource {
 			// Timestamped sources preserve omitted silence and absorb arrival jitter.
 			// Consecutive sources follow the actual queue, including after underrun.
 			// A last-render snapshot is already in the past when the render thread runs.
-			let time = captureTimePlayoutDelay == nil
+			let time = captureTimePlayoutDelay == nil || followsPrevious
 				? nil : AVAudioTime(sampleTime: startSample, atRate: mixerFormat.sampleRate)
 			playerNode.scheduleBuffer(buffer, at: time, options: options)
             if startRequested && !playerNode.isPlaying { playerNode.play() }
@@ -213,7 +224,8 @@ public final class MixerPCMSource {
         }
         // A timestamped player starts with its first buffer so sample zero and
         // the capture anchor are established together in offline/fixed playback.
-        guard !playerNode.isPlaying, captureTimePlayoutDelay == nil || playoutAnchor != nil else { return }
+        guard !playerNode.isPlaying,
+              captureTimePlayoutDelay == nil ? scheduledEndSample > 0 : playoutAnchor != nil else { return }
 		playerNode.play()
 	}
 
