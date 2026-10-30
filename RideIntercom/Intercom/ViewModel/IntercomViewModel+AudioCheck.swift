@@ -11,7 +11,7 @@ extension IntercomViewModel {
         guard canStartAudioCheck else { return }
 
         cancelAudioCheck()
-        bindAudioEvents()
+        bindAudioEvents(deliverEveryFrame: true)
         let generation = audioCheckGeneration
         resetAudioCheckMeters()
         audioCheckRecordedFrames = []

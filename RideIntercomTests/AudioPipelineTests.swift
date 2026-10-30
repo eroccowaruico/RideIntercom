@@ -601,6 +601,23 @@ struct AudioPipelineTests {
         #expect(received.last == 999)
     }
 
+    @Test func microphoneObservationsCoalesceBeforeReachingTheUI() async throws {
+        var received: [UInt64] = []
+        let delivery = AudioFrameDelivery(coalescesObservations: true) { received.append($0.sequenceNumber) }
+        defer { delivery.finish() }
+        for index in 0..<1000 {
+            delivery.yield(.init(sequenceNumber: UInt64(index), samples: [0.1]))
+        }
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(received.count == 1, "Already-processed PCM must not create a UI callback per capture block")
+        #expect(delivery.droppedFrameCount == 0, "Coalesced UI snapshots are not discarded media")
+        try await Task.sleep(for: .milliseconds(50))
+        delivery.yield(.init(sequenceNumber: 1000, samples: [0.2]))
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(received.last == 1000)
+        #expect(received.count == 2)
+    }
+
     @Test func captureObservationStartsOnlyWhenMediaIsReadyAndCannotReviveAfterStop() async {
         var received: [UInt64] = []
         let delivery = AudioFrameDelivery(initiallyActive: false) { received.append($0.sequenceNumber) }
