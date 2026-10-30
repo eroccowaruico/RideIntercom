@@ -25,13 +25,13 @@ struct GroupStorageSection: View {
                     .accessibilityIdentifier("resetSavedGroupsButton")
             }
         }
-        .alert("Reset all saved groups?", isPresented: $confirmingReset) {
+        .alert("Reset all saved groups and users?", isPresented: $confirmingReset) {
             Button("Reset Saved Groups", role: .destructive, action: reset)
                 .accessibilityIdentifier("confirmResetSavedGroupsButton")
             Button("Cancel", role: .cancel) {}
                 .accessibilityIdentifier("cancelResetSavedGroupsButton")
         } message: {
-            Text("This ends the current call and removes the group list and its keys. Unreadable data is preserved first. Your rider identity, audio settings, and Internet credentials stay unchanged. You will need new invitations.")
+            Text("This ends the current call and removes saved users, groups, and group keys. Unreadable data is preserved first. Your rider identity, audio settings, and Internet credentials stay unchanged. You will need new invitations.")
         }
     }
 }

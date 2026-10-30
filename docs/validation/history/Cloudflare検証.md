@@ -149,3 +149,20 @@ main/devへのマージ、push、Cloudflareデプロイは行っていない。
 | 実サービスと全体受入れ | この変更の検証では実CloudflareのHTTP/SFU/TURNを呼び出さず、再デプロイもしない。`validate.sh all --clean`や独立音声E2Eの全体受入れとは別の確認であり、実サービスの次の検証前には正本の費用制約を満たすこと |
 
 主な証跡は`.validation/dev-internet-build-proof.json`、`.validation/dev-internet-scripts-final.log`、各xcresult。ビルド番号は既定の自動採番に従って増加し、公開バージョンは1.0.0を維持した。他のApp作業と衝突するmainへの統合と、不要なCloudflare buildを起動するpushは行っていない。
+
+## 最新mainとの統合検証
+
+2026-10-30。その後の「定期的にmainへマージ」「pushも行う」という指示を適用した。専用worktreeへmainの`c4c98d8f`までを取り込み、保存済みユーザー・個別通話・保存形式の変更とDebugの既定接続設定が競合なく統合できた。検証が完了した作業の区切りでmainへ統合・pushし、リモートSHAを照合する方針を開発方針へ追記した。
+
+| 対象 | 結果と証跡 |
+|---|---|
+| macOS単体 | 173件成功、failed / skipped / runtime warnings 0。`.validation/main-integration-macos/macos-tests.xcresult` |
+| iOS単体 | 分離した一時Simulatorで173件成功、failed / skipped / runtime warnings 0。`.validation/main-integration-ios-final/ios-tests.xcresult` |
+| 通常UI | 初回統合runでcodec・適応表示・個別通話・Internet資格・復旧workflowの5件成功。未完了だった保存済みユーザー1件と起動1件は、分離runでそれぞれ成功。後者は`.validation/main-integration-ios-final/ios-users.xcresult`と`ios-launch.xcresult` |
+| 破損保存の復旧UI | 隔離したApp containerへfixtureを用意し、UI 1件成功と元の破損bytesの保存を確認。`.validation/main-integration-ios-final/ios-recovery.xcresult`、`recovery-verify.log` |
+| Workerとローカル結合 | 型検査成功、Worker/DO 20件成功、実Swift HTTP/WSとローカルWorker/DOのペア1件成功。外部SFUはmock。`.validation/main-integration-worker.log`、`main-integration-pair.log` |
+| スクリプトと静的検査 | Python 71件、Cloudflareスクリプト4件成功。文書・開発環境・diff検査成功。検証中のApp・test・script・Workerのソースhash一致と、検証logに両端末のtokenがないことを確認 |
+| 初回統合runの失敗 | iOSの`AURemoteIO::Initialize` / `_ReportRPCTimeout`でSIGABRTが再発し、UIを含む全体実行もrunnerの600秒上限で未完了になった。このrun全体は成功扱いにしていない。単体と残りのUIを分離して上記の成功を確認し、音声処理コードや試験基準は変更していない |
+| 後片付けと統合対象 | この検証が作成した一時Simulatorは停止・削除済み。main側の未コミットのXcode参照設定を今回のcommitへ含めず保全する。ローカルDebug資格はignore対象のままmainの作業環境へ引き継ぐ |
+
+公開バージョンは1.0.0、ビルド番号は既定の自動採番による20。この統合検証では実CloudflareのHTTP/SFU/TURN試験を追加実行していない。今回の範囲の確認を、`validate.sh all --clean`・独立音声E2E・実機・実SFU媒体の全体受入れと扱わない。実サービスの検証を始める前の条件は、引き続き開発方針の費用制約に従う。

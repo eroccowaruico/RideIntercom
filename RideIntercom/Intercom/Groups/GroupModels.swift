@@ -1,6 +1,8 @@
 import Foundation
+import CryptoKit
 
 struct GroupMember: Identifiable, Equatable, Hashable, Codable {
+    static let pendingInvitePrefix = "invite-pending-"
     let id: String
     var displayName: String
     var isMuted: Bool
@@ -164,14 +166,16 @@ enum PeerConnectionState: String, Equatable, Codable {
 }
 
 struct IntercomGroup: Identifiable, Equatable {
+    enum Kind: String, Codable { case group, direct }
     static let maximumMemberCount = 8
 
     let id: UUID
     var name: String
     var members: [GroupMember]
     var accessSecret: String?
+    let kind: Kind
 
-    init(id: UUID = UUID(), name: String, members: [GroupMember], accessSecret: String? = nil) throws {
+    init(id: UUID = UUID(), name: String, members: [GroupMember], accessSecret: String? = nil, kind: Kind = .group) throws {
         guard (1...Self.maximumMemberCount).contains(members.count) else {
             throw IntercomGroupError.invalidMemberCount
         }
@@ -179,11 +183,26 @@ struct IntercomGroup: Identifiable, Equatable {
               members.allSatisfy({ Self.isValidMemberID($0.id) && Self.isValidName($0.displayName) }) else {
             throw IntercomGroupError.invalidIdentity
         }
+        if kind == .direct {
+            guard members.count == 2, !members.contains(where: { $0.id.hasPrefix(GroupMember.pendingInvitePrefix) }),
+                  id == Self.directCallID(memberIDs: members.map(\.id)) else { throw IntercomGroupError.invalidIdentity }
+        }
 
         self.id = id
         self.name = name
         self.members = members
         self.accessSecret = accessSecret
+        self.kind = kind
+    }
+
+    /// Identifies a pair, never supplies a credential. Keys remain random and private.
+    static func directCallID(memberIDs: [String]) -> UUID {
+        let input = "rideintercom.direct-call.v1|" + memberIDs.sorted().joined(separator: "|")
+        var bytes = Array(SHA256.hash(data: Data(input.utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0f) | 0x80
+        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                           bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
     }
 
     static func isValidMemberID(_ value: String) -> Bool {

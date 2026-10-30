@@ -28,6 +28,8 @@ extension IntercomViewModel {
         return nil
     }
     func refreshGroupStorageStatus() {
+        savedUsers = groupRepository.users
+        applySavedUserNames()
         groupsMissingKeys = groupRepository.missingCredentialGroupIDs
         groupKeyCleanupPending = groupRepository.needsCleanup
     }

@@ -88,6 +88,7 @@ enum AppTestSupport {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+            .resolvingSymlinksInPath()
     }
 
     static func source(_ relativePath: String) throws -> String {
@@ -98,20 +99,20 @@ enum AppTestSupport {
     static func appSwiftSourcePaths() throws -> [String] {
         let appURL = workspaceRoot().appendingPathComponent("RideIntercom")
         let resourceKeys: Set<URLResourceKey> = [.isRegularFileKey]
-        let enumerator = FileManager.default.enumerator(
-            at: appURL,
-            includingPropertiesForKeys: Array(resourceKeys),
-            options: [.skipsHiddenFiles]
-        )
-        let urls = enumerator?.compactMap { $0 as? URL } ?? []
-        return try urls.compactMap { url in
-            if url.path.contains("/packages/") || url.pathExtension != "swift" {
-                return nil
+        guard let enumerator = FileManager.default.enumerator(atPath: appURL.path) else { return [] }
+        var paths: [String] = []
+        while let relative = enumerator.nextObject() as? String {
+            if relative == "packages" || relative.split(separator: "/").contains(where: { $0.hasPrefix(".") }) {
+                enumerator.skipDescendants()
+                continue
             }
+            let url = appURL.appendingPathComponent(relative)
+            guard url.pathExtension == "swift" else { continue }
             let values = try url.resourceValues(forKeys: resourceKeys)
-            guard values.isRegularFile == true else { return nil }
-            return url.path.replacingOccurrences(of: workspaceRoot().path + "/", with: "")
+            guard values.isRegularFile == true else { continue }
+            paths.append("RideIntercom/" + relative)
         }
+        return paths
     }
 
     static func receivedAudioPacket(

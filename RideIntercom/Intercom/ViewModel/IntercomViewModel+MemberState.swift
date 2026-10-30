@@ -115,6 +115,7 @@ extension IntercomViewModel {
     func addDiscoveredMembersIfNeeded(peerIDs: [String]) {
         var didChange = false
         withActiveGroup { group in
+            guard group.kind == .group else { return }
             for peerID in peerIDs {
                 guard IntercomGroup.isValidMemberID(peerID) else { continue }
                 guard !group.members.contains(where: { $0.id == peerID }) else { continue }
@@ -171,7 +172,7 @@ extension IntercomViewModel {
         guard let index = groups.firstIndex(where: { $0.id == group.id }) else { return }
         var updated = groups
         updated[index] = group
-        if commitGroups(updated) { selectedGroup = group }
+        if commitGroups(updated) { selectedGroup = groups[index] }
     }
 
     func persistGroups() {

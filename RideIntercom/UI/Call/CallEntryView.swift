@@ -11,7 +11,7 @@ struct CallEntryView: View {
                     .navigationTitle("Groups")
             } else {
                 CallView(viewModel: viewModel)
-                    .navigationTitle(viewModel.selectedGroup?.name ?? "Call")
+                    .navigationTitle(viewModel.selectedCallTitle)
                     .toolbar {
                         ToolbarItem(placement: .navigation) {
                             Button {

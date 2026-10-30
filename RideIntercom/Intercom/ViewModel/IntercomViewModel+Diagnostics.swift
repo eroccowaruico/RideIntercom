@@ -196,11 +196,14 @@ extension IntercomViewModel {
         }
 
         guard let credential = try? credential(for: selectedGroup) else { return nil }
+        let recipient = directCallRecipient(for: selectedGroup)
+        guard selectedGroup.kind != .direct || recipient != nil else { return nil }
         let token = try? GroupInviteToken.make(
             groupID: selectedGroup.id,
             groupName: selectedGroup.name,
             groupSecret: credential.secret,
             inviterMemberID: inviterMemberID,
+            recipientMemberID: recipient,
             expiresAt: Date().timeIntervalSince1970 + 7 * 24 * 60 * 60
         )
         return token.flatMap { try? GroupInviteTokenCodec.joinURL(for: $0) }

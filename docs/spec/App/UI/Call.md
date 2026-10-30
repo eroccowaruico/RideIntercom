@@ -30,13 +30,32 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 | コンテキスト削除 | `groupRow-{group.name}` | なし | `Delete` | 対象 `group.id` | context menu | swipe と同一意味 |
 | グループ作成ボタン | `call-groups-toolbar` | `createGroupButton` | `Create Talk Group` | Action | 右上ボタン | 押下で `Talk Group` を作成して選択 |
 
+## ユーザー指定の個別通話
+
+| 項目 | 表示・操作 |
+|---|---|
+| Users | 直接招待関係として保存した相手名を`userCall-{UUID}`の行に表示。共通の`selectUser`へ渡し、同じ二人の内部通話先を解決する。削除済み・未知のUUIDは画面外から渡しても拒否する |
+| Current Call | 進行中の個別通話を`activeDirectCallButton`で開く。ユーザー一覧から相手を削除しても終了操作へ戻れる |
+| Recent Groups | kind=groupだけを表示。個別通話の内部ID・group作成操作を要求しない |
+| 個別通話の画面 | タイトルは相手名。`directCallHelpLabel`は初回の招待共有と、通知を送らないことを説明。保存ユーザーを削除した後は、現在の通話を維持しDisconnectで終了できる説明へ切り替える。既存通話中はConnectまで切り替えない |
+| Share Call Invite | `inviteButton`は特定の相手宛てのversion 2招待をOS共有画面へ渡す。保存ユーザー削除後は表示しない。通常groupのInviteとは宛先制約が異なる |
+| 参加者操作 | 個別通話ではAdd Saved Users、参加者Delete、招待枠の追加を提供しない。ミュート・音量・音声効果・Disconnectは既存の共通操作を使う |
+
+## 保存済みユーザーの操作
+
+Groupsの`Saved Users`（`savedUsersButton`）から標準Formを開く。名前入力（`savedUsersGroupNameField`）、ユーザー選択（`selectUser-{UUID}`）、`Create Group`（`saveUserSelectionButton`）で保存済みの相手を使うグループを作成する。`Cancel`（`closeSavedUsersButton`）では変更しない。
+
+鉛筆ボタン（`editUser-{UUID}`）は表示名編集を開き、`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
+
+CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、参加にはInviteの共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
+
 ## 通話画面
 
 ### 親セクション
 
 | 項目名（日本語） | 項目ID | 目的 | 実装 | 発現条件 | 表示仕様 |
 |---|---|---|---|---|---|
-| 通話画面 | `callScreen` | 接続、音声入出力、参加者状態を一画面で扱う | `CallView` | `selectedGroup != nil` | 画面タイトルは `selectedGroup.name` |
+| 通話画面 | `callScreen` | 接続、音声入出力、参加者状態を一画面で扱う | `CallView` | `selectedGroup != nil` | 画面タイトルは通常group名、個別通話では相手の表示名 |
 | 通話ツールバー | `call-toolbar` | グループ一覧へ戻る導線 | toolbar | 常時 | 左上に `Groups` |
 | 通話ステータスヘッダー | `callStatusHeader` | 通話全体の状態を最上部に集約する | `statusHeader` | 常時 | 接続、入力、出力をまとめる |
 | 接続/招待操作領域 | `call-primary-controls` | 主要操作をまとめる | `controls` | 常時 | 横幅に応じて横並びまたは縦並び |

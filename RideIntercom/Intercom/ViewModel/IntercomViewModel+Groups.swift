@@ -122,7 +122,7 @@ extension IntercomViewModel {
 
     func removeMember(_ memberID: String, from groupID: UUID) {
         guard canRemoveMember(memberID),
-              let groupIndex = groups.firstIndex(where: { $0.id == groupID }) else { return }
+              let groupIndex = groups.firstIndex(where: { $0.id == groupID }), groups[groupIndex].kind == .group else { return }
 
         var updated = groups
         updated[groupIndex].members.removeAll { $0.id == memberID }
@@ -141,33 +141,42 @@ extension IntercomViewModel {
         }
     }
 
-    func createTalkGroup() {
+    @discardableResult
+    func createTalkGroup(name: String = "Talk Group", userIDs: Set<UUID> = []) -> Bool {
         groupErrorMessage = nil
+        guard canEditSavedGroups else { groupErrorMessage = groupStorageNotice; return false }
+        guard let remoteMembers = membersForSavedUsers(userIDs) else { return false }
+        guard remoteMembers.count < IntercomGroup.maximumMemberCount, IntercomGroup.isValidName(name), !name.contains("|") else {
+            groupErrorMessage = "Enter a group name without | and choose up to 7 other members."
+            return false
+        }
         let groupID = UUID()
         let newGroup = try? IntercomGroup(
             id: groupID,
-            name: "Talk Group",
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             members: [
                 GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)
-            ]
+            ] + remoteMembers
         )
 
         guard let newGroup else {
             groupErrorMessage = "Could not create the group because the saved rider identity is invalid. Saved groups have not been changed."
-            return
+            return false
         }
         let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
         do { try groupRepository.save([newGroup] + groups, credential: .init(groupID: groupID, secret: secret)); refreshGroupStorageStatus() }
         catch {
             reportGroupStorageError(error)
-            return
+            return false
         }
         groups.insert(newGroup, at: 0)
         selectGroup(newGroup)
+        return true
     }
 
     func reserveInviteMemberSlot(displayName: String? = nil) {
         guard var group = selectedGroup,
+              group.kind == .group,
               group.members.count < IntercomGroup.maximumMemberCount else { return }
 
         let nextNumber = group.members.count
@@ -190,9 +199,32 @@ extension IntercomViewModel {
         guard !token.isExpired(now: now) else {
             throw GroupInviteTokenError.expired
         }
+        if let recipient = token.recipientMemberID, recipient != localMemberIdentity.memberID {
+            groupErrorMessage = "This call invitation is addressed to another rider."
+            throw GroupInviteTokenError.wrongRecipient
+        }
+        let kind: IntercomGroup.Kind = token.recipientMemberID == nil ? .group : .direct
+        if let existing = groups.first(where: { $0.id == token.groupID }), existing.kind != kind {
+            groupErrorMessage = "This invitation cannot change an individual call into a group."
+            throw GroupInviteTokenError.incompatibleCall
+        }
 
         let previous = try groupRepository.credential(for: token.groupID)
+        // Simultaneous first invitations converge on the smaller member ID's key.
+        // Do not replace a call that has already connected; reconnect explicitly.
+        if kind == .direct, let previous, previous.secret != token.groupSecret,
+           let existing = groups.first(where: { $0.id == token.groupID }),
+           localMemberIdentity.memberID < token.inviterMemberID {
+            selectGroup(existing)
+            groupErrorMessage = "You both created a call invitation. Share this call's invitation so you use the same call."
+            return
+        }
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
+            let name = savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
+            do {
+                try groupRepository.acceptInvitation(from: .init(id: token.inviterMemberID, displayName: name), to: token.groupID)
+                refreshGroupStorageStatus()
+            } catch { reportGroupStorageError(error); throw error }
             selectGroup(existing)
             inviteStatusMessage = "JOINED \(existing.name)"
             return
@@ -203,12 +235,14 @@ extension IntercomViewModel {
         }
         var members = [GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)]
         if token.inviterMemberID != localMemberIdentity.memberID {
-            members.append(GroupMember(id: token.inviterMemberID, displayName: "Inviter"))
+            let name = savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
+            members.append(GroupMember(id: token.inviterMemberID, displayName: name))
         }
         let group = try IntercomGroup(
             id: token.groupID,
             name: token.groupName,
-            members: members
+            members: members,
+            kind: kind
         )
         var updated = groups
         if let existingIndex = updated.firstIndex(where: { $0.id == group.id }) {
@@ -216,7 +250,11 @@ extension IntercomViewModel {
         } else {
             updated.insert(group, at: 0)
         }
-        do { try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret)); refreshGroupStorageStatus() }
+        do {
+            let inviter = members.first { $0.id == token.inviterMemberID && $0.id != localMemberIdentity.memberID }
+            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitationFrom: inviter)
+            refreshGroupStorageStatus()
+        }
         catch {
             reportGroupStorageError(error)
             throw error

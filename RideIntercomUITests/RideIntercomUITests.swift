@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 
 final class RideIntercomUITests: XCTestCase {
     private var app: XCUIApplication!
@@ -32,6 +33,126 @@ final class RideIntercomUITests: XCTestCase {
     override func tearDownWithError() throws {
         app.terminate()
         app = nil
+    }
+
+    @MainActor
+    private func openSavedUserInvitation(inviter: String) throws {
+        let groupID = UUID()
+        let secret = "ui-test-invitation-key"
+        let issuedAt = Date().timeIntervalSince1970
+        let message = ["1", groupID.uuidString, "Talk Group", secret, inviter, String(format: "%.3f", issuedAt), ""].joined(separator: "|")
+        let signature = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: SymmetricKey(data: Data(secret.utf8)))
+            .map { String(format: "%02x", $0) }.joined()
+        let token = try JSONSerialization.data(withJSONObject: [
+            "version": 1, "groupID": groupID.uuidString, "groupName": "Talk Group", "groupSecret": secret,
+            "inviterMemberID": inviter, "issuedAt": issuedAt, "signature": signature
+        ])
+        let encoded = token.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        app.open(try XCTUnwrap(URL(string: "rideintercom://join?token=\(encoded)")))
+        XCTAssertTrue(app.descendants(matching: .any)["remoteParticipantRow0"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testDirectCallsReuseUserDestinationWithoutAddingParticipants() throws {
+        try openSavedUserInvitation(inviter: "ui-direct-rider")
+        openGroupsTab()
+        let user = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "userCall-")).firstMatch
+        XCTAssertTrue(user.waitForExistence(timeout: 3))
+        user.tap()
+        XCTAssertTrue(app.staticTexts["directCallHelpLabel"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["addSavedUsersButton"].exists)
+        // The original group is still connecting; opening another destination only browses it.
+        XCTAssertTrue(app.buttons["connectButton"].exists)
+        app.buttons["connectButton"].tap()
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["inviteButton"].exists)
+        attachScreen("Individual Call with Saved User")
+        openGroupsTab()
+        XCTAssertTrue(app.buttons["activeDirectCallButton"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["groupRow-Direct Call"].exists)
+        attachScreen("Users and Groups with Current Individual Call")
+        app.terminate(); app.launch(); app.activate()
+        openGroupsTab()
+        XCTAssertTrue(user.waitForExistence(timeout: 3))
+        user.tap()
+        XCTAssertTrue(app.staticTexts["directCallHelpLabel"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
+        // Removing the directory entry leaves the selected call and its stop control available.
+        openGroupsTab()
+        app.buttons["savedUsersButton"].tap()
+        let toggle = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        toggle.swipeLeft()
+        app.buttons["Delete"].firstMatch.tap()
+        XCTAssertTrue(toggle.waitForNonExistence(timeout: 3))
+        app.buttons["closeSavedUsersButton"].tap()
+        XCTAssertFalse(user.exists)
+        app.buttons["activeDirectCallButton"].tap()
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["inviteButton"].exists)
+        XCTAssertTrue(app.staticTexts["directCallHelpLabel"].label.contains("removed from Saved Users"))
+        attachScreen("Individual Call Retained after User Removal")
+        app.buttons["disconnectButton"].tap()
+        try checkGroupDeletionCanBeExercisedFromUI()
+    }
+
+    @MainActor
+    func testSavedUsersSurviveGroupDeletionAndCanBeReused() throws {
+        try openSavedUserInvitation(inviter: "ui-saved-rider")
+        try checkGroupDeletionCanBeExercisedFromUI()
+        // Restart only here: this case explicitly verifies persisted users.
+        app.terminate(); app.launch(); app.activate()
+        openGroupsTab()
+        app.buttons["savedUsersButton"].tap()
+        let toggle = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch.tap()
+        let field = app.textFields["savedUserNameField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        field.tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (field.value as? String ?? "").count) + "Alex")
+        app.buttons["saveUserNameButton"].tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        XCTAssertTrue(toggle.label.contains("Alex"))
+        toggle.switches.firstMatch.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        attachScreen("Saved Users Selection")
+        app.buttons["saveUserSelectionButton"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["remoteParticipantRow0"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Alex"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["inviteButton"].exists)
+        attachScreen("Group Created from Saved User")
+        try checkGroupDeletionCanBeExercisedFromUI()
+        createTalkGroupAndOpenCall()
+        let add = app.buttons["addSavedUsersButton"]
+        for _ in 0..<4 where !add.isHittable { app.swipeUp() }
+        XCTAssertTrue(add.isEnabled)
+        add.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        toggle.switches.firstMatch.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.buttons["saveUserSelectionButton"].tap()
+        XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
+        attachScreen("Saved User Added to Existing Group")
+        openGroupsTab()
+        app.buttons["savedUsersButton"].tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        toggle.swipeLeft()
+        let delete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        delete.tap()
+        XCTAssertTrue(toggle.waitForNonExistence(timeout: 3))
+        attachScreen("Saved User Removed while Group Remains")
+        app.buttons["closeSavedUsersButton"].tap()
+        app.buttons["groupRow-Talk Group"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
+        try checkGroupDeletionCanBeExercisedFromUI()
+        app.terminate(); app.launch(); app.activate()
+        openGroupsTab()
+        app.buttons["savedUsersButton"].tap()
+        XCTAssertFalse(toggle.exists)
+        app.buttons["closeSavedUsersButton"].tap()
     }
 
     @MainActor

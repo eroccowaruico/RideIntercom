@@ -14,7 +14,7 @@ import VADGate
 @MainActor
 @Observable
 final class IntercomViewModel {
-    static let pendingInviteMemberPrefix = "invite-pending-"
+    static let pendingInviteMemberPrefix = GroupMember.pendingInvitePrefix
     nonisolated static let defaultSoundIsolationEnabled = true
     nonisolated static let defaultReceiveSoundIsolationEnabled = false
     nonisolated static let defaultAudioSessionProfile = AudioSessionProfile.echoCancelledInput
@@ -40,6 +40,7 @@ final class IntercomViewModel {
     let internetSettingsStore: InternetConnectionSettingsStore
 
     var groups: [IntercomGroup]
+    var savedUsers: [SavedUser] = []
     var selectedGroup: IntercomGroup?
     var activeGroupID: UUID?
     var connectionState: CallConnectionState = .idle
