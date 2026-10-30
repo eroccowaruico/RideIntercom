@@ -6,6 +6,10 @@ import SessionManager
 
 extension IntercomViewModel {
     func connectLocal() {
+        guard canStartCalls else {
+            groupErrorMessage = "Sign in with Apple to start a call."
+            return
+        }
         guard let selectedGroup else { return }
         let storedCredential: GroupAccessCredential?
         do { storedCredential = try credential(for: selectedGroup) }
@@ -60,6 +64,7 @@ extension IntercomViewModel {
     }
 
     func startAudioPipelineIfNeeded() -> Bool {
+        guard canStartCalls else { return false }
         if isAudioReady {
             return true
         }

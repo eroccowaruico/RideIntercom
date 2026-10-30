@@ -17,6 +17,7 @@ final class RideIntercomUITestsLaunchTests: XCTestCase {
     func testLaunch() throws {
         let app = XCUIApplication()
         app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-out"
         app.launch()
         app.activate()
         defer { app.terminate() }
@@ -28,8 +29,6 @@ final class RideIntercomUITestsLaunchTests: XCTestCase {
     }
 
     private func waitForVisibleRoot(in app: XCUIApplication) -> Bool {
-        app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3)
-            || app.buttons["createGroupButton"].firstMatch.waitForExistence(timeout: 3)
-            || app.staticTexts["Recent Groups"].firstMatch.waitForExistence(timeout: 3)
+        app.buttons["signInWithAppleButton"].firstMatch.waitForExistence(timeout: 5)
     }
 }

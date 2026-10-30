@@ -24,6 +24,7 @@ enum AppTestSupport {
     }
 
     static func makeHarness(
+        accountSession: AppleAccountSession? = nil,
         groups: [IntercomGroup]? = nil,
         credentialStore: GroupCredentialStoring? = nil,
         appSettingsStore: AppSettingsStoring? = nil,
@@ -48,6 +49,7 @@ enum AppTestSupport {
             identity: LocalMemberIdentity(memberID: groups.first?.members.first?.id ?? "member-local", displayName: "You")
         )
         let viewModel = IntercomViewModel(
+            accountSession: accountSession ?? signedInAccount(),
             callSession: callSession,
             groupRepository: GroupRepository(store: groupStore, credentials: credentialStore),
             appSettingsStore: appSettingsStore ?? InMemoryAppSettingsStore(),
@@ -71,6 +73,13 @@ enum AppTestSupport {
             outputBackend: outputBackend,
             audioDriver: audioDriver
         )
+    }
+
+    static func signedInAccount() -> AppleAccountSession {
+        let fixture = AccountFixture()
+        fixture.signIn()
+        fixture.remove()
+        return fixture.session
     }
 
     static func waitUntil(

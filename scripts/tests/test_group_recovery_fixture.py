@@ -20,6 +20,7 @@ class GroupRecoveryFixtureTests(unittest.TestCase):
 
     def test_fixture_and_archive_are_verified_inside_owned_container(self):
         directory = group_directory(self.container, self.root, self.namespace)
+        self.assertIn('.Account.', directory.parent.name)
         prepare(directory)
         self.assertEqual((directory / 'groups.json').read_bytes(), CORRUPT)
         with self.assertRaises(ValueError):

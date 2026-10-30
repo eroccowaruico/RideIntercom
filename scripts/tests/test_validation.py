@@ -128,6 +128,8 @@ class ValidationTests(unittest.TestCase):
         namespace = 'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.run.ios-tests'
         self.assertIn(namespace, original)
         self.assertIn(namespace, recovery)
+        self.assertIn('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION', original)
+        self.assertFalse(any('SWIFT_ACTIVE_COMPILATION_CONDITIONS=' in value for value in recovery))
 
     def test_launch_verification_matches_physical_path_with_spaces(self):
         root = Path(self.temporary.name)

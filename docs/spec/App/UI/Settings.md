@@ -4,7 +4,7 @@
 
 本書は Settings タブの UI 項目を定義する。
 
-Settings は通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
+Settings はアカウントのサインアウト、通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
 
 ## 親セクション
 
@@ -119,3 +119,11 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | 資格保存 | ViewModelが入力検証・Keychain保存・切断・RTC設定適用を担当。Viewは入力と表示だけ |
 | 資格保存失敗 | 現在の通話・保存済み設定を維持 |
 | 設定確認 | `internetConfigurationStatus` は保存の有無。認証成功とは区別し、DiagnosticsのCheck Internet Serviceへ誘導 |
+
+## Account
+
+| 項目 | 項目ID | 意味・挙動 |
+|---|---|---|
+| ログイン状態 | なし | Signed in with Apple。生のApple識別子・本名・メールを表示しない。資格確認エラー時は保存ログインを使用している説明を表示 |
+| サインアウト | `signOutButton` | Sign Out。標準確認dialogで通話終了とデータ保持を説明 |
+| 実行確認 | `confirmSignOutButton` | Sign Outで通話を停止しログイン画面へ。Cancelなら変更しない。アカウント削除や購入解約とは異なる |

@@ -16,6 +16,7 @@ final class RideIntercomUITests: XCTestCase {
     private func launchApp(startOnDiagnostics: Bool = false) {
         app = XCUIApplication()
         app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
         if name.contains("Adaptive") {
             app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
@@ -33,6 +34,24 @@ final class RideIntercomUITests: XCTestCase {
     override func tearDownWithError() throws {
         app.terminate()
         app = nil
+    }
+
+    @MainActor
+    func testSignOutEndsCallAndReturnsToAppleSignIn() throws {
+        createTalkGroupAndOpenCall()
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
+        openSettingsTab()
+        let signOut = app.buttons["signOutButton"]
+        for _ in 0..<6 where !signOut.isHittable { app.swipeDown() }
+        XCTAssertTrue(signOut.waitForExistence(timeout: 3))
+        signOut.tap()
+        let confirmation = app.buttons["confirmSignOutButton"].firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 3))
+        confirmation.tap()
+        XCTAssertTrue(app.buttons["signInWithAppleButton"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["disconnectButton"].exists)
+        XCTAssertFalse(app.buttons["createGroupButton"].exists)
+        attachScreen("Signed Out Apple Login")
     }
 
     @MainActor
@@ -574,7 +593,10 @@ final class RideIntercomUITests: XCTestCase {
         openSettingsTab()
 
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "mode uses")).firstMatch.exists)
+        let explanation = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "mode uses")).firstMatch
+        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        for _ in 0..<5 where !explanation.isHittable { scroll.swipeUp() }
+        XCTAssertTrue(explanation.exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioSessionProfileStatus"].firstMatch.exists)
         revealSettingsPanelIfNeeded(identifier: "audioIOPanel")
         XCTAssertTrue(app.descendants(matching: .any)["audioIOPanel"].firstMatch.waitForExistence(timeout: 3))

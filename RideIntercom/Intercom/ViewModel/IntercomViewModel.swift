@@ -14,6 +14,9 @@ import VADGate
 @MainActor
 @Observable
 final class IntercomViewModel {
+    let accountSession: AppleAccountSession
+    let accountUserID: String?
+    var canStartCalls: Bool { accountUserID != nil && accountSession.userID == accountUserID }
     static let pendingInviteMemberPrefix = GroupMember.pendingInvitePrefix
     nonisolated static let defaultSoundIsolationEnabled = true
     nonisolated static let defaultReceiveSoundIsolationEnabled = false
@@ -182,6 +185,7 @@ final class IntercomViewModel {
     var isDiagnosticsVisible = false
 
     init(
+        accountSession: AppleAccountSession,
         callSession: CallSession? = nil,
         groupRepository: GroupRepository,
         appSettingsStore: AppSettingsStoring,
@@ -195,6 +199,8 @@ final class IntercomViewModel {
         callTicker: CallTicking? = nil,
         remoteTalkerTimeout: TimeInterval = 0.6
     ) {
+        self.accountSession = accountSession
+        self.accountUserID = accountSession.userID
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()
@@ -264,5 +270,6 @@ final class IntercomViewModel {
         self.callTicker.onTick = { [weak self] now in
             self?.handleCallTick(now: now)
         }
+        accountSession.onAccessRevoked = { [weak self] in self?.disconnect() }
     }
 }

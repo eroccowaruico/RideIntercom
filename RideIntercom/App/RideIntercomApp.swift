@@ -7,6 +7,8 @@ import SwiftUI
 
 @main
 struct RideIntercomApp: App {
+    @State private var account = AppleAccountSession.makeForCurrentProcess()
+    @State private var viewModel: IntercomViewModel?
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     @NSApplicationDelegateAdaptor(RideIntercomApplicationDelegate.self) private var appDelegate
@@ -27,7 +29,7 @@ struct RideIntercomApp: App {
         let _ = configureOpenWindowBridge()
 
         return WindowGroup(id: SingleWindowPolicy.mainWindowID) {
-            ContentView()
+            ContentView(account: account, viewModel: $viewModel)
                 .onAppear {
                     SingleWindowPolicy.enforce()
                 }
@@ -39,7 +41,7 @@ struct RideIntercomApp: App {
         }
         #else
         return WindowGroup {
-            ContentView()
+            ContentView(account: account, viewModel: $viewModel)
         }
         #endif
     }

@@ -2,6 +2,7 @@
 """Prepare corruption only inside this validation run's dedicated Simulator."""
 import argparse
 import json
+import hashlib
 from pathlib import Path
 import re
 from uuid import UUID
@@ -20,7 +21,8 @@ def group_directory(container, device_root, namespace):
     if len(relative.parts) != 5 or relative.parts[:4] != ('data', 'Containers', 'Data', 'Application'):
         raise ValueError('Not an application data container on the owned Simulator')
     UUID(relative.parts[4])
-    directory = path / 'Library' / 'Application Support' / namespace / 'Groups'
+    account = hashlib.sha256(b'local-validation-apple-user').hexdigest()
+    directory = path / 'Library' / 'Application Support' / (namespace + '.Account.' + account) / 'Groups'
     if directory.resolve().is_relative_to(path) is False:
         raise ValueError('Group directory escapes the owned application container')
     manifest = directory / 'groups.json'

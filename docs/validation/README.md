@@ -1,5 +1,25 @@
 # 検証状況と証跡
 
+## Appleログイン必須化とアカウント別保存（2026-10-30）
+
+全通話のAppleログイン、Keychainでの識別子保持、保存ログインによる圏外利用、取消・サインアウトによる通話停止を実装した。メール・本名を要求せず、アカウントごとにグループ・保存ユーザー・鍵・設定・端末IDを分離する。複数windowはApp所有のアカウントと通話モデルを共有する。新規開発のため既存ユーザーの移行処理は追加しない。現行契約は[通信仕様](../spec/App/通信仕様.md#appleログインと端末内データ)。
+
+| 検証 | 結果と証跡 |
+|---|---|
+| iOS App・関連UI | 最終コードでApp 184件、個別通話・サインアウト・起動UI 3件、計187件成功、失敗・skipなし。`.validation/account-delivery/account-ios-shared-final/ios-tests.xcresult` |
+| iOSの全画面操作 | window間の状態共有を追加する前の同じ画面構成でUI 8件成功。`.validation/account-delivery/account-ios-final/test-tree.json`。この実行にはApp音声のRPC timeout失敗が含まれるため総合成功とは扱わず、Appは上記最終187件で再確認した |
+| 保存データ復旧 | 最終コードのUI 1件と、元の破損bytesの退避・空manifestの確認が成功。`account-ios-shared-final/ios-recovery.xcresult`、`recovery-verify.log`。復旧対象を検証アカウントの保存先へ追従 |
+| macOS App | 最終コードで184件成功、失敗・skipなし。`account-macos-shared-final/macos-tests.xcresult`。今回の隔離hostだけsandboxを無効にして実行し、製品設定は変更していない。通常sandboxの起動は未確認 |
+| 認証境界 | scopeなし・state照合・再送拒否・中断・取消・保存失敗・読出失敗時の保持・古い非同期結果の排除・削除失敗後の圏外復元拒否・削除再試行・未ログイン／別アカウントの接続拒否・通話停止を確認 |
+| Releaseと音声E2E | ReleaseのSimulator buildが成功し、認証fixture選択文字列・fixture識別子・開発用接続情報の不在を確認。音声E2E targetはMac/iOS双方のcompile成功。今回は独立音声E2Eの測定を再実行していない |
+| スクリプト・文書 | 復旧fixture 5件、validation runner 11件が成功。文書参照・Settings網羅・空白検査が成功 |
+| 画面 | `apple-sign-in.png`にサインアウト後の画面を保存。標準Appleボタン、目的・プライバシー・圏外利用の説明を目視確認。実機VoiceOver・iPad複数windowの実操作は後続 |
+| ソース・資源 | 最終検証中のApp・テスト220 Swiftファイルのhash一致を保存。検証後の変更は末尾の空行1行の削除のみで、`account-final-formatting.json`に差分を記録。管理Simulatorを再利用しShutdown、所有Mac host終了を確認。全体入口の`unchanged-inputs`は通常buildの採番で失敗し、projectの差分はビルド番号だけと別途比較した |
+
+最初の認証テストは未実装による失敗を確認してから実装した。途中の署名不足、Mac sandbox初期化待ち、画面分割・UI要素選択の失敗、Simulator音声RPC timeoutも証跡に残す。認証テストでは不要なネイティブ音声分離をOFFにし、音声の確認は専用テストに分けた後、上記App全体検証が成功した。原因をすべて認証コードに帰属させるものではない。
+
+Apple実ログイン用profileの自動更新は、Xcodeのアカウント資格を読めず失敗した。端末の実認証、通常署名・Mac sandbox、Bluetooth・実無線は[未確認事項](未確認事項.md#appleログインの実受入)へ残した。サーバーでのApple identity検証・ユーザー／端末登録・アカウント削除・通知・課金の完了を示す記録ではない。
+
 ## 保存ユーザーを指定する個別通話（2026-10-30）
 
 依存順の共通設計に残っていた、保存ユーザー指定からの1対1内部groupの解決・再利用をAppへ実装した。Usersから相手名を選択し、初回は相手宛ての招待を共有する。同じ二人の再選択ではIDと鍵を再利用し、別通話の閲覧では既存接続を切り替えない。直接招待関係のない参加者を対象へ昇格させず、宛先違いの招待・参加者追加・通常groupへの読み替えを拒否する。契約は[個別通話の仕様](../spec/App/通信仕様.md#保存ユーザーを指定する個別通話)、操作は[使い方](../manual/使い方.md#保存した相手と個別に話す)を参照する。

@@ -1,48 +1,59 @@
 import SwiftUI
 import RTC
+import AuthenticationServices
 
 struct ContentView: View {
-    @State private var viewModel = IntercomViewModel.makeForCurrentProcess()
+    @Environment(\.scenePhase) private var scenePhase
+    let account: AppleAccountSession
+    @Binding var viewModel: IntercomViewModel?
+    @State private var pendingInviteURL: URL?
     @State private var selectedTab: AppTab = .call
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            Tab("Call", systemImage: "waveform.circle.fill", value: .call) {
-                NavigationStack {
-                    CallEntryView(viewModel: viewModel)
-                }
+        Group {
+            if let viewModel, viewModel.canStartCalls {
+                SignedInContentView(viewModel: viewModel, selectedTab: $selectedTab)
+            } else {
+                AppleSignInView(account: account, hasPendingInvite: pendingInviteURL != nil)
             }
-            .accessibilityIdentifier("callTab")
-
-            Tab("Diagnostics", systemImage: "gauge", value: .diagnostics) {
-                NavigationStack {
-                    DiagnosticsView(viewModel: viewModel)
-                        .navigationTitle("Diagnostics")
-                }
+        }
+        .task { await account.refresh() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await account.refresh() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ASAuthorizationAppleIDProvider.credentialRevokedNotification)) { _ in
+            account.revoke()
+        }
+        .onChange(of: account.userID, initial: true) { previous, _ in
+            // Every window shares one call owner. Opening another scene must
+            // neither reconnect nor leave another account's media running.
+            guard viewModel?.accountUserID != account.userID else { return }
+            viewModel?.disconnect()
+            viewModel = IntercomViewModel.makeForCurrentProcess(accountSession: account)
+            if previous != nil { pendingInviteURL = nil }
+            if let viewModel, let pendingInviteURL {
+                openInvitation(pendingInviteURL, in: viewModel)
+                self.pendingInviteURL = nil
             }
-            .accessibilityIdentifier("diagnosticsTab")
-
-            Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
-                NavigationStack {
-                    SettingsView(viewModel: viewModel)
-                        .navigationTitle("Settings")
-                }
-            }
-            .accessibilityIdentifier("settingsTab")
         }
         .onOpenURL { url in
-            do {
-                try viewModel.acceptInviteURL(url)
-            } catch {
-                if viewModel.groupErrorMessage == nil {
-                    viewModel.groupErrorMessage = "This invitation could not be opened or saved. Ask for a valid invite and try again."
-                }
+            guard url.scheme == "rideintercom", url.host == "join" else { return }
+            if let viewModel, viewModel.canStartCalls { openInvitation(url, in: viewModel) }
+            else { pendingInviteURL = url }
+        }
+    }
+
+    private func openInvitation(_ url: URL, in viewModel: IntercomViewModel) {
+        selectedTab = .call
+        do { try viewModel.acceptInviteURL(url) }
+        catch {
+            if viewModel.groupErrorMessage == nil {
+                viewModel.groupErrorMessage = "This invitation could not be opened or saved. Ask for a valid invite and try again."
             }
-            selectedTab = .call
         }
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(account: .makeForCurrentProcess(), viewModel: .constant(nil))
 }

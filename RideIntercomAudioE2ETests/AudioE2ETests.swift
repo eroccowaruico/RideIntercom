@@ -1,3 +1,4 @@
+import AuthenticationServices
 import AVFAudio
 import AudioCore
 import Codec
@@ -239,7 +240,12 @@ final class AudioE2ETests: XCTestCase {
                                       engineFactory: { makeAudioE2EWebRTCEngine() })))
                 })
         }
+        let account = AppleAccountSession(keychain: FixtureKeychain(), defaults: defaults, namespace: namespace, credentialState: { _ in .authorized })
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        account.prepare(request)
+        XCTAssertTrue(account.completeSignIn(userID: "audio-e2e-" + role, state: request.state))
         let viewModel = IntercomViewModel(
+            accountSession: account,
             callSession: callSession,
             groupRepository: GroupRepository(store: FileGroupStore(directory: directory), credentials: credentials),
             appSettingsStore: settings,

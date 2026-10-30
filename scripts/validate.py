@@ -155,6 +155,12 @@ class Runner:
                    '-destination', destination, '-parallel-testing-enabled', 'NO',
                    '-derivedDataPath', str(derived), '-resultBundlePath', str(bundle),
                    'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.' + self.out.name + '.' + (reuse_build or name)]
+        if not reuse_build:
+            command.append('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION')
+            if destination.startswith('platform=macOS'):
+                # Local provider fixtures do not contact Apple. Keep this build
+                # independent of portal profiles; real capability acceptance is separate.
+                command.append('CODE_SIGN_ENTITLEMENTS=')
         if only:
             command.append(f'-only-testing:{only}')
         if skip:
