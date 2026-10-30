@@ -50,6 +50,17 @@ nonisolated struct InternetAccountClient: Sendable {
               parts.count == 4, parts[0] == "ri1", Self.hex(parts[1]), parts[2] == value.deviceID, Self.hex(parts[3]) else { throw Failure.invalidResponse }
         return value
     }
+    func certify(origin: URL, credential: InternetAccountCredential, memberID: String, deviceKey: String) async throws -> VerifiedDeviceIdentity {
+        let envelope: DeviceIdentityCertificate = try await send(origin: origin, path: "api/auth/identity",
+            body: ["memberID": memberID, "deviceKey": deviceKey], token: credential.accessToken)
+        // Only this authenticated HTTPS response bootstraps issuer trust. Never
+        // bootstrap it from an invitation, group message, or peer certificate.
+        let identity = try envelope.verify(origin: origin, trustedIssuerKey: envelope.issuerKey)
+        guard identity.userID == credential.userID, identity.deviceID == credential.deviceID,
+              identity.memberID == memberID, identity.deviceKey == deviceKey,
+              identity.expiresAt * 1000 <= credential.expiresAt else { throw Failure.invalidResponse }
+        return identity
+    }
     func revoke(_ configuration: CloudflareRealtimeConfiguration) async throws {
         let _: Empty = try await send(origin: configuration.workerURL, path: "api/auth/session", method: "DELETE", token: configuration.accessToken)
     }
@@ -92,9 +103,11 @@ final class InternetAccountAuthorization {
     var isReady: Bool { challenge != nil && !isBusy }
     private let expectedUserID: String
     private let deviceID: String
+    private let memberID: String
+    private let deviceKey: String
     private let client: InternetAccountClient
     private let currentUser: () -> String?
-    private let save: (URL, InternetAccountCredential) throws -> Void
+    private let save: (URL, InternetAccountCredential, VerifiedDeviceIdentity) throws -> Void
     private var challenge: InternetAccountChallenge?
     private var origin: URL?
     private var state: String?
@@ -102,9 +115,9 @@ final class InternetAccountAuthorization {
     private var retryNotBefore: Date?
     private var retryOrigin: URL?
 
-    init(expectedUserID: String, deviceID: String, client: InternetAccountClient = .init(), currentUser: @escaping () -> String?,
-         save: @escaping (URL, InternetAccountCredential) throws -> Void) {
-        self.expectedUserID = expectedUserID; self.deviceID = deviceID; self.client = client; self.currentUser = currentUser; self.save = save
+    init(expectedUserID: String, deviceID: String, memberID: String, deviceKey: String, client: InternetAccountClient = .init(), currentUser: @escaping () -> String?,
+         save: @escaping (URL, InternetAccountCredential, VerifiedDeviceIdentity) throws -> Void) {
+        self.expectedUserID = expectedUserID; self.deviceID = deviceID; self.memberID = memberID; self.deviceKey = deviceKey; self.client = client; self.currentUser = currentUser; self.save = save
     }
     func cancel() { generation = UUID(); challenge = nil; origin = nil; state = nil; isBusy = false }
     func prepare(url: String) async {
@@ -162,7 +175,9 @@ final class InternetAccountAuthorization {
             let credential = try await client.exchange(origin: origin, challenge: challenge, token: identityToken)
             do {
                 guard generation == operation, currentUser() == expectedUserID else { throw InternetAccountClient.Failure.rejected }
-                try save(origin, credential)
+                let identity = try await client.certify(origin: origin, credential: credential, memberID: memberID, deviceKey: deviceKey)
+                guard generation == operation, currentUser() == expectedUserID else { throw InternetAccountClient.Failure.rejected }
+                try save(origin, credential, identity)
             } catch {
                 try? await client.revoke(.init(workerURL: origin, accessToken: credential.accessToken))
                 throw error

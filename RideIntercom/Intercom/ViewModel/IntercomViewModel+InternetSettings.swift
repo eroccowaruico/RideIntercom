@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import RTC
 
 extension IntercomViewModel {
@@ -8,12 +9,13 @@ extension IntercomViewModel {
         if let fixture = AppleAccountFixture.makeInternetAuthorization(viewModel: self) { return fixture }
         #endif
         return InternetAccountAuthorization(expectedUserID: accountUserID, deviceID: try internetSettingsStore.accountDeviceID(),
+            memberID: localMemberIdentity.memberID, deviceKey: IdentityEncoding.encode(try internetSettingsStore.deviceSigningKey().publicKey.x963Representation),
             currentUser: { [weak self] in
                 guard let self, self.canStartCalls else { return nil }
                 return self.accountUserID
-            }, save: { [weak self] origin, credential in
+            }, save: { [weak self] origin, credential, identity in
                 guard let self, self.canStartCalls else { throw InternetAccountClient.Failure.rejected }
-                try self.saveInternetConnection(url: origin.absoluteString, token: credential.accessToken)
+                try self.saveInternetConnection(url: origin.absoluteString, token: credential.accessToken, identity: identity)
             })
     }
     func endAccountAccess() {
@@ -37,9 +39,9 @@ extension IntercomViewModel {
             internetCheckMessage = "Internet access is disabled on this device. Server sign-out is pending; retry when online."
         }
     }
-    func saveInternetConnection(url: String, token: String) throws {
+    func saveInternetConnection(url: String, token: String, identity: VerifiedDeviceIdentity? = nil) throws {
         guard canStartCalls else { throw InternetAccountClient.Failure.rejected }
-        try internetSettingsStore.save(url: url, token: token)
+        try internetSettingsStore.save(url: url, token: token, identity: identity)
         guard let configuration = try internetSettingsStore.load() else { throw InternetConnectionSettingsStore.ValidationError.missingToken }
         internetCheckGeneration = UUID()
         isCheckingInternet = false

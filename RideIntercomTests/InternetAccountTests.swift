@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Foundation
+import CryptoKit
 import RTC
 import Testing
 @testable import RideIntercom
@@ -94,7 +95,7 @@ struct InternetAccountTests {
         #expect(f.saved?.deviceID == f.deviceID)
         #expect(f.saved?.accessToken.split(separator: ".")[1] == Substring(String(repeating: "d", count: 64)))
         #expect(f.authorization.message == "Internet calling is connected to your Apple Account.")
-        #expect(AccountHTTPStub.requests.map { $0.url!.path } == ["/api/auth/apple/challenge", "/api/auth/apple/session"])
+        #expect(AccountHTTPStub.requests.map { $0.url!.path } == ["/api/auth/apple/challenge", "/api/auth/apple/session", "/api/auth/identity"])
     }
 
     @Test(arguments: ["", "invalid", String(repeating: "d", count: 63), String(repeating: "D", count: 64), String(repeating: "d", count: 64) + ".extra"])
@@ -107,6 +108,39 @@ struct InternetAccountTests {
         await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
         #expect(f.saved == nil)
         #expect(f.authorization.message != "Internet calling is connected to your Apple Account.")
+    }
+
+    @Test(arguments: ["sub", "deviceID", "memberID", "deviceKey", "iss", "aud"])
+    func mismatchedIdentityCannotBeSavedAndNewCredentialIsRevoked(field: String) async {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        let wrong: [String: String] = ["sub": String(repeating: "b", count: 64), "deviceID": UUID().uuidString.lowercased(),
+            "memberID": "another-member", "deviceKey": IdentityEncoding.encode(P256.Signing.PrivateKey().publicKey.x963Representation),
+            "iss": "https://another.test", "aud": "another-purpose"]
+        AccountHTTPStub.changeIdentity([field: wrong[field]!])
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
+        #expect(f.saved == nil && f.savedIdentity == nil)
+        #expect(AccountHTTPStub.requests.last?.httpMethod == "DELETE")
+    }
+
+    @Test func verifiedIdentityAndPrivateKeySurviveRestartAndAreDisabledOnSignOut() async throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
+        let credential = try #require(f.saved), identity = try #require(f.savedIdentity)
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        try store.save(url: "https://account.test", token: credential.accessToken, identity: identity)
+        let restarted = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        #expect(try restarted.loadIdentity(memberID: "member-fixture")?.userID == credential.userID)
+        #expect(try restarted.deviceSigningKey().rawRepresentation == f.signingKey.rawRepresentation)
+        #expect(throws: (any Error).self) { try restarted.loadIdentity(memberID: "another-member") }
+        _ = try restarted.retireAppleCredential()
+        #expect(try restarted.loadIdentity(memberID: "member-fixture") == nil)
+        #expect(try restarted.deviceSigningKey().rawRepresentation == f.signingKey.rawRepresentation)
     }
 
     @Test func differentAccountAndReplayedNativeCompletionNeverExchangeProof() async {
@@ -211,6 +245,8 @@ private final class InternetAccountTestFixture {
     let keychain = InternetAccountTestKeychain()
     var currentUser = "apple-user"
     var saved: InternetAccountCredential?
+    var savedIdentity: VerifiedDeviceIdentity?
+    lazy var signingKey = try! InternetConnectionSettingsStore(keychain: keychain, namespace: namespace).deviceSigningKey()
     var saveFails = false
     var credential: InternetAccountCredential { .init(userID: String(repeating: "a", count: 64), deviceID: deviceID,
         expiresAt: Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000,
@@ -220,8 +256,9 @@ private final class InternetAccountTestFixture {
         configuration.protocolClasses = [AccountHTTPStub.self]
         AccountHTTPStub.reset(deviceID: deviceID)
         return InternetAccountAuthorization(expectedUserID: "apple-user", deviceID: deviceID,
+            memberID: "member-fixture", deviceKey: IdentityEncoding.encode(signingKey.publicKey.x963Representation),
             client: InternetAccountClient(session: URLSession(configuration: configuration)), currentUser: { [unowned self] in currentUser },
-            save: { [unowned self] _, value in if saveFails { throw URLError(.cannotWriteToFile) }; saved = value })
+            save: { [unowned self] _, value, identity in if saveFails { throw URLError(.cannotWriteToFile) }; saved = value; savedIdentity = identity })
     }()
     func remove() { UserDefaults(suiteName: namespace)?.removePersistentDomain(forName: namespace) }
 }
@@ -251,6 +288,7 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var recorded: [URLRequest] = []
     nonisolated(unsafe) private static var deviceID = ""
+    nonisolated(unsafe) private static var identityChanges: [String: String] = [:]
     nonisolated(unsafe) private static var locator = String(repeating: "d", count: 64)
     nonisolated(unsafe) private static var delayed = false
     nonisolated(unsafe) private static var responseStatus = 200
@@ -259,11 +297,12 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
     static var requests: [URLRequest] { lock.withLock { recorded } }
     static func reset(deviceID: String) { lock.withLock {
         recorded = []; Self.deviceID = deviceID; delayed = false; locator = String(repeating: "d", count: 64)
-        responseStatus = 200; responsePath = nil; retryAfter = nil
+        responseStatus = 200; responsePath = nil; retryAfter = nil; identityChanges = [:]
     } }
     static func respond(status: Int, path: String? = nil, retryAfter: String? = nil) { lock.withLock {
         responseStatus = status; responsePath = path; Self.retryAfter = retryAfter
     } }
+    static func changeIdentity(_ changes: [String: String]) { lock.withLock { identityChanges = changes } }
     static func setLocator(_ value: String) { lock.withLock { locator = value } }
     static func delayExchange() { lock.withLock { delayed = true } }
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -275,6 +314,12 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
         if request.url!.path.hasSuffix("/challenge") {
             body = ["challengeID": account, "nonce": String(repeating: "b", count: 64), "deviceID": device,
                     "expiresAt": Date().addingTimeInterval(300).timeIntervalSince1970 * 1000]
+        } else if request.url!.path.hasSuffix("/identity") {
+            let input = Self.body(request)
+            let changes = Self.lock.withLock { Self.identityChanges }
+            let proof = try! testIdentityCertificate(deviceID: device, memberID: input["memberID"] as? String ?? "missing",
+                deviceKey: input["deviceKey"] as? String ?? "missing", origin: IdentityEncoding.origin(request.url!), changes: changes)
+            body = ["certificate": proof.certificate, "issuerKey": proof.issuerKey]
         } else if request.httpMethod == "DELETE" { body = [:] }
         else { body = ["userID": account, "deviceID": device, "expiresAt": Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000,
                        "accessToken": "ri1.\(Self.lock.withLock { Self.locator }).\(device).\(String(repeating: "c", count: 64))"] }
@@ -292,6 +337,19 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
         if request.url!.path == "/api/auth/apple/session", Self.lock.withLock({ Self.delayed }) {
             DispatchQueue.global().asyncAfter(deadline: .now() + 0.2, execute: deliver)
         } else { deliver() }
+    }
+    private static func body(_ request: URLRequest) -> [String: Any] {
+        var bytes = request.httpBody ?? Data()
+        if bytes.isEmpty, let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                bytes.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        return (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any] ?? [:]
     }
     override func stopLoading() {}
 }

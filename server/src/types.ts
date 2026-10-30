@@ -7,6 +7,7 @@ export interface Env extends Omit<WorkerBindings, 'SIGNALING_ROOM' | 'USAGE_GUAR
     CLOUDFLARE_SFU_APP_SECRET: string
     CLOUDFLARE_TURN_KEY_ID?: string
     CLOUDFLARE_TURN_API_TOKEN?: string
+    DEVICE_IDENTITY_SIGNING_KEY?: string
     CLIENT_TOKENS_JSON: string
 }
 export interface Description { type: 'offer' | 'answer'; sdp: string }

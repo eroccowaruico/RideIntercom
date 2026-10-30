@@ -1,5 +1,22 @@
 # 検証状況と証跡
 
+## 署名付き端末証明の発行とApp保存（2026-10-31）
+
+Internet登録に、公開ユーザーID・端末ID・member ID・端末公開鍵を結ぶES256証明の取得と検証を追加した。App自身のHTTPS登録先から発行公開鍵を取得し、不一致の応答では新資格を回収する。資格と証明を同じKeychain項目へ保存し、端末秘密鍵は別のアカウント別項目に保持する。[現行契約](../spec/server/Worker.md#ユーザーと端末の署名付き証明)と[残る接続点](../backlog/未実装課題.md#実装の接続点と残作業の再点検)を分ける。
+
+証跡は`.validation/device-identity-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| Worker / DO | 47件成功、失敗・skipなし。Bearer由来のID、公開鍵の妥当性、証明の内容と期限、秘密の非公開、削除・再登録、未設定署名鍵を確認。`server/server-final.log` |
+| Swift–Worker | 実HTTP/WSとローカルDOの結合1件成功。外部SFUはmock。`server/pair.log` |
+| App | macOS・iOS各226件成功、失敗・skip・runtime warningなし。JOSE生成署名をSwift/CryptoKitで検証し、別のユーザー・端末・member・鍵・発行元・用途、期限境界、再起動、サインアウト、鍵欠落／破損を確認。Macのsandbox無効化は検証ホスト限定。`macos/`、`ios/` |
+| 関連UI | 登録の頻度制限案内と、登録不可でもLocalログインを維持する2件成功。専用Simulatorは終了済み。`ui/` |
+| Release | iOS Simulator Release build成功。ログイン検証fixtureのマーカー不在。既知のAppIntents未使用metadata省略warningのみ。`release/` |
+| 静的・ソース | TypeScript、文書、開発設定、diff検査成功。App/test・serverの137ソースは検証前後で一致。`source-manifest.json` |
+
+未実装APIの404と、Appが証明取得へ進まない失敗を先に再現した。途中のCryptoKit import不足によるcompile失敗も保持する。今回の完了は自分の証明取得・検証・保存までであり、相手端末のchallenge署名、直接招待と保存ユーザーの結合、通知許可は未完。実サービスの署名鍵設定・Apple認証・実機、全package/音声E2Eを含む最終受入も未完である。
+
 ## 公開ユーザーIDと削除後の再登録（2026-10-31）
 
 公開ユーザーIDを認証用DO locatorから分離し、サインアウト・全端末資格の期限切れ・再ログインでは維持、アカウント削除で破棄する。再登録時の新IDは並行登録でも一致させる。Appの登録応答検証を同じ契約へ変更した。WebRTC予約は内部IDを使い、削除前の資源が残る間の追加接続を拒否する。[Worker契約](../spec/server/Worker.md#apple認証と端末資格)を参照する。

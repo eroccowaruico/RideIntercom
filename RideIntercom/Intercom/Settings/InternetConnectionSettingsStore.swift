@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import RTC
 
 /// Device access is stored separately from group invitations and audio preferences.
@@ -32,7 +33,7 @@ final class InternetConnectionSettingsStore {
         return .init(keychain: keychain, namespace: namespace, developmentDefaults: developmentDefaults,
                      permitsServiceAccess: permitsServiceAccess)
     }
-    private struct Saved: Codable { let workerURL: URL; let accessToken: String }
+    private struct Saved: Codable { let workerURL: URL; let accessToken: String; var identity: DeviceIdentityCertificate? }
     enum ValidationError: Error { case invalidURL, missingToken, disabledDuringLocalTests }
     private func validated(url: String, token: String) throws -> Saved {
         guard let url = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)), url.scheme == "https", url.host != nil,
@@ -41,9 +42,15 @@ final class InternetConnectionSettingsStore {
         guard !token.isEmpty, token.count <= 256 else { throw ValidationError.missingToken }
         return Saved(workerURL: url, accessToken: token)
     }
-    func save(url: String, token: String) throws {
+    func save(url: String, token: String, identity: VerifiedDeviceIdentity? = nil) throws {
         guard permitsServiceAccess else { throw ValidationError.disabledDuringLocalTests }
-        let data = try JSONEncoder().encode(validated(url: url, token: token))
+        var saved = try validated(url: url, token: token)
+        if let identity {
+            guard let key = try storedDeviceSigningKey(), identity.issuer == IdentityEncoding.origin(saved.workerURL),
+                  identity.deviceKey == IdentityEncoding.encode(key.publicKey.x963Representation) else { throw ValidationError.missingToken }
+            saved.identity = identity.envelope
+        }
+        let data = try JSONEncoder().encode(saved)
         try keychain.saveSecret(String(decoding: data, as: UTF8.self), service: service, account: "current")
         defaults.set(false, forKey: deniedKey)
     }
@@ -59,6 +66,30 @@ final class InternetConnectionSettingsStore {
             return nil
         }
         return .init(workerURL: saved.workerURL, accessToken: saved.accessToken)
+    }
+
+    func deviceSigningKey() throws -> P256.Signing.PrivateKey {
+        guard permitsServiceAccess else { throw ValidationError.disabledDuringLocalTests }
+        if let key = try storedDeviceSigningKey() { return key }
+        let raw = try keychain.createSecretIfAbsent(P256.Signing.PrivateKey().rawRepresentation.base64EncodedString(), service: service, account: "identity-key")
+        return try decodeSigningKey(raw)
+    }
+    private func storedDeviceSigningKey() throws -> P256.Signing.PrivateKey? {
+        try keychain.secret(service: service, account: "identity-key").map(decodeSigningKey)
+    }
+    private func decodeSigningKey(_ raw: String) throws -> P256.Signing.PrivateKey {
+        guard let bytes = Data(base64Encoded: raw) else { throw KeychainSecretStoreError.invalidData }
+        return try P256.Signing.PrivateKey(rawRepresentation: bytes)
+    }
+    func loadIdentity(memberID: String) throws -> VerifiedDeviceIdentity? {
+        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey),
+              let raw = try keychain.secret(service: service, account: "current") else { return nil }
+        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
+        guard let envelope = saved.identity else { return nil }
+        let identity = try envelope.verify(origin: saved.workerURL, trustedIssuerKey: envelope.issuerKey)
+        guard let key = try storedDeviceSigningKey(), identity.memberID == memberID,
+              identity.deviceKey == IdentityEncoding.encode(key.publicKey.x963Representation) else { throw KeychainSecretStoreError.invalidData }
+        return identity
     }
 
     func accountDeviceID() throws -> String {

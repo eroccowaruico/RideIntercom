@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { generateKeyPair, exportJWK, SignJWT } from 'jose';
+import { generateKeyPair, exportJWK, SignJWT, jwtVerify } from 'jose';
 import { makeRuntime, offer, room, provider } from './support/runtime.mjs';
 
 const keys = await generateKeyPair('RS256');
@@ -440,4 +440,56 @@ test('re-enrollment after deletion cannot bypass an uncollected account connecti
         assert.equal((await response.json()).code, 'account_in_use');
         assert.equal(provider.requests.length, count);
     } finally { await runtime.dispose(); }
+});
+
+
+test('device identity certificate binds only authenticated user and device to a public signing key', async () => {
+    const signer = await generateKeyPair('ES256', { extractable: true });
+    const signingJWK = await exportJWK(signer.privateKey);
+    const deviceKeys = await generateKeyPair('ES256', { extractable: true });
+    const deviceKey = Buffer.from(await crypto.subtle.exportKey('raw', deviceKeys.publicKey)).toString('base64url');
+    const runtime = await makeRuntime({ ...options, DEVICE_IDENTITY_SIGNING_KEY: JSON.stringify(signingJWK) }, { appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime);
+        const providerCount = provider.requests.length;
+        const response = await call(runtime, '/api/auth/identity', { memberID: 'member-fixture', deviceKey, userID: 'forged-user', deviceID: randomUUID() }, one.accessToken);
+        assert.equal(response.status, 200);
+        const result = await response.json();
+        assert.equal(result.issuerKey, Buffer.from(await crypto.subtle.exportKey('raw', signer.publicKey)).toString('base64url'));
+        const { payload, protectedHeader } = await jwtVerify(result.certificate, signer.publicKey, {
+            issuer: 'https://worker.test', audience: 'rideintercom-peer', algorithms: ['ES256'], typ: 'rideintercom-device+jwt'
+        });
+        assert.deepEqual(Object.keys(protectedHeader).sort(), ['alg', 'typ']);
+        assert.equal(payload.sub, one.userID); assert.equal(payload.deviceID, one.deviceID);
+        assert.equal(payload.memberID, 'member-fixture'); assert.equal(payload.deviceKey, deviceKey);
+        assert.ok(payload.exp * 1000 <= one.expiresAt && payload.exp > payload.iat);
+        const serialized = JSON.stringify(result);
+        for (const secret of [one.accessToken, one.accessToken.split('.')[1], signingJWK.d, 'apple-private-subject', 'private@example.invalid']) assert.ok(!serialized.includes(secret));
+        assert.equal(provider.requests.length, providerCount);
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, '/api/auth/identity', { memberID: 'member-fixture', deviceKey }, one.accessToken)).status, 401);
+        const replacement = await enrolled(runtime);
+        const renewed = await call(runtime, '/api/auth/identity', { memberID: 'member-fixture', deviceKey }, replacement.accessToken);
+        assert.equal(renewed.status, 200);
+        const next = await jwtVerify((await renewed.json()).certificate, signer.publicKey);
+        assert.notEqual(next.payload.sub, payload.sub);
+    } finally { await runtime.dispose(); }
+});
+
+test('device identity issuance rejects invalid keys, identifiers and unconfigured signing', async () => {
+    const signer = await generateKeyPair('ES256', { extractable: true });
+    const deviceKey = Buffer.from(await crypto.subtle.exportKey('raw', signer.publicKey)).toString('base64url');
+    const runtime = await makeRuntime({ ...options, DEVICE_IDENTITY_SIGNING_KEY: JSON.stringify(await exportJWK(signer.privateKey)) }, { appleKeys: [publicKey] });
+    const disabled = await makeRuntime(options, { appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime), other = await enrolled(disabled);
+        const valid = { memberID: 'member-fixture', deviceKey };
+        assert.equal((await call(disabled, '/api/auth/identity', valid, other.accessToken)).status, 503);
+        assert.equal((await call(runtime, '/api/auth/identity', valid, 'invalid')).status, 401);
+        assert.equal((await call(runtime, '/api/auth/identity', undefined, one.accessToken, 'GET')).status, 405);
+        for (const body of [{ ...valid, deviceKey: 'invalid' }, { ...valid, deviceKey: Buffer.alloc(65).toString('base64url') },
+            { ...valid, memberID: '' }, { ...valid, memberID: 'invite-pending-test' }, { ...valid, memberID: 'x'.repeat(64) }]) {
+            assert.equal((await call(runtime, '/api/auth/identity', body, one.accessToken)).status, 400);
+        }
+    } finally { await runtime.dispose(); await disabled.dispose(); }
 });

@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { createRemoteJWKSet, errors, jwtVerify } from 'jose'
 import { Env, json, readJSON } from './types'
+import { certifyDevice } from './DeviceIdentity'
 
 // Only Apple's fixed public-key origin is used; a token cannot choose a key URL.
 const appleKeys = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'), { timeoutDuration: 5000 })
@@ -150,6 +151,20 @@ export async function authenticateDevice(token: string, env: Env): Promise<(Devi
 export async function accountRequest(request: Request, env: Env): Promise<Response> {
     const path = new URL(request.url).pathname
     try {
+        if (path === '/api/auth/identity') {
+            if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+            const authorization = request.headers.get('Authorization') ?? ''
+            const token = authorization.startsWith('Bearer ') && authorization.length <= 512 ? authorization.slice(7) : ''
+            const identity = await authenticateDevice(token, env)
+            if (!identity) return json({ error: 'Unauthorized' }, 401)
+            const limited = await limitEnrollment(request, env)
+            if (limited) return limited
+            const result = await certifyDevice(identity, new URL(request.url).origin, await readJSON(request), env)
+            // Signing can suspend. Do not deliver a certificate after its device
+            // was revoked, replaced, or its account was deleted in the meantime.
+            const current = await authenticateDevice(token, env)
+            return current?.userID === identity.userID ? json(result) : json({ error: 'Unauthorized' }, 401)
+        }
         if (path === '/api/auth/session' || path === '/api/auth/account') {
             const authorization = request.headers.get('Authorization') ?? ''
             const credential = authorization.startsWith('Bearer ') && authorization.length <= 512
@@ -171,19 +186,8 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
         if (!['/api/auth/apple/challenge', '/api/auth/apple/session'].includes(path)) return json({ error: 'Not found' }, 404)
         if (env.APPLE_AUTH_ENABLED !== 'true' || !env.APPLE_CLIENT_ID) return json({ error: 'Apple enrollment is unavailable' }, 503)
         if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
-        // Only the edge-provided source is used, never a device ID or a
-        // client-selected forwarding header. No source IP is stored in a DO.
-        const source = request.headers.get('CF-Connecting-IP')
-        if (!source || source.length > 64 || !env.APPLE_ENROLLMENT_IP_LIMIT || !env.APPLE_ENROLLMENT_GLOBAL_LIMIT) {
-            return json({ error: 'Apple enrollment is unavailable' }, 503)
-        }
-        const sourceKey = await digest(`${Math.floor(Date.now() / 86400000)}:${source}`)
-        if (!(await env.APPLE_ENROLLMENT_IP_LIMIT.limit({ key: sourceKey })).success
-            || !(await env.APPLE_ENROLLMENT_GLOBAL_LIMIT.limit({ key: 'apple-enrollment' })).success) {
-            const response = json({ error: 'Too many sign-in attempts', code: 'enrollment_rate_limited' }, 429)
-            response.headers.set('Retry-After', '60')
-            return response
-        }
+        const limited = await limitEnrollment(request, env)
+        if (limited) return limited
         const body: Record<string, unknown> = await readJSON(request)
         if (path.endsWith('/challenge')) {
             if (typeof body.deviceID !== 'string' || !devicePattern.test(body.deviceID)) return json({ error: 'Invalid device' }, 400)
@@ -209,4 +213,21 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
         return error instanceof Error && error.message === 'body'
             ? json({ error: 'Invalid body' }, 400) : json({ error: 'Account service unavailable' }, 503)
     }
+}
+
+async function limitEnrollment(request: Request, env: Env): Promise<Response | null> {
+    // Only the edge-provided source is used, never a device ID or a
+    // client-selected forwarding header. No source IP is stored in a DO.
+    const source = request.headers.get('CF-Connecting-IP')
+    if (!source || source.length > 64 || !env.APPLE_ENROLLMENT_IP_LIMIT || !env.APPLE_ENROLLMENT_GLOBAL_LIMIT) {
+        return json({ error: 'Apple enrollment is unavailable' }, 503)
+    }
+    const sourceKey = await digest(`${Math.floor(Date.now() / 86400000)}:${source}`)
+    if (!(await env.APPLE_ENROLLMENT_IP_LIMIT.limit({ key: sourceKey })).success
+        || !(await env.APPLE_ENROLLMENT_GLOBAL_LIMIT.limit({ key: 'apple-enrollment' })).success) {
+        const response = json({ error: 'Too many sign-in attempts', code: 'enrollment_rate_limited' }, 429)
+        response.headers.set('Retry-After', '60')
+        return response
+    }
+    return null
 }

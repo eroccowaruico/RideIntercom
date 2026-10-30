@@ -74,6 +74,21 @@ AppのSettingsからnonce取得・native Apple認証・資格保存と、サイ�
 
 このserver実装は公開運用の完了ではない。Apple認可コードの交換・refresh token・Appからのアカウント削除完結／Apple grant取消、サーバー通知は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
 
+### ユーザーと端末の署名付き証明
+
+`POST /api/auth/identity`はApple端末Bearerを検証し、`memberID`とP-256の端末公開鍵`deviceKey`を受ける。公開鍵は65byteの非圧縮表現をpaddingなしbase64urlで送り、曲線上の有効な点を確認する。仮の招待枠IDは認めない。bodyのuserID・deviceIDは採用せず、確認済みの資格から取得する。登録入口と同じ頻度制限を適用し、署名後にも資格を確認して失効・削除と競合した応答を拒否する。
+
+| 項目 | 契約 |
+|---|---|
+| 応答 | `certificate`と`issuerKey`。certificateはJOSE ES256のcompact JWT、headerは`alg: ES256`・`typ: rideintercom-device+jwt`。issuerKeyは署名用公開鍵の非圧縮表現をbase64url化したもの |
+| claims | `iss`は要求先のHTTPS origin、`aud`は`rideintercom-peer`、`sub`は公開userID。`deviceID`・`memberID`・`deviceKey`・秒単位の`iat`・`exp`を含む。Apple ID・メール・Bearer・内部DO locatorを含めない |
+| 有効期間 | 発行から最大30日、かつ元の端末資格の期限以内。サーバーへ証明のコピーや端末公開鍵の追加登録を保持しない |
+| 発行鍵 | `DEVICE_IDENTITY_SIGNING_KEY`へES256/P-256のprivate JWKをsecretとして設定する。未設定・破損時は503。Appへは公開部分だけ返す。環境ごとに管理し、ソース・ログへ秘密を入れない |
+| 信頼の取得 | App自身の設定済みサービスへのHTTPS認証要求の応答から公開鍵を取得する。相手が送る証明・招待内の鍵をそのまま信頼の起点にしない。サービスoriginが異なるIDを統合しない |
+| 限界 | 証明は発行時のユーザーと端末鍵の対応であり、直接招待・通知許可ではない。相手が秘密鍵を持つことの確認は後続のchallenge署名で行う。オフラインで削除・失効を即時照会できるという意味ではない |
+
+署名鍵の変更時にはAppで証明と信頼する公開鍵を再取得する。期限切れ・未知の署名鍵の証明で新しい同一人物の統合を行わない。Local通話の開始をこのAPI呼出しへ従属させず、公開identityが未取得でも既存のAppleログイン・グループ認証の経路は維持する。公開通知を追加する際は、受取側の用途別許可・取消とオンライン資格の失効確認を別途接続する。
+
 ### アカウントの端末登録削除
 
 | 項目 | 契約 |

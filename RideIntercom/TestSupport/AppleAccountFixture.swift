@@ -1,6 +1,7 @@
 #if DEBUG && RIDEINTERCOM_VALIDATION
 import AuthenticationServices
 import Foundation
+import CryptoKit
 
 /// Compiled only into explicitly isolated local validation builds. Ordinary
 /// Debug, Release and Archive builds cannot select this provider with an env var.
@@ -51,9 +52,10 @@ enum AppleAccountFixture {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ThrottledEnrollment.self]
         return InternetAccountAuthorization(expectedUserID: userID, deviceID: UUID().uuidString.lowercased(),
+            memberID: "fixture-member", deviceKey: IdentityEncoding.encode(P256.Signing.PrivateKey().publicKey.x963Representation),
             client: .init(session: URLSession(configuration: configuration)),
             currentUser: { [weak viewModel] in viewModel?.accountSession.userID },
-            save: { _, _ in throw InternetAccountClient.Failure.rejected })
+            save: { _, _, _ in throw InternetAccountClient.Failure.rejected })
     }
 
     // All requests stay in this process; the fixture cannot return a credential.
