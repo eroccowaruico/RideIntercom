@@ -34,6 +34,35 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testAACBitrateChoicesSurviveCodecSwitches() {
+        openSettingsTab()
+        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        let codec = app.segmentedControls.containing(.button, identifier: "PCM 16-bit").firstMatch
+        for _ in 0..<8 where !codec.buttons["AAC-ELD"].isHittable { scroll.swipeUp() }
+        XCTAssertTrue(app.staticTexts["transmitCodecLabel"].exists)
+        XCTAssertTrue(app.staticTexts["rtcAudioSampleRateLabel"].exists)
+        codec.buttons["AAC-ELD"].tap()
+        let format = app.segmentedControls.containing(.button, identifier: "48 kHz").firstMatch
+        for (sampleRate, rates) in [("48 kHz", [48, 64, 80, 96, 112, 128]), ("24 kHz", [32, 48, 64]), ("16 kHz", [48])] {
+            format.buttons[sampleRate].tap()
+            for otherCodec in ["PCM 16-bit", "Opus", "PCM 16-bit"] {
+                codec.buttons[otherCodec].tap()
+                codec.buttons["AAC-ELD"].tap()
+                let bitrate = app.buttons["aacELDBitRatePicker"].firstMatch
+                XCTAssertTrue(bitrate.waitForExistence(timeout: 3))
+                bitrate.tap()
+                attachScreen("AAC menu \(sampleRate) after \(otherCodec)")
+                for rate in [32, 48, 64, 80, 96, 112, 128] {
+                    XCTAssertEqual(app.buttons["\(rate) kbps"].firstMatch.exists, rates.contains(rate), "\(sampleRate): \(rate) kbps after \(otherCodec)")
+                }
+                app.buttons["\(rates.last!) kbps"].firstMatch.tap()
+                XCTAssertTrue(bitrate.label.contains("\(rates.last!) kbps") || (bitrate.value as? String)?.contains("\(rates.last!) kbps") == true)
+            }
+        }
+        format.buttons["48 kHz"].tap()
+    }
+
+    @MainActor
     func testCorruptGroupStoreRecovery() throws {
         // validate.py supplies corrupt bytes only after the ordinary UI suite,
         // inside its own Simulator and build-specific storage namespace.

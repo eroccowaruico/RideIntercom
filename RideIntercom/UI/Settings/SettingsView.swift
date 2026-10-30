@@ -182,29 +182,37 @@ struct TransmitCodecPanel: View {
 
     var body: some View {
         Section {
-            Picker("Codec", selection: Binding(
-                get: { viewModel.preferredTransmitCodec },
-                set: { viewModel.setPreferredTransmitCodec($0) }
-            )) {
-                Text("PCM 16-bit").tag(AudioCodecIdentifier.pcm16)
-                Text("AAC-ELD").tag(AudioCodecIdentifier.mpeg4AACELD)
-                Text("Opus").tag(AudioCodecIdentifier.opus)
-            }
-            .pickerStyle(.segmented)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("transmitCodecPicker")
-
-            Picker("RTC Audio", selection: Binding(
-                get: { viewModel.rtcAudioFormatPreset },
-                set: { viewModel.setRTCAudioFormatPreset($0) }
-            )) {
-                ForEach(RTCAudioFormatPreset.allCases) { preset in
-                    Text(preset.label).tag(preset)
+            VStack(alignment: .leading) {
+                Text("Codec")
+                    .accessibilityIdentifier("transmitCodecLabel")
+                Picker("Codec", selection: Binding(
+                    get: { viewModel.preferredTransmitCodec },
+                    set: { viewModel.setPreferredTransmitCodec($0) }
+                )) {
+                    Text("PCM 16-bit").tag(AudioCodecIdentifier.pcm16)
+                    Text("AAC-ELD").tag(AudioCodecIdentifier.mpeg4AACELD)
+                    Text("Opus").tag(AudioCodecIdentifier.opus)
                 }
+                .pickerStyle(.segmented)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("transmitCodecPicker")
             }
-            .pickerStyle(.segmented)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("rtcAudioFormatPicker")
+
+            VStack(alignment: .leading) {
+                Text("Sample Rate")
+                    .accessibilityIdentifier("rtcAudioSampleRateLabel")
+                Picker("Sample Rate", selection: Binding(
+                    get: { viewModel.rtcAudioFormatPreset },
+                    set: { viewModel.setRTCAudioFormatPreset($0) }
+                )) {
+                    ForEach(RTCAudioFormatPreset.allCases) { preset in
+                        Text(preset.label).tag(preset)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("rtcAudioFormatPicker")
+            }
 
             if viewModel.preferredTransmitCodec == .mpeg4AACELD {
                 Picker("AAC-ELD Bitrate", selection: Binding(
@@ -233,7 +241,10 @@ struct TransmitCodecPanel: View {
             }
         } header: {
             Label("Transmit Codec", systemImage: "antenna.radiowaves.left.and.right")
+        } footer: {
+            Text("AAC-ELD bitrate choices depend on the sample rate. Changing the sample rate adjusts an unsupported bitrate to the nearest supported value.")
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("transmitCodecPanel")
     }
 }

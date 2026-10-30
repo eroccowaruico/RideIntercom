@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## AAC設定表示とSimulator資源管理（2026-10-30）
+
+利用者の指摘は48 / 24 / 16 kHzの切替に伴うAAC候補の変化だった。対応値の変化自体は既存仕様で、segmented Pickerが項目名を画面に表示せず関係が伝わっていなかった。`Codec`・`Sample Rate`の項目名と、候補・選択値の補正理由を追加した。音声codecの実装や品質下限は変更していない。
+
+| 確認 | 結果・境界 |
+|---|---|
+| iOS App・UI | `RideIntercomTests`とAAC回帰UIテスト、計146件成功、失敗・skipなし。48/24/16 kHzの候補と、PCM/OpusからAACへ戻した後の候補維持・値の選択を検証。スクリーンショットで項目名と説明を確認 |
+| macOS App | 145件成功、失敗・skipなし。共通SwiftUIのビルド成功。macOSでの実画面操作は未実施 |
+| scripts | 65件成功。記録消失時の再発見、一般端末の保持、起動中端末の保護、削除失敗時の作成禁止、作成前の棚卸し・記録、旧モードのhost回収を回帰試験で確認 |
+| 端末の整理 | 停止済みの旧`RideIntercom Audio E2E 65438c7c`と`RideIntercom Recovery Tests`を削除。simctlが報告したdataPathSizeの合計は2,197,897,216 bytes。空き容量の実測値ではない。一般用途の端末は保持 |
+| 再利用・排他 | `RideIntercom Audio E2E 844ea91b`（`7D7F5941-E066-4869-B7DD-B1E5140010A1`）を継続使用。共通lockが音声E2E実行中の別所有者を拒否。新規端末の作成なし。通常検証入口も同じprepare・journal・lockを使う |
+| 音声の追加測定 | 最初のpipeline-only測定は100ms条件でmissingActiveRatio=0.0047489824となり失敗。並行ビルド終了後の隔離再測定と、旧モードhost回収の共通化後の最終測定は20ms/100ms両条件が合格。各測定中のsource hash一致、同一端末再利用、終了時のShutdown・host不在を確認。初回不合格は消さず保持し、並行負荷が原因と断定しない |
+| 検証範囲 | 今回は全package・Worker・全UI suiteの再実行ではない。実iPhone、Bluetooth、実無線、VoiceOverの実操作は未確認。AppIntents未使用によるmetadata抽出省略warningは残る |
+| 証跡 | UIは`/tmp/RideIntercom-AAC-green.xcresult`と`/tmp/ride-aac-green-images`、macOSは`/tmp/RideIntercom-AAC-Mac.xcresult`。棚卸し・削除は`/tmp/RideIntercom-Simulator-Reconcile`、初回音声失敗は`/tmp/RideIntercom-AAC-resource-smoke`、隔離再測定は`/tmp/RideIntercom-AAC-resource-isolated`、最終測定は`/tmp/RideIntercom-AAC-resource-final`。一時領域のため永続保存ではない |
+
 ## 結果を読む基準
 
 | 区分 | 意味 |

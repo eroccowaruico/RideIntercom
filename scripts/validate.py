@@ -15,7 +15,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.test_lifecycle import stop_executable
+from scripts.test_lifecycle import stop_executable, exclusive_run, SimulatorLease, simulator_resource_root
 
 
 def swift_supported(output):
@@ -252,40 +252,39 @@ def main():
     if mode in ('all', 'macos'):
         runner.xcode('macos-tests', 'platform=macOS,arch=arm64', only='RideIntercomTests', needs=['swift-toolchain', 'webrtc-artifact'])
     if mode in ('all', 'ios', 'ios-ui'):
-        sim = None
         try:
-            runner.run('simulator-runtimes', ['xcrun', 'simctl', 'list', 'runtimes', '-j'], needs=['swift-toolchain'], timeout=60)
-            runtimes = json.loads((runner.out / 'simulator-runtimes.log').read_text())['runtimes']
-            available = [r for r in runtimes if r['isAvailable'] and r['name'].startswith('iOS')]
-            runtime = os.environ.get('SIMULATOR_RUNTIME') or max(available, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier']
-            device = os.environ.get('SIMULATOR_DEVICE_TYPE', 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro')
-            if runner.run('simulator-create', ['xcrun', 'simctl', 'create', 'RideIntercom Validation ' + runner.out.name, device, runtime], timeout=60):
-                sim = (runner.out / 'simulator-create.log').read_text().strip()
-                (runner.out / 'simulator-id.txt').write_text(sim + '\n')
-                runner.run('simulator-boot', ['xcrun', 'simctl', 'boot', sim], needs=['simulator-create'], timeout=120)
-                runner.run('simulator-ready', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], needs=['simulator-boot'], timeout=180)
-                runner.run('simulator-appearance', ['xcrun', 'simctl', 'ui', sim, 'appearance', os.environ.get('SIMULATOR_APPEARANCE', 'dark')], needs=['simulator-ready'], timeout=30)
-                recovery = 'RideIntercomUITests/RideIntercomUITests/testCorruptGroupStoreRecovery'
-                runner.xcode('ios-tests', 'platform=iOS Simulator,id=' + sim, only='RideIntercomUITests' if mode == 'ios-ui' else None,
-                             needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'], skip=recovery)
-                runner.run('recovery-container', ['xcrun', 'simctl', 'get_app_container', sim,
-                           'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-tests-acceptance'], timeout=60)
-                fixture = [python, '-m', 'scripts.group_recovery_fixture', str(runner.out)]
-                runner.run('recovery-prepare', fixture + ['prepare'], needs=['recovery-container'])
-                runner.xcode('ios-recovery', 'platform=iOS Simulator,id=' + sim, only=recovery,
-                             needs=['recovery-prepare'], reuse_build='ios-tests')
-                # Xcode may reinstall the app and relocate its retained data.
-                runner.run('recovery-container-after', ['xcrun', 'simctl', 'get_app_container', sim,
-                           'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-recovery-acceptance'], timeout=60)
-                runner.run('recovery-verify', fixture + ['verify'], needs=['recovery-container-after'])
-        except (OSError, ValueError, KeyError) as error:
-            runner.record('simulator-availability', [], 'blocked', None, time.monotonic(), str(error))
-        finally:
-            if sim:
+            with exclusive_run(simulator_resource_root() / 'run.lock'):
+                lease = SimulatorLease(runner, simulator_resource_root() / 'reusable.json')
                 try:
-                    runner.run('simulator-shutdown', ['xcrun', 'simctl', 'shutdown', sim], timeout=60)
+                    runner.run('simulator-runtimes', ['xcrun', 'simctl', 'list', 'runtimes', '-j'], needs=['swift-toolchain'], timeout=60)
+                    runtimes = json.loads((runner.out / 'simulator-runtimes.log').read_text())['runtimes']
+                    available = [r for r in runtimes if r['isAvailable'] and r['name'].startswith('iOS')]
+                    runtime = os.environ.get('SIMULATOR_RUNTIME') or max(available, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier']
+                    device = os.environ.get('SIMULATOR_DEVICE_TYPE', 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro')
+                    sim = lease.prepare(runtime, device)
+                    if sim:
+                        (runner.out / 'simulator-id.txt').write_text(sim + '\n')
+                        runner.run('simulator-boot', ['xcrun', 'simctl', 'boot', sim], timeout=120)
+                        runner.run('simulator-ready', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], needs=['simulator-boot'], timeout=180)
+                        runner.run('simulator-appearance', ['xcrun', 'simctl', 'ui', sim, 'appearance', os.environ.get('SIMULATOR_APPEARANCE', 'dark')], needs=['simulator-ready'], timeout=30)
+                        recovery = 'RideIntercomUITests/RideIntercomUITests/testCorruptGroupStoreRecovery'
+                        runner.xcode('ios-tests', 'platform=iOS Simulator,id=' + sim, only='RideIntercomUITests' if mode == 'ios-ui' else None,
+                                     needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'], skip=recovery)
+                        runner.run('recovery-container', ['xcrun', 'simctl', 'get_app_container', sim,
+                                   'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-tests-acceptance'], timeout=60)
+                        fixture = [python, '-m', 'scripts.group_recovery_fixture', str(runner.out)]
+                        runner.run('recovery-prepare', fixture + ['prepare'], needs=['recovery-container'])
+                        runner.xcode('ios-recovery', 'platform=iOS Simulator,id=' + sim, only=recovery,
+                                     needs=['recovery-prepare'], reuse_build='ios-tests')
+                        # Xcode may reinstall the app and relocate its retained data.
+                        runner.run('recovery-container-after', ['xcrun', 'simctl', 'get_app_container', sim,
+                                   'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-recovery-acceptance'], timeout=60)
+                        runner.run('recovery-verify', fixture + ['verify'], needs=['recovery-container-after'])
                 finally:
-                    runner.run('simulator-delete', ['xcrun', 'simctl', 'delete', sim], timeout=60)
+                    if lease.acquired:
+                        lease.cleanup('simulator-final')
+        except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
+            runner.record('simulator-availability', [], 'blocked', None, time.monotonic(), str(error))
     # A concurrent edit invalidates evidence rather than silently passing.
     before = (runner.out / 'inputs.json').read_text()
     snapshot(runner.out)

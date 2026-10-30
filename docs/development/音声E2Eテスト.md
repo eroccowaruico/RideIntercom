@@ -68,9 +68,9 @@ python3 scripts/audio_e2e.py --pipeline-only
 
 ## 再利用と後片付け
 
-通常実行では管理情報に記録した専用Simulatorを1台だけ再利用する。終了時に停止し、毎回端末を増やさない。build cacheも既定の`/tmp/RideIntercom-AudioE2E-Build`に再利用する。`--build-root`で場所を変えられるが、Xcodeの同期folderが生成物を取り込まないようリポジトリ外を指定する。
+通常実行では通常検証（`validate.py`）と共通の専用Simulatorを1台だけ再利用する。終了時に停止し、毎回端末を増やさない。build cacheも既定の`/tmp/RideIntercom-AudioE2E-Build`に再利用する。`--build-root`で場所を変えられるが、Xcodeの同期folderが生成物を取り込まないようリポジトリ外を指定する。
 
-成功・失敗・timeout・SIGINT・SIGTERMでは、起動したコマンドのprocess groupと、記録した実行ファイルの完全なパスに一致するMac test hostを終了し、専用Simulatorを停止する。名前だけの`pkill`や`simctl shutdown all`は使用しない。二重実行はlockで拒否する。SIGKILLや電源断で終了処理自体が実行できなかった場合も、次回起動でjournalに記録した資源だけを回収する。
+成功・失敗・timeout・SIGINT・SIGTERMでは、起動したコマンドのprocess groupと、記録した実行ファイルの完全なパスに一致するMac test hostを終了し、専用Simulatorを停止する。名前だけの`pkill`や`simctl shutdown all`は使用しない。二重実行はlockで拒否する。SIGKILLや電源断で終了処理自体が実行できなかった場合は、次回起動で全端末の一覧を証跡へ保存する。管理記録が失われても専用名から停止済み端末を再発見し、互換端末を再利用する。起動中の専用端末がある場合は作成・削除を行わず失敗するため、所有する作業を確認して終了してから再実行する。
 
 ```sh
 # CI等で今回作った端末を終了時に削除する
@@ -79,7 +79,9 @@ python3 scripts/audio_e2e.py --matrix quick --ephemeral
 python3 scripts/audio_e2e.py --cleanup-only
 ```
 
-再利用用と一時実行用の所有情報は`/tmp/RideIntercom-AudioE2E-<uid>/`に置く。`--cleanup-only`はbuild cacheと検証証跡を消さない。
+再利用用と一時実行用の所有情報、および通常検証と共有する排他lockは`/tmp/RideIntercom-AudioE2E-<uid>/`に置く。`--cleanup-only`は記録外を含む停止済みの管理対象端末も削除する。build cacheと検証証跡は消さない。
+
+予約済みの専用名は`RideIntercom Audio E2E <8桁のhex>`、`RideIntercom Validation <実行名>`、旧`RideIntercom Recovery Tests`。毎回、記録済みで互換な端末、次に最終利用日時が新しい互換端末を優先し、残りの停止済み専用端末を削除する。対応runtime・device typeの端末がない場合だけ作成する。削除失敗時は新規作成しない。一般のiPhone/iPad端末や所有不明の名前は対象外。
 
 ## 証跡
 

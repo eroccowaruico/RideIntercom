@@ -168,6 +168,82 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         self.assertEqual(calls, [['xcrun', 'simctl', 'shutdown', 'our-uuid']])
         self.assertEqual(SimulatorLease(runner, lease.journal).state['udid'], 'our-uuid')
 
+    def test_missing_journal_adopts_latest_device_and_removes_only_idle_managed_duplicates(self):
+        runner = Runner(self.root / 'evidence')
+        lease = SimulatorLease(runner, self.root / 'lease.json')
+        devices = [dict(name=name, udid=uid, state='Shutdown', runtime='ios',
+                        deviceTypeIdentifier='phone', isAvailable=True, lastUsedAt=date)
+                   for name, uid, date in [('RideIntercom Audio E2E 12345678', 'old', '2026-01'),
+                                           ('RideIntercom Audio E2E abcdef12', 'new', '2026-10'),
+                                           ('iPhone 17', 'personal', '2026-11'),
+                                           ('RideIntercom Recovery Tests', 'recovery', '')]]
+        with patch('scripts.test_lifecycle.simulator_devices', return_value=devices), \
+             patch.object(runner, 'run', return_value=True) as run:
+            self.assertEqual(lease.prepare('ios', 'phone'), 'new')
+        self.assertEqual([c.args[1] for c in run.call_args_list],
+                         [['xcrun', 'simctl', 'delete', 'old'], ['xcrun', 'simctl', 'delete', 'recovery']])
+        self.assertEqual(SimulatorLease(runner, lease.journal).state['udid'], 'new')
+        self.assertTrue((runner.out / 'simulator-inventory.json').exists())
+
+    def test_busy_managed_device_blocks_reconciliation_without_deleting_anything(self):
+        runner = Runner(self.root / 'evidence')
+        lease = SimulatorLease(runner, self.root / 'lease.json')
+        with patch('scripts.test_lifecycle.simulator_devices', return_value=[
+                dict(name='RideIntercom Audio E2E 12345678', udid='busy', state='Booted')]), \
+             patch.object(runner, 'run') as run:
+            with self.assertRaisesRegex(RuntimeError, 'in use'):
+                lease.prepare('ios', 'phone')
+        run.assert_not_called()
+        self.assertFalse(lease.acquired)
+
+    def test_cleanup_failure_prevents_creating_a_replacement(self):
+        runner = Runner(self.root / 'evidence')
+        lease = SimulatorLease(runner, self.root / 'lease.json')
+        with patch('scripts.test_lifecycle.simulator_devices', return_value=[
+                dict(name='RideIntercom Audio E2E 12345678', udid='old', state='Shutdown', isAvailable=False)]), \
+             patch.object(runner, 'run', return_value=False) as run:
+            with self.assertRaisesRegex(RuntimeError, 'delete'):
+                lease.prepare('ios', 'phone')
+        self.assertEqual([c.args[1][2] for c in run.call_args_list], ['delete'])
+
+    def test_inventory_is_checked_before_creation_and_creation_is_journaled(self):
+        runner = Runner(self.root / 'evidence')
+        lease = SimulatorLease(runner, self.root / 'lease.json')
+        def create(name, command, **kwargs):
+            self.assertTrue((runner.out / 'simulator-inventory.json').exists())
+            self.assertEqual(json.loads(lease.journal.read_text())['name'], command[3])
+            (runner.out / 'simulator-create.log').write_text('created-uuid\n')
+            return True
+        with patch('scripts.test_lifecycle.simulator_devices', return_value=[]), \
+             patch.object(runner, 'run', side_effect=create):
+            self.assertEqual(lease.prepare('ios', 'phone'), 'created-uuid')
+        self.assertTrue(lease.acquired)
+        self.assertTrue(lease.state['reusable'])
+
+    def test_cleanup_only_removes_orphans_without_creating_a_device(self):
+        runner = Runner(self.root / 'evidence')
+        lease = SimulatorLease(runner, self.root / 'lease.json')
+        with patch('scripts.test_lifecycle.simulator_devices', return_value=[
+                dict(name='RideIntercom Validation old-run', udid='old', state='Shutdown')]), \
+             patch.object(runner, 'run', return_value=True) as run:
+            self.assertIsNone(lease.prepare(None, None, delete_all=True))
+        self.assertEqual([c.args[1] for c in run.call_args_list], [['xcrun', 'simctl', 'delete', 'old']])
+        self.assertFalse(lease.journal.exists())
+
+    def test_previous_mode_host_cleanup_does_not_delete_the_adopted_simulator(self):
+        runner = Runner(self.root / 'evidence')
+        old = SimulatorLease(runner, self.root / 'ephemeral.json')
+        old.reserve('RideIntercom Audio E2E 12345678')
+        old.identify('reused')
+        old.host(self.root / 'old-host')
+        with patch('scripts.test_lifecycle.stop_executable', return_value=[123]) as stop, \
+             patch('scripts.test_lifecycle.simulator_devices') as inventory, \
+             patch.object(runner, 'run') as run:
+            self.assertTrue(old.cleanup_host('previous-mode'))
+        stop.assert_called_once_with(str((self.root / 'old-host').resolve()))
+        inventory.assert_not_called()
+        run.assert_not_called()
+
     def test_runner_sigterm_stops_child_and_executes_final_cleanup_without_ai(self):
         marker = self.root / 'child.pid'
         cleaned = self.root / 'cleaned'

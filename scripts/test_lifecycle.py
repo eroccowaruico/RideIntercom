@@ -3,10 +3,12 @@ from contextlib import contextmanager
 import fcntl
 import json
 import os
+import re
 from pathlib import Path
 import signal
 import subprocess
 import time
+import uuid
 
 
 @contextmanager
@@ -66,7 +68,12 @@ def stop_executable(executable):
 
 def simulator_devices():
     data = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', '-j'], text=True, timeout=60))
-    return [device for devices in data['devices'].values() for device in devices]
+    return [dict(device, runtime=runtime) for runtime, devices in data['devices'].items() for device in devices]
+
+
+def simulator_resource_root():
+    # Shared across worktrees and both validation entry points.
+    return Path('/tmp') / f'RideIntercom-AudioE2E-{os.getuid()}'
 
 
 class SimulatorLease:
@@ -79,6 +86,7 @@ class SimulatorLease:
         self.runner = runner
         self.journal = Path(journal)
         self.state = json.loads(self.journal.read_text()) if self.journal.exists() else {}
+        self.acquired = False
 
     def save(self):
         self.journal.parent.mkdir(parents=True, exist_ok=True)
@@ -102,7 +110,52 @@ class SimulatorLease:
         return [d for d in simulator_devices() if d['name'] == self.state.get('name')
                 and (not self.state.get('udid') or d['udid'] == self.state['udid'])]
 
-    def cleanup(self, prefix):
+    def prepare(self, runtime, device_type, reusable=True, delete_all=False):
+        """Recover lost journals by inspecting the reserved test-device names.
+
+        Caller holds the shared run lock through final cleanup. Never adopt or
+        delete a booted device: it may be in manual use outside that lock.
+        """
+        devices = simulator_devices()
+        (self.runner.out / 'simulator-inventory.json').write_text(json.dumps(devices, indent=2) + '\n')
+        managed = [d for d in devices if re.fullmatch(
+            r'RideIntercom (?:Audio E2E [0-9a-f]{8}|Validation .+|Recovery Tests)', d['name'])]
+        if any(d['state'] != 'Shutdown' for d in managed):
+            raise RuntimeError('Managed simulator is in use; stop its owner before retrying')
+        self.acquired = True
+        if not self.cleanup_host('simulator-previous'):
+            raise RuntimeError('Previous owned test host could not be stopped')
+        candidates = [d for d in managed if d.get('isAvailable') and d.get('runtime') == runtime
+                      and d.get('deviceTypeIdentifier') == device_type] if not delete_all else []
+        selected = max(candidates, key=lambda d: (d['udid'] == self.state.get('udid'), d.get('lastUsedAt', ''), d['udid']), default=None)
+        if selected:
+            self.reserve(selected['name'], reusable=reusable)
+            self.identify(selected['udid'])
+        for index, device in enumerate(managed):
+            if selected and device['udid'] == selected['udid']:
+                continue
+            # Recheck state/identity immediately before deletion.
+            current = next((d for d in simulator_devices() if d['udid'] == device['udid']), None)
+            if current is None:
+                continue
+            if current['state'] != 'Shutdown' or current['name'] != device['name']:
+                raise RuntimeError('Managed simulator changed during cleanup')
+            if not self.runner.run(f'simulator-prune-{index}', ['xcrun', 'simctl', 'delete', device['udid']], timeout=60):
+                raise RuntimeError('Could not delete unused managed simulator')
+        if selected:
+            return selected['udid']
+        if delete_all:
+            self.journal.unlink(missing_ok=True)
+            self.state = {}
+            return None
+        self.reserve('RideIntercom Audio E2E ' + uuid.uuid4().hex[:8], reusable=reusable)
+        if not self.runner.run('simulator-create', ['xcrun', 'simctl', 'create', self.state['name'], device_type, runtime], timeout=60):
+            raise RuntimeError('Could not create managed simulator')
+        device_id = (self.runner.out / 'simulator-create.log').read_text().strip()
+        self.identify(device_id)
+        return device_id
+
+    def cleanup_host(self, prefix):
         success = True
         if not self.state:
             return True
@@ -114,6 +167,12 @@ class SimulatorLease:
             except (OSError, RuntimeError, subprocess.SubprocessError) as error:
                 self.runner.record(prefix + '-host', [], 'failed', 1, started, str(error))
                 success = False
+        return success
+
+    def cleanup(self, prefix):
+        success = self.cleanup_host(prefix)
+        if not self.state:
+            return success
         try:
             for index, device in enumerate(self.owned_devices()):
                 if device['state'] != 'Shutdown':

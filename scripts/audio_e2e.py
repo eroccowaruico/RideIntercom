@@ -17,7 +17,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.validate import ROOT, Runner, xcode_tests_passed
-from scripts.test_lifecycle import exclusive_run, SimulatorLease
+from scripts.test_lifecycle import exclusive_run, SimulatorLease, simulator_resource_root
 from scripts.audio_e2e_matrix import scenarios
 
 
@@ -154,7 +154,7 @@ def main():
     if out == ROOT or ROOT in out.parents or args.build_root.resolve().is_relative_to(ROOT):
         parser.error('Evidence/build output must be outside the synchronized repository')
     runner = Runner(out)
-    resource_root = Path('/tmp') / f'RideIntercom-AudioE2E-{os.getuid()}'
+    resource_root = simulator_resource_root()
     try:
         with exclusive_run(resource_root / 'run.lock'):
             return execute(args, runner, resource_root)
@@ -185,29 +185,21 @@ def execute(args, runner, resource_root):
         def command(name, argv, timeout=1800):
             if not runner.run(name, argv, timeout=timeout):
                 raise RuntimeError(name + ' failed; see ' + str(out))
-        # Recover only journaled resources, including after SIGKILL/power loss.
-        for index, old in enumerate(leases):
-            if args.cleanup_only:
-                old.state['reusable'] = False
-            if not old.cleanup(f'recovery-{index}'):
-                raise RuntimeError('Previous owned resources could not be cleaned up')
         if args.cleanup_only:
-            return runner.exit_code
-        reusable = lease.owned_devices() if lease.state else []
-        if len(reusable) > 1:
-            raise RuntimeError('Ambiguous managed simulator ownership')
-        if reusable:
-            simulator = reusable[0]['udid']
+            lease.prepare(None, None, delete_all=True)
         else:
             command('runtimes', ['xcrun', 'simctl', 'list', 'runtimes', '-j'], 60)
             runtimes = json.loads((out / 'runtimes.log').read_text())['runtimes']
             available = [r for r in runtimes if r['isAvailable'] and r['name'].startswith('iOS')]
             runtime = max(available, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier']
-            lease.reserve('RideIntercom Audio E2E ' + run_id[:8], reusable=not args.ephemeral)
-            command('simulator-create', ['xcrun', 'simctl', 'create', lease.state['name'],
-                'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro', runtime], 60)
-            simulator = (out / 'simulator-create.log').read_text().strip()
-            lease.identify(simulator)
+            simulator = lease.prepare(runtime, 'com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro', reusable=not args.ephemeral)
+        # Retain recovery of hosts recorded by the other (ephemeral/reusable)
+        # mode without deleting the device that prepare just adopted.
+        for index, old in enumerate(leases):
+            if old is not lease and not old.cleanup_host(f'recovery-{index}'):
+                raise RuntimeError('Previous owned test host could not be stopped')
+        if args.cleanup_only:
+            return runner.exit_code
         lease.host(args.build_root.resolve() / 'mac/Build/Products' / args.configuration / 'RideIntercom.app/Contents/MacOS/RideIntercom')
         command('simulator-boot', ['xcrun', 'simctl', 'boot', simulator], 60)
         (out / 'simulator-id.txt').write_text(simulator + '\n')
@@ -329,7 +321,8 @@ def execute(args, runner, resource_root):
         # A second Ctrl-C must not skip teardown. SIGKILL is recovered next run.
         previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in [signal.SIGINT, signal.SIGTERM]}
         try:
-            lease.cleanup('cleanup')
+            if lease.acquired:
+                lease.cleanup('cleanup')
         finally:
             for sig, handler in previous.items():
                 signal.signal(sig, handler)
