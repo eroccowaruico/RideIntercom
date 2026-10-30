@@ -586,3 +586,23 @@ private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
     #expect(backend.configurations == [call, original])
     _ = renderer.stop()
 }
+
+#if canImport(AVFAudio)
+import XCTest
+
+final class OutputDeviceFormatTests: XCTestCase {
+    func testOutputReportsTheRunningDeviceRatherThanTheProvisionalGraphFormat() throws {
+        let engine = AVAudioEngine()
+        // Meter installation can materialize the mixer's provisional 44.1 kHz
+        // graph before the device's final clock is negotiated at engine start.
+        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { _, _ in }
+        let backend = SystemAudioOutputStreamBackend(engine: engine)
+        defer { engine.mainMixerNode.removeTap(onBus: 0); try? backend.stopRendering() }
+        let reported = try backend.startRendering(configuration: .init())
+        let device = engine.outputNode.outputFormat(forBus: 0)
+        XCTAssertEqual(reported.sampleRate, device.sampleRate)
+        XCTAssertEqual(reported.channelCount, Int(device.channelCount))
+        XCTAssertEqual(engine.mainMixerNode.outputFormat(forBus: 0).sampleRate, device.sampleRate)
+    }
+}
+#endif

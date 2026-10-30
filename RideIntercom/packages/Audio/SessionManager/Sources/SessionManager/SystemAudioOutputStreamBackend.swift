@@ -49,8 +49,10 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
             throw AudioStreamError.invalidFrame("Invalid playback budget")
         }
         maximumBufferedDuration = configuration.maximumBufferedDuration
+        // The output node's input is a provisional graph format before start
+        // (often 44.1 kHz). Its output describes the actual device clock.
         let hardwareFormat = AudioFormat(
-            avAudioFormat: engine.isInManualRenderingMode ? engine.manualRenderingFormat : engine.outputNode.inputFormat(forBus: 0),
+            avAudioFormat: engine.isInManualRenderingMode ? engine.manualRenderingFormat : engine.outputNode.outputFormat(forBus: 0),
             fallback: configuration.preferredFormat
         )
         if !isGraphConfigured || configuredHardwareFormat != hardwareFormat {
