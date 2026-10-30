@@ -38,7 +38,12 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         stop()
         self.configuration = configuration
-        let mixer = try AudioMixer(engine: engine, audioFormat: configuration.mixerFormat)
+        // Use the device clock within the configured DSP rate budget. Avoid a
+        // second fractional converter on 44.1 kHz outputs, without doubling
+        // every receive effect's work for a 96 kHz external device.
+        let receiveFormat = AudioFormat(sampleRate: min(configuration.outputHardwareFormat.sampleRate, configuration.mixerFormat.sampleRate),
+            channelCount: configuration.mixerFormat.channelCount)
+        let mixer = try AudioMixer(engine: engine, audioFormat: receiveFormat)
         self.mixer = mixer
         let master = try mixer.createBus("rx-master")
         self.master = master

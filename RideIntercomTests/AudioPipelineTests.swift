@@ -15,6 +15,40 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct AudioPipelineTests {
+    @Test func receiveGraphUsesDeviceClockWithoutImplicitOutputResampling() async throws {
+        let engine = AVAudioEngine()
+        let hardware = AudioFormat(sampleRate: 44_100, channelCount: 1)
+        let format = AVAudioFormat(standardFormatWithSampleRate: hardware.sampleRate, channels: 1)!
+        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 441)
+        let receiver = AppAudioReceiver()
+        let frames = Mutex<[Float]>([])
+        try receiver.rebuild(engine: engine, configuration: .init(outputHardwareFormat: hardware,
+            transmitSoundIsolationEnabled: false), peers: ["peer"], rendersToHardware: true) { frame in
+                frames.withLock { $0 += frame.samples }
+            }
+        defer { receiver.stop() }
+        for index in 0..<20 {
+            let samples = (0..<480).map { Float(0.1 * sin(Double(index * 480 + $0) * 2 * .pi * 400 / 48_000)) }
+            try receiver.play(.init(sequenceNumber: UInt64(index), format: .intercomMixer,
+                capturedAt: Double(index) * 0.01, samples: samples), peer: "peer")
+        }
+        let peer = try #require(receiver.snapshot.buses.first { $0.id == "rx-peer-peer" })
+        #expect(peer.sources.first?.mixerFormat == hardware,
+            "Decode normalizes once to the device clock; native output must not add another sample-rate converter")
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 441)!
+        var rendered: [Float] = []
+        for _ in 0..<22 {
+            #expect(try engine.renderOffline(441, to: buffer) == .success)
+            rendered += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: 441))
+            await Task.yield()
+        }
+        await AppTestSupport.waitUntil { frames.withLock { $0.count >= 8820 } }
+        // Check gain before the OS main mixer's mono/stereo pan law, whose
+        // channel mapping depends on the machine's current output device.
+        #expect(abs(AudioLevelMeter.rmsLevel(samples: frames.withLock { Array($0[2205..<6615]) }) - 0.07071) < 0.001)
+        #expect(rendered.contains { abs($0) > 0.04 })
+    }
+
     @Test(arguments: [true, false])
     func hardwareMeteringBatchesObserversWithoutDelayingPlayback(rendersToHardware: Bool) async throws {
         let engine = AVAudioEngine()

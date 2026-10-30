@@ -73,6 +73,7 @@ extension AudioE2ETests {
             let dropped = (capture: input.droppedCaptureFrameCount, delivery: delivery.droppedFrameCount,
                            render: pipeline.droppedRenderFrameCount)
             let playbackResets = output.playbackResetCount ?? 0
+            let playout = pipeline.receivePlayoutDiagnostics(peerID: "loopback")
             let nodeLatencies = engine.attachedNodes.map { node in
                 ["node": String(describing: type(of: node)), "latency": String(node.latency),
                  "presentation": String(node.outputPresentationLatency)]
@@ -104,13 +105,16 @@ extension AudioE2ETests {
             let measurement: [String: Any] = ["scenario": "realtime-\(fixture)-\(codec.rawValue)", "role": "pipeline", "transport": "none",
                 "codec": pipeline.codecRuntimeReport.selectedCodec.rawValue, "fixture": fixture,
                 "acknowledgements": try replies.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) } ?? NSNull(),
-                "captureTiming": input.captureTiming, "stageLatencies": stages, "stageContinuities": stageContinuities, "nodeLatencies": nodeLatencies,
+                "captureTiming": input.captureTiming, "captureDiscontinuities": input.captureDiscontinuities,
+                "playoutAdjustments": playout?.adjustments ?? 0, "playoutResets": playout?.resets ?? 0,
+                "stageLatencies": stages, "stageContinuities": stageContinuities, "nodeLatencies": nodeLatencies,
                 "maximumInputDeliveryAge": inputAges.withLock { $0.max() ?? 0 }, "maximumEncodeDeliveryAge": txAges.withLock { $0.max() ?? 0 },
                 "maximumMixerDeliveryAge": mixAges.max() ?? 0,
                 "renderLatencySeconds": latency, "outputPresentationLatencySeconds": engine.outputNode.outputPresentationLatency,
                 "inputStartHostTime": inputTime, "outputStartHostTime": outputTime,
                 "continuity": try JSONSerialization.jsonObject(with: JSONEncoder().encode(continuity)),
-                "continuityPassed": continuity.passed, "renderedSamples": recorded.samples.count, "sampleRate": recorded.rate,
+                "continuityPassed": continuity.passed && continuity.missingActiveRatio == 0 && (replies?.passed ?? true),
+                "renderedSamples": recorded.samples.count, "sampleRate": recorded.rate,
                 "processingFailures": errors, "encodingFailures": pipeline.transmitEncodingFailureCount,
                 "captureDroppedFrames": dropped.capture,
                 "deliveryDroppedFrames": dropped.delivery,
