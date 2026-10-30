@@ -160,6 +160,42 @@ struct InternetAccountTests {
         #expect(try restarted.deviceSigningKey().rawRepresentation == f.signingKey.rawRepresentation)
     }
 
+    @Test(arguments: [false, true]) func successfulSignOutKeepsDeletionTargetWithoutRestoringInternetAccess(archiveWriteFails: Bool) async throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
+        let credential = try #require(f.saved), identity = try #require(f.savedIdentity)
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        try f.keychain.saveSecret(credential.deviceID, service: f.namespace + ".InternetConnection", account: "device-id")
+        try store.save(url: "https://account.test", token: credential.accessToken, identity: identity)
+        var expected = try #require(try store.deletionAccess())
+        expected.requiresAppleVerification = true
+        let retired = try #require(try store.retireAppleCredential())
+        if archiveWriteFails {
+            f.keychain.failWrite = true
+            #expect(throws: (any Error).self) { try store.finishRevocation(retired) }
+            #expect(try store.load() == nil)
+            #expect(try store.pendingRevocation() == retired)
+            #expect(try store.deletionAccess() == expected)
+            f.keychain.failWrite = false
+        }
+        try store.finishRevocation(retired)
+        let restarted = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace,
+            developmentDefaults: ["workerURL": "https://fallback.test", "accessToken": "must-not-restore"])
+        #expect(try restarted.load() == nil)
+        #expect(try restarted.pendingRevocation() == nil)
+        #expect(try restarted.loadIdentity(memberID: "member-fixture") == nil)
+        #expect(try restarted.deletionAccess() == expected)
+        let isolated = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace, permitsServiceAccess: false)
+        #expect(try isolated.deletionAccess() == nil)
+        let other = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace + ".other")
+        #expect(try other.deletionAccess() == nil)
+        try f.keychain.saveSecret("corrupt", service: f.namespace + ".InternetConnection", account: "deletion-account")
+        #expect(throws: (any Error).self) { try restarted.deletionAccess() }
+    }
+
     @Test func differentAccountAndReplayedNativeCompletionNeverExchangeProof() async {
         let f = InternetAccountTestFixture(); defer { f.remove() }
         await f.authorization.prepare(url: "https://account.test")
@@ -284,6 +320,7 @@ private final class InternetAccountTestKeychain: KeychainSecretStoring {
     var values: [String: String] = [:]
     var failDelete = false
     var failRead = false
+    var failWrite = false
     func accounts(service: String) throws -> [String] { Array(values.keys) }
     func secret(service: String, account: String) throws -> String? {
         if failRead { throw KeychainSecretStoreError.invalidData }
@@ -294,7 +331,10 @@ private final class InternetAccountTestKeychain: KeychainSecretStoring {
         try saveSecret(value, service: service, account: account)
         return value
     }
-    func saveSecret(_ secret: String, service: String, account: String) throws { values[service + account] = secret }
+    func saveSecret(_ secret: String, service: String, account: String) throws {
+        if failWrite { throw KeychainSecretStoreError.invalidData }
+        values[service + account] = secret
+    }
     func deleteSecret(service: String, account: String) throws {
         if failDelete { throw KeychainSecretStoreError.invalidData }
         values[service + account] = nil

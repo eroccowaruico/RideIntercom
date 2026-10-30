@@ -145,7 +145,14 @@ final class InternetConnectionSettingsStore {
     /// unreadable saved credential for a local-only account during deletion.
     func deletionAccess() throws -> AccountDeletion.ServiceAccess? {
         guard permitsServiceAccess else { return nil }
-        guard let raw = try keychain.secret(service: service, account: "current") else { return nil }
+        let current = try keychain.secret(service: service, account: "current")
+        let raw: String
+        let requiresAppleVerification: Bool
+        if let current {
+            raw = current; requiresAppleVerification = defaults.bool(forKey: deniedKey)
+        } else if let retired = try keychain.secret(service: service, account: "deletion-account") {
+            raw = retired; requiresAppleVerification = true
+        } else { return nil }
         let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
         let value = try validated(url: saved.workerURL.absoluteString, token: saved.accessToken)
         guard value.accessToken.hasPrefix("ri1.") else { return nil }
@@ -155,7 +162,7 @@ final class InternetConnectionSettingsStore {
         else { throw KeychainSecretStoreError.invalidData }
         guard let principal = saved.binding?.principal, principal.isValid,
               principal.issuer == IdentityEncoding.origin(value.workerURL) else { throw KeychainSecretStoreError.invalidData }
-        return .init(workerURL: value.workerURL, accessToken: value.accessToken, deviceID: device.lowercased(), userID: principal.userID)
+        return .init(workerURL: value.workerURL, accessToken: value.accessToken, deviceID: device.lowercased(), userID: principal.userID, requiresAppleVerification: requiresAppleVerification)
     }
 
     func retireAppleCredential() throws -> RTC.CloudflareRealtimeConfiguration? {
@@ -172,7 +179,11 @@ final class InternetConnectionSettingsStore {
         return .init(workerURL: value.workerURL, accessToken: value.accessToken)
     }
     func finishRevocation(_ retired: RTC.CloudflareRealtimeConfiguration) throws {
-        guard let pending = try pendingRevocation(), pending == retired else { return }
+        guard let pending = try pendingRevocation(), pending == retired,
+              let raw = try keychain.secret(service: service, account: "current") else { return }
+        // Preserve the target before removing the callable credential. This entry
+        // is read only by explicit account deletion, which requires a fresh proof.
+        try keychain.saveSecret(raw, service: service, account: "deletion-account")
         try keychain.deleteSecret(service: service, account: "current")
     }
 }

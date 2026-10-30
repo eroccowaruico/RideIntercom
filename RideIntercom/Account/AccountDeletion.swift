@@ -10,6 +10,7 @@ final class AccountDeletion {
         let accessToken: String
         let deviceID: String
         var userID: String? = nil
+        var requiresAppleVerification: Bool? = nil
     }
     struct Record: Codable {
         let userID: String
@@ -51,13 +52,13 @@ final class AccountDeletion {
         }
     }
     func begin(userID: String, access: ServiceAccess?, proof: InternetAccountDeletionProof?) throws {
-        guard !blocksSignIn, !isBusy, !userID.isEmpty, proof == nil || access != nil else { throw InternetAccountClient.Failure.rejected }
+        guard !blocksSignIn, !isBusy, !userID.isEmpty, proof == nil || access != nil, access?.requiresAppleVerification != true || proof != nil else { throw InternetAccountClient.Failure.rejected }
         try persist(Record(userID: userID, access: access, proof: proof))
     }
     /// Reauthentication is explicit. A failed proof is never silently downgraded
     /// to deletion without Apple cancellation.
     func replaceProof(_ proof: InternetAccountDeletionProof?) throws {
-        guard var next = record, !isBusy, next.access != nil, next.serverResult == nil else { throw InternetAccountClient.Failure.rejected }
+        guard var next = record, !isBusy, next.access != nil, next.serverResult == nil, next.access?.requiresAppleVerification != true || proof != nil else { throw InternetAccountClient.Failure.rejected }
         next.proof = proof
         try persist(next)
     }

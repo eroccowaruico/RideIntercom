@@ -15,7 +15,7 @@ struct AccountDeletionView: View {
             Section {
                 Text("Delete your account?").font(.title2).accessibilityAddTraits(.isHeader)
                 Text("This ends your call and permanently removes your saved users, groups, settings and keys from this device. This cannot be undone.")
-                Text("If Internet calling is connected, all device registrations at that service are deleted. Copies on other devices and information shared with friends remain. Deletion does not cancel purchases or subscriptions.")
+                Text("If a saved Internet account is found, all device registrations at that service are deleted. Copies on other devices and information shared with friends remain. Deletion does not cancel purchases or subscriptions.")
             }
             if loaded {
                 if access != nil {
@@ -28,13 +28,17 @@ struct AccountDeletionView: View {
                         Text("Internet calling is not connected on this device. Only this device's data will be deleted. Any Internet registration on another device is unaffected.")
                     }
                 }
-                Section {
-                    Button(access == nil ? "Delete Data on This Device" : "Delete Without Apple Verification", role: .destructive) {
-                        confirmsManualDeletion = true
+                if access?.requiresAppleVerification == true {
+                    Text("Internet access has been signed out. Verify with Apple to delete the saved account; signing out did not delete it.")
+                } else {
+                    Section {
+                        Button(access == nil ? "Delete Data on This Device" : "Delete Without Apple Verification", role: .destructive) {
+                            confirmsManualDeletion = true
+                        }
+                        .disabled(authorization?.isBusy == true)
+                        .accessibilityIdentifier("deleteWithoutAppleButton")
+                        Text("Without verification, remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.").font(.footnote)
                     }
-                    .disabled(authorization?.isBusy == true)
-                    .accessibilityIdentifier("deleteWithoutAppleButton")
-                    Text("Without verification, remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.").font(.footnote)
                 }
             }
             if let message { Section { Text(message); Button("Try Again", action: load) } }
@@ -123,8 +127,10 @@ struct AccountDeletionProgressView: View {
                     Button("Retry Deletion") { Task { await account.resumeDeletion(); prepareAuthorization() } }
                     if let record = deletion.record, record.access != nil, record.serverResult == nil {
                         if let authorization { DeletionAppleVerification(authorization: authorization) }
-                        Button("Continue Without Apple Verification", role: .destructive) { confirmsManualDeletion = true }
-                            .disabled(authorization?.isBusy == true)
+                        if record.access?.requiresAppleVerification != true {
+                            Button("Continue Without Apple Verification", role: .destructive) { confirmsManualDeletion = true }
+                                .disabled(authorization?.isBusy == true)
+                        }
                     }
                 }
             }.padding(32).frame(maxWidth: 540).frame(maxWidth: .infinity)

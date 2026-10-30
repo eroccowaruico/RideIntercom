@@ -60,6 +60,20 @@ struct AccountDeletionTests {
         #expect(!f.session().deletion.blocksSignIn)
     }
 
+    @Test func signedOutAccountRequiresFreshProofBeforeDeletionStarts() throws {
+        let f = DeletionFixture(); defer { f.remove() }
+        let session = f.session(); f.signIn(session)
+        var access = f.access; access.requiresAppleVerification = true
+        #expect(throws: (any Error).self) { try session.deletion.begin(userID: "owner", access: access, proof: nil) }
+        #expect(!session.deletion.blocksSignIn)
+        let proof = InternetAccountDeletionProof(challengeID: "fresh", identityToken: "token", authorizationCode: "code")
+        try session.deletion.begin(userID: "owner", access: access, proof: proof)
+        let restarted = f.session()
+        #expect(restarted.deletion.record?.access?.requiresAppleVerification == true)
+        #expect(throws: (any Error).self) { try restarted.deletion.replaceProof(nil) }
+        #expect(restarted.deletion.record?.proof == proof)
+    }
+
     @Test func failedJournalWriteDoesNotRevokeLogin() throws {
         let f = AccountFixture(); defer { f.remove() }
         f.signIn()

@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## サインアウト後のアカウント削除対象保持（2026-10-31）
+
+Internetのサインアウト成功後に削除対象まで失われる問題を修正した。失効済み登録をアカウント別Keychainへ退避してから現在資格を消し、削除時だけfresh Apple本人確認と保存済み公開IDで使う。通話資格や証明へ自動復帰させない。[通信仕様](../spec/App/通信仕様.md#アカウント削除と端末内消去)と[操作](../spec/App/UI/Settings.md#アカウント削除)を参照。
+
+証跡は`.validation/deletion-target-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| TDD | サインアウト後に削除対象がnilになる負例を先に確認。退避書込失敗・破損・再起動・別namespace・検証用隔離・新しい資格を古い失効で消さない条件を確認。`development/` |
+| App全体 | macOS・iOS各269件成功、失敗・skip・runtime warningなし。fresh proofなしで退避対象の削除を開始しないこと、再起動後も証明必須を維持して確認なしへ変更しないことを含む。`macos/`・`ios/` |
+| UI・ソース | iOSの削除操作・サインアウトの2件成功。退避対象のfresh proof必須判定はApp単体で検証し、実Apple UIは実行していない。専用Simulatorをshutdown済み。iOS前後288ファイルのsource/configuration一致、前回検証済みserver・scriptsの未変更を確認 |
+
+Worker・package・独立音声E2Eは変更しておらず再実行していない。既知のAppIntents未使用metadata省略warningは継続。公開版の接続先数は質問と暫定案を[課題](../backlog/未実装課題.md)に保持し、過去の複数サービスを一括削除したとは扱わない。再ログイン後の本人ID、他端末の削除・再登録、実Appleと実機の受入は残る。
+
+
 ## アカウント削除と稼働中通話の回収（2026-10-31）
 
 削除対象の公開IDに属するsignaling・SFU channel・準備中を含むTURN資格を回収し、成功後に接続枠を解放する。失敗は永続化して再試行し、Appも媒体回収待ちの間は削除完了・再ログインへ進めない。別ユーザーの通話は維持する。[Worker契約](../spec/server/Worker.md#アカウントの端末登録削除)と[App契約](../spec/App/通信仕様.md#アカウント削除と端末内消去)を参照。
