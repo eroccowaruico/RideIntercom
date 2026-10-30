@@ -99,3 +99,20 @@ main/devへのマージ、push、Cloudflareデプロイは行っていない。
 ## 後続の品質点検
 
 2026-10-21の追加点検で、購読midの再利用、Swift clientとWorkerのペア検証、native SDPの自動検証を追加した。上記の未確認事項のうち「peer入替時のSDP再利用」はローカル自動検証済みとなった。実Cloudflare媒体の確認は引き続き必要。最新の結果は [品質点検](品質点検.md) を参照する。
+
+## プラグインによる実設定とプレビュー準備の確認
+
+2026-10-30。Cloudflareプラグインで実Workerの設定・メトリクスを読取り、他作業と分離したworktreeでプレビュー設定を追加した。Workerの媒体処理、App、RTC packageは変更していない。
+
+| 対象 | 結果と条件 |
+|---|---|
+| 実Worker | `rideintercom`。通常URLは`https://rideintercom.analog.workers.dev`。Productionに2つのSQLite DO bindingがあり、SERVICE_ENABLEDはfalse、SFU値・端末registryは未登録 |
+| 実メトリクス | 2026-10-30 19:22 JST取得。直前24時間のWorkers集計はrequests=3、errors=0、subrequests=0。errorsは実行時例外等の指標でありHTTP 401/503やSFU音声の成否とは別 |
+| Previews Base | SFU App ID、SFU App Secret、CLIENT_TOKENS_JSONの3項目が存在。secretの内容は取得・出力していない。実プレビューは0件 |
+| 設定の修正 | Worker名を実設定と同期。`previews.vars`へ有効化と利用枠、`previews.durable_objects.bindings`へ2つの独立bindingを定義。`npm run preview`を追加しbranch単位で配置 |
+| ローカル検証 | Wrangler 4.151.3による設定読込み・bundle dry-run、TypeScript型検査、Worker 20 tests、Cloudflareスクリプト4 tests、文書検査、diff checkが成功 |
+| 外部配置の制約 | プラグインのPreview作成APIはHTTP 403。ローカルWranglerは未ログイン。既存main用CIをPreview向けに置換する操作は、自動承認レビューが本番配置への影響を理由に拒否し、変更されていない |
+| 次の操作 | mainのProduction用CIを保持し、GitHub連携でPreview buildsを有効化。Preview commandは`npx wrangler preview`とし、修正を含む作業branchを配置する |
+| 未確認 | 実Preview URLでの資格照合・DO動作、実SFUの接続・双方向音声、利用枠更新、TURN、請求。ローカルの20 testsは外部SFUを代替しており、これらを証明しない |
+
+現行の設定手順は[Cloudflare試用手順](../../development/Cloudflare試用手順.md)を参照する。

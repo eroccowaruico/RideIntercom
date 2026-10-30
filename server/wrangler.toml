@@ -1,4 +1,4 @@
-name = "ride-intercom-server"
+name = "rideintercom"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
@@ -21,3 +21,20 @@ class_name = "UsageGuard"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SignalingRoom", "UsageGuard"]
+
+# Previews inherit the SFU values and device registry from Previews Base.
+# Ordinary variables and env bindings must be declared separately from production.
+[previews.vars]
+SERVICE_ENABLED = "true"
+TURN_ENABLED = "false"
+MAX_ROOM_PARTICIPANTS = "8"
+MAX_ACTIVE_SESSIONS = "32"
+MONTHLY_PARTICIPANT_SECONDS = "1000000"
+LEASE_SECONDS = "600"
+
+[[previews.durable_objects.bindings]]
+name = "SIGNALING_ROOM"
+class_name = "SignalingRoom"
+[[previews.durable_objects.bindings]]
+name = "USAGE_GUARD"
+class_name = "UsageGuard"

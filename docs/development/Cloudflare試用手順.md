@@ -2,6 +2,33 @@
 
 現行の[Worker仕様](../spec/server/Worker.md)を用いる操作手順。確認結果は[検証](../validation/README.md)へ記録する。
 
+## 管理画面とプレビューの設定
+
+Cloudflareのアカウントを選び、Realtime → Serverless SFUでApp ID / App Secretを取得する。Workers & Pages → Create application → GitHubから本リポジトリを選ぶ場合は、Worker名を`rideintercom`、root directoryを`server`、build commandを空欄にする。Worker名は`server/wrangler.toml`の`name`と揃える。
+
+| 配置先 | 配置方法 | 設定と接続先 |
+|---|---|---|
+| Production | `npm --prefix server run deploy`。GitHub連携のdeploy commandは`npx wrangler deploy` | 通常のWorker URL。現行の`vars.SERVICE_ENABLED`はfalse |
+| 試用プレビュー | `npm --prefix server run preview`。作業branchごとに作成・更新 | Preview URL。`previews.vars`と`previews.durable_objects.bindings`を使用。各プレビューのSQLite DOはProductionと別namespace |
+
+WorkerのSettings → Runtime variables and secretsで **Previews Base** を選び、次を登録する。build variablesではなく、実行時の設定に入れる。
+
+| 名前 | 種類 | 値 |
+|---|---|---|
+| CLOUDFLARE_SFU_APP_ID | VariableまたはSecret | SFU App ID |
+| CLOUDFLARE_SFU_APP_SECRET | Secret | SFU App Secret |
+| CLIENT_TOKENS_JSON | Secret | 試用資格の登録用`client-tokens.json`の内容 |
+
+`CLIENT_TOKENS_JSON`は手動発行した利用キーのSHA-256と識別名を対応付ける招待制試用用のregistry。実機の端末IDを事前収集するものではない。下記スクリプトで生成し、JSONを手書きしない。一般公開時の自動登録・資格発行は[未実装課題](../backlog/未実装課題.md)であり、Cloudflareの設定だけでは提供されない。
+
+Baseの値は新しいプレビューへ引き継がれる。既存プレビューのsecretはBaseの後続変更では更新されないため、そのプレビューを選んで更新する。プレビュー側だけに登録した資格はProductionへ反映されない。両端末のAppには同じPreview URLを設定する。`SERVICE_ENABLED = "true"`などの通常変数と2つのDO bindingは`wrangler.toml`の`previews`へ定義済み。SFUの値・資格はファイルやGitへ埋め込まず、Baseから継承する。
+
+Cloudflareプラグインからは、その接続に許可された範囲で設定・メトリクスを確認できる。読取り成功はプレビューの作成権限を保証しない。CLIでプレビューを配置する場合は下記の依存導入と`wrangler login`の後、`npm --prefix server run preview`をリポジトリrootで実行する。固定名で手動試用する場合は`npm --prefix server run preview -- --name trial`と指定できる。
+
+GitHub連携ではSettings → Builds → Branch controlのEnable Preview BuildsをONにし、Preview commandを`npx wrangler preview`にする。作業branchへのpushでそのbranch専用のプレビューへ配置する。Production branchは`main`、既存のdeploy commandは`npx wrangler deploy`のまま維持し、プレビューのために本番の配置経路を置き換えない。root directoryは`server`、build commandは空欄。既存のPreviews Baseの3項目をProductionへコピーする必要はない。
+
+[公式プレビュー設定](https://developers.cloudflare.com/workers/previews/configuration/)と[GitHub連携](https://developers.cloudflare.com/workers/ci-cd/builds/)を参照する。
+
 ## 初期設定と試用
 
 リポジトリrootで実行する。操作を実際に行うのは利用者がアカウントを用意した後。実施の有無と結果は検証記録へ保存する。
@@ -23,13 +50,15 @@ npx wrangler secret put CLOUDFLARE_SFU_APP_ID
 npx wrangler secret put CLOUDFLARE_SFU_APP_SECRET
 cd ..
 # Worker名/アカウントに対応する実際のHTTPS originへ置換。
-node scripts/Cloudflare/issue-device.mjs https://ride-intercom-server.example.workers.dev my-mac
-node scripts/Cloudflare/issue-device.mjs https://ride-intercom-server.example.workers.dev my-phone
+node scripts/Cloudflare/issue-device.mjs https://rideintercom.example.workers.dev my-mac
+node scripts/Cloudflare/issue-device.mjs https://rideintercom.example.workers.dev my-phone
 cd server
 npx wrangler secret put CLIENT_TOKENS_JSON < .trial-credentials/client-tokens.json
 ```
 
 設定値と既定値は[Worker仕様](../spec/server/Worker.md)を参照する。
+
+以下はProductionへの配置手順。資格登録後に`wrangler.toml`の`vars.SERVICE_ENABLED`をtrueへ変更する。管理画面で通常変数だけを変更しても次の配置でファイルの値へ戻るため、設定ファイルを同期させる。プレビューで試す場合は上記のPreviews Baseへ資格を登録し、Productionへの配置の代わりに`npm --prefix server run preview`を使う。
 
 ```sh
 # server/ で設定をレビューした後だけ実行。
