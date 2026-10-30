@@ -69,6 +69,28 @@ private final class QuantumFrames: @unchecked Sendable {
 // Hardware-clock checks run in XCTest's serial phase, separately from the
 // parallel offline graph tests that create and destroy many native Audio Units.
 final class RealtimeRenderBoundaryTests: XCTestCase {
+func testAdaptivePlayerPreparesItsClockBeforeTheFirstUtterance() async throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("ready-clock")
+    let source = try bus.addPCMSource(id: "voice", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    let received = QuantumFrames()
+    _ = try bus.installPCMSink(id: "probe", targetFormat: .init()) { frame, _ in received.append(frame) }
+    let muted = try mixer.createBus("muted"); muted.volume = 0
+    try mixer.route(bus, to: muted); try mixer.routeToOutput(muted)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertTrue(source.playerNode.isPlaying)
+    XCTAssertNotNil(source.playerNode.lastRenderTime)
+    XCTAssertTrue(received.snapshot.flatMap(\.samples).allSatisfy { $0 == 0 })
+    try source.schedule(.init(sequenceNumber: 0, capturedAt: 100,
+        samples: Array(repeating: 0.2, count: 480)))
+    try await Task.sleep(for: .milliseconds(100))
+    XCTAssertEqual(received.snapshot.flatMap(\.samples).filter { $0 > 0.1 }.count, 480,
+        "Starting the clock early must not place the first capture timestamp in the past")
+}
+
 func testFirstPacketDoesNotWaitForAnAlreadyRunningDeviceClock() async throws {
     let mixer = try AudioMixer(audioFormat: .init())
     let bus = try mixer.createBus("first-packet")

@@ -133,7 +133,12 @@ public final class MixerPCMSource {
                     // rendering can still contain the end of the last word.
                     let canReduceDelay = !audible && lastAudibleEnd <= position.completed
                         && (target > Double(delayedStart) + recoveryMargin || recoveringQuietBurst)
-                    if target < Double(rendered) || resumed || canReduceDelay {
+                    // Omitted silence is still part of the capture clock. Do
+                    // not move a healthy returning syllable merely because the
+                    // pause was long; reduce only an accumulated excess wait.
+                    let resumedWithExcessWait = resumed
+                        && target > Double(delayedStart) + max(delay, duration) * mixerFormat.sampleRate
+                    if target < Double(rendered) || resumedWithExcessWait || canReduceDelay {
                         target = Double(max(delayedStart, lastAudibleEnd > rendered ? scheduledEndSample : delayedStart))
                         playoutAnchor = (capturedAt, AVAudioFramePosition(target))
                         if canReduceDelay {
@@ -191,8 +196,20 @@ public final class MixerPCMSource {
 
 	public func start() {
         startRequested = true
+        if adaptivePlayout, captureTimePlayoutDelay != nil, playoutAnchor == nil,
+           !playerNode.isPlaying, playerNode.engine?.isInManualRenderingMode == false {
+            // One local silent sample establishes the native player clock
+            // before speech arrives. No microphone/network data is involved.
+            // The first real packet maps its capture epoch onto that clock.
+            if let silence = try? PCMFrame(sequenceNumber: 0, format: mixerFormat, capturedAt: 0,
+                samples: Array(repeating: 0, count: mixerFormat.channelCount)).makePCMBuffer() {
+                playerNode.scheduleBuffer(silence, at: nil)
+                playerNode.play()
+            }
+            return
+        }
         // A timestamped player starts with its first buffer so sample zero and
-        // the capture anchor are established together, even during graph startup.
+        // the capture anchor are established together in offline/fixed playback.
         guard !playerNode.isPlaying, captureTimePlayoutDelay == nil || playoutAnchor != nil else { return }
 		playerNode.play()
 	}

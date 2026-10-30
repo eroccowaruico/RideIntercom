@@ -470,4 +470,6 @@ adaptive再生はcapture時計に対応する明示時刻を使う。render capt
 
 無音予約を置換できるかの判定には、この未来の予約下限を使わない。最後の有声音が確実に終わったことをplayerの確定位置で確認する。描画中のブロックに残っている語尾を、無音の置換で取り消さない。
 
+実時間のadaptive sourceを開始した時点で、ローカルの無音1sampleを使ってplayer時計を準備する。音声packetの到着時は、その時計へcapture epochを対応付ける。停止中のsourceやoffline/fixed再生は事前に開始しない。長い無音からの復帰だけを理由に正常なcapture時計を合わせ直さず、期限を過ぎた時刻、または指定待機・1frame長を超える余分な待ちがある場合に再基準化する。
+
 受信PCM sourceもstream単位で再サンプリングの位相と直前sampleを保持する。16/24/44.1kHzから48kHzへ上げる際、packet末尾を複製して埋めない。次packetの先頭との補間に必要な1 sample未満の入力時間だけ継続し、正規化後のcapture時刻で予約する。stop・時計不連続・format変更で履歴を破棄する。

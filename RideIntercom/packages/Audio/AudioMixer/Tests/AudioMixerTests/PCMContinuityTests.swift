@@ -91,6 +91,30 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
 }
 @testable import AudioMixer
 
+@Test func healthyConversationPauseKeepsItsClockButExcessWaitIsRemoved() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("pause-clock")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.02, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
+    try source.schedule(.init(sequenceNumber: 0, capturedAt: 1000, samples: Array(repeating: 0.2, count: 480)))
+    for _ in 0..<3 { #expect(try engine.renderOffline(4800, to: output) == .success) }
+    try source.schedule(.init(sequenceNumber: 1, capturedAt: 1000.305, samples: Array(repeating: 0.3, count: 480)))
+    #expect(source.playoutAdjustmentCount == 0, "A healthy pause must not move the following syllable")
+    #expect(abs(source.bufferedDuration - 0.035) < 1 / 48000.0)
+    for _ in 0..<30 { #expect(try engine.renderOffline(4800, to: output) == .success) }
+    try source.schedule(.init(sequenceNumber: 2, capturedAt: 1003.38, samples: Array(repeating: 0.4, count: 480)))
+    #expect(source.playoutAdjustmentCount == 1, "Excess wait must still be removed after a pause")
+    #expect(source.bufferedDuration <= 0.031)
+    #expect(source.playbackResetCount == 0)
+}
+
 @Test func graphTransitionFadesTheDeviceOutputAndDoesNotOnlyModifyItsObserver() throws {
     let engine = AVAudioEngine()
     let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
