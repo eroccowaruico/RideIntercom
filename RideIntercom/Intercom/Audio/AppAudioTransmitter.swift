@@ -23,6 +23,11 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
     private var processor: AudioFrameProcessor?
     private var encoder: StreamingCodecEncoder?
     private var encoding = CodecEncodingConfiguration()
+    private struct EncodingTransition {
+        var configuration: CodecEncodingConfiguration
+        var drainThrough: TimeInterval?
+    }
+    private var encodingTransition: EncodingTransition?
     private var isolation: VoiceIsolationEffect?
     private var dynamics: DynamicsProcessorEffect?
     private var limiter: PeakLimiterEffect?
@@ -79,17 +84,59 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
 
     func stop() {
         lock.lock(); defer { lock.unlock() }
-        processor?.stop(); processor = nil; encoder = nil; pendingPackets.removeAll()
+        processor?.stop(); processor = nil; encoder = nil; encodingTransition = nil; pendingPackets.removeAll()
         controller.reset()
         observation.level = 0; observation.voiceActive = false
         isolation = nil; dynamics = nil; limiter = nil
     }
 
-    func updateEncoding(_ configuration: CodecEncodingConfiguration) { lock.withLock { encoding = configuration } }
+    func updateEncoding(_ configuration: CodecEncodingConfiguration) {
+        lock.withLock {
+            do { try requestEncoding(configuration) }
+            catch { failures += 1; observation.failure = String(describing: type(of: error)) }
+        }
+    }
     func updateFormat(_ configuration: CodecEncodingConfiguration) throws {
         lock.lock(); defer { lock.unlock() }
-        try processor?.updateOutputFormat(configuration.format)
-        encoding = configuration
+        try requestEncoding(configuration)
+    }
+
+    private func requestEncoding(_ configuration: CodecEncodingConfiguration) throws {
+        guard configuration.format.isValid else { throw AppAudioPipelineError.invalidFormat }
+        guard configuration != (encodingTransition?.configuration ?? encoding) else { return }
+        if encoder == nil || muted || configuration == encoding {
+            try processor?.updateOutputFormat(configuration.format)
+            encoding = configuration
+            if encodingTransition != nil { processor?.bus.beginSinkTransition(settlingDuration: 0) }
+            encodingTransition = nil
+            return
+        }
+        // Finish a short old-format fade before a new codec can need its first
+        // native packet. Only replaceable settings coalesce; normal capture and
+        // transmission keep their cadence and never wait on a timer or network.
+        if encodingTransition == nil {
+            processor?.bus.beginSinkTransition(settlingDuration: 0, holding: true)
+            encodingTransition = .init(configuration: configuration)
+        } else { encodingTransition?.configuration = configuration }
+    }
+
+    private func processFrame(_ frame: PCMFrame) throws {
+        if encodingTransition != nil, encodingTransition?.drainThrough == nil {
+            encodingTransition?.drainThrough = frame.capturedAt + 0.002 + (encoder?.transitionDrainDuration ?? 0)
+        }
+        try processor?.process(frame)
+        guard let change = encodingTransition, let end = change.drainThrough else { return }
+        let sentThrough = pendingPackets.last.flatMap { packet in
+            packet.sampleCount.map { packet.capturedAt + Double($0 / packet.format.channelCount) / packet.format.sampleRate }
+        }
+        let silentAndDrained = frame.samples.allSatisfy { $0 == 0 }
+            && frame.capturedAt + Double(frame.frameCount) / frame.format.sampleRate >= end + 0.01
+        guard sentThrough.map({ $0 >= end }) == true || silentAndDrained else { return }
+        try processor?.updateOutputFormat(change.configuration.format)
+        encoding = change.configuration
+        encoder = nil
+        encodingTransition = nil
+        processor?.bus.beginSinkTransition(settlingDuration: 0)
     }
 
     func updateIsolation(enabled: Bool) throws {
@@ -125,7 +172,7 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
         for packet in packets {
             switch packet {
             case .voice(let pcm), .silence(let pcm):
-                do { try processor?.process(pcm) }
+                do { try processFrame(pcm) }
                 catch { failures += 1; observation.failure = String(describing: type(of: error)) }
             }
         }
@@ -137,9 +184,9 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
 
     func process(_ frame: PCMFrame) throws {
         let delivery = try lock.withLock {
-            guard let processor else { throw AppAudioPipelineError.notConfigured }
+            guard processor != nil else { throw AppAudioPipelineError.notConfigured }
             defer { pendingPackets.removeAll(keepingCapacity: true) }
-            try processor.process(frame)
+            try processFrame(frame)
             return (pendingPackets, packetHandler)
         }
         for packet in delivery.0 { delivery.1?(packet) }

@@ -12,6 +12,35 @@ import VADGate
 extension AppTests {
 @MainActor
 struct RealtimeConversationTests {
+    @Test func codecChangesFinishTheOldFadeAndCoalesceOnlySettings() throws {
+        let transmitter = AppAudioTransmitter()
+        let configuration = AppAudioPipelineConfiguration(preferredCodec: .mpeg4AACELD, transmitSoundIsolationEnabled: false)
+        let packets = Mutex<[RTCAudioPacket]>([])
+        transmitter.onPacket = { packet in packets.withLock { $0.append(packet) } }
+        try transmitter.rebuild(configuration: configuration, encoding: configuration.codecRuntimeReport.activeConfiguration)
+        defer { transmitter.stop() }
+        for index in 0..<130 {
+            if index == 100 {
+                try transmitter.updateFormat(.init(codec: .mpeg4AACELD, format: .init(sampleRate: 16000, channelCount: 1)))
+                try transmitter.updateFormat(.init(codec: .mpeg4AACELD, format: .init(sampleRate: 24000, channelCount: 1)))
+            }
+            try transmitter.process(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100,
+                samples: (0..<480).map { Float(0.15 * sin(Double(index * 480 + $0) * 2 * .pi * 600 / 48000)) }))
+        }
+        let sent = packets.withLock { $0 }
+        #expect(!sent.contains { $0.format.sampleRate == 16000 }, "Only the replaceable setting may coalesce")
+        let firstNew = try #require(sent.firstIndex { $0.format.sampleRate == 24000 })
+        #expect(firstNew > 0)
+        #expect(sent[firstNew].capturedAt < 1.09)
+        #expect(zip(sent, sent.dropFirst()).allSatisfy { $1.sequenceNumber == $0.sequenceNumber + 1 })
+        let decoder = StreamingCodecDecoder()
+        var oldLast: PCMFrame?
+        for packet in sent.prefix(firstNew) { oldLast = try AppAudioCodecBridge.decode(packet, using: decoder) }
+        #expect(try #require(oldLast).samples.suffix(96).allSatisfy { abs($0) < 0.002 },
+            "The already-sent old codec must finish its fade before the new codec fills its first packet")
+        #expect(transmitter.failureCount == 0)
+    }
+
     @Test(arguments: [RTCAudioCodecIdentifier.pcm16, .opus, .mpeg4AACELD])
     func silentTransmitterStopsPacketsAndRestartsForBriefReplies(codec: RTCAudioCodecIdentifier) throws {
         let transmitter = AppAudioTransmitter()
