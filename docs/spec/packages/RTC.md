@@ -190,7 +190,7 @@ GroupRelayの認証・replay protection用sequenceと音声専用sequenceを分�
 
 ### Local datagramの所有と再接続
 
-MCSessionは探索・認証・制御を所有する。認証messageのsender IDとMCSessionの直接peer IDが一致することを検証し、そのpeerのIDから`_ride-audio._udp` Bonjour service名を求め、Network.frameworkで個別に解決してUDP listenerへ送る。UDP側の全件browserは持たず、未認証peerへの接続を作らない。8名の媒体枠から離脱peerを置換する際は、そのpeerのendpoint・送信flow・再試行状態も解放する。音声にはGroupRelayの暗号化・認証・epoch・重複排除を引き続き適用する。UDPの先頭にある直近hop識別子だけでは認証しない。
+MCSessionは探索・認証・制御を所有する。認証messageのsender IDとMCSessionの直接peer IDが一致することを検証し、そのpeerのIDと署名済みnonceから`_ride-audio._udp` Bonjour service名を求め、Network.frameworkで個別に解決してUDP listenerへ送る。nonceはlistener世代ごとに更新し、再起動したpeerの古いportがBonjour cacheに残っても新世代の名前を直接解決する。同じ制御session内の重複handshakeは再解決を起動しない。再接続後の認証成功は古い失敗backoffを解除して再解決し、通常の音声packetでは解除しない。UDP側の全件browserは持たず、未認証peerへの接続を作らない。8名の媒体枠から離脱peerを置換する際は、そのpeerのendpoint・送信flow・再試行状態も解放する。音声にはGroupRelayの暗号化・認証・epoch・重複排除を引き続き適用する。UDPの先頭にある直近hop識別子だけでは認証しない。
 
 待受・service解決・送信は共通のUDP parametersを使い、`includePeerToPeer = true`、セルラー禁止、特定interfaceへの固定なしとする。Bonjourのservice endpointもinterfaceを固定せず解決する。アクセスポイント・InternetがなくてもApple peer-to-peer Wi-Fiを使用できる。これはMCSessionの音声配送ではなく、同じ端末間近距離無線上の別UDP媒体である。Wi-Fi機能OFF時のBluetooth単独音声は提供しない。現在のMultipeerもBluetooth単独のデータ通信には対応しない（[Apple DTS](https://developer.apple.com/forums/thread/749346)）。Bluetoothによる探索補助をBluetooth媒体への自動移行と解釈しない。peer-to-peer資源には電力負荷があるため、通話停止時に全資源を解放し、通話中の全件探索は途中参加を受け付けるMultipeerに一本化する。
 

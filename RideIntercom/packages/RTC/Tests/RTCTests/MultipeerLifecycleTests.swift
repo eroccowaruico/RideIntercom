@@ -17,7 +17,7 @@ private func nativeResource<T>(_ transport: MultipeerConnectionTransport, _ name
     return try #require(Mirror(reflecting: owner).children.first { $0.label == name }?.value as? T)
 }
 
-extension LocalTransportTests {
+extension RealtimeTransportTests {
 @Test func localTransportCapabilitiesDoNotFreezeTheInitialCodecPreference() {
     let routes = CallSessionFactory.makeRoutes(.init(
         routeConfiguration: .init(enabledRoutes: [.multipeer]), audioPolicy: .init(preferredCodecs: [.pcm16])))

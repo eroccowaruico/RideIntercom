@@ -12,9 +12,9 @@ private final class DatagramRecording: @unchecked Sendable {
 
 // These tests share native Bonjour/run-loop resources. Do not overlap the
 // deliberate control-actor stalls and restart storms with the 50 ms latency gate.
-@Suite(.serialized) struct LocalTransportTests {}
+@Suite(.serialized) struct RealtimeTransportTests {}
 
-extension LocalTransportTests {
+extension RealtimeTransportTests {
 @Test func localDatagramsArriveImmediatelyWithoutReliableRecoveryOrBacklog() async throws {
     let recording = DatagramRecording()
     let senderID = PeerID(rawValue: "sender"), receiverID = PeerID(rawValue: "receiver")
@@ -79,7 +79,7 @@ extension LocalTransportTests {
     defer { a.stop(); b.stop() }
     try await Task.sleep(for: .milliseconds(200))
     #expect(!a.isReady(for: bID) && !b.isReady(for: aID), "Advertising alone must not start a second group discovery")
-    a.connect(to: bID); b.connect(to: aID)
+    a.connect(to: bID, nonce: b.serviceNonce); b.connect(to: aID, nonce: a.serviceNonce)
     for _ in 0..<500 where !a.isReady(for: bID) || !b.isReady(for: aID) { try await Task.sleep(for: .milliseconds(10)) }
     #expect(a.isReady(for: bID), "\(a.statistics)")
     #expect(b.isReady(for: aID), "\(b.statistics)")
@@ -91,11 +91,34 @@ extension LocalTransportTests {
     a.remove(bID)
     #expect(!a.isReady(for: bID))
     #expect(a.send(Data([3]), to: [bID]).isEmpty, "Retired membership must not restart an old endpoint")
-    a.connect(to: bID)
+    a.connect(to: bID, nonce: b.serviceNonce)
     for _ in 0..<500 where !a.isReady(for: bID) { try await Task.sleep(for: .milliseconds(10)) }
     #expect(a.send(Data([4]), to: [bID]) == [bID])
     for _ in 0..<100 where bRecording.packets.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
     #expect(bRecording.packets.map { $0.1 } == [Data([1]), Data([4])])
+    let queue = try #require(Mirror(reflecting: a).children.first { $0.label == "queue" }?.value as? DispatchQueue)
+    func outgoing() -> NWConnection? {
+        queue.sync {
+            (Mirror(reflecting: a).children.first { $0.label == "outgoing" }?.value as? [String: NWConnection])?[a.serviceName(for: bID)]
+        }
+    }
+    let old = try #require(outgoing())
+    let oldPort = b.port
+    b.stop(); try b.start()
+    for _ in 0..<100 where b.port == nil { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(b.port != oldPort, "Exercise a peer restart with a changed UDP port")
+    a.connect(to: bID, nonce: b.serviceNonce) // A new authenticated control session re-resolves this peer.
+    for _ in 0..<500 where outgoing() === old || !a.isReady(for: bID) { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(outgoing() !== old)
+    #expect(a.send(Data([5]), to: [bID]) == [bID])
+    for _ in 0..<100 where bRecording.packets.count < 3 { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(bRecording.packets.map { $0.1 } == [Data([1]), Data([4]), Data([5])])
+    let current = try #require(outgoing())
+    let failed = try #require(current.stateUpdateHandler)
+    queue.sync { failed(.failed(.posix(.ENETDOWN))) }
+    a.connect(to: bID, nonce: b.serviceNonce) // Fresh authentication is new reachability evidence.
+    for _ in 0..<500 where !a.isReady(for: bID) { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(a.isReady(for: bID), "New authentication must not inherit an old session's failure deadline")
 }
 
 @Test func localUDPAllowsInfrastructureFreeDiscoveryButProhibitsCellular() throws {

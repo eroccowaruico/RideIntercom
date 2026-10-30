@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import RTC
 
+extension RealtimeTransportTests {
 @Suite struct GroupContinuityTests {
     @Test(.timeLimit(.minutes(1))) func eightLocalPeersTalkWhileInternetIsUnavailable() async throws {
         let network = VirtualNetwork(internetAvailable: false)
@@ -78,6 +79,8 @@ import Testing
             #expect(await manager.networkDiagnostics().peers.isEmpty)
         }
     }
+}
+
 }
 
 private actor CallRecorder {

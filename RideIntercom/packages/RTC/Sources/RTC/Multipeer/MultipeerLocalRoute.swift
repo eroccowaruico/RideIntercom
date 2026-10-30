@@ -290,9 +290,11 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
                 mediaPeers.remove(departed)
                 datagrams?.remove(departed)
             }
-            authenticatedPeers.insert(peerID)
+            let newlyAuthenticated = authenticatedPeers.insert(peerID).inserted
             mediaPeers.insert(peerID)
-            datagrams?.connect(to: peerID)
+            // Repeated handshakes on the same control session are idempotent.
+            // A reconnection must resolve again even if its old UDP flow is ready.
+            if newlyAuthenticated { datagrams?.connect(to: peerID, nonce: handshake.nonce) }
             onEvent?(.members(Array(mediaPeers)))
             return true
 
@@ -317,7 +319,10 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             return
         }
         do {
-            let handshake = RouteHandshakeMessage.make(credential: credential, senderID: request.localPeer.id)
+            // This nonce is authenticated by the existing handshake MAC. It also
+            // names this listener generation, not an unauthenticated UDP address.
+            let handshake = RouteHandshakeMessage.make(credential: credential, senderID: request.localPeer.id,
+                nonce: datagrams?.serviceNonce ?? UUID().uuidString)
             let payload = try MultipeerPayloadBuilder.makeControlPayload(.handshake(handshake))
             try native.session.send(payload.data, toPeers: [peerID], with: payload.mcSendMode)
         } catch {

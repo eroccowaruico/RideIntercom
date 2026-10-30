@@ -35,13 +35,20 @@ final class LocalDatagramTransport: @unchecked Sendable {
 
     init(peerID: PeerID, groupHash: String, onReceive: @escaping @Sendable (PeerID, Data) -> Void) {
         self.peerID = peerID
-        prefix = String(SHA256.hash(data: Data(groupHash.utf8)).map { String(format: "%02x", $0) }.joined().prefix(12))
+        prefix = Self.digest(groupHash, length: 12)
         self.onReceive = onReceive
     }
 
     func serviceName(for peer: PeerID) -> String {
-        prefix + "-" + String(SHA256.hash(data: Data(peer.rawValue.utf8)).map { String(format: "%02x", $0) }.joined().prefix(20))
+        prefix + "-" + Self.digest(peer.rawValue, length: 20)
     }
+    private static func digest(_ value: String, length: Int) -> String {
+        String(SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined().prefix(length))
+    }
+    private func advertisedName(for peer: PeerID, nonce: String) -> String {
+        serviceName(for: peer) + "-" + Self.digest(nonce, length: 12)
+    }
+    var serviceNonce: String { queue.sync { generation.uuidString } }
     var port: NWEndpoint.Port? { queue.sync { listener?.port.flatMap { $0.rawValue == 0 ? nil : $0 } } }
     func isReady(for peer: PeerID) -> Bool { queue.sync { ready.contains(serviceName(for: peer)) } }
 
@@ -60,7 +67,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
             let token = generation
             let parameters = Self.parameters()
             let listener = try NWListener(using: parameters)
-            listener.service = .init(name: serviceName(for: peerID), type: Self.serviceType)
+            listener.service = .init(name: advertisedName(for: peerID, nonce: token.uuidString), type: Self.serviceType)
             listener.stateUpdateHandler = { [weak self] state in
                 guard let self, self.generation == token else { return }
                 if case .failed(let error) = state { self.onFailure?("Local UDP listener unavailable: \(error)") }
@@ -91,11 +98,22 @@ final class LocalDatagramTransport: @unchecked Sendable {
 
     /// Multipeer owns discovery and authentication. Resolve only that known
     /// peer's service; a second continuous P2P browser costs power and is redundant.
-    func connect(to peer: PeerID) {
+    func connect(to peer: PeerID, nonce: String) {
         guard peer != peerID else { return }
         let name = serviceName(for: peer)
-        connect(serviceName: name,
-            endpoint: .service(name: name, type: Self.serviceType, domain: "local.", interface: nil))
+        queue.sync {
+            // Fresh authentication is reachability evidence for a new session;
+            // ordinary audio packets never clear a failed connection's backoff.
+            retryAfter[name] = nil
+            // A new authenticated control session may belong to a restarted
+            // peer with a new UDP port. The signed nonce selects a fresh service
+            // name, so stale Bonjour port caches cannot redirect new speech.
+            // An existing UDP flow can stay "ready"
+            // indefinitely; resolve afresh, retaining it until replacement ready.
+            connectOnQueue(serviceName: name,
+                endpoint: .service(name: advertisedName(for: peer, nonce: nonce), type: Self.serviceType, domain: "local.", interface: nil),
+                replacing: outgoing[name] != nil)
+        }
     }
 
     func remove(_ peer: PeerID) {
