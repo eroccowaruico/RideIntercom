@@ -68,6 +68,12 @@ public final class StreamingCodecEncoder {
             if configuration.codec == .mpeg4AACELD {
                 native.bitRateStrategy = AVAudioBitRateStrategy_LongTermAverage
             }
+            if configuration.codec == .opus {
+                // Give short tonal/transient packets a bounded bit reservoir;
+                // fixed-size CELT still produces brief quantization bursts.
+                // The selected bitrate remains the constrained stream target.
+                native.bitRateStrategy = AVAudioBitRateStrategy_VariableConstrained
+            }
             if let rate = configuration.activeBitRate { native.bitRate = rate }
             converter = native
         }
