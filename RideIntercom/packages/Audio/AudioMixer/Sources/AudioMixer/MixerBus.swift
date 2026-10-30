@@ -349,6 +349,21 @@ public final class MixerBus {
 		rebuildChain()
 	}
 
+    /// Prepare a requested enable while the effect is still disconnected.
+    /// Native model allocation can be slow; it need not interrupt the current
+    /// audio path. The graph owner must serialize this with topology changes.
+    public func prepareEffect(id effectID: String) throws {
+        guard let nodeID = effectMetadataByNodeID.first(where: { $0.value.id == effectID })?.key else {
+            throw AudioMixerError.unknownEffect(effectID)
+        }
+        guard bypassedEffectNodeIDs.contains(nodeID),
+              let unit = (effects.first { ObjectIdentifier($0) == nodeID } as? AVAudioUnit)?.auAudioUnit,
+              !unit.renderResourcesAllocated else { return }
+        for index in 0..<unit.inputBusses.count { try unit.inputBusses[index].setFormat(format) }
+        for index in 0..<unit.outputBusses.count { try unit.outputBusses[index].setFormat(format) }
+        try unit.allocateRenderResources()
+    }
+
 	public func updateEffectSnapshot(
 		id effectID: String,
 		state: MixerEffectState? = nil,

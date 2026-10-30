@@ -110,8 +110,11 @@ public final class MixerPCMSource {
                 let nativeLead = adaptivePlayout && playerNode.isPlaying
                     && playerNode.engine?.isInManualRenderingMode == false
                     ? AVAudioFramePosition(renderClock.frameCount.load(ordering: .relaxed)) : 0
-                let boundedLead = min(nativeLead, AVAudioFramePosition((limit * mixerFormat.sampleRate).rounded(.down)) - 1)
-				let delayedStart = rendered + max(boundedLead, AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded()))
+                // Device handoff and arrival jitter are independent. Taking
+                // their maximum silently removes the configured jitter margin.
+                let requestedLead = nativeLead + AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded())
+                let boundedLead = min(requestedLead, AVAudioFramePosition((limit * mixerFormat.sampleRate).rounded(.down)) - 1)
+				let delayedStart = rendered + boundedLead
 				if playoutAnchor == nil { playoutAnchor = (capturedAt, delayedStart) }
 				let anchor = playoutAnchor!
 				var target = Double(anchor.sample) + (capturedAt - anchor.capturedAt) * mixerFormat.sampleRate

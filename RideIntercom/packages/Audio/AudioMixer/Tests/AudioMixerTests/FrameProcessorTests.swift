@@ -57,6 +57,33 @@ import Testing
     #expect(processor.bus.processingLatency > 0, "The caller needs initialized native latency to bound the transition")
 }
 
+@Test func preparingRequestedEffectKeepsCurrentAudioAndReleasesDisabledResources() throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { frame, _ in frames.append(frame) }
+    let effect = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+        componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_AUSoundIsolation,
+        componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
+    effect.bypass = true
+    try processor.bus.addEffect(effect, id: "isolation", bypassed: true)
+    try processor.start()
+    defer { processor.stop() }
+    #expect(!effect.auAudioUnit.renderResourcesAllocated)
+    try processor.bus.prepareEffect(id: "isolation")
+    #expect(effect.auAudioUnit.renderResourcesAllocated)
+    #expect(processor.bus.processingLatency == 0)
+    try processor.process(.init(sequenceNumber: 0, samples: Array(repeating: 0.2, count: 480)))
+    #expect(frames.flatMap(\.samples).allSatisfy { abs($0 - 0.2) < 0.00001 })
+    effect.bypass = false
+    let start = ContinuousClock.now
+    try processor.bus.setEffectBypassed(id: "isolation", bypassed: false)
+    #expect(start.duration(to: .now) < .milliseconds(20),
+        "Preparing the disabled unit must keep its slow model allocation out of the live graph swap")
+    #expect(processor.bus.processingLatency > 0)
+    effect.bypass = true
+    try processor.bus.setEffectBypassed(id: "isolation", bypassed: true)
+    #expect(!effect.auAudioUnit.renderResourcesAllocated, "Disabled effects must release their native resources")
+}
+
 @Test func frameProcessorPreservesSamplesAndClockWithoutWaitingForHardware() throws {
     var received: [PCMFrame] = []
     let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init(sampleRate: 16000, channelCount: 1),
