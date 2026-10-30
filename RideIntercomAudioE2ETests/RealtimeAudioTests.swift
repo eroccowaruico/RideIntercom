@@ -27,7 +27,6 @@ extension AudioE2ETests {
             engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in
                 probe.append(buffer, time: time)
             }
-            let hardware = try output.startRendering(configuration: .intercomCall)
             let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
             previousPipeline = pipeline
             let transmitted = RenderedAudioProbe(), mixed = RenderedAudioProbe()
@@ -54,16 +53,20 @@ extension AudioE2ETests {
                 mixed.append(frame)
                 mixAges.append(ProcessInfo.processInfo.systemUptime - frame.capturedAt)
             }
-            try pipeline.rebuild(configuration: .init(outputHardwareFormat: hardware, preferredCodec: codec,
-                transmitSoundIsolationEnabled: true, maximumBufferedDuration: 0.2,
-                receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peerIDs: ["loopback"])
-            XCTAssertEqual(pipeline.codecRuntimeReport.selectedCodec.rawValue, codec.rawValue)
-            XCTAssertFalse(pipeline.codecRuntimeReport.isFallback)
             _ = try input.startCapture(configuration: .intercom(voiceProcessing: .init())) { frame in
                 inputAges.withLock { $0.append(ProcessInfo.processInfo.systemUptime - frame.capturedAt) }
                 pipeline.processMicrophoneFrame(frame)
                 delivery.yield(frame)
             }
+            // Match startAudioPipelineIfNeeded: input, output, then graph.
+            // Starting capture after building the graph stops the shared engine
+            // and invalidates players that have already prepared their clocks.
+            let hardware = try output.startRendering(configuration: .intercomCall)
+            try pipeline.rebuild(configuration: .init(outputHardwareFormat: hardware, preferredCodec: codec,
+                transmitSoundIsolationEnabled: true, maximumBufferedDuration: 0.2,
+                receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peerIDs: ["loopback"])
+            XCTAssertEqual(pipeline.codecRuntimeReport.selectedCodec.rawValue, codec.rawValue)
+            XCTAssertFalse(pipeline.codecRuntimeReport.isFallback)
             try await Task.sleep(for: .seconds(1))
             probe.reset(); transmitted.reset(); mixed.reset()
             inputAges.withLock { $0.removeAll() }; txAges.withLock { $0.removeAll() }; mixAges.removeAll()
