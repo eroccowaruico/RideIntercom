@@ -90,3 +90,67 @@ private final class DatagramRecording: @unchecked Sendable {
     #expect(parameters.prohibitedInterfaceTypes == [.cellular])
     #expect(parameters.defaultProtocolStack.transportProtocol is NWProtocolUDP.Options)
 }
+
+@Test func localUDPReplacesChangedPathsWithoutWaitingOrReplayingAudio() async throws {
+    let receiverID = PeerID(rawValue: "path-receiver"), senderID = PeerID(rawValue: "path-sender")
+    let recording = DatagramRecording()
+    let sender = LocalDatagramTransport(peerID: senderID, groupHash: UUID().uuidString) { _, _ in }
+    let receiver = LocalDatagramTransport(peerID: receiverID, groupHash: UUID().uuidString) { recording.append($0, $1) }
+    try sender.start(); try receiver.start()
+    defer { sender.stop(); receiver.stop() }
+    for _ in 0..<100 where receiver.port == nil { try await Task.sleep(for: .milliseconds(10)) }
+    let port = try #require(receiver.port), name = sender.serviceName(for: receiverID)
+    sender.connect(serviceName: name, endpoint: .hostPort(host: .ipv4(.loopback), port: port))
+    for _ in 0..<100 where !sender.isReady(for: receiverID) { try await Task.sleep(for: .milliseconds(10)) }
+    // Exercise the real native callbacks on their owner queue without changing
+    // the host's Wi-Fi settings or introducing a production test-only path.
+    let queue = try #require(Mirror(reflecting: sender).children.first { $0.label == "queue" }?.value as? DispatchQueue)
+    func connection() throws -> NWConnection {
+        try queue.sync {
+            let outgoing = try #require(Mirror(reflecting: sender).children.first { $0.label == "outgoing" }?.value as? [String: NWConnection])
+            return try #require(outgoing[name])
+        }
+    }
+    var previous = try connection()
+    let betterPath = try #require(previous.betterPathUpdateHandler)
+    let viability = try #require(previous.viabilityUpdateHandler)
+    #expect(sender.send(Data([0]), to: [receiverID]) == [receiverID])
+    for _ in 0..<100 where recording.packets.count < 1 { try await Task.sleep(for: .milliseconds(5)) }
+    queue.sync { betterPath(true); betterPath(true) }
+    // While the replacement resolves, a still-usable current path remains ready.
+    #expect(sender.isReady(for: receiverID))
+    for _ in 0..<100 where try connection() === previous { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(try connection() !== previous)
+    #expect(sender.send(Data([1]), to: [receiverID]) == [receiverID])
+    for _ in 0..<100 where recording.packets.count < 2 { try await Task.sleep(for: .milliseconds(5)) }
+    // Late callbacks from the retired path cannot clear the new path's readiness.
+    queue.sync { viability(false); betterPath(true) }
+    #expect(sender.isReady(for: receiverID))
+    previous = try connection()
+    let lostPath = try #require(previous.viabilityUpdateHandler)
+    queue.sync { lostPath(false) }
+    for _ in 0..<100 where try connection() === previous { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(try connection() !== previous)
+    #expect(sender.send(Data([2]), to: [receiverID]) == [receiverID])
+    for _ in 0..<100 where recording.packets.count < 3 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(recording.packets.map { $0.1 } == [Data([0]), Data([1]), Data([2])])
+    let current = try connection()
+    let failed = try #require(current.stateUpdateHandler)
+    queue.sync { failed(.failed(.posix(.ENETDOWN))) }
+    for _ in 0..<32 { #expect(sender.send(Data([254]), to: [receiverID]).isEmpty) }
+    let attempts = queue.sync {
+        Mirror(reflecting: sender).children.first { $0.label == "outgoing" }?.value as? [String: NWConnection]
+    }
+    #expect(attempts?.isEmpty == true, "Continuous audio must not turn a failed path into connection polling")
+    // The next new packet may retry after backoff; none of the discarded speech returns.
+    try await Task.sleep(for: .milliseconds(2100))
+    #expect(sender.send(Data([253]), to: [receiverID]).isEmpty)
+    for _ in 0..<100 where !sender.isReady(for: receiverID) { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(sender.send(Data([3]), to: [receiverID]) == [receiverID])
+    for _ in 0..<100 where recording.packets.count < 4 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(recording.packets.map { $0.1 } == [Data([0]), Data([1]), Data([2]), Data([3])])
+    sender.stop()
+    queue.sync { lostPath(false) }
+    #expect(!sender.isReady(for: receiverID))
+    #expect(sender.send(Data([255]), to: [receiverID]).isEmpty)
+}

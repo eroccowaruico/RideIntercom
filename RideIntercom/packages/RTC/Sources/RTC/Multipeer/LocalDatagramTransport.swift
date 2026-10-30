@@ -24,6 +24,8 @@ final class LocalDatagramTransport: @unchecked Sendable {
     private var browser: NWBrowser?
     private var generation = UUID()
     private var outgoing: [String: NWConnection] = [:]
+    private var replacements: [String: NWConnection] = [:]
+    private var retryAfter: [String: (deadline: TimeInterval, delay: TimeInterval)] = [:]
     private var ready: Set<String> = []
     private var incoming: [UUID: (connection: NWConnection, lastActivity: TimeInterval)] = [:]
     private var endpoints: [String: NWEndpoint] = [:]
@@ -120,22 +122,59 @@ final class LocalDatagramTransport: @unchecked Sendable {
     func connect(serviceName: String, endpoint: NWEndpoint) {
         queue.sync { connectOnQueue(serviceName: serviceName, endpoint: endpoint) }
     }
-    private func connectOnQueue(serviceName: String, endpoint: NWEndpoint) {
+    private func connectOnQueue(serviceName: String, endpoint: NWEndpoint, replacing: Bool = false) {
         guard listener != nil, endpoints[serviceName] != nil || endpoints.count < 7 else { return }
         if let current = endpoints[serviceName], current != endpoint { removeOutgoing(serviceName) }
         endpoints[serviceName] = endpoint
-        guard outgoing[serviceName] == nil, outgoing.count < 7 else { return }
-        let parameters = Self.parameters()
-        let connection = NWConnection(to: endpoint, using: parameters)
-        outgoing[serviceName] = connection
+        guard replacements[serviceName] == nil,
+              outgoing[serviceName] == nil || replacing,
+              outgoing[serviceName] != nil || outgoing.count < 7,
+              ProcessInfo.processInfo.systemUptime >= (retryAfter[serviceName]?.deadline ?? 0) else { return }
+        let connection = NWConnection(to: endpoint, using: Self.parameters())
+        if replacing { replacements[serviceName] = connection }
+        else { outgoing[serviceName] = connection }
         let token = generation
         connection.stateUpdateHandler = { [weak self, weak connection] state in
-            guard let self, let connection, self.generation == token, self.outgoing[serviceName] === connection else { return }
+            guard let self, let connection, self.generation == token,
+                  self.outgoing[serviceName] === connection || self.replacements[serviceName] === connection else { return }
             switch state {
-            case .ready: self.ready.insert(serviceName)
+            case .ready:
+                if self.replacements[serviceName] === connection {
+                    self.replacements[serviceName] = nil
+                    let old = self.outgoing.updateValue(connection, forKey: serviceName)
+                    self.inFlight[serviceName] = nil
+                    old?.cancel()
+                }
+                self.retryAfter[serviceName] = nil
+                self.ready.insert(serviceName)
             case .failed, .cancelled:
-                self.removeOutgoing(serviceName)
-            default: self.ready.remove(serviceName)
+                if self.replacements[serviceName] === connection { self.replacements[serviceName] = nil }
+                else {
+                    self.ready.remove(serviceName); self.inFlight[serviceName] = nil
+                    self.outgoing[serviceName] = nil
+                }
+                connection.cancel()
+                let delay = min(30, (self.retryAfter[serviceName]?.delay ?? 1) * 2)
+                self.retryAfter[serviceName] = (ProcessInfo.processInfo.systemUptime + delay, delay)
+            default:
+                if self.outgoing[serviceName] === connection { self.ready.remove(serviceName) }
+            }
+        }
+        connection.betterPathUpdateHandler = { [weak self, weak connection] better in
+            guard better, let self, let connection, self.generation == token,
+                  self.outgoing[serviceName] === connection else { return }
+            // UDP does not migrate automatically. Keep a viable old flow until
+            // its replacement is ready; never hold or replay audio for migration.
+            self.connectOnQueue(serviceName: serviceName, endpoint: endpoint, replacing: true)
+        }
+        connection.viabilityUpdateHandler = { [weak self, weak connection] viable in
+            guard let self, let connection, self.generation == token,
+                  self.outgoing[serviceName] === connection else { return }
+            if viable {
+                if case .ready = connection.state { self.ready.insert(serviceName) }
+            } else {
+                self.ready.remove(serviceName)
+                self.connectOnQueue(serviceName: serviceName, endpoint: endpoint, replacing: true)
             }
         }
         connection.start(queue: queue)
@@ -159,8 +198,11 @@ final class LocalDatagramTransport: @unchecked Sendable {
                     if peerServiceNames.count >= 7 { peerServiceNames.removeAll(keepingCapacity: true) }
                     peerServiceNames[peer] = name
                 }
-                if outgoing[name] == nil, let endpoint = endpoints[name] {
-                    connectOnQueue(serviceName: name, endpoint: endpoint)
+                if let endpoint = endpoints[name] {
+                    if outgoing[name] == nil { connectOnQueue(serviceName: name, endpoint: endpoint) }
+                    else if !ready.contains(name), case .ready = outgoing[name]?.state {
+                        connectOnQueue(serviceName: name, endpoint: endpoint, replacing: true)
+                    }
                 }
                 guard ready.contains(name), let connection = outgoing[name],
                       inFlight[name, default: 0] + bytes.count <= 65_536 else { continue }
@@ -168,7 +210,11 @@ final class LocalDatagramTransport: @unchecked Sendable {
                 connection.send(content: bytes, completion: .contentProcessed { [weak self] error in
                     guard let self, self.generation == token, self.outgoing[name] === connection else { return }
                     self.inFlight[name] = max(0, self.inFlight[name, default: 0] - bytes.count)
-                    if error != nil { self.removeOutgoing(name) }
+                    if error != nil {
+                        let delay = min(30, (self.retryAfter[name]?.delay ?? 1) * 2)
+                        self.removeOutgoing(name)
+                        self.retryAfter[name] = (ProcessInfo.processInfo.systemUptime + delay, delay)
+                    }
                 })
                 self.sent += 1
                 sent.insert(peer)
@@ -195,6 +241,8 @@ final class LocalDatagramTransport: @unchecked Sendable {
     private func removeOutgoing(_ name: String) {
         ready.remove(name); inFlight[name] = nil
         outgoing.removeValue(forKey: name)?.cancel()
+        replacements.removeValue(forKey: name)?.cancel()
+        retryAfter[name] = nil
     }
 
     func stop() { queue.sync { stopOnQueue() } }
@@ -203,9 +251,10 @@ final class LocalDatagramTransport: @unchecked Sendable {
         browser?.cancel(); browser = nil
         listener?.cancel(); listener = nil
         for connection in outgoing.values { connection.cancel() }
+        for connection in replacements.values { connection.cancel() }
         for value in incoming.values { value.connection.cancel() }
         outgoing.removeAll(); incoming.removeAll(); ready.removeAll(); inFlight.removeAll(); endpoints.removeAll()
-        peerServiceNames.removeAll()
+        replacements.removeAll(); retryAfter.removeAll(); peerServiceNames.removeAll()
         sent = 0; received = 0
     }
 }
