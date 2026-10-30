@@ -7,6 +7,81 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct InternetAccountTests {
+    @Test func throttledPreparationDoesNotResendUntilRetryWindowEnds() async throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        let authorization = f.authorization
+        AccountHTTPStub.respond(status: 429, path: "/api/auth/apple/challenge", retryAfter: "1")
+        await authorization.prepare(url: "https://account.test")
+        #expect(authorization.message?.contains("Wait 1 second") == true)
+        #expect(!authorization.isBusy && !authorization.isReady)
+        authorization.cancel()
+        await authorization.prepare(url: "https://account.test")
+        #expect(AccountHTTPStub.requests.count == 1)
+        AccountHTTPStub.respond(status: 200)
+        try await Task.sleep(for: .milliseconds(1100))
+        await authorization.prepare(url: "https://account.test")
+        #expect(AccountHTTPStub.requests.count == 2)
+        #expect(authorization.isReady)
+    }
+
+    @Test(arguments: ["bad", "-5", "0", "999999999999999999999999999", "3601", ""])
+    func untrustedRetryDelayIsBounded(value: String) async {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        let authorization = f.authorization
+        AccountHTTPStub.respond(status: 429, path: "/api/auth/apple/challenge", retryAfter: value)
+        await authorization.prepare(url: "https://account.test")
+        #expect(authorization.message?.contains(value == "3601" ? "Wait 3600 seconds" : "Wait 60 seconds") == true)
+        #expect(!authorization.isReady)
+    }
+
+    @Test func exchangeThrottlingKeepsCredentialsUnchangedAndRequiresFreshPreparation() async {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        AccountHTTPStub.respond(status: 429, path: "/api/auth/apple/session", retryAfter: "60")
+        await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
+        #expect(f.saved == nil)
+        #expect(!f.authorization.isReady)
+        #expect(f.authorization.message?.contains("Wait 60 seconds") == true)
+        await f.authorization.prepare(url: "https://account.test")
+        #expect(AccountHTTPStub.requests.count == 2)
+    }
+
+    @Test func deviceCapacityErrorExplainsHowToFreeARegistration() async {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        AccountHTTPStub.respond(status: 409, path: "/api/auth/apple/session")
+        await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
+        #expect(f.saved == nil)
+        #expect(f.authorization.message?.contains("8 registered devices") == true)
+        #expect(f.authorization.message?.contains("Sign out") == true)
+        #expect(!f.authorization.isReady && !f.authorization.isBusy)
+    }
+
+    @Test func lateThrottleCannotRestoreCancelledStateOrBlockAnotherService() async {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        AccountHTTPStub.respond(status: 429, path: "/api/auth/apple/session", retryAfter: "60")
+        AccountHTTPStub.delayExchange()
+        let exchange = Task { await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8)) }
+        for _ in 0..<100 {
+            if AccountHTTPStub.requests.count == 2 { break }
+            try? await Task.sleep(for: .milliseconds(2))
+        }
+        f.authorization.cancel()
+        await exchange.value
+        #expect(f.authorization.message == nil)
+        AccountHTTPStub.respond(status: 200)
+        await f.authorization.prepare(url: "https://another-account.test")
+        #expect(f.authorization.isReady)
+        #expect(f.saved == nil)
+    }
+
     @Test func enrollmentUsesServerNonceAndSavesOnlyTheMatchingAccount() async throws {
         let f = InternetAccountTestFixture(); defer { f.remove() }
         await f.authorization.prepare(url: "https://account.test")
@@ -159,8 +234,17 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var recorded: [URLRequest] = []
     nonisolated(unsafe) private static var deviceID = ""
     nonisolated(unsafe) private static var delayed = false
+    nonisolated(unsafe) private static var responseStatus = 200
+    nonisolated(unsafe) private static var responsePath: String?
+    nonisolated(unsafe) private static var retryAfter: String?
     static var requests: [URLRequest] { lock.withLock { recorded } }
-    static func reset(deviceID: String) { lock.withLock { recorded = []; Self.deviceID = deviceID; delayed = false } }
+    static func reset(deviceID: String) { lock.withLock {
+        recorded = []; Self.deviceID = deviceID; delayed = false
+        responseStatus = 200; responsePath = nil; retryAfter = nil
+    } }
+    static func respond(status: Int, path: String? = nil, retryAfter: String? = nil) { lock.withLock {
+        responseStatus = status; responsePath = path; Self.retryAfter = retryAfter
+    } }
     static func delayExchange() { lock.withLock { delayed = true } }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -175,7 +259,11 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
         else { body = ["userID": account, "deviceID": device, "expiresAt": Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000,
                        "accessToken": "ri1.\(account).\(device).\(String(repeating: "c", count: 64))"] }
         let data = try! JSONSerialization.data(withJSONObject: body)
-        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        let (status, retryAfter) = Self.lock.withLock {
+            (Self.responsePath == nil || Self.responsePath == request.url?.path ? Self.responseStatus : 200, Self.retryAfter)
+        }
+        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
+                                      headerFields: retryAfter.map { ["Retry-After": $0] })!
         let deliver: @Sendable () -> Void = { [self] in
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: data)

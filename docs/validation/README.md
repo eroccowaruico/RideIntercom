@@ -1,5 +1,23 @@
 # 検証状況と証跡
 
+## 登録制限時のApp案内とXcode更新への追従（2026-10-31）
+
+Internet登録のHTTP 429を待機時間付きで案内し、同じ設定画面での再操作を期限まで抑止する。端末登録上限の409は別の案内にし、失敗で既存のログイン・保存資格を失わない。仕様は[通信仕様](../spec/App/通信仕様.md)、操作は[Settings](../spec/App/UI/Settings.md)を参照する。
+
+証跡は`.validation/enrollment-app-delivery/`に保持する。
+
+| 検証 | 結果 |
+|---|---|
+| macOS App | 203件成功、失敗・skip・runtime warningなし。待機期限、取消後の遅延応答、資格保存を伴わない失敗、不正なRetry-Afterの上限を含む。隔離テストhostだけsandboxを無効化し、製品設定は維持 |
+| iOS AppとUI | App 203件・UI 3件、計206件成功、失敗・skip・runtime warningなし。登録制限の案内、登録不能時のログイン維持、サインアウトを確認。UIのスクリーンショットとアクセシビリティ情報を保存 |
+| 開発スクリプト | 72件成功。package親のfolder強制指定を拒否する回帰検査を含む |
+| Release | iOS Simulator向けRelease build成功。生成binaryにAppleログイン・頻度制限のfixture識別子と型がなく、検証用compile条件もない。Swift warningなし、AppIntents未導入によるmetadata抽出省略の既知warningのみ。初回のsandbox権限制限によるbuild失敗も保存 |
+| ソース照合 | 最終iOS実行前後のApp・テスト116ファイルが一致。Mac実行後の差分はUIテストのスクロール補正のみ |
+
+作業中にXcodeが27A9275から27B52へ更新された。標準初回セットアップは承認後も非対話sudoで実行できず、利用者がセットアップとCommand Line Tools更新を完了した。CoreSimulator 1174.21、Swift 6.4.2を確認。packageの親を明示的なfolderにする2箇所の指定を外すことで、9個のlocal packageを再び読み込めた。App targetからのpackage除外、live Repository表示、project自己参照のfolder指定は維持した。
+
+初回iOS実行では設定項目の追加によりボタンが画面外となり、UI 2件が失敗した。共通スクロール操作を適用して上記206件で再確認した。実Apple認証・実機・通常署名とMac sandbox起動の受入は[未確認事項](未確認事項.md)に残る。
+
 ## Apple登録入口の過剰アクセス制限（2026-10-31）
 
 challenge作成とApple token検証の前に、送信元別・location全体の頻度を制限する。1つのchallengeに対する検証試行も5回までに抑え、並行送信・DO再起動で枠を戻さない。登録端末数の上限は一時的な頻度制限と区別した。契約は[Worker仕様](../spec/server/Worker.md#apple認証と端末資格)を参照する。

@@ -33,12 +33,17 @@ def check(root):
     if not has_live_repository(project):
         errors.append('Xcode needs a live Repository folder (path = .), visible in mainGroup and absent from all build targets.')
     objects = project['objects']
+    package_paths = {obj['relativePath'] for obj in objects.values()
+                     if obj.get('isa') == 'XCLocalSwiftPackageReference'}
     for obj in objects.values():
         if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and obj.get('path') == '.':
             if obj.get('explicitFileTypes', {}).get('RideIntercom.xcodeproj') != 'folder':
                 errors.append('Repository must override RideIntercom.xcodeproj to folder to avoid self-project discovery.')
-            if 'RideIntercom/packages' not in obj.get('explicitFolders', []):
-                errors.append('Repository must treat RideIntercom/packages as a folder reference to avoid nested project discovery.')
+        if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup':
+            for folder in obj.get('explicitFolders', []):
+                forced = (root / obj.get('path', '') / folder).resolve()
+                if any((root / path).resolve().is_relative_to(forced) for path in package_paths):
+                    errors.append('Do not force a local Swift package or its parent to a folder; Xcode must resolve the package container.')
     project_object = objects[project['rootObject']]
     for reference in project_object.get('projectReferences', []):
         obj = objects[reference['ProjectRef']]
@@ -72,8 +77,6 @@ def check(root):
         errors.append('VS Code workspace must include the entire repository root.')
     if workspace.get('settings') != settings:
         errors.append('Workspace settings must match .vscode/settings.json, including package roots.')
-    package_paths = {obj['relativePath'] for obj in objects.values()
-                     if obj.get('isa') == 'XCLocalSwiftPackageReference'}
     if {folder['path'] for folder in workspace['folders']} != package_paths | {'.'}:
         errors.append('VS Code workspace must include the repository and every local Swift package.')
     tasks = json.loads((root / '.vscode/tasks.json').read_text())['tasks']

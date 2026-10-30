@@ -23,7 +23,10 @@ nonisolated struct InternetAccountClient: Sendable {
     init(session: URLSession = sharedSession) {
         self.session = session
     }
-    enum Failure: Error { case invalidAddress, rejected, invalidResponse }
+    enum Failure: Error {
+        case invalidAddress, rejected, invalidResponse, deviceLimitReached
+        case rateLimited(retryAfter: Int)
+    }
     static func origin(_ text: String) throws -> URL {
         guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)), url.scheme == "https",
               url.host != nil, url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
@@ -60,6 +63,11 @@ nonisolated struct InternetAccountClient: Sendable {
         guard let response = response as? HTTPURLResponse, response.url == request.url else { throw Failure.rejected }
         // An already revoked credential needs no further server cleanup.
         if method == "DELETE", response.statusCode == 401 { return try JSONDecoder().decode(T.self, from: Data("{}".utf8)) }
+        if response.statusCode == 429 {
+            let proposed = Int(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 60
+            throw Failure.rateLimited(retryAfter: proposed > 0 ? min(proposed, 3600) : 60)
+        }
+        if method == "POST", path == "api/auth/apple/session", response.statusCode == 409 { throw Failure.deviceLimitReached }
         guard response.statusCode == 200 else { throw Failure.rejected }
         var data = Data()
         for try await byte in bytes {
@@ -90,6 +98,8 @@ final class InternetAccountAuthorization {
     private var origin: URL?
     private var state: String?
     private var generation = UUID()
+    private var retryNotBefore: Date?
+    private var retryOrigin: URL?
 
     init(expectedUserID: String, deviceID: String, client: InternetAccountClient = .init(), currentUser: @escaping () -> String?,
          save: @escaping (URL, InternetAccountCredential) throws -> Void) {
@@ -97,19 +107,25 @@ final class InternetAccountAuthorization {
     }
     func cancel() { generation = UUID(); challenge = nil; origin = nil; state = nil; isBusy = false }
     func prepare(url: String) async {
+        let address = try? InternetAccountClient.origin(url)
+        if address == retryOrigin, let deadline = retryNotBefore, deadline > Date() {
+            message = retryMessage(seconds: max(1, Int(ceil(deadline.timeIntervalSinceNow))))
+            return
+        }
         cancel(); message = nil
         let operation = generation
         isBusy = true
         do {
             guard currentUser() == expectedUserID else { throw InternetAccountClient.Failure.rejected }
-            let address = try InternetAccountClient.origin(url)
+            guard let address else { throw InternetAccountClient.Failure.invalidAddress }
             let value = try await client.challenge(origin: address, deviceID: deviceID)
             guard generation == operation else { return }
             guard currentUser() == expectedUserID else { cancel(); return }
             origin = address; challenge = value
+            retryNotBefore = nil; retryOrigin = nil
         } catch {
             guard generation == operation else { return }
-            message = "Internet sign-in could not be prepared. Check the service address and try again."
+            message = failureMessage(error, origin: address, fallback: "Internet sign-in could not be prepared. Check the service address and try again.")
         }
         if generation == operation { isBusy = false }
     }
@@ -152,8 +168,25 @@ final class InternetAccountAuthorization {
             }
             if generation == operation { message = "Internet calling is connected to your Apple Account." }
         } catch {
-            if generation == operation { message = "Internet sign-in could not be saved. Prepare sign-in and try again." }
+            if generation == operation {
+                message = failureMessage(error, origin: origin, fallback: "Internet sign-in could not be saved. Prepare sign-in and try again.")
+            }
         }
         if generation == operation { isBusy = false }
+    }
+
+    private func failureMessage(_ error: Error, origin: URL?, fallback: String) -> String {
+        switch error {
+        case InternetAccountClient.Failure.rateLimited(let seconds):
+            retryNotBefore = Date().addingTimeInterval(TimeInterval(seconds)); retryOrigin = origin
+            return retryMessage(seconds: seconds)
+        case InternetAccountClient.Failure.deviceLimitReached:
+            return "This account has 8 registered devices. Sign out of RideIntercom on another device, then set up Internet calling again."
+        default: return fallback
+        }
+    }
+
+    private func retryMessage(seconds: Int) -> String {
+        "Too many sign-in attempts. Wait \(seconds) \(seconds == 1 ? "second" : "seconds"), then choose Set Up Internet Calling again."
     }
 }

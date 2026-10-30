@@ -13,8 +13,7 @@ struct InternetAppleSignInSection: View {
             Button("Set Up Internet Calling") {
                 Task {
                     do {
-                        authorization?.cancel()
-                        let next = try viewModel.makeInternetAccountAuthorization()
+                        let next = try authorization ?? viewModel.makeInternetAccountAuthorization()
                         authorization = next; message = nil
                         await next.prepare(url: workerURL)
                     } catch { message = "Internet sign-in is unavailable. Check your account and saved device information." }

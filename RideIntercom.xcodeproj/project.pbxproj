@@ -117,9 +117,6 @@
 			exceptions = (
 				93F300EB2F93829D0046716D /* Exceptions for "RideIntercom" folder in "RideIntercom" target */,
 			);
-			explicitFolders = (
-				packages,
-			);
 			path = RideIntercom;
 			sourceTree = "<group>";
 		};
@@ -138,9 +135,6 @@
 			explicitFileTypes = {
 				RideIntercom.xcodeproj = folder;
 			};
-			explicitFolders = (
-				RideIntercom/packages,
-			);
 			name = Repository;
 			path = .;
 			sourceTree = "<group>";

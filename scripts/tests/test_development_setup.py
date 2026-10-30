@@ -40,7 +40,7 @@ class DevelopmentSetupTests(unittest.TestCase):
         self.assertFalse(self.setup.has_live_repository(project))
 
     def test_repository_container_discovery_is_rejected(self):
-        for path in ['RideIntercom.xcodeproj', 'RideIntercom/packages']:
+        for path in ['RideIntercom.xcodeproj']:
             with self.subTest(path=path):
                 project = copy.deepcopy(self.project)
                 repository = next(obj for obj in project['objects'].values()
@@ -51,6 +51,16 @@ class DevelopmentSetupTests(unittest.TestCase):
                 repository.get('explicitFileTypes', {}).pop(path, None)
                 with patch.object(self.setup, 'load_project', return_value=project):
                     self.assertTrue(any(path in error for error in self.setup.check(ROOT)))
+
+    def test_package_folder_override_is_rejected(self):
+        for scope, path in [('.', 'RideIntercom/packages'), ('RideIntercom', 'packages')]:
+            with self.subTest(scope=scope):
+                project = copy.deepcopy(self.project)
+                group = next(obj for obj in project['objects'].values()
+                             if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and obj.get('path') == scope)
+                group.setdefault('explicitFolders', []).append(path)
+                with patch.object(self.setup, 'load_project', return_value=project):
+                    self.assertTrue(any('force' in error and 'package' in error for error in self.setup.check(ROOT)))
 
     def test_self_project_reference_is_rejected(self):
         project = copy.deepcopy(self.project)

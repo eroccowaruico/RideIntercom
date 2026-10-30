@@ -17,6 +17,9 @@ final class RideIntercomUITests: XCTestCase {
         app = XCUIApplication()
         app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
         app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
+        if name.contains("InternetEnrollmentThrottle") {
+            app.launchEnvironment["RIDEINTERCOM_INTERNET_ACCOUNT_FIXTURE"] = "throttled"
+        }
         if name.contains("Adaptive") {
             app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
@@ -37,9 +40,30 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testInternetEnrollmentThrottleKeepsAccountAndShowsRetryInstruction() throws {
+        openInternetSettings()
+        let url = app.textFields["internetWorkerURL"]
+        XCTAssertTrue(url.waitForExistence(timeout: 3))
+        url.tap(); url.typeText("https://account.test")
+        let prepare = app.buttons["prepareInternetAppleSignIn"]
+        prepare.tap()
+        let status = app.staticTexts["internetAppleSignInStatus"]
+        XCTAssertTrue(status.waitForExistence(timeout: 3))
+        XCTAssertTrue(status.label.contains("Too many sign-in attempts"))
+        XCTAssertTrue(status.label.contains("Set Up Internet Calling again"))
+        XCTAssertFalse(app.buttons["internetAppleSignInButton"].isEnabled)
+        prepare.tap()
+        XCTAssertTrue(status.label.contains("Wait"))
+        attachScreen("Internet Enrollment Retry Instruction")
+        app.buttons["closeInternetConnection"].tap()
+        for _ in 0..<6 where !app.buttons["signOutButton"].exists { app.swipeDown() }
+        XCTAssertTrue(app.buttons["signOutButton"].exists)
+        XCTAssertFalse(app.otherElements["appleSignInScreen"].exists)
+    }
+
+    @MainActor
     func testInternetAppleSetupKeepsLocalLoginWhenRegistrationIsUnavailable() throws {
-        openSettingsTab()
-        app.buttons["configureInternetConnection"].tap()
+        openInternetSettings()
         let url = app.textFields["internetWorkerURL"]
         XCTAssertTrue(url.waitForExistence(timeout: 3))
         url.tap(); url.typeText("https://account.test")
@@ -49,6 +73,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(status.label.contains("unavailable"))
         attachScreen("Internet Apple Setup Unavailable with Local Login Retained")
         app.buttons["closeInternetConnection"].tap()
+        for _ in 0..<6 where !app.buttons["signOutButton"].exists { app.swipeDown() }
         XCTAssertFalse(app.otherElements["appleSignInScreen"].exists)
         XCTAssertTrue(app.buttons["signOutButton"].exists)
     }
@@ -396,11 +421,16 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(waitForVisibleRoot(in: app))
     }
 
-    private func checkInternetSettingsRejectUnsecuredURL() {
+    private func openInternetSettings() {
         openSettingsTab()
         let configure = app.buttons["configureInternetConnection"]
-        for _ in 0..<4 where !configure.isHittable { app.swipeUp() }
+        for _ in 0..<6 where !configure.isHittable { app.swipeUp() }
+        XCTAssertTrue(configure.isHittable)
         configure.tap()
+    }
+
+    private func checkInternetSettingsRejectUnsecuredURL() {
+        openInternetSettings()
         let url = app.textFields["internetWorkerURL"]
         XCTAssertTrue(url.waitForExistence(timeout: 3))
         url.tap(); url.typeText("http://example.com")

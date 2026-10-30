@@ -4,6 +4,9 @@ import RTC
 extension IntercomViewModel {
     func makeInternetAccountAuthorization() throws -> InternetAccountAuthorization {
         guard canStartCalls, let accountUserID else { throw InternetAccountClient.Failure.rejected }
+        #if DEBUG && RIDEINTERCOM_VALIDATION
+        if let fixture = AppleAccountFixture.makeInternetAuthorization(viewModel: self) { return fixture }
+        #endif
         return InternetAccountAuthorization(expectedUserID: accountUserID, deviceID: try internetSettingsStore.accountDeviceID(),
             currentUser: { [weak self] in self?.accountSession.userID }, save: { [weak self] origin, credential in
                 guard let self, self.canStartCalls else { throw InternetAccountClient.Failure.rejected }
