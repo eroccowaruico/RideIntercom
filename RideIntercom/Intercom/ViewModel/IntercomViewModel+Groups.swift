@@ -72,6 +72,7 @@ extension IntercomViewModel {
         isVoiceActive = false
         connectedPeerIDs = []
         authenticatedPeerIDs = []
+        peerProfiles.removeAll()
         localNetworkStatus = .idle
         lastLocalNetworkPeerID = nil
         lastLocalNetworkEventAt = nil

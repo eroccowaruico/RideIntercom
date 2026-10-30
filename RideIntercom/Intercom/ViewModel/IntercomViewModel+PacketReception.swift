@@ -72,6 +72,7 @@ extension IntercomViewModel {
         let connectedPeerIDSet = Set(connectedPeerIDs)
         let disconnectedPeerIDs = authenticatedPeerIDs.filter { !connectedPeerIDSet.contains($0) }
         authenticatedPeerIDs.removeAll { !connectedPeerIDSet.contains($0) }
+        peerProfiles = peerProfiles.filter { connectedPeerIDSet.contains($0.key) }
 
         for peerID in disconnectedPeerIDs {
             do { try audioPipeline.stopReceivePeer(peerID) }

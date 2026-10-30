@@ -129,6 +129,7 @@ final class IntercomViewModel {
     var scheduledOutputFrameCount = 0
     var connectedPeerIDs: [String] = []
     var authenticatedPeerIDs: [String] = []
+    var peerProfiles: [String: PeerProfileState] = [:]
     var localNetworkStatus: LocalNetworkStatus = .idle
     var lastLocalNetworkPeerID: String?
     var lastLocalNetworkEventAt: TimeInterval?

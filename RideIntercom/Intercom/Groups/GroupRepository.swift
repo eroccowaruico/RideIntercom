@@ -114,20 +114,27 @@ final class GroupRepository {
         try update(groups, credential: nil)
     }
 
-    func receiveDisplayName(_ name: String, from memberID: String, in groupID: UUID) throws {
-        guard let snapshot, memberID != localMemberID, IntercomGroup.isValidName(name),
+    @discardableResult
+    func receiveProfile(_ profile: VerifiedPeerProfile) throws -> Bool {
+        let name = profile.displayName, memberID = profile.identity.memberID, groupID = profile.groupID
+        guard let snapshot else { throw IntercomGroupError.storageUnavailable }
+        guard memberID != localMemberID, IntercomGroup.isValidName(name),
               let index = snapshot.groups.firstIndex(where: { $0.id == groupID }),
-              let member = snapshot.groups[index].members.firstIndex(where: { $0.id == memberID }) else { throw GroupStorageError.invalidUpdate }
+              let member = snapshot.groups[index].members.firstIndex(where: { $0.id == memberID }) else { return false }
         var groups = try snapshot.groups.map { try $0.group() }
         var users = snapshot.users
         if let user = users.firstIndex(where: { $0.memberIDs.contains(memberID) }) {
-            guard users[user].displayName != name else { return }
+            guard users[user].deviceKeys?[memberID] == profile.identity.publicKey,
+                  users[user].principal == nil || profile.identity.principal == nil
+                    || users[user].principal == profile.identity.principal else { return false }
+            guard users[user].displayName != name else { return true }
             users[user].displayName = name
         } else {
-            guard groups[index].members[member].displayName != name else { return }
+            guard groups[index].members[member].displayName != name else { return true }
             groups[index].members[member].displayName = name
         }
         try update(groups, credential: nil, users: users)
+        return true
     }
 
     func removeUser(_ id: UUID) throws {

@@ -19,7 +19,8 @@ extension IntercomViewModel {
     }
 
     func sendStateMetadataSnapshot() {
-        sendSharedDisplayName(requestsReply: true)
+        synchronizePeerProfiles()
+        sendPeerProfileChallenges()
         broadcastControl(.peerMuteState(isMuted: isMuted))
         broadcastMetadataKeepalive()
     }
@@ -96,6 +97,7 @@ extension IntercomViewModel {
             guard authenticatedPeerIDs.contains(peerID) else { return }
             remoteRuntimeStatuses[peerID] = status
         case .receivedApplicationData(let peerID, let message):
+            receivePeerProfileChallenge(peerID: peerID, message: message)
             receiveSharedDisplayName(peerID: peerID, message: message)
             receiveInvitationReceipt(peerID: peerID, message: message)
         case .disconnected:
@@ -103,6 +105,7 @@ extension IntercomViewModel {
             stopAudioPipeline()
             connectedPeerIDs = []
             authenticatedPeerIDs = []
+            peerProfiles.removeAll()
             localNetworkStatus = .idle
             connectionState = .idle
             isVoiceActive = false
@@ -120,6 +123,7 @@ extension IntercomViewModel {
             stopAudioPipeline()
             connectedPeerIDs = []
             authenticatedPeerIDs = []
+            peerProfiles.removeAll()
             localNetworkStatus = willRetry ? .unavailable : .idle
             connectionState = willRetry ? .reconnectingOffline : .idle
             markMembers(willRetry ? .connecting : .offline)

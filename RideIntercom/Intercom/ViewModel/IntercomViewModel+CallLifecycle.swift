@@ -144,6 +144,7 @@ extension IntercomViewModel {
         resetVoiceLevelWindows()
         connectedPeerIDs = []
         authenticatedPeerIDs = []
+        peerProfiles.removeAll()
         localNetworkStatus = .idle
         lastLocalNetworkPeerID = nil
         lastLocalNetworkEventAt = nil

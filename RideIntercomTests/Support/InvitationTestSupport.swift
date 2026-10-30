@@ -1,4 +1,6 @@
 import Foundation
+import RTC
+import Testing
 import CryptoKit
 @testable import RideIntercom
 
@@ -29,4 +31,26 @@ func testInvitationReceipt(groupID: UUID, inviter: GroupMember, invitee: String 
     let token = try GroupInviteToken.make(authority: testInvitationAuthority(), signer: testIdentitySigner(inviter.id),
         groupID: groupID, groupName: "Friends", groupSecret: "test-key", inviterMemberID: inviter.id, inviterDisplayName: inviter.displayName)
     return try token.accept(signer: testIdentitySigner(invitee), displayName: "Rider")
+}
+
+@MainActor
+func receiveTestProfileChallenge(_ vm: IntercomViewModel, peerID: String, nonce: UUID = UUID(), now: TimeInterval = Date().timeIntervalSince1970) throws {
+    let value = PeerProfileChallenge(groupID: try #require(vm.activeGroupID), recipientMemberID: vm.localMemberIdentity.memberID, nonce: nonce)
+    vm.receivePeerProfileChallenge(peerID: peerID, message: .init(namespace: PeerProfileChallenge.namespace, payload: try JSONEncoder().encode(value)), now: now)
+}
+
+@MainActor
+func testPeerProfile(_ vm: IntercomViewModel, peerID: String, displayName: String, revision: UInt64 = 1,
+                     signer: DeviceIdentitySigner? = nil) throws -> SharedDisplayName {
+    try SharedDisplayName.make(groupID: #require(vm.activeGroupID), recipientMemberID: vm.localMemberIdentity.memberID,
+        challenge: #require(vm.peerProfiles[peerID]).challenge, revision: revision, displayName: displayName,
+        signer: signer ?? testIdentitySigner(peerID))
+}
+
+@MainActor
+func testVerifiedPeerProfile(groupID: UUID, memberID: String, displayName: String) throws -> VerifiedPeerProfile {
+    let nonce = UUID()
+    return try SharedDisplayName.make(groupID: groupID, recipientMemberID: "local", challenge: nonce,
+        revision: 1, displayName: displayName, signer: testIdentitySigner(memberID))
+        .verified(peerID: memberID, recipient: "local", groupID: groupID, challenge: nonce)
 }
