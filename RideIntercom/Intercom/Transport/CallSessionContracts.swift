@@ -75,11 +75,12 @@ enum TransportEvent: Equatable {
     case remoteRuntimeStatus(peerID: String, status: RTCRuntimeStatus)
     case receivedApplicationData(peerID: String, message: ApplicationDataMessage)
     case disconnected
-    case linkFailed(internetAvailable: Bool)
+    case linkFailed(willRetry: Bool)
     case receivedAudioPacket(RTC.ReceivedAudioPacket, AudioPacketReception)
     case routeMetrics(RTC.RouteMetrics)
     case networkDiagnostics(RTCNetworkDiagnostics)
     case serviceError(String)
+    case serviceBlocked(String)
     case commandQueueFailed
     case routesChanged(RTC.ActiveRouteSnapshot)
 }

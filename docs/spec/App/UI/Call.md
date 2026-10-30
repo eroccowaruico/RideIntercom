@@ -120,7 +120,7 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 |---|---|
 | 経路 | availableRoutesからLocal / Internet / Local + Internetを表示。Localだけでも他者経由の中継が可能 |
 | 音声操作 | 全production routeで共通のmeter・effect・master/peer音量・muteを使用 |
-| Internet失敗 | `connectivityNotice`。到達可能な参加者との接続を維持して再試行する旨を表示 |
+| Internet失敗 | `connectivityNotice`。通常は到達可能な参加者との接続を維持して再試行する旨を表示。アカウントの既存通話との競合は、既存通話の終了・通信断時の期限待ち・再操作を案内する。通話全体が手動復帰待ちならConnectを表示する |
 | 機器消失 | `audioRouteNotice`とConnected / Audio Paused。理由と接続・中継の維持を明示 |
 | 再開 | `resumeAudioButton`。標準Button、文字ラベルとSF Symbolを併用。認証済みpeerなしでは無効 |
 | 別グループ閲覧 | activeGroup用の機器・経路通知を別groupの状態として表示しない |

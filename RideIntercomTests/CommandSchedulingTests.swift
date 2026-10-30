@@ -5,6 +5,20 @@ import Testing
 
 @MainActor
 struct CommandSchedulingTests {
+    @Test func accountConflictRetainsManualRecoveryMeaningAcrossTheAppAdapter() async {
+        let rtc = FakeRTCCallSession()
+        let adapter = RideIntercomCallSessionAdapter(rtcSession: rtc)
+        var received: [TransportEvent] = []
+        adapter.onEvent = { received.append($0) }
+        adapter.connect(group: IntercomSeedData.recentGroups[0])
+        await rtc.waitForOperation("startConnection")
+        rtc.emit(.error(.connectionBlocked(.webRTC, "End the existing call")))
+        await AppTestSupport.waitUntil { received.contains(.serviceBlocked("End the existing call")) }
+        #expect(received.contains(.serviceBlocked("End the existing call")))
+        #expect(!received.contains(.serviceError("End the existing call")))
+        adapter.disconnect()
+    }
+
     @Test func liveAudioSettingsKeepTheConnectionAndApplyOnlyTheFinalPolicy() async {
         let rtc = FakeRTCCallSession(); let gate = ManualAsyncGate(); rtc.prepareGate = gate
         var creations = 0

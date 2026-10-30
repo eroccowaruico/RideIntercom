@@ -349,9 +349,11 @@ final class RideIntercomCallSessionAdapter: CallSession {
     private func handleRTCError(_ error: RTC.CallSessionError) {
         switch error {
         case .noEnabledRoute:
-            onEvent?(.linkFailed(internetAvailable: false))
+            onEvent?(.linkFailed(willRetry: false))
         case .connectionFailed(let route, let reason):
             if route == .webRTC { onEvent?(.serviceError(reason)) }
+        case .connectionBlocked(let route, let reason):
+            if route == .webRTC { onEvent?(.serviceBlocked(reason)) }
         case .routeUnavailable,
              .signalingUnavailable,
              .unsupportedApplicationDataDelivery,
@@ -369,11 +371,11 @@ final class RideIntercomCallSessionAdapter: CallSession {
         case .connected, .mediaReady:
             onEvent?(.localNetworkStatus(LocalNetworkEvent(status: .connected, occurredAt: Date().timeIntervalSince1970)))
         case .reconnecting:
-            onEvent?(.linkFailed(internetAvailable: true))
+            onEvent?(.linkFailed(willRetry: true))
         case .disconnected:
             onEvent?(.disconnected)
         case .failed:
-            onEvent?(.linkFailed(internetAvailable: false))
+            onEvent?(.linkFailed(willRetry: false))
         }
     }
 

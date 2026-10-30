@@ -19,6 +19,8 @@ extension IntercomViewModel {
             return
         }
         groupErrorMessage = nil
+        connectivityNotice = nil
+        internetFailureDetail = nil
         cancelAudioCheck()
 
         if let activeGroupID,

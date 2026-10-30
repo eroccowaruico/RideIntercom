@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## 接続競合のApp案内と明示再開（2026-10-31）
+
+検証済みRTCの手動復帰通知をAppへ接続した。アカウントの既存通話と競合した際、Callに復帰方法を表示してLocal音声は維持する。全体が再試行しない失敗ならidleへ戻し、Connectから再操作できる。新しい判定状態をAppへ重複保持せず、共通eventの意味を維持する。
+
+証跡は`.validation/account-connection-app-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| macOS App | 207件成功、失敗・skip・runtime warningなし。追加4件でadapterの通知、Local音声維持、Connectへの復帰、Localの独立した再試行を確認。隔離テストhostのみsandbox無効 |
+| iOS | App 207件と既存の登録・頻度制限・サインアウトUI 3件、計210件成功。失敗・skip・runtime warningなし。専用Simulatorは終了済み |
+| Release | iOS Simulator向けRelease build成功。Swift warningなし。AppIntents未導入によるmetadata抽出省略warningのみ |
+| ソース・文書 | iOS実行前後のApp・テスト116ファイル一致。文書・diff検査成功 |
+
+型追加後のApp未追従によるcompile失敗を赤テストとして保持した。package工程とApp工程のコミットを分け、App検証が完了した状態でmain・previewへ統合する。これは実Apple・実Cloudflare・実機の受入完了を意味しない。
+
 ## WebRTC競合の手動復帰契約（2026-10-31）
 
 RTC packageが既知の409 codeを解釈し、HTTP再送・route再接続を繰り返さず手動復帰を通知する。Local経路は維持し、明示的なprepareで再試行を許す。serverやAppに文字列判定を重複させない。[契約](../spec/packages/RTC.md#ユーザー操作を必要とする接続拒否)を参照する。

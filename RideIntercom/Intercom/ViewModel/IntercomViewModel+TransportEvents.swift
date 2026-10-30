@@ -40,6 +40,9 @@ extension IntercomViewModel {
         case .commandQueueFailed:
             disconnect()
             groupErrorMessage = "Too many pending operations. The call stopped; connect again to retry."
+        case .serviceBlocked(let reason):
+            internetFailureDetail = reason
+            connectivityNotice = reason
         case .serviceError(let reason):
             internetFailureDetail = reason
             connectivityNotice = "Internet is unavailable. Retrying automatically; reachable riders stay connected."
@@ -105,22 +108,21 @@ extension IntercomViewModel {
             isVoiceActive = false
             markMembers(.offline)
             publishRuntimePackageReports(force: true)
-        case .linkFailed(let internetAvailable):
+        case .linkFailed(let willRetry):
             networkDiagnostics = nil
-            _ = internetAvailable
             AppLoggers.rtc.error(
                 "rtc.connection.failed",
                 metadata: .event("rtc.connection.failed", [
                     "route": "\(routeLabel)",
-                    "isRecoverable": "true"
+                    "isRecoverable": "\(willRetry)"
                 ])
             )
             stopAudioPipeline()
             connectedPeerIDs = []
             authenticatedPeerIDs = []
-            localNetworkStatus = .unavailable
-            connectionState = .reconnectingOffline
-            markMembers(.connecting)
+            localNetworkStatus = willRetry ? .unavailable : .idle
+            connectionState = willRetry ? .reconnectingOffline : .idle
+            markMembers(willRetry ? .connecting : .offline)
             publishRuntimePackageReports(force: true)
         case .receivedAudioPacket(let received, let reception):
             handleReceivedAudioPacket(received, reception: reception)

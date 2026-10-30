@@ -74,6 +74,47 @@ struct CallLifecycleTests {
         h.viewModel.disconnect()
     }
 
+    @Test func internetConflictKeepsLocalAudioAndExplainsManualRecovery() async {
+        let h = AppTestSupport.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
+        h.viewModel.handleTransportEvent(.serviceBlocked("End the existing Internet call, then reconnect here."))
+        #expect(h.viewModel.isAudioReady)
+        #expect(h.viewModel.audioErrorMessage == nil)
+        #expect(h.viewModel.connectivityNotice?.contains("End the existing Internet call") == true)
+        #expect(h.viewModel.connectivityNotice?.contains("automatically") == false)
+        #expect(h.viewModel.internetFailureDetail != nil)
+        h.viewModel.disconnect()
+        #expect(h.viewModel.internetFailureDetail == nil)
+    }
+
+    @Test func blockedInternetOnlyCallOffersConnectInsteadOfClaimingAutomaticRecovery() {
+        let h = AppTestSupport.makeHarness()
+        h.viewModel.enabledRTCTransportRoutes = [.webRTC]
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.viewModel.handleTransportEvent(.serviceBlocked("End the existing Internet call, then try again."))
+        h.viewModel.handleTransportEvent(.linkFailed(willRetry: false))
+        #expect(h.viewModel.connectionState == .idle)
+        #expect(!h.viewModel.canDisconnectCall)
+        #expect(h.viewModel.connectivityNotice != nil)
+        h.viewModel.connectLocal()
+        #expect(h.viewModel.internetFailureDetail == nil)
+        #expect(h.viewModel.connectivityNotice == nil)
+        #expect(h.viewModel.connectionState != .idle)
+        h.viewModel.disconnect()
+    }
+
+    @Test func blockedInternetDoesNotSuppressIndependentLocalRecovery() {
+        let h = AppTestSupport.makeHarness()
+        h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        h.viewModel.handleTransportEvent(.serviceBlocked("Reconnect Internet manually."))
+        h.viewModel.handleTransportEvent(.linkFailed(willRetry: true))
+        #expect(h.viewModel.connectionState == .reconnectingOffline)
+        #expect(h.viewModel.internetFailureDetail != nil)
+        h.viewModel.disconnect()
+    }
+
     @Test func internetFailureDoesNotMisreportHealthyLocalAudio() async {
         let h = AppTestSupport.makeHarness()
         h.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
