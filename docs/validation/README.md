@@ -1,5 +1,22 @@
 # 検証状況と証跡
 
+## Appのアカウント削除と再開（2026-10-31）
+
+Settingsの削除確認、Apple再認証、server削除、端末内消去、再起動後の再開を接続した。通常サインアウトが削除用Bearerを先に失効しないこと、別アカウントを消さないこと、失敗を完了と扱わないことを横断して確認した。現行動作は[通信仕様](../spec/App/通信仕様.md#アカウント削除と端末内消去)、画面は[Settings](../spec/App/UI/Settings.md#アカウント削除)を参照。
+
+証跡は`.validation/account-deletion-app-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| TDD・失敗からの修正 | 未実装APIのcompile失敗を先に確認。全体回帰でKeychain読出不能時の状態表示の差を検出・修正。削除済みUserDefaultsが空dictionaryを返すOS挙動へテストを合わせた。途中結果は`development/`に保持 |
+| App全体 | macOS・iOS各263件成功。失敗・skip・runtime warningなし。Macのsandbox無効化は検証hostだけ。`macos/`・`ios/` |
+| 削除境界 | 401・矛盾／不足した成功応答で消去しない、Apple取消待ちの永続化・再起動、proof保持と受理後の除去、同一本人とstate・ログイン世代、記録保存失敗でログインを維持、保存lock・symlink拒否、別アカウント保持、退避ファイル除去、旧repository書戻し拒否を確認 |
+| iOS UI | 専用Simulatorの1件成功。確認取消、Local削除の確定、通話画面の閉鎖、Apple手動解除の明示、ログインへの復帰、同じfixture本人で再起動してもgroup行が戻らないことを操作。最終のgroup行ID検査を厳密化した後、このUI試験だけ再実行。保存画面に欠けがないことも確認。`ui/` |
+| 検証基盤 | scripts全73件、文書・開発設定・diff検査成功。iOS全体／最終UI各実行前後の288ファイルはsource/configuration一致。二つの実行間はUIテストの行ID修正と自動build番号だけで、App・unitソースに差はない。専用Simulatorをshutdown済み |
+
+実Apple認証・実Cloudflareには接続していない。Apple側認可取消の実確認、失効Bearer／期限切れreceiptからの復旧、他端末で稼働中の媒体回収は未完了。macOSや全画面サイズの新しいUI操作確認、独立duplex音声E2Eもこの結果に含めない。既知のAppIntents未使用metadata省略warningは継続。全体の最終受入やアカウント削除全機能の完成とは扱わない。
+
+
 ## アカウント削除時のApple認可取消（2026-10-31）
 
 削除時だけ新しいApple認証のコードを交換し、確認したrefresh tokenを使って認可を取り消すserver処理を追加した。通常ログインの保存情報は増やさず、取消待ちのtoken・試行状態だけを保持する。[Worker契約](../spec/server/Worker.md#アカウントの端末登録削除)を参照。

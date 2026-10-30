@@ -12,6 +12,7 @@ enum AppleCredentialState: Sendable {
 @MainActor
 @Observable
 final class AppleAccountSession {
+    let deletion: AccountDeletion
     private(set) var userID: String?
     // A new login must never reactivate work retained from a retired session.
     private(set) var accessID = UUID()
@@ -32,7 +33,9 @@ final class AppleAccountSession {
     private static let requiresSignInKey = "AppleAccount.requiresSignIn"
 
     init(keychain: KeychainSecretStoring, defaults: UserDefaults, namespace: String,
+         applicationSupport: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
          credentialState: @escaping @MainActor (String) async throws -> AppleCredentialState) {
+        deletion = AccountDeletion(keychain: keychain, namespace: namespace, applicationSupport: applicationSupport)
         self.keychain = keychain
         self.defaults = defaults
         service = namespace + ".AppleAccount"
@@ -62,7 +65,12 @@ final class AppleAccountSession {
     }
 
     private func load() {
-        guard !defaults.bool(forKey: Self.requiresSignInKey) else { return }
+        if deletion.storageUnavailable {
+            storageUnavailable = true
+            message = deletion.message
+            return
+        }
+        guard !deletion.blocksSignIn, !defaults.bool(forKey: Self.requiresSignInKey) else { return }
         do {
             let saved = try keychain.secret(service: service, account: "current")
             if let saved, !Self.validIdentifier(saved) { throw KeychainSecretStoreError.invalidData }
@@ -81,6 +89,7 @@ final class AppleAccountSession {
 
     func reload() async {
         guard !isSigningIn else { return }
+        if deletion.storageUnavailable { deletion.reload() }
         if needsCredentialRemoval { signOut(); return }
         message = nil
         load()
@@ -88,7 +97,7 @@ final class AppleAccountSession {
     }
 
     func refresh() async {
-        guard !refreshing, !isSigningIn, !storageUnavailable, let cachedUserID else { return }
+        guard !deletion.blocksSignIn, !refreshing, !isSigningIn, !storageUnavailable, let cachedUserID else { return }
         refreshing = true
         let expectedGeneration = generation
         defer { refreshing = false }
@@ -113,7 +122,7 @@ final class AppleAccountSession {
 
     func prepare(_ request: ASAuthorizationAppleIDRequest) {
         request.requestedScopes = []
-        guard !storageUnavailable else { return }
+        guard !deletion.blocksSignIn, !storageUnavailable else { return }
         generation = UUID()
         requestState = UUID().uuidString
         request.state = requestState
@@ -136,7 +145,7 @@ final class AppleAccountSession {
 
     @discardableResult
     func completeSignIn(userID: String, state: String?) -> Bool {
-        guard !storageUnavailable, let requestState, state == requestState, Self.validIdentifier(userID) else {
+        guard !deletion.blocksSignIn, !storageUnavailable, let requestState, state == requestState, Self.validIdentifier(userID) else {
             failSignIn(); return false
         }
         self.requestState = nil
@@ -186,6 +195,14 @@ final class AppleAccountSession {
             needsCredentialRemoval = true
             message = "You are signed out. The saved sign-in could not be removed from this device. Try again."
         }
+    }
+
+    func resumeDeletion(client: InternetAccountClient = .init()) async {
+        if deletion.storageUnavailable { deletion.reload() }
+        guard deletion.record != nil, !deletion.isBusy else { return }
+        signOut()
+        guard !storageUnavailable else { return }
+        await deletion.resume(client: client)
     }
 
     func revoke() {

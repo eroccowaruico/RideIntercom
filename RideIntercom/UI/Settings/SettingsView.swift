@@ -8,7 +8,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            AccountSettingsPanel(account: viewModel.accountSession)
+            AccountSettingsPanel(viewModel: viewModel)
             LocalDisplayNameSection(viewModel: viewModel)
             CommunicationPanel(viewModel: viewModel)
             InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)

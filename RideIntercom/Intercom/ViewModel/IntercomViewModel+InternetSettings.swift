@@ -22,6 +22,11 @@ extension IntercomViewModel {
         disconnect()
         internetCheckGeneration = UUID()
         isCheckingInternet = false
+        if accountSession.deletion.blocksSignIn {
+            hasInternetCredentials = false
+            localAccountPrincipal = nil
+            return
+        }
         // Disable saved Internet access before the asynchronous server request.
         do { _ = try internetSettingsStore.retireAppleCredential() }
         catch { internetCheckMessage = "Could not read Internet access for sign-out. Saved data has been preserved." }

@@ -126,6 +126,35 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testAccountDeletionConfirmsScopeEndsCallAndReturnsToSignIn() throws {
+        createTalkGroupAndOpenCall()
+        openSettingsTab()
+        let deletion = app.buttons["deleteAccountButton"]
+        for _ in 0..<6 where !deletion.isHittable { app.swipeDown() }
+        XCTAssertTrue(deletion.waitForExistence(timeout: 3)); deletion.tap()
+        let erase = app.buttons["deleteWithoutAppleButton"]
+        XCTAssertTrue(erase.waitForExistence(timeout: 3))
+        // Cancelling the sheet preserves the live account and groups.
+        app.buttons["Cancel"].firstMatch.tap()
+        XCTAssertTrue(deletion.waitForExistence(timeout: 3)); deletion.tap()
+        for _ in 0..<6 where !erase.isHittable { app.swipeUp() }
+        erase.tap()
+        let confirmation = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 3)); confirmation.tap()
+        let finish = app.buttons["finishAccountDeletionButton"]
+        XCTAssertTrue(finish.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Apple authorization has not been removed")).firstMatch.exists)
+        XCTAssertFalse(app.buttons["disconnectButton"].exists)
+        attachScreen("Local Account Deletion with Explicit Apple Removal")
+        finish.tap()
+        XCTAssertTrue(app.buttons["signInWithAppleButton"].firstMatch.waitForExistence(timeout: 5))
+        app.terminate(); app.launch(); app.activate() // The isolated native-login fixture signs in again.
+        openGroupsTab()
+        XCTAssertFalse(app.buttons["disconnectButton"].exists)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "groupRow-")).firstMatch.exists)
+    }
+
+    @MainActor
     func testSignOutEndsCallAndReturnsToAppleSignIn() throws {
         createTalkGroupAndOpenCall()
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))

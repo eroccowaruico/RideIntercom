@@ -148,7 +148,7 @@ struct AccountDirectCallTests {
         let f = AccountCallFixture(); defer { f.disconnect() }
         let a = try f.peer("a", account: "a"), b = try f.peer("b", account: "b")
         try f.introduce(b, to: a)
-        var old = try #require(a.groupStore.snapshot)
+        var old = a.groupStore.snapshot
         old.version = 5
         let receipt = try #require(old.groups.first?.pendingInvitation)
         let upgraded = try GroupSnapshot.decode(old.encoded()).upgraded()
@@ -157,7 +157,7 @@ struct AccountDirectCallTests {
         #expect(upgraded.groups.first?.credentialReference == old.groups.first?.credentialReference)
         #expect(upgraded.users == old.users)
         #expect(a.viewModel.selectUser(try #require(a.viewModel.savedRemoteUsers.first).id))
-        var invalid = try #require(a.groupStore.snapshot); invalid.version = 5
+        var invalid = a.groupStore.snapshot; invalid.version = 5
         #expect(throws: (any Error).self) { try invalid.encoded() }
     }
 

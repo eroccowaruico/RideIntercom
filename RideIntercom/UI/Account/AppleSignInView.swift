@@ -43,7 +43,9 @@ struct AppleSignInView: View {
 }
 
 struct AccountSettingsPanel: View {
-    let account: AppleAccountSession
+    let viewModel: IntercomViewModel
+    private var account: AppleAccountSession { viewModel.accountSession }
+    @State private var showsDeletion = false
     @State private var confirmsSignOut = false
 
     var body: some View {
@@ -59,6 +61,9 @@ struct AccountSettingsPanel: View {
                 } message: {
                     Text("Your groups and saved users stay on this device. Sign in with the same Apple Account to use them again.")
                 }
+            Button("Delete Account", role: .destructive) { showsDeletion = true }
+                .accessibilityIdentifier("deleteAccountButton")
+                .sheet(isPresented: $showsDeletion) { NavigationStack { AccountDeletionView(viewModel: viewModel) } }
         } header: { Text("Account") }
     }
 }

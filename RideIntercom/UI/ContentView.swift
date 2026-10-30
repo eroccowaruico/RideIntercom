@@ -11,7 +11,9 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if let viewModel, viewModel.canStartCalls {
+            if account.deletion.blocksSignIn {
+                AccountDeletionProgressView(account: account)
+            } else if let viewModel, viewModel.canStartCalls {
                 SignedInContentView(viewModel: viewModel, selectedTab: $selectedTab)
             } else {
                 AppleSignInView(account: account, hasPendingInvite: pendingInviteURL != nil)
@@ -38,7 +40,7 @@ struct ContentView: View {
             }
         }
         .onOpenURL { url in
-            guard url.scheme == "rideintercom", url.host == "join" else { return }
+            guard !account.deletion.blocksSignIn, url.scheme == "rideintercom", url.host == "join" else { return }
             if let viewModel, viewModel.canStartCalls { openInvitation(url, in: viewModel) }
             else { pendingInviteURL = url }
         }

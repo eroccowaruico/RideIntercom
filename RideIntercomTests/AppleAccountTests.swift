@@ -260,9 +260,10 @@ final class AccountFixture {
 final class AccountTestKeychain: KeychainSecretStoring {
     var value: String?
     var fails = false
+    private var additional: [String: [String: String]] = [:]
     func accounts(service: String) throws -> [String] { [] }
     func secret(service: String, account: String) throws -> String? {
-        if fails { throw KeychainSecretStoreError.invalidData }; return value
+        if fails { throw KeychainSecretStoreError.invalidData }; return service.hasSuffix(".AccountDeletion") ? additional[service]?[account] : value
     }
     func createSecretIfAbsent(_ value: String, service: String, account: String) throws -> String {
         if let retained = try secret(service: service, account: account) { return retained }
@@ -270,9 +271,9 @@ final class AccountTestKeychain: KeychainSecretStoring {
         return value
     }
     func saveSecret(_ secret: String, service: String, account: String) throws {
-        if fails { throw KeychainSecretStoreError.invalidData }; value = secret
+        if fails { throw KeychainSecretStoreError.invalidData }; if !service.hasSuffix(".AccountDeletion") { value = secret } else { additional[service, default: [:]][account] = secret }
     }
     func deleteSecret(service: String, account: String) throws {
-        if fails { throw KeychainSecretStoreError.invalidData }; value = nil
+        if fails { throw KeychainSecretStoreError.invalidData }; if !service.hasSuffix(".AccountDeletion") { value = nil } else { additional[service]?[account] = nil }
     }
 }

@@ -31,15 +31,33 @@ enum AppleAccountFixture {
     private final class FixtureKeychain: KeychainSecretStoring {
         let defaults: UserDefaults
         init(defaults: UserDefaults) { self.defaults = defaults }
-        func accounts(service: String) throws -> [String] { [] }
-        func secret(service: String, account: String) throws -> String? { defaults.string(forKey: "user") }
+        private let system = SystemKeychainSecretStore()
+        private func isFixtureService(_ service: String) -> Bool {
+            service.hasSuffix(".AppleAccount") || service.hasSuffix(".AccountDeletion")
+        }
+        func accounts(service: String) throws -> [String] {
+            if !isFixtureService(service) { return try system.accounts(service: service) }
+            return Array((defaults.dictionary(forKey: service) ?? [:]).keys)
+        }
+        func secret(service: String, account: String) throws -> String? {
+            if !isFixtureService(service) { return try system.secret(service: service, account: account) }
+            return defaults.dictionary(forKey: service)?[account] as? String
+        }
         func createSecretIfAbsent(_ value: String, service: String, account: String) throws -> String {
             if let retained = try secret(service: service, account: account) { return retained }
             try saveSecret(value, service: service, account: account)
             return value
         }
-        func saveSecret(_ secret: String, service: String, account: String) throws { defaults.set(secret, forKey: "user") }
-        func deleteSecret(service: String, account: String) throws { defaults.removeObject(forKey: "user") }
+        func saveSecret(_ secret: String, service: String, account: String) throws {
+            if !isFixtureService(service) { try system.saveSecret(secret, service: service, account: account); return }
+            var values = defaults.dictionary(forKey: service) ?? [:]
+            values[account] = secret; defaults.set(values, forKey: service)
+        }
+        func deleteSecret(service: String, account: String) throws {
+            if !isFixtureService(service) { try system.deleteSecret(service: service, account: account); return }
+            var values = defaults.dictionary(forKey: service) ?? [:]
+            values[account] = nil; defaults.set(values, forKey: service)
+        }
     }
 
     static func makeInternetAuthorization(viewModel: IntercomViewModel) -> InternetAccountAuthorization? {

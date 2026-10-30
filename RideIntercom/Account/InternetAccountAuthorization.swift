@@ -17,6 +17,18 @@ nonisolated struct InternetAccountChallenge: Decodable, Sendable {
     let expiresAt: Double
 }
 
+nonisolated struct InternetAccountDeletionProof: Codable, Equatable, Sendable {
+    let challengeID: String
+    let identityToken: String
+    let authorizationCode: String
+}
+
+nonisolated struct InternetAccountDeletionResult: Codable, Sendable {
+    let deleted: Bool
+    let appleAuthorizationRevoked: Bool
+    var appleRevocationPending: Bool?
+}
+
 nonisolated struct InternetAccountClient: Sendable {
     let session: URLSession
     private static let sharedSession = URLSession(configuration: .ephemeral, delegate: AccountRedirectPolicy(), delegateQueue: nil)
@@ -64,6 +76,12 @@ nonisolated struct InternetAccountClient: Sendable {
     func revoke(_ configuration: CloudflareRealtimeConfiguration) async throws {
         let _: Empty = try await send(origin: configuration.workerURL, path: "api/auth/session", method: "DELETE", token: configuration.accessToken)
     }
+    func deleteAccount(origin: URL, accessToken: String, proof: InternetAccountDeletionProof?) async throws -> InternetAccountDeletionResult {
+        let body = proof.map { ["challengeID": $0.challengeID, "identityToken": $0.identityToken, "authorizationCode": $0.authorizationCode] }
+        let result: InternetAccountDeletionResult = try await send(origin: origin, path: "api/auth/account", method: "DELETE", body: body, token: accessToken)
+        guard result.deleted, !(result.appleAuthorizationRevoked && result.appleRevocationPending == true) else { throw Failure.invalidResponse }
+        return result
+    }
     private struct Empty: Decodable, Sendable {}
     private func send<T: Decodable & Sendable>(origin: URL, path: String, method: String = "POST", body: [String: String]? = nil, token: String? = nil) async throws -> T {
         var request = URLRequest(url: origin.appendingPathComponent(path), timeoutInterval: 10)
@@ -74,7 +92,7 @@ nonisolated struct InternetAccountClient: Sendable {
         let (bytes, response) = try await session.bytes(for: request)
         guard let response = response as? HTTPURLResponse, response.url == request.url else { throw Failure.rejected }
         // An already revoked credential needs no further server cleanup.
-        if method == "DELETE", response.statusCode == 401 { return try JSONDecoder().decode(T.self, from: Data("{}".utf8)) }
+        if method == "DELETE", path == "api/auth/session", response.statusCode == 401 { return try JSONDecoder().decode(T.self, from: Data("{}".utf8)) }
         if response.statusCode == 429 {
             let proposed = Int(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 60
             throw Failure.rateLimited(retryAfter: proposed > 0 ? min(proposed, 3600) : 60)

@@ -19,7 +19,7 @@ final class IntercomViewModel {
     let invitationAuthority: DirectInvitationAuthority
     let accountAccessID: UUID
     var canStartCalls: Bool {
-        accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
+        !accountSession.deletion.blocksSignIn && accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
     }
     static let pendingInviteMemberPrefix = GroupMember.pendingInvitePrefix
     nonisolated static let defaultSoundIsolationEnabled = true

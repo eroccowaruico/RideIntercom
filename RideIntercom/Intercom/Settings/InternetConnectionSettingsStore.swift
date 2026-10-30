@@ -141,6 +141,21 @@ final class InternetConnectionSettingsStore {
         return id
     }
 
+    /// Never use a development fallback, manufacture a device ID, or mistake an
+    /// unreadable saved credential for a local-only account during deletion.
+    func deletionAccess() throws -> AccountDeletion.ServiceAccess? {
+        guard permitsServiceAccess else { return nil }
+        guard let raw = try keychain.secret(service: service, account: "current") else { return nil }
+        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
+        let value = try validated(url: saved.workerURL.absoluteString, token: saved.accessToken)
+        guard value.accessToken.hasPrefix("ri1.") else { return nil }
+        let parts = value.accessToken.split(separator: ".").map(String.init)
+        guard parts.count == 4, UUID(uuidString: parts[2]) != nil,
+              let device = try keychain.secret(service: service, account: "device-id"), device.lowercased() == parts[2]
+        else { throw KeychainSecretStoreError.invalidData }
+        return .init(workerURL: value.workerURL, accessToken: value.accessToken, deviceID: device.lowercased())
+    }
+
     func retireAppleCredential() throws -> RTC.CloudflareRealtimeConfiguration? {
         guard permitsServiceAccess else { return nil }
         defaults.set(true, forKey: deniedKey)

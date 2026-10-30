@@ -4,7 +4,7 @@
 
 本書は Settings タブの UI 項目を定義する。
 
-Settings はアカウントのサインアウト、通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
+Settings はアカウントのサインアウトと削除、通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
 
 ## 親セクション
 
@@ -142,3 +142,17 @@ Apple認証の登録入口はserver側で有効化されている必要があり
 | ログイン状態 | なし | Signed in with Apple。生のApple識別子・本名・メールを表示しない。資格確認エラー時は保存ログインを使用している説明を表示 |
 | サインアウト | `signOutButton` | Sign Out。標準確認dialogで通話終了とデータ保持を説明 |
 | 実行確認 | `confirmSignOutButton` | Sign Outで通話を停止しログイン画面へ。Cancelなら変更しない。アカウント削除や購入解約とは異なる |
+
+
+## アカウント削除
+
+| 項目名（日本語） | 項目ID | 操作・表示 |
+|---|---|---|
+| 削除入口 | `deleteAccountButton` | Account sectionのDelete Account。確認sheetへ進み、この時点では通話・保存内容を変更しない |
+| 削除確認 | `accountDeletionConfirmation` | 自分の端末内ユーザー・グループ・設定・鍵、接続済みInternetサービスの全端末登録という削除範囲を説明。別端末・他人への共有済み情報と購入解約は別扱い。Cancelで戻る |
+| Apple再認証 | `verifyAppleDeletionButton` | Prepare Apple Verificationでserver nonceを取得後、標準Continue with Appleを表示。同じ本人・request state・有効期限・現在のログイン世代を確認し、identity tokenとauthorization codeを削除要求へ渡す。メール・本名を要求しない |
+| Apple確認なしの削除 | `deleteWithoutAppleButton` | 別の破壊的確認を経て実行。Apple側で手動解除が必要なことを明示する。Internet登録がこの端末になければ、この端末のデータ削除だけを提示し、他端末のInternet登録は消せないと説明する |
+| 削除中と再開 | `accountDeletionProgress` | 確定後は通話を停止し、通常画面とログインを閉じる。保存失敗・HTTP拒否・Apple取消待ちを完了と扱わず、Retry Deletionを表示する。server受理前はAppleの再確認、または明示的な確認なし削除へ変更できる |
+| 削除の終了 | `finishAccountDeletionButton` | 端末内消去と必要なserver受理が済み、Apple取消待ちがない場合だけReturn to Sign Inを表示。Apple取消が未実施ならApple Accountへのリンクと手動解除手順を示す。押すと削除記録を除去してログインへ戻る |
+
+削除処理はsheetの寿命に依存しない。再起動しても削除記録を先に読み、未完了なら同じ再開画面へ戻る。削除記録・保存資格を読み出せない場合、空のアカウントとして削除を進めない。資格の期限切れ・失効でserverが401を返すと削除は未完了に留まる。新しいApple証明だけではそのBearerを置換しないため、この状態からの登録復旧は[残作業](../../../backlog/未実装課題.md#実装の接続点と残作業の再点検)で管理する。
