@@ -12,6 +12,40 @@ import VADGate
 extension AppTests {
 @MainActor
 struct RealtimeConversationTests {
+    @Test func receiveWaitingBehindStopCannotEnterTheRebuiltGraph() throws {
+        let receiver = AppAudioReceiver()
+        let config = AppAudioPipelineConfiguration(transmitSoundIsolationEnabled: false)
+        try receiver.rebuild(engine: AVAudioEngine(), configuration: config, peers: [],
+            rendersToHardware: false, onOutput: { _ in })
+        defer { receiver.stop() }
+        // Hold the real owner lock to reproduce an already-arrived packet
+        // waiting behind a lifecycle change, without adding production hooks.
+        let lock = try #require(Mirror(reflecting: receiver).children.first { $0.label == "lock" }?.value as? NSRecursiveLock)
+        let packet = try AppTestSupport.receivedAudioPacket(peerID: "old-call",
+            frame: .init(sequenceNumber: 0, samples: Array(repeating: 0.1, count: 480)), codec: .pcm16)
+        let entered = DispatchSemaphore(value: 0), completed = DispatchSemaphore(value: 0)
+        let rejected = Mutex(false)
+        lock.lock()
+        var held = true
+        defer { if held { lock.unlock() } }
+        DispatchQueue.global(qos: .userInteractive).async {
+            entered.signal()
+            do { _ = try receiver.receive(packet) }
+            catch AppAudioPipelineError.notConfigured { rejected.withLock { $0 = true } }
+            catch {}
+            completed.signal()
+        }
+        #expect(entered.wait(timeout: .now() + 1) == .success)
+        #expect(completed.wait(timeout: .now() + .milliseconds(30)) == .timedOut)
+        receiver.stop()
+        try receiver.rebuild(engine: AVAudioEngine(), configuration: config, peers: [],
+            rendersToHardware: false, onOutput: { _ in })
+        lock.unlock(); held = false
+        #expect(completed.wait(timeout: .now() + 1) == .success)
+        #expect(rejected.withLock { $0 })
+        #expect(!receiver.snapshot.busIDs.contains("rx-peer-old-call"))
+    }
+
     @Test func codecChangesFinishTheOldFadeAndCoalesceOnlySettings() throws {
         let transmitter = AppAudioTransmitter()
         let configuration = AppAudioPipelineConfiguration(preferredCodec: .mpeg4AACELD, transmitSoundIsolationEnabled: false)

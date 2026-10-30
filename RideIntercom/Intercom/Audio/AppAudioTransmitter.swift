@@ -143,10 +143,7 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         guard let effect = isolation, let bus = processor?.bus,
               effect.avAudioUnitEffect.bypass != !enabled else { return }
-        try effect.apply(AppAudioPipeline.isolationConfiguration(enabled: enabled))
-        effect.avAudioUnitEffect.bypass = !enabled
-        try bus.setEffectBypassed(id: "sound-isolation", bypassed: !enabled)
-        try bus.updateEffectSnapshot(id: "sound-isolation", state: enabled ? .active : .bypassed)
+        try AppAudioPipeline.applyIsolation(effect, on: bus, enabled: enabled)
         bus.beginSinkTransition(settlingDuration: bus.processingLatency)
     }
 

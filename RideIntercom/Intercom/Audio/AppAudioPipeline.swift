@@ -255,6 +255,16 @@ final class AppAudioPipeline {
         return effect
     }
 
+    /// Settings and diagnostics change together for TX, each peer and RX master.
+    /// Their owners retain preparation, locking and measured settling duration:
+    /// TX is synchronous DSP; RX also has native render and playout reservations.
+    nonisolated static func applyIsolation(_ effect: VoiceIsolationEffect, on bus: MixerBus, enabled: Bool) throws {
+        try effect.apply(isolationConfiguration(enabled: enabled))
+        effect.avAudioUnitEffect.bypass = !enabled
+        try bus.setEffectBypassed(id: "sound-isolation", bypassed: !enabled)
+        try bus.updateEffectSnapshot(id: "sound-isolation", state: enabled ? .active : .bypassed)
+    }
+
     nonisolated static func installLimiter(on bus: MixerBus) throws -> PeakLimiterEffect {
         let effect = try PeakLimiterEffect.make(configuration: .init(attackTime: 0.001))
         try bus.addEffect(effect.node, id: "peak-limiter", state: .active,

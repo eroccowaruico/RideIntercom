@@ -71,6 +71,12 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(self.module.swift_supported('Apple Swift version 6.3 (swiftlang)'))
         self.assertTrue(self.module.swift_supported('Swift version 7.0'))
 
+    def test_passing_tests_with_runtime_faults_are_rejected(self):
+        summary = {'totalTestCount': 2, 'passedTests': 2, 'failedTests': 0, 'skippedTests': 0}
+        for field in ['runtimeWarnings', 'testFailures']:
+            self.assertFalse(self.module.xcode_tests_passed({**summary, field: [{'message': 'native runtime fault'}]}))
+        self.assertTrue(self.module.xcode_tests_passed({**summary, 'runtimeWarnings': [], 'testFailures': []}))
+
     def test_interrupt_records_failure_and_stops_owned_children(self):
         folder = Path(self.temporary.name) / 'interrupt'
         marker = Path(self.temporary.name) / 'interrupt-child.pid'

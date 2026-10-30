@@ -59,7 +59,8 @@ def tests_passed(text):
 def xcode_tests_passed(summary):
     count = summary.get('totalTestCount', 0)
     return (count > 0 and summary.get('passedTests') == count
-            and summary.get('failedTests', 0) == 0 and summary.get('skippedTests', 0) == 0)
+            and summary.get('failedTests', 0) == 0 and summary.get('skippedTests', 0) == 0
+            and not summary.get('runtimeWarnings') and not summary.get('testFailures'))
 
 
 class Runner:
@@ -178,7 +179,7 @@ class Runner:
         except (OSError, ValueError):
             passed = False
         self.record(name + '-acceptance', [], 'passed' if passed else 'failed', 0 if passed else 1,
-                    started, 'requires nonzero tests, no failures/skips, and a readable xcresult')
+                    started, 'requires nonzero tests, no failures/skips/runtime warnings, and a readable xcresult')
 
 
 def snapshot(out):

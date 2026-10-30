@@ -37,6 +37,8 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
                  rendersToHardware: Bool, onOutput: @escaping (PCMFrame) -> Void) throws {
         lock.lock(); defer { lock.unlock() }
         stop()
+        graphGeneration.wrappingAdd(1, ordering: .releasing)
+        defer { graphGeneration.wrappingAdd(1, ordering: .releasing) }
         self.configuration = configuration
         // Use the device clock within the configured DSP rate budget. Avoid a
         // second fractional converter on 44.1 kHz outputs, without doubling
@@ -69,6 +71,9 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
 
     func stop() {
         lock.lock(); defer { lock.unlock() }
+        // Revoke receivers already waiting for this lock, even if stop is
+        // immediately followed by rebuild and their Task was not cancelled.
+        graphGeneration.wrappingAdd(2, ordering: .releasing)
         mixer?.stop()
         if let mixer { for id in mixer.busIDs { try? mixer.removeBus(id) } }
         mixer = nil; master = nil; limiter = nil
@@ -172,11 +177,8 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
             }
         }
         for (id, effect, value) in changes {
-            try effect.apply(AppAudioPipeline.isolationConfiguration(enabled: value))
-            effect.avAudioUnitEffect.bypass = !value
             guard let bus = mixer?.bus(id) else { throw AppAudioPipelineError.notConfigured }
-            try bus.setEffectBypassed(id: "sound-isolation", bypassed: !value)
-            try bus.updateEffectSnapshot(id: "sound-isolation", state: value ? .active : .bypassed)
+            try AppAudioPipeline.applyIsolation(effect, on: bus, enabled: value)
         }
     }
 
