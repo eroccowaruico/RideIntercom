@@ -1,5 +1,23 @@
 # 検証状況と証跡
 
+## 本人確認とAppの音声許可の接続（2026-10-31）
+
+RTCの参加参照をAppへ保持し、接続ごとの端末署名確認が済んだ参加だけを音声policyへ渡すようにした。確認前は空集合とし、同じ端末IDでも参加参照が変われば再確認する。codec/format設定変更では確認結果を維持する。packageは変更せず、[Appの契約](../spec/App/通信仕様.md#本人名と端末内の呼び名)へ接続した。
+
+証跡は`.validation/app-admission-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| 再現 | 確認前も既定のgroup参加者方式である失敗を先に確認。再参加テストのfixtureが古い参加参照を保持する問題も修正し、途中の結果を`development/`へ保持 |
+| App | macOS・iOS各246件成功、失敗・skip・runtime warningなし。Macのsandbox無効化は検証ホスト限定。`macos/`、`ios/` |
+| 音声境界 | 実RTC RouteManager→App adapter→独立した音声consumerを通し、未許可の音声が処理されず、許可・取り消しが反映されることを確認。制御markerは同じ接続を通る。DSP・codecそのものの既存回帰もApp全件に含む |
+| 接続と設定 | 古い証明・古い参加参照、空snapshotを挟まない再参加、経路だけの変更、codec設定・pipeline再構成、切断での許可破棄を確認 |
+| 検証器 | 自動採番を止めず、共通のファイル指紋検査で番号増加だけを許可。生SHA-256・設定hash・番号を保持し、巻戻し・不一致・他の設定／ソース変更・ファイル増減を拒否。scripts全73件成功。`scripts.log` |
+| 独立音声E2E | 旧Keychain契約・依存注入不足を修正し、署名付き招待と本人確認後の測定へ追従。Mac/iOS buildと事前試験は成功。duplex測定はMacのCoreAudio応答待ちで未完。短時間の再現stackを採取し、所有ホスト・専用Simulatorを回収。`e2e/`、`e2e-diagnosis/` |
+| ソース・静的 | 最終iOS検証前後のApp・package・tests・E2E・scripts計303ファイルhash一致。E2Eも事後にsource/configuration一致と自動採番のみの変化を確認。文書・開発設定・diff検査成功。既知のAppIntents未使用metadata省略warningは継続 |
+
+独立音声実測の未完条件は[Mac音声サービスの応答待ち](未確認事項.md#mac音声サービスの応答待ち)へ残す。署名確認はgroup共有鍵の音声を個人署名・宛先別暗号へ変更するものではない。principalを使う1対1の再利用、自分の別端末判定、通知・利用権、全体の最終受入は引き続き未完である。
+
 ## RTCの参加単位の音声許可（2026-10-31）
 
 本人確認前や対象外の参加者の音声を、Appの画面イベントより前にRTCの共通受信境界で抑止できる契約を追加した。再参加・活動期限・受信側sessionの世代をまたぐ古い許可を無効にする。通信方式と本人確認・アカウント判断を分離した[現行契約](../spec/packages/RTC.md#参加単位の音声許可)を参照する。

@@ -51,6 +51,7 @@ final class RecordingCallSession: RideIntercom.CallSession {
     func disconnect() {
         disconnectCallCount += 1
         connectedGroup = nil
+        memberships.removeAll()
         onEvent?(.disconnected)
     }
 
@@ -86,8 +87,14 @@ final class RecordingCallSession: RideIntercom.CallSession {
         sentApplicationDataMessages.append(message)
     }
 
+    private var memberships: [String: UUID] = [:]
     func authenticate(_ peerIDs: [String]) {
-        onEvent?(.authenticated(peerIDs: peerIDs))
+        memberships = memberships.filter { peerIDs.contains($0.key) }
+        for id in peerIDs where memberships[id] == nil { memberships[id] = UUID() }
+        onEvent?(.authenticated(members: peerIDs.map {
+            .init(peer: .init(id: .init(rawValue: $0), displayName: $0), route: .multipeer,
+                  isConnected: true, membershipID: memberships[$0])
+        }))
     }
 
     func receive(_ packet: RTC.ReceivedAudioPacket) {

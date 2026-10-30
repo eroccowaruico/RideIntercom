@@ -155,7 +155,7 @@ struct GroupLifecycleTests {
         #expect(h.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
         #expect(h.callSession.disconnectCallCount == disconnects)
         #expect(h.viewModel.authenticatedPeerIDs == ["member-108"])
-        h.viewModel.handleTransportEvent(.authenticated(peerIDs: ["member-108"]))
+        h.viewModel.handleTransportEvent(.authenticated(members: [.init(peer: .init(id: .init(rawValue: "member-108"), displayName: "Rider"), route: .multipeer, isConnected: true, membershipID: UUID())]))
         #expect(!h.viewModel.isAudioReady)
         h.viewModel.disconnect()
     }

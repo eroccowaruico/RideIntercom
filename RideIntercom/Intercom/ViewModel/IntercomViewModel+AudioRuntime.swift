@@ -104,11 +104,11 @@ extension IntercomViewModel {
 
     func rebuildAudioPipelineIfRunning() {
         guard isAudioReady else {
-            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+            callSession.setAudioPolicy(currentCallAudioPolicy())
             return
         }
         if rebuildAudioPipeline() {
-            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+            callSession.setAudioPolicy(currentCallAudioPolicy())
             publishRuntimePackageReports(force: true)
         } else {
             stopAudioPipeline()
@@ -122,7 +122,7 @@ extension IntercomViewModel {
                     format: rtcAudioFormatPreset.audioFormat,
                     aacELDv2BitRate: aacELDv2BitRate, opusBitRate: opusBitRate)
             }
-            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+            callSession.setAudioPolicy(currentCallAudioPolicy())
         } catch {
             audioErrorMessage = "Audio encoding change failed"
         }

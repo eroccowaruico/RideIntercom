@@ -129,7 +129,13 @@ final class IntercomViewModel {
     var scheduledOutputFrameCount = 0
     var connectedPeerIDs: [String] = []
     var authenticatedPeerIDs: [String] = []
-    var peerProfiles: [String: PeerProfileState] = [:]
+    var peerProfiles: [String: PeerProfileState] = [:] {
+        didSet {
+            if Self.admittedMemberships(in: oldValue) != Self.admittedMemberships(in: peerProfiles) {
+                callSession.setAudioPolicy(currentCallAudioPolicy())
+            }
+        }
+    }
     var localNetworkStatus: LocalNetworkStatus = .idle
     var lastLocalNetworkPeerID: String?
     var lastLocalNetworkEventAt: TimeInterval?
@@ -269,7 +275,7 @@ final class IntercomViewModel {
         self.audioPipeline.applyVADSensitivity(vadSensitivity)
         self.refreshPackageRuntimeSnapshots()
         self.callSession.setEnabledRoutes(enabledRTCTransportRoutes)
-        self.callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+        self.callSession.setAudioPolicy(currentCallAudioPolicy())
 
         refreshGroupStorageStatus()
         bindConnectionEvents()

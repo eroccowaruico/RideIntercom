@@ -51,6 +51,7 @@ nonisolated struct VerifiedPeerProfile {
 
 /// Ephemeral state, discarded on peer loss, call replacement and sign-out.
 struct PeerProfileState {
+    var membershipID: UUID?
     let challenge = UUID()
     var verified: VerifiedPeerProfile?
     var nextRequestAt: TimeInterval = 0

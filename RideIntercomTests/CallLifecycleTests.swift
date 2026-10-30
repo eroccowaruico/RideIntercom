@@ -27,7 +27,7 @@ struct CallLifecycleTests {
         #expect(harness.viewModel.isAudioReady)
         #expect(harness.callSession.disconnectCallCount == 0)
         harness.viewModel.connectLocal()
-        oldHandler?(.authenticated(peerIDs: ["old-peer"]))
+        oldHandler?(.authenticated(members: [.init(peer: .init(id: .init(rawValue: "old-peer"), displayName: "Rider"), route: .multipeer, isConnected: true, membershipID: UUID())]))
         oldHandler?(.routeMetrics(RTC.RouteMetrics(route: .multipeer, receivedAudioFrameCount: 999)))
         oldHandler?(.networkDiagnostics(.init(generatedAt: 123)))
         try? await Task.sleep(for: .milliseconds(50))

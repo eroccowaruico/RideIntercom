@@ -47,7 +47,7 @@ extension IntercomViewModel {
         if shouldStartOrPromoteLocalConnection {
             var group = selectedGroup
             group.accessSecret = credential.secret
-            callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+            callSession.setAudioPolicy(currentCallAudioPolicy())
             publishRuntimePackageReports(force: true)
             callSession.connect(group: group)
         }
@@ -86,7 +86,7 @@ extension IntercomViewModel {
         inputFrameDelivery?.activate()
         callTicker.start()
         isAudioReady = true
-        callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
+        callSession.setAudioPolicy(currentCallAudioPolicy())
         refreshOtherAudioDuckingState()
         publishRuntimePackageReports(force: true)
         audioErrorMessage = nil

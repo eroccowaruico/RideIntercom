@@ -188,13 +188,46 @@ class Runner:
                     started, 'requires nonzero tests, no failures/skips/runtime warnings, and a readable xcresult')
 
 
+def file_fingerprint(path):
+    if not path.is_file():
+        return {'sha256': None}
+    data = path.read_bytes()
+    result = {'sha256': hashlib.sha256(data).hexdigest()}
+    if path.name == 'project.pbxproj':
+        text = data.decode()
+        pattern = r'(CURRENT_PROJECT_VERSION\s*=\s*)([^;]+)(;)'
+        values = [match[1].strip() for match in re.findall(pattern, text)]
+        if not values or len(set(values)) != 1 or not re.fullmatch(r'[1-9][0-9]*', values[0]):
+            raise ValueError('Expected a shared positive generated build number')
+        normalized = re.sub(pattern, lambda m: m[1] + '<generated>' + m[3], text)
+        result.update(buildNumber=int(values[0]), configurationSHA256=hashlib.sha256(normalized.encode()).hexdigest())
+    return result
+
+
+def fingerprints_match(before, after):
+    if before.keys() != after.keys():
+        return False
+    for name, original in before.items():
+        current = after[name]
+        if original == current:
+            continue
+        # Retain both raw hashes as evidence. Only the project-owned automatic
+        # counter may advance; every other byte of project configuration is fixed.
+        if not (original.get('configurationSHA256')
+                and original.get('configurationSHA256') == current.get('configurationSHA256')
+                and isinstance(current.get('buildNumber'), int)
+                and current['buildNumber'] >= original['buildNumber']):
+            return False
+    return True
+
+
 def snapshot(out):
     # Hash file contents without copying potential credentials to the report.
     files = subprocess.check_output(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=ROOT).decode().split('\0')
     hashes = {}
     for name in sorted(set(filter(None, files))):
         path = ROOT / name
-        hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else 'deleted'
+        hashes[name] = file_fingerprint(path)
     (out / 'inputs.json').write_text(json.dumps(hashes, ensure_ascii=False, indent=2) + '\n')
 
 
@@ -296,8 +329,8 @@ def main():
     snapshot(runner.out)
     after = (runner.out / 'inputs.json').read_text()
     (runner.out / 'inputs-before.json').write_text(before)
-    runner.record('unchanged-inputs', [], 'passed' if before == after else 'failed', 0 if before == after else 1,
-                  time.monotonic(), 'tracked and unignored source hashes before/after validation')
+    runner.record('unchanged-inputs', [], 'passed' if fingerprints_match(json.loads(before), json.loads(after)) else 'failed', 0 if fingerprints_match(json.loads(before), json.loads(after)) else 1,
+                  time.monotonic(), 'source/configuration fingerprints before/after validation; generated build counter may only advance')
     print(f'Results: {runner.out / "results.tsv"}')
     return runner.exit_code
 

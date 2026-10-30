@@ -358,7 +358,7 @@ struct AudioPipelineTests {
 
         harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
         harness.viewModel.handleTransportEvent(.connected(peerIDs: [peerID]))
-        harness.viewModel.handleTransportEvent(.authenticated(peerIDs: [peerID]))
+        harness.viewModel.handleTransportEvent(.authenticated(members: [.init(peer: .init(id: .init(rawValue: peerID), displayName: "Rider"), route: .multipeer, isConnected: true, membershipID: UUID())]))
         harness.viewModel.handleTransportEvent(.remotePeerMetadata(peerID: peerID, activeCodec: .opus))
 
         let remoteMember = try #require(harness.viewModel.selectedGroup?.members.first { $0.id == peerID })

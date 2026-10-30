@@ -19,7 +19,6 @@ extension IntercomViewModel {
     }
 
     func sendStateMetadataSnapshot() {
-        synchronizePeerProfiles()
         sendPeerProfileChallenges()
         broadcastControl(.peerMuteState(isMuted: isMuted))
         broadcastMetadataKeepalive()
@@ -69,7 +68,9 @@ extension IntercomViewModel {
                 : (peerIDs.isEmpty ? .localConnecting : .localConnected)
             markConnectedMembers(peerIDs: peerIDs)
             publishRuntimePackageReports(force: true)
-        case .authenticated(let peerIDs):
+        case .authenticated(let members):
+            let peerIDs = members.filter { $0.isConnected && $0.peer.id.rawValue != localMemberIdentity.memberID }
+                .map { $0.peer.id.rawValue }
             if let group = groups.first(where: { $0.id == activeGroupID }), group.kind == .direct,
                !Set(peerIDs).isSubset(of: Set(group.members.filter { $0.id != localMemberIdentity.memberID }.map(\.id))) {
                 disconnect()
@@ -78,6 +79,7 @@ extension IntercomViewModel {
             }
             let authenticatedPeerIDSet = Set(peerIDs)
             authenticatedPeerIDs = Array(authenticatedPeerIDSet).sorted()
+            synchronizePeerProfiles(members: members)
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()
             addDiscoveredMembersIfNeeded(peerIDs: authenticatedPeerIDs)
             connectionState = isInternetOnlyCall ? .internetConnected : .localConnected

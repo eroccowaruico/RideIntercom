@@ -6,6 +6,58 @@ import Testing
 
 @MainActor @Suite(.serialized)
 struct PeerProfileTests {
+    @Test func audioAdmissionRequiresCurrentProofAndSurvivesCodecChanges() throws {
+        let h = AppTestSupport.makeHarness()
+        let vm = h.viewModel; defer { vm.disconnect() }
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
+        vm.selectGroup(try #require(vm.groups.first)); h.callSession.authenticate(["member-108"])
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
+        let proof = try testPeerProfile(vm, peerID: "member-108", displayName: "Friend")
+        try deliver(proof, from: "member-108", to: vm)
+        guard case .admittedMemberships(let admitted) = h.callSession.audioPolicies.last?.peerPolicy else {
+            Issue.record("Verified participants must use explicit RTC admission"); return
+        }
+        #expect(Set(admitted.keys.map(\.rawValue)) == ["member-108"])
+        vm.updateAudioPipelineCodecSettings(); vm.rebuildAudioPipelineIfRunning()
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships(admitted))
+        vm.handleTransportEvent(.connected(peerIDs: []))
+        h.callSession.authenticate([])
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
+        h.callSession.authenticate(["member-108"])
+        try deliver(proof, from: "member-108", to: vm)
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
+        try deliver(testPeerProfile(vm, peerID: "member-108", displayName: "Friend"), from: "member-108", to: vm)
+        guard case .admittedMemberships(let fresh) = h.callSession.audioPolicies.last?.peerPolicy else {
+            Issue.record("Rejoined participant was not admitted"); return
+        }
+        #expect(fresh.count == 1 && fresh != admitted)
+        vm.disconnect()
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
+    }
+
+    @Test func changedMembershipInvalidatesProofWithoutAnIntermediateEmptySnapshot() throws {
+        let h = AppTestSupport.makeHarness(); let vm = h.viewModel
+        defer { vm.disconnect() }
+        vm.selectGroup(try #require(vm.groups.first)); h.callSession.authenticate(["member-108"])
+        let old = try testPeerProfile(vm, peerID: "member-108", displayName: "Friend")
+        try deliver(old, from: "member-108", to: vm)
+        let fresh = UUID()
+        vm.handleTransportEvent(.authenticated(members: [.init(peer: .init(id: .init(rawValue: "member-108"), displayName: "Friend"),
+            route: .webRTC, isConnected: true, membershipID: fresh)]))
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
+        #expect(vm.peerProfiles["member-108"]?.verified == nil)
+        try deliver(old, from: "member-108", to: vm)
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
+        try deliver(testPeerProfile(vm, peerID: "member-108", displayName: "Friend"), from: "member-108", to: vm)
+        let allowed = RTC.RTCAudioPeerPolicy.admittedMemberships([.init(rawValue: "member-108"): fresh])
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == allowed)
+        let challenge = vm.peerProfiles["member-108"]?.challenge
+        vm.handleTransportEvent(.authenticated(members: [.init(peer: .init(id: .init(rawValue: "member-108"), displayName: "Friend"),
+            route: .multipeer, isConnected: true, membershipID: fresh)]))
+        #expect(vm.peerProfiles["member-108"]?.challenge == challenge)
+        #expect(h.callSession.audioPolicies.last?.peerPolicy == allowed)
+    }
+
     @Test func twoPeersProveNamesWithoutCreatingGroupOnlyContactsAndKeepLocalNickname() throws {
         let a = AppTestSupport.makeHarness(groups: [], localMemberID: "alice")
         let b = AppTestSupport.makeHarness(groups: [], localMemberID: "bob")

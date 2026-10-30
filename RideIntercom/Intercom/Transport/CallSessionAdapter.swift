@@ -332,7 +332,7 @@ final class RideIntercomCallSessionAdapter: CallSession {
         case .membersChanged(let members):
             let peerIDs = members.map { $0.peer.id.rawValue }.filter { $0 != memberID }.sorted()
             onEvent?(.connected(peerIDs: peerIDs))
-            onEvent?(.authenticated(peerIDs: peerIDs))
+            onEvent?(.authenticated(members: members.filter { $0.isConnected && $0.peer.id.rawValue != memberID }))
         case .receivedApplicationData(let received):
             onEvent?(Self.makeAppEvent(peerID: received.peerID.rawValue, applicationData: received.message))
         case .receivedAudioPacket:

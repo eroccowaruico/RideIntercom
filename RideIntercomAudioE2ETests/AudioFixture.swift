@@ -9,6 +9,11 @@ import RTC
 @MainActor
 final class FixtureKeychain: KeychainSecretStoring {
     private var values: [String: [String: String]] = [:]
+    func createSecretIfAbsent(_ value: String, service: String, account: String) -> String {
+        if let retained = values[service]?[account] { return retained }
+        values[service, default: [:]][account] = value
+        return value
+    }
     func accounts(service: String) -> [String] { Array(values[service, default: [:]].keys) }
     func saveSecret(_ secret: String, service: String, account: String) { values[service, default: [:]][account] = secret }
     func secret(service: String, account: String) -> String? { values[service]?[account] }

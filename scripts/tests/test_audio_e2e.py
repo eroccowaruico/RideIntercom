@@ -9,12 +9,33 @@ import unittest
 from unittest.mock import patch
 
 from scripts.test_lifecycle import exclusive_run, stop_executable, SimulatorLease
-from scripts.validate import Runner
+from scripts.validate import Runner, file_fingerprint, fingerprints_match
 from scripts.audio_e2e_matrix import scenarios
 from scripts.audio_e2e import measurements, duplex_latencies, run_pair
 
 
 class AudioE2ELifecycleTests(unittest.TestCase):
+    def test_source_gate_allows_only_forward_generated_build_numbers(self):
+        project = self.root / 'project.pbxproj'
+        def capture(number, setting='Release'):
+            project.write_text(f'CURRENT_PROJECT_VERSION = {number};\nCONFIGURATION = {setting};\nCURRENT_PROJECT_VERSION = {number};\n')
+            return {'project': file_fingerprint(project)}
+        before = capture(42)
+        after = capture(44)
+        self.assertNotEqual(before['project']['sha256'], after['project']['sha256'])
+        self.assertTrue(fingerprints_match(before, after))
+        self.assertFalse(fingerprints_match(after, before))
+        self.assertFalse(fingerprints_match(before, capture(44, 'Debug')))
+        self.assertFalse(fingerprints_match(before, {}))
+        source = self.root / 'app.swift'
+        source.write_text('let value = 1')
+        original = {'source': file_fingerprint(source)}
+        source.write_text('let value = 2')
+        self.assertFalse(fingerprints_match(original, {'source': file_fingerprint(source)}))
+        project.write_text('CURRENT_PROJECT_VERSION = 44; CURRENT_PROJECT_VERSION = 45;')
+        with self.assertRaises(ValueError):
+            file_fingerprint(project)
+
     def test_pair_initializes_native_audio_before_launching_the_other_host(self):
         ready = self.root / 'ready'
         joined = self.root / 'joined'
@@ -248,7 +269,7 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         marker = self.root / 'child.pid'
         cleaned = self.root / 'cleaned'
         child = f'import os,time;open({str(marker)!r},"w").write(str(os.getpid()));time.sleep(60)'
-        code = ('import signal\nfrom scripts.validate import Runner\n'
+        code = ('import signal\nfrom scripts.validate import Runner, file_fingerprint, fingerprints_match\n'
                 'def interrupt(*args): raise KeyboardInterrupt\n'
                 'signal.signal(signal.SIGTERM, interrupt)\n'
                 f'r=Runner({str(self.root / "run")!r})\n'

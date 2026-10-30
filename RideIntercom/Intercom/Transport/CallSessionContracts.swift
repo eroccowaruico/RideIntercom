@@ -69,7 +69,7 @@ nonisolated enum AudioPacketReception: Equatable, Sendable {
 enum TransportEvent: Equatable {
     case localNetworkStatus(LocalNetworkEvent)
     case connected(peerIDs: [String])
-    case authenticated(peerIDs: [String])
+    case authenticated(members: [RTC.CallMemberState])
     case remotePeerMuteState(peerID: String, isMuted: Bool)
     case remotePeerMetadata(peerID: String, activeCodec: AudioCodecIdentifier?)
     case remoteRuntimeStatus(peerID: String, status: RTCRuntimeStatus)

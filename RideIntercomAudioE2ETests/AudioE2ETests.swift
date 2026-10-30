@@ -2,6 +2,7 @@ import AuthenticationServices
 import AVFAudio
 import AudioCore
 import Codec
+import CryptoKit
 import Foundation
 import Synchronization
 import RTC
@@ -252,6 +253,7 @@ final class AudioE2ETests: XCTestCase {
             internetSettingsStore: InternetConnectionSettingsStore(keychain: keychain, namespace: namespace),
             localMemberIdentityStore: UserDefaultsLocalMemberIdentityStore(defaults: defaults,
                 makeID: { "e2e-\(role)-\(run.prefix(8))" }, defaultDisplayName: { "Audio E2E \(role)" }),
+            invitationAuthority: DirectInvitationAuthority(keychain: keychain, namespace: namespace),
             audioInputCapture: AudioInputStreamCapture(configuration: .intercom(voiceProcessing: IntercomViewModel.defaultVoiceProcessingConfiguration()), backend: input),
             audioOutputRenderer: AudioOutputStreamRenderer(configuration: .intercom, backend: output)
         )
@@ -260,7 +262,9 @@ final class AudioE2ETests: XCTestCase {
         // The Mac and Simulator share one host audio service. The runner starts
         // the other endpoint after this native setup, before either media test.
         FileHandle.standardOutput.write(Data("AUDIO_E2E_NATIVE_READY\n".utf8))
-        let token = try GroupInviteToken.make(groupID: groupID, groupName: "Audio E2E",
+        let token = try GroupInviteToken.make(
+            authority: DirectInvitationAuthority(keychain: keychain, namespace: namespace + ".Inviter"),
+            signer: DeviceIdentitySigner(memberID: "fixture-owner", key: P256.Signing.PrivateKey()), groupID: groupID, groupName: "Audio E2E",
             groupSecret: "fixture-only-\(run)", inviterMemberID: "fixture-owner")
         try viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token))
         let barrier = AudioE2EBarrier(session: viewModel.callSession)
@@ -272,8 +276,9 @@ final class AudioE2ETests: XCTestCase {
             let attachment = XCTAttachment(string: status() + "\nmixer=\(viewModel.audioPipeline.snapshot)\nvad=\(viewModel.vadGateRuntimeSnapshot)")
             attachment.name = "endpoint-\(role)-status"; attachment.lifetime = .keepAlways; add(attachment)
         }
-        try await waitUntil(seconds: 60, description: "Authenticated peer and active audio", status: status) {
+        try await waitUntil(seconds: 60, description: "Verified peer, RTC audio admission and active audio", status: status) {
             viewModel.authenticatedPeerIDs.count == 1 && viewModel.isAudioReady
+                && IntercomViewModel.admittedMemberships(in: viewModel.peerProfiles).count == 1
         }
         let peerID = try XCTUnwrap(viewModel.authenticatedPeerIDs.first)
         let receivedTiming = Mutex<[[String: Double]]>([])

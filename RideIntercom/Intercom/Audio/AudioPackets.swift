@@ -61,7 +61,8 @@ extension RTC.RTCAudioFormat {
 extension RTC.RTCAudioPolicy {
     nonisolated static let intercomDefault = RTC.RTCAudioPolicy(
         preferredSendFormat: .intercomPacketAudio,
-        preferredCodecs: [.pcm16]
+        preferredCodecs: [.pcm16],
+        peerPolicy: .admittedMemberships([:])
     )
 }
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Real Mac/iPhone Simulator speech test. Artifacts and test data are isolated."""
 import argparse
-import hashlib
 from datetime import datetime
 import json
 import math
@@ -16,7 +15,7 @@ import time
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scripts.validate import ROOT, Runner, xcode_tests_passed
+from scripts.validate import ROOT, Runner, xcode_tests_passed, file_fingerprint, fingerprints_match
 from scripts.test_lifecycle import exclusive_run, SimulatorLease, simulator_resource_root
 from scripts.audio_e2e_matrix import scenarios
 
@@ -27,7 +26,7 @@ def source_manifest():
     for name in sorted(set(names)):
         path = ROOT / name
         if name and path.suffix in {'.swift', '.py', '.pbxproj', '.xcscheme', '.wav', '.metadata', '.json', '.plist', '.resolved'}:
-            files[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+            files[name] = file_fingerprint(path)
     return dict(head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), files=files)
 
 
@@ -312,9 +311,11 @@ def execute(args, runner, resource_root):
         except (KeyError, TypeError, ValueError) as error:
             runner.record('duplex-latency', [], 'failed', 1, time.monotonic(), str(error))
         (out / 'measurements.json').write_text(json.dumps(measured, indent=2) + '\n')
-        unchanged = sources == source_manifest()
+        after_sources = source_manifest()
+        (out / 'source-manifest-after.json').write_text(json.dumps(after_sources, indent=2) + '\n')
+        unchanged = sources['head'] == after_sources['head'] and fingerprints_match(sources['files'], after_sources['files'])
         runner.record('source-stability', [], 'passed' if unchanged else 'failed', 0 if unchanged else 1,
-                      time.monotonic(), 'Sources must remain unchanged between build and acceptance')
+                      time.monotonic(), 'Sources/configuration unchanged; raw hashes retained and generated build counter may only advance')
     except (OSError, ValueError, RuntimeError, TimeoutError, KeyboardInterrupt) as error:
         runner.record('audio-e2e', [], 'failed', 1, time.monotonic(), str(error))
     finally:

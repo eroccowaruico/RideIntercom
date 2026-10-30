@@ -16,10 +16,32 @@ extension IntercomViewModel {
         return true
     }
 
-    func synchronizePeerProfiles() {
-        let peers = Set(authenticatedPeerIDs.filter { $0 != localMemberIdentity.memberID }.sorted().prefix(IntercomGroup.maximumMemberCount - 1))
-        peerProfiles = peerProfiles.filter { peers.contains($0.key) }
-        for peerID in peers where peerProfiles[peerID] == nil { peerProfiles[peerID] = PeerProfileState() }
+    func synchronizePeerProfiles(members: [RTC.CallMemberState]) {
+        let peers = Set(authenticatedPeerIDs.sorted().prefix(IntercomGroup.maximumMemberCount - 1))
+        var next: [String: PeerProfileState] = [:]
+        for member in members where peers.contains(member.peer.id.rawValue) {
+            let id = member.peer.id.rawValue
+            if let retained = peerProfiles[id], retained.membershipID == member.membershipID {
+                next[id] = retained
+            } else {
+                next[id] = PeerProfileState(membershipID: member.membershipID)
+            }
+        }
+        peerProfiles = next
+    }
+
+    static func admittedMemberships(in profiles: [String: PeerProfileState]) -> [RTC.PeerID: UUID] {
+        profiles.reduce(into: [:]) { admitted, entry in
+            if entry.value.verified != nil, let membership = entry.value.membershipID {
+                admitted[.init(rawValue: entry.key)] = membership
+            }
+        }
+    }
+
+    func currentCallAudioPolicy() -> RTC.RTCAudioPolicy {
+        var policy = currentAudioPipelineConfiguration().audioPolicy
+        policy.peerPolicy = .admittedMemberships(canStartCalls ? Self.admittedMemberships(in: peerProfiles) : [:])
+        return policy
     }
 
     func sendPeerProfileChallenges(now: TimeInterval = Date().timeIntervalSince1970) {
