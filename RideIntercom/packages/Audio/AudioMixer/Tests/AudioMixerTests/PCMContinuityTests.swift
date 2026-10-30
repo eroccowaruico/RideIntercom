@@ -495,3 +495,24 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     #expect(resumed.capturedAt == independent.capturedAt)
     #expect(resumed.samples == independent.samples)
 }
+
+@Test func omittedSilenceAtTheExactRenderSampleIsNotExpiredByFloatingPointRounding() throws {
+    let mixer = try AudioMixer(audioFormat: .init())
+    let bus = try mixer.createBus("exact-pause-boundary")
+    let source = try bus.addPCMSource(id: "voice", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.engine.enableManualRenderingMode(.offline, format: mixer.format, maximumFrameCount: 14496)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    try source.schedule(.init(sequenceNumber: 0, capturedAt: 100, samples: Array(repeating: 0.1, count: 480)))
+    let output = try #require(AVAudioPCMBuffer(pcmFormat: mixer.format, frameCapacity: 14496))
+    #expect(try mixer.engine.renderOffline(14496, to: output) == .success)
+    // (100.3 - 100) * 48000 is slightly below 14400 in binary floating
+    // point. Native scheduling rounds to a sample, so expiry must do so too.
+    try source.schedule(.init(sequenceNumber: 1, capturedAt: 100.3, samples: Array(repeating: 0.2, count: 480)))
+    #expect(source.playoutAdjustmentCount == 0)
+    Thread.sleep(forTimeInterval: 0.01) // Drain the native command queue before advancing the offline clock.
+    #expect(try mixer.engine.renderOffline(480, to: output) == .success)
+    #expect((0..<480).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.00001 })
+}

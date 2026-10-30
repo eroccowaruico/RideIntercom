@@ -145,11 +145,11 @@ public final class MixerPCMSource {
                     // pause was long; reduce only an accumulated excess wait.
                     let resumedWithExcessWait = resumed
                         && target > Double(delayedStart) + max(delay, duration) * mixerFormat.sampleRate
-                    // Native adjacency is authoritative for consecutive frames.
-                    // The conservative writable frontier includes the current
-                    // quantum; crossing it is not proof that queued audio ended.
-                    // Rebasing there inserts a whole extra gap into healthy speech.
-                    let expired = target < Double(contiguous ? position.completed : rendered)
+                    // The writable frontier reserves a future native quantum;
+                    // crossing it does not prove that the target has rendered.
+                    // This also applies after omitted silence. Rebasing there
+                    // shifts every following syllable despite timely arrival.
+                    let expired = target.rounded() < Double(position.completed)
                     if expired || resumedWithExcessWait || canReduceDelay {
                         target = Double(max(delayedStart, lastAudibleEnd > rendered ? scheduledEndSample : delayedStart))
                         playoutAnchor = (capturedAt, AVAudioFramePosition(target))
