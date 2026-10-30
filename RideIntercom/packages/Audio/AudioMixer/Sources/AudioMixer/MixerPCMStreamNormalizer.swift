@@ -24,24 +24,26 @@ final class MixerPCMStreamNormalizer {
         }
         if sourceFormat != frame.format || targetFormat != target
             || inputEnd.map({ abs(frame.capturedAt - $0) > 2 / frame.format.sampleRate }) == true {
-            var replacement: AVAudioConverter?
-            let ratio = max(frame.format.sampleRate, target.sampleRate) / min(frame.format.sampleRate, target.sampleRate)
-            if abs(ratio - ratio.rounded()) > 1e-9 {
-                guard let input = AVAudioFormat(standardFormatWithSampleRate: frame.format.sampleRate, channels: AVAudioChannelCount(target.channelCount)),
-                      let output = AVAudioFormat(standardFormatWithSampleRate: target.sampleRate, channels: AVAudioChannelCount(target.channelCount)),
-                      let native = AVAudioConverter(from: input, to: output) else {
-                    throw AudioMixerError.formatCreationFailed(target)
+            if sourceFormat != frame.format || targetFormat != target {
+                var replacement: AVAudioConverter?
+                let ratio = max(frame.format.sampleRate, target.sampleRate) / min(frame.format.sampleRate, target.sampleRate)
+                if abs(ratio - ratio.rounded()) > 1e-9 {
+                    guard let input = AVAudioFormat(standardFormatWithSampleRate: frame.format.sampleRate, channels: AVAudioChannelCount(target.channelCount)),
+                          let output = AVAudioFormat(standardFormatWithSampleRate: target.sampleRate, channels: AVAudioChannelCount(target.channelCount)),
+                          let native = AVAudioConverter(from: input, to: output) else {
+                        throw AudioMixerError.formatCreationFailed(target)
+                    }
+                    // Native filtering removes fractional-rate images
+                    // without waiting for future capture blocks or a prime buffer.
+                    native.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm_Normal
+                    native.sampleRateConverterQuality = AVAudioQuality.high.rawValue
+                    native.primeMethod = .none
+                    replacement = native
                 }
-                // Native filtering removes fractional-rate images
-                // without waiting for future capture blocks or a prime buffer.
-                native.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm_Normal
-                native.sampleRateConverterQuality = AVAudioQuality.high.rawValue
-                native.primeMethod = .none
-                replacement = native
-            }
+                converter = replacement
+            } else { converter?.reset() }
             sourceFormat = frame.format; targetFormat = target
             inputFrames = 0; outputFrames = 0; previous = []; epoch = frame.capturedAt
-            converter = replacement
         }
         let channels = target.channelCount
         let samples = MixerPCMNormalizer.convertChannels(frame.samples,

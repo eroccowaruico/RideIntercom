@@ -481,3 +481,17 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     #expect(samples.filter { $0 > 0.0001 }.count == 479)
     #expect(zip(samples[(first - 1)..<(first + 479)], fade).allSatisfy { abs($0 - $1) < 0.000001 })
 }
+
+@Test func fractionalRatePauseReusesTheNativeFilterAndClearsItsHistory() throws {
+    let normalizer = MixerPCMStreamNormalizer()
+    let target = AudioFormat(sampleRate: 44100, channelCount: 1)
+    _ = try normalizer.normalize(.init(sequenceNumber: 0, capturedAt: 0, samples: Array(repeating: 0.5, count: 480)),
+        to: target, operation: .normalizeSource)
+    let native = try #require(Mirror(reflecting: normalizer).descendant("converter") as? AVAudioConverter)
+    let frame = PCMFrame(sequenceNumber: 1, capturedAt: 3, samples: (0..<480).map { Float(sin(Double($0) * 0.03) * 0.1) })
+    let resumed = try normalizer.normalize(frame, to: target, operation: .normalizeSource).frame
+    let independent = try MixerPCMStreamNormalizer().normalize(frame, to: target, operation: .normalizeSource).frame
+    #expect((Mirror(reflecting: normalizer).descendant("converter") as? AVAudioConverter) === native)
+    #expect(resumed.capturedAt == independent.capturedAt)
+    #expect(resumed.samples == independent.samples)
+}

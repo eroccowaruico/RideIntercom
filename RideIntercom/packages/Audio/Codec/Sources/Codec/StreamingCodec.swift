@@ -163,6 +163,7 @@ public final class StreamingCodecDecoder {
     private var pcmFormat: AVAudioFormat?
     private var format: AudioFormat?
     private var codec: CodecIdentifier?
+    private var magicCookie: Data?
     private var lastDecodedEnd: TimeInterval?
     private var transition = PCMStreamTransition()
 
@@ -171,7 +172,7 @@ public final class StreamingCodecDecoder {
     public func decode(_ frame: EncodedCodecFrame) throws -> PCMFrame {
         if frame.codec == .pcm16 {
             let changed = codec != nil && (codec != frame.codec || format != frame.format)
-            codec = frame.codec; format = frame.format; streamID = nil; converter = nil
+            codec = frame.codec; format = frame.format; streamID = nil; converter = nil; magicCookie = nil
             return finish(try CodecDecoder().decode(frame), streamChanged: changed)
         }
         guard frame.format.isValid, frame.capturedAt.isFinite,
@@ -185,15 +186,22 @@ public final class StreamingCodecDecoder {
         }
         let changed = streamID != identity || format != frame.format || codec != frame.codec
         if changed {
-            guard let pcm = AudioConverterBridge.makePCMFormat(frame.format),
-                  let compressed = AudioConverterBridge.makeDecodeFormat(codec: frame.codec, format: frame.format, cookie: envelope.magicCookie) else {
-                throw CodecError.audioFormatCreationFailed(frame.codec)
+            if converter != nil, format == frame.format, codec == frame.codec, magicCookie == envelope.magicCookie {
+                // A silent pause changes stream identity, not native format.
+                // Reset history in place instead of reallocating on the first syllable.
+                converter?.reset()
+            } else {
+                guard let pcm = AudioConverterBridge.makePCMFormat(frame.format),
+                      let compressed = AudioConverterBridge.makeDecodeFormat(codec: frame.codec, format: frame.format, cookie: envelope.magicCookie) else {
+                    throw CodecError.audioFormatCreationFailed(frame.codec)
+                }
+                compressed.magicCookie = envelope.magicCookie
+                guard let native = AVAudioConverter(from: compressed, to: pcm) else { throw CodecError.decoderUnavailable(frame.codec) }
+                converter = native
+                pcmFormat = pcm
+                compressedFormat = compressed
+                magicCookie = envelope.magicCookie
             }
-            compressed.magicCookie = envelope.magicCookie
-            guard let native = AVAudioConverter(from: compressed, to: pcm) else { throw CodecError.decoderUnavailable(frame.codec) }
-            converter = native
-            pcmFormat = pcm
-            compressedFormat = compressed
             streamID = identity
             format = frame.format
             codec = frame.codec
