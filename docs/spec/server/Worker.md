@@ -9,7 +9,7 @@
 | Worker入口 | Apple確認済みユーザーの端末Bearer、または試用registryの資格を検証。秘密の部屋capabilityでルーティング |
 | AppleAuthAttempt / UserAccount (SQLite DO) | 使い捨てnonceとApple署名の検証、ユーザーと端末の区別、端末資格の発行・照合・失効 |
 | SignalingRoom (SQLite DO) | 部屋最大8人。SFU establish / publish / subscribe / closeを所有者だけに許可。WSは参加者一覧・App dataに限定 |
-| UsageGuard (SQLite DO) | 全部屋共通の同時数、月の参加者秒、端末ごとの開始回数を直列予約 |
+| UsageGuard (SQLite DO) | 全部屋共通の同時数、月の参加者秒、端末ごとの開始回数、認証ユーザーごとの1接続枠を同じ同期KV更新で予約 |
 | Realtime SFU | 音声媒体。端末ごとに1つのPeerConnection。Cloudflareが他の参加者の音声を配信 |
 | RTC package | full SDP交換、lease自動更新、WS再接続、符号化済み音声のDataChannel中継 |
 | App | Worker origin・個別端末資格をKeychainに保存。招待group credentialとともにRTCへ渡す |
@@ -73,7 +73,21 @@ AppのSettingsからnonce取得・native Apple認証・資格保存と、サイ�
 
 このserver実装は公開運用の完了ではない。Apple認可コードの交換・refresh token・アカウント削除／Apple grant取消、サーバー通知は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
 
-試用の静的`CLIENT_TOKENS_JSON`も既存の運用入口として残る。`ri1.`資格が無効でも静的registryへfallbackしない。ユーザー単位の1端末WebRTC制限は[未実装課題](../../backlog/未実装課題.md#appleでのログインと通知先の識別)で管理し、今回の端末登録数制限で達成したとは扱わない。
+試用の静的`CLIENT_TOKENS_JSON`も既存の運用入口として残る。`ri1.`資格が無効でも静的registryへfallbackしない。静的資格には確認済みユーザーIDがないため、以下のユーザー単位制限は公開用のApple端末資格へ適用する。
+
+### ユーザー単位のWebRTC接続予約
+
+| 場面 | 動作 |
+|---|---|
+| 接続の単位 | serverがApple端末資格から確認したuserIDにつき、全room・全端末で有効な接続予約を1つにする。同じ端末が別participant IDや別roomを使っても追加できない |
+| 接続準備 | TURN有効時はICE資格の発行前、無効時はjoinのSFU呼出前に予約する。ICE・join・renewは同じroomとparticipantの予約を共有する |
+| 同時要求 | UsageGuardの既存予約とユーザー対応を同じ同期KV書込で確定する。新たなDOや定期pollingは追加せず、外部I/Oを同期区間に含めない |
+| 追加接続 | HTTP 409 / `account_in_use`。先の接続を追い出さず、追加側へ既存通話の終了を案内する。受信したX-User・X-Ownerは信用せずWorkerが置き換える |
+| 更新・解放 | 同じ予約の重複準備・更新を許す。終了と準備取消はSFU/TURNの回収後に解放。SFU session作成後の失敗も回収まで予約を保持する |
+| 再起動・通信断 | 予約とuserID対応を永続化。通信断で終了要求が届かない場合、既存leaseの満了後に新規予約が可能になる。無効な資格の更新は認めない |
+| 保持情報 | 既存のroom/participant予約にserver userIDを対応付ける。メール・本名・表示名・ユーザー一覧は追加保存しない。解放・期限切れ整理で対応も削除する |
+
+これは有効な接続予約の制御であり、lease満了とprovider上の実媒体回収は同時完了の保証ではない。alarm遅延やprovider障害時には旧媒体が回収まで残り得る。任意に新旧2端末を併用する切替機能は提供していない。復旧時の重複の上限・切替方針とApp側の説明は[残課題](../../backlog/未実装課題.md#appleでのログインと通知先の識別)で継続する。
 
 | Method / path | 入力 | 結果 |
 |---|---|---|
@@ -92,7 +106,7 @@ AppのSettingsからnonce取得・native Apple認証・資格保存と、サイ�
 |---|---|
 | 401 / 403 | 未登録資格 / 他ownerのsession / 部屋外の購読を拒否 |
 | 400 | 不正route/body/SDP。HTTP body最大64KiB、SDP最大48KiB |
-| 409 | duplicate participant、duplicate WS |
+| 409 | duplicate participant、duplicate WS、同じ認証ユーザーの別接続予約（`account_in_use`） |
 | 410 | lease期限切れ |
 | 429 | 部屋/同時/月/日上限。新しいSFU呼出前に拒否 |
 | 502 / 503 | upstream失敗 / サービス停止・設定不足 |

@@ -16,6 +16,7 @@ export class SignalingRoom {
     }
     private async handle(request: Request): Promise<Response> {
         const url = new URL(request.url), owner = request.headers.get('X-Owner')!
+        const userID = request.headers.get('X-User') ?? undefined
         const members = await this.members()
         const iceMatch = url.pathname.match(/\/ice\/([a-zA-Z0-9_-]{1,80})$/)
         if (iceMatch) {
@@ -38,7 +39,7 @@ export class SignalingRoom {
             if (members.some(m => m.id === peer)) return json({ error: 'Participant already connected' }, 409)
             const pending = await this.turn.all()
             if (!current && new Set([...members.map(m => m.id), ...pending.map(m => m.peer)]).size >= limit(this.env.MAX_ROOM_PARTICIPANTS, 8, 8)) return json({ error: 'Room is full' }, 429)
-            const reservation = await this.usage('reserve', { id: `${this.state.id}:${peer}`, owner })
+            const reservation = await this.usage('reserve', { id: `${this.state.id}:${peer}`, owner, userID })
             if (!reservation.ok) return reservation
             const { expiresAt } = await reservation.json() as { expiresAt: number }
             try { return json({ iceServers: await this.turn.issue(peer, owner, b.leaseID, expiresAt) }) }
@@ -55,7 +56,7 @@ export class SignalingRoom {
                 if (!ice || ice.owner !== owner || ice.leaseID !== b.iceLeaseID || ice.expiresAt <= Date.now() || !ice.servers.length) return json({ error: 'Valid ICE lease required' }, 403)
             }
             const leaseID = `${this.state.id}:${b.participantId}`
-            const reservation = await this.usage('reserve', { id: leaseID, owner })
+            const reservation = await this.usage('reserve', { id: leaseID, owner, userID })
             if (!reservation.ok) return reservation
             const { expiresAt } = await reservation.json() as { expiresAt: number }
             let member: Member | undefined
@@ -76,7 +77,9 @@ export class SignalingRoom {
                     channels: [{ id: result.dataChannel.id, isPublisher: false, delivery: 'reliable' }] })
             } catch (e) {
                 if (member) { member.expiresAt = 0; await this.state.storage.put(`member:${member.sessionId}`, member); await this.state.storage.setAlarm(Date.now() + 1000) }
-                await this.usage('release', { id: leaseID }); throw e
+                // A created session keeps its slot until cleanup confirms its media is gone.
+                if (!member) await this.usage('release', { id: leaseID })
+                throw e
             }
         }
         const match = url.pathname.match(/\/sessions\/([^/]+)(?:\/(\w+))?$/)
@@ -98,7 +101,7 @@ export class SignalingRoom {
             return new Response(null, { status: 101, webSocket: pair[0] })
         }
         if (action === 'renew' && request.method === 'POST') {
-            const r = await this.usage('reserve', { id: `${this.state.id}:${member.id}`, owner })
+            const r = await this.usage('reserve', { id: `${this.state.id}:${member.id}`, owner, userID })
             if (!r.ok) return r
             member.expiresAt = (await r.json() as { expiresAt: number }).expiresAt
             await this.state.storage.put(`member:${member.sessionId}`, member); await this.scheduleExpiry()

@@ -5,7 +5,7 @@ import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
-import { makeRuntime, offer, room } from './support/runtime.mjs';
+import { makeRuntime, offer, room, provider } from './support/runtime.mjs';
 
 const keys = await generateKeyPair('RS256');
 const publicKey = { ...await exportJWK(keys.publicKey), kid: 'apple-fixture', alg: 'RS256', use: 'sig' };
@@ -247,4 +247,110 @@ test('throttling enrollment never blocks authenticated sign-out or existing serv
         assert.equal((await call(runtime, '/api/status', undefined, session.accessToken, 'GET')).status, 200);
         assert.equal((await call(runtime, '/api/auth/session', undefined, session.accessToken, 'DELETE')).status, 200);
     } finally { await runtime.dispose(); }
+});
+
+async function enrolled(runtime, sub = 'apple-private-subject') {
+    const response = await signIn(runtime, await challenge(runtime), { sub });
+    assert.equal(response.status, 200);
+    return response.json();
+}
+
+test('one public account reserves one connection across rooms, devices and forged identity headers', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    try {
+        const accounts = [await enrolled(runtime), await enrolled(runtime)];
+        const rooms = [room, 'b'.repeat(64)];
+        provider.requests = [];
+        const responses = await Promise.all(accounts.map((account, i) => call(runtime, `/api/rooms/${rooms[i]}/join`,
+            { participantId: account.deviceID, offer }, account.accessToken)));
+        assert.deepEqual(responses.map(r => r.status).sort(), [200, 409]);
+        const winner = responses.findIndex(r => r.status === 200), loser = 1 - winner;
+        const media = await responses[winner].json();
+        assert.equal((await responses[loser].json()).code, 'account_in_use');
+        assert.equal(provider.requests.filter(r => r.url.endsWith('/sessions/new')).length, 1);
+        const forged = await runtime.dispatchFetch(`https://worker.test/api/rooms/${'c'.repeat(64)}/join`, {
+            method: 'POST', headers: { Authorization: `Bearer ${accounts[winner].accessToken}`, 'Content-Type': 'application/json',
+                'X-User': 'd'.repeat(64), 'X-Owner': 'someone-else' }, body: JSON.stringify({ participantId: 'new-peer', offer })
+        });
+        assert.equal(forged.status, 409);
+        assert.equal((await forged.json()).code, 'account_in_use');
+        const path = `/api/rooms/${rooms[winner]}/sessions/${media.sessionId}`;
+        assert.equal((await call(runtime, path + '/renew', {}, accounts[winner].accessToken)).status, 200);
+        const independent = await enrolled(runtime, 'other-person');
+        assert.equal((await call(runtime, `/api/rooms/${rooms[winner]}/join`, { participantId: independent.deviceID, offer }, independent.accessToken)).status, 200);
+        assert.equal((await call(runtime, path, undefined, accounts[winner].accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, `/api/rooms/${rooms[loser]}/join`, { participantId: accounts[loser].deviceID, offer }, accounts[loser].accessToken)).status, 200);
+    } finally { await runtime.dispose(); }
+});
+
+const turnOptions = { ...options, TURN_ENABLED: 'true', CLOUDFLARE_TURN_KEY_ID: 'test-key', CLOUDFLARE_TURN_API_TOKEN: 'test-turn-secret' };
+test('TURN preparation owns the same account slot as join and renewal, and cancellation frees it', async () => {
+    const runtime = await makeRuntime(turnOptions, { appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime), two = await enrolled(runtime);
+        const ice = `/api/rooms/${room}/ice/${one.deviceID}`;
+        assert.equal((await call(runtime, ice, { leaseID: 'first' }, one.accessToken)).status, 200);
+        const count = provider.requests.length;
+        assert.equal((await call(runtime, ice, { leaseID: 'first' }, one.accessToken)).status, 200);
+        assert.equal((await call(runtime, `/api/rooms/${'b'.repeat(64)}/ice/${two.deviceID}`, { leaseID: 'second' }, two.accessToken)).status, 409);
+        assert.equal(provider.requests.length, count);
+        assert.equal((await call(runtime, ice, { leaseID: 'first' }, one.accessToken, 'DELETE')).status, 200);
+        const nextIce = `/api/rooms/${room}/ice/${two.deviceID}`;
+        assert.equal((await call(runtime, nextIce, { leaseID: 'second' }, two.accessToken)).status, 200);
+        const joined = await call(runtime, `/api/rooms/${room}/join`, { participantId: two.deviceID, offer, iceLeaseID: 'second' }, two.accessToken);
+        assert.equal(joined.status, 200);
+        const media = await joined.json();
+        assert.equal((await call(runtime, `/api/rooms/${room}/sessions/${media.sessionId}/renew`, {}, two.accessToken)).status, 200);
+    } finally { await runtime.dispose(); }
+});
+
+test('public account connection reservations survive restart and expire with their lease', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-account-connection-'));
+    let runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime), two = await enrolled(runtime);
+        assert.equal((await call(runtime, `/api/rooms/${room}/join`, { participantId: one.deviceID, offer }, one.accessToken)).status, 200);
+        await runtime.dispose();
+        runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+        const target = `/api/rooms/${'b'.repeat(64)}/join`, body = { participantId: two.deviceID, offer };
+        assert.equal((await call(runtime, target, body, two.accessToken)).status, 409);
+        await runtime.dispose();
+        runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey], clockOffsetMs: 601000 });
+        assert.equal((await call(runtime, target, body, two.accessToken)).status, 200);
+    } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+test('failed TURN cleanup retains the account slot until cleanup succeeds', async () => {
+    const runtime = await makeRuntime(turnOptions, { appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime), two = await enrolled(runtime);
+        const ice = `/api/rooms/${room}/ice/${one.deviceID}`;
+        assert.equal((await call(runtime, ice, { leaseID: 'first' }, one.accessToken)).status, 200);
+        provider.revokeFails = true;
+        assert.equal((await call(runtime, ice, { leaseID: 'first' }, one.accessToken, 'DELETE')).status, 502);
+        assert.equal((await call(runtime, `/api/rooms/${'b'.repeat(64)}/ice/${two.deviceID}`, { leaseID: 'second' }, two.accessToken)).status, 409);
+        provider.revokeFails = false;
+        assert.equal((await call(runtime, ice, { leaseID: 'first' }, one.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, `/api/rooms/${'b'.repeat(64)}/ice/${two.deviceID}`, { leaseID: 'second' }, two.accessToken)).status, 200);
+    } finally { provider.revokeFails = false; await runtime.dispose(); }
+});
+
+
+test('a failed SFU setup keeps its account slot until the room alarm completes cleanup', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime), two = await enrolled(runtime);
+        provider.establishFails = true;
+        assert.equal((await call(runtime, `/api/rooms/${room}/join`, { participantId: one.deviceID, offer }, one.accessToken)).status, 502);
+        assert.equal((await call(runtime, `/api/rooms/${'b'.repeat(64)}/join`, { participantId: two.deviceID, offer }, two.accessToken)).status, 409);
+        provider.establishFails = false;
+        let active;
+        for (let i = 0; i < 60; i++) {
+            active = (await (await call(runtime, '/api/status', undefined, one.accessToken, 'GET')).json()).activeSessions;
+            if (active === 0) break;
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        assert.equal(active, 0, 'The room alarm must release the failed session reservation');
+        assert.equal((await call(runtime, `/api/rooms/${'b'.repeat(64)}/join`, { participantId: two.deviceID, offer }, two.accessToken)).status, 200);
+    } finally { provider.establishFails = false; await runtime.dispose(); }
 });

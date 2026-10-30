@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## ユーザー単位のWebRTC予約（2026-10-31）
+
+serverの確認済みuserIDを既存の利用枠予約に対応付け、room・端末をまたぐ追加接続を拒否する。App・packageの変更とは分けて検証した。契約と媒体回収の限界は[Worker仕様](../spec/server/Worker.md#ユーザー単位のwebrtc接続予約)を参照する。
+
+証跡は`.validation/account-connection-server/`に保持する。
+
+| 検証 | 結果 |
+|---|---|
+| Worker / DO | 41件成功、失敗・skipなし。追加5件で並行要求・別ユーザーの独立性・header偽装、TURN準備と更新、再起動と期限、失効失敗、SFU作成後の失敗回収を確認。`final.log` |
+| Swift–Worker | 実HTTP/WSとローカルDOの契約1件成功。SFUはmock、実媒体は対象外。`pair.log` |
+| 型・文書 | TypeScript、文書・diff検査成功。`type-check.log`、`documentation.log` |
+| 失敗履歴 | 実装前に追加4件が200と409の差で失敗した記録を保存。`red.log` |
+
+公開登録は既定で無効のまま。実サービスの媒体回収時間・実機での複数端末受入は[未確認事項](未確認事項.md)、RTC/Appの専用案内と復旧時の例外方針は[残課題](../backlog/未実装課題.md)で継続する。
+
 ## 登録制限時のApp案内とXcode更新への追従（2026-10-31）
 
 Internet登録のHTTP 429を待機時間付きで案内し、同じ設定画面での再操作を期限まで抑止する。端末登録上限の409は別の案内にし、失敗で既存のログイン・保存資格を失わない。仕様は[通信仕様](../spec/App/通信仕様.md)、操作は[Settings](../spec/App/UI/Settings.md)を参照する。
