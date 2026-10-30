@@ -24,6 +24,11 @@ export class AppleAuthAttempt extends DurableObject<Env> {
     async exchange(identityToken: string): Promise<{ subject: string; deviceID: string } | null> {
         const attempt = this.ctx.storage.kv.get<Challenge>('challenge')
         if (!attempt || attempt.expiresAt <= Date.now()) return null
+        // Reserve a verification attempt before any external await. Restarting
+        // the object or racing requests must not reset the work budget.
+        const count = this.ctx.storage.kv.get<number>('verificationAttempts') ?? 0
+        if (count >= 5) return null
+        this.ctx.storage.kv.put('verificationAttempts', count + 1)
         let subject: string
         try {
             const { payload } = await jwtVerify(identityToken, appleKeys, {
@@ -43,6 +48,7 @@ export class AppleAuthAttempt extends DurableObject<Env> {
         const current = this.ctx.storage.kv.get<Challenge>('challenge')
         if (!current || current.nonce !== attempt.nonce || current.expiresAt <= Date.now()) return null
         this.ctx.storage.kv.delete('challenge')
+        this.ctx.storage.kv.delete('verificationAttempts')
         await this.ctx.storage.deleteAlarm()
         return { subject, deviceID: attempt.deviceID }
     }
@@ -119,6 +125,19 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
         if (!['/api/auth/apple/challenge', '/api/auth/apple/session'].includes(path)) return json({ error: 'Not found' }, 404)
         if (env.APPLE_AUTH_ENABLED !== 'true' || !env.APPLE_CLIENT_ID) return json({ error: 'Apple enrollment is unavailable' }, 503)
         if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+        // Only the edge-provided source is used, never a device ID or a
+        // client-selected forwarding header. No source IP is stored in a DO.
+        const source = request.headers.get('CF-Connecting-IP')
+        if (!source || source.length > 64 || !env.APPLE_ENROLLMENT_IP_LIMIT || !env.APPLE_ENROLLMENT_GLOBAL_LIMIT) {
+            return json({ error: 'Apple enrollment is unavailable' }, 503)
+        }
+        const sourceKey = await digest(`${Math.floor(Date.now() / 86400000)}:${source}`)
+        if (!(await env.APPLE_ENROLLMENT_IP_LIMIT.limit({ key: sourceKey })).success
+            || !(await env.APPLE_ENROLLMENT_GLOBAL_LIMIT.limit({ key: 'apple-enrollment' })).success) {
+            const response = json({ error: 'Too many sign-in attempts', code: 'enrollment_rate_limited' }, 429)
+            response.headers.set('Retry-After', '60')
+            return response
+        }
         const body: Record<string, unknown> = await readJSON(request)
         if (path.endsWith('/challenge')) {
             if (typeof body.deviceID !== 'string' || !devicePattern.test(body.deviceID)) return json({ error: 'Invalid device' }, 400)
@@ -137,7 +156,7 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
         const account = env.USER_ACCOUNT.getByName(await digest('apple:' + verified.subject))
         const secret = randomSecret()
         const identity = await account.register(verified.deviceID, await digest(secret))
-        if (!identity) return json({ error: 'Device registration limit reached' }, 429)
+        if (!identity) return json({ error: 'Device registration limit reached', code: 'device_limit_reached' }, 409)
         return json({ ...identity, accessToken: `ri1.${identity.userID}.${identity.deviceID}.${secret}` })
     } catch (error) {
         return error instanceof Error && error.message === 'body'

@@ -12,7 +12,7 @@ const publicKey = { ...await exportJWK(keys.publicKey), kid: 'apple-fixture', al
 const audience = 'com.yowamushi-inc.RideIntercom.RideIntercom';
 const options = { APPLE_AUTH_ENABLED: 'true', APPLE_CLIENT_ID: audience, CLIENT_TOKENS_JSON: '{}' };
 const call = (runtime, path, body, token, method = 'POST') => runtime.dispatchFetch(`https://worker.test${path}`, {
-    method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    method, headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '192.0.2.10', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) })
 });
 async function challenge(runtime, deviceID = randomUUID()) {
@@ -61,11 +61,12 @@ test('Apple enrollment gives one account across devices and authorizes individua
 test('Apple proof rejects invalid claims and signatures without consuming the valid attempt', async () => {
     const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
     try {
-        const attempt = await challenge(runtime);
         for (const claims of [{ nonce: 'wrong' }, { aud: 'another-app' }, { iss: 'https://attacker.invalid' },
             { exp: 1 }, { sub: '' }, { iat: Math.floor(Date.now() / 1000) + 3600 }, { nonce: undefined }]) {
+            const attempt = await challenge(runtime);
             assert.equal((await signIn(runtime, attempt, claims)).status, 401);
         }
+        const attempt = await challenge(runtime);
         const other = await generateKeyPair('RS256');
         assert.equal((await call(runtime, '/api/auth/apple/session', {
             challengeID: attempt.challengeID, identityToken: await proof(attempt, {}, other.privateKey)
@@ -154,7 +155,9 @@ test('device registration is bounded and a full account can still rotate an exis
         const first = await challenge(runtime);
         assert.equal((await signIn(runtime, first)).status, 200);
         for (let n = 1; n < 8; n++) assert.equal((await signIn(runtime, await challenge(runtime))).status, 200);
-        assert.equal((await signIn(runtime, await challenge(runtime))).status, 429);
+        const full = await signIn(runtime, await challenge(runtime));
+        assert.equal(full.status, 409);
+        assert.equal((await full.json()).code, 'device_limit_reached');
         assert.equal((await signIn(runtime, await challenge(runtime, first.deviceID))).status, 200);
     } finally { await runtime.dispose(); }
 });
@@ -164,6 +167,84 @@ test('media pause does not prevent a signed-in device from revoking its credenti
     try {
         const session = await (await signIn(runtime, await challenge(runtime))).json();
         assert.equal((await call(runtime, '/api/status', undefined, session.accessToken, 'GET')).status, 503);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, session.accessToken, 'DELETE')).status, 200);
+    } finally { await runtime.dispose(); }
+});
+
+test('enrollment limits requests before parsing and ignores client-selected forwarding identifiers', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    try {
+        // Invalid input consumes the same source budget as valid input. Changing
+        // device IDs, route, or X-Forwarded-For cannot reset that budget.
+        for (let n = 0; n < 31; n++) {
+            const response = await runtime.dispatchFetch(`https://worker.test/api/auth/apple/${n % 2 ? 'session' : 'challenge'}`, {
+                method: 'POST', headers: { 'CF-Connecting-IP': '192.0.2.10', 'X-Forwarded-For': `198.51.100.${n}` }, body: '{}'
+            });
+            assert.equal(response.status, n < 30 ? 400 : 429);
+            if (n === 30) {
+                assert.equal(response.headers.get('Retry-After'), '60');
+                assert.equal(response.headers.get('Cache-Control'), 'no-store');
+                assert.equal((await response.json()).code, 'enrollment_rate_limited');
+            }
+        }
+        assert.equal((await runtime.dispatchFetch('https://worker.test/api/auth/apple/challenge', {
+            method: 'POST', headers: { 'CF-Connecting-IP': '192.0.2.11' }, body: JSON.stringify({ deviceID: randomUUID() })
+        })).status, 200);
+        assert.equal((await call(runtime, '/health', undefined, undefined, 'GET')).status, 200);
+    } finally { await runtime.dispose(); }
+});
+
+test('aggregate enrollment limit also bounds changing source addresses', async () => {
+    const runtime = await makeRuntime(options);
+    try {
+        for (let n = 0; n < 301; n++) {
+            const response = await runtime.dispatchFetch('https://worker.test/api/auth/apple/challenge', {
+                method: 'POST', headers: { 'CF-Connecting-IP': `2001:db8::${n.toString(16)}` }, body: '{}'
+            });
+            assert.equal(response.status, n < 300 ? 400 : 429);
+        }
+    } finally { await runtime.dispose(); }
+});
+
+test('missing abuse protection fails closed while session revocation stays available', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-account-limit-'));
+    let runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+    try {
+        const session = await (await signIn(runtime, await challenge(runtime))).json();
+        assert.equal((await runtime.dispatchFetch('https://worker.test/api/auth/apple/challenge', {
+            // Miniflare fills an absent/empty source header; an invalid edge
+            // value exercises the same fail-closed branch without that default.
+            method: 'POST', headers: { 'CF-Connecting-IP': 'x'.repeat(65) }, body: JSON.stringify({ deviceID: randomUUID() })
+        })).status, 503);
+        await runtime.dispose();
+        runtime = await makeRuntime(options, { storageDirectory, enrollmentLimits: false });
+        assert.equal((await challengeResponse(runtime)).status, 503);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, session.accessToken, 'DELETE')).status, 200);
+    } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+const challengeResponse = runtime => call(runtime, '/api/auth/apple/challenge', { deviceID: randomUUID() });
+
+test('challenge verification attempts are bounded across concurrent requests and restart', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-account-attempts-'));
+    let runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+    try {
+        const attempt = await challenge(runtime);
+        const replies = await Promise.all(Array.from({ length: 5 }, () => signIn(runtime, attempt, { nonce: 'wrong' })));
+        assert.ok(replies.every(response => response.status === 401));
+        await runtime.dispose();
+        runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+        assert.equal((await signIn(runtime, attempt)).status, 401);
+        assert.equal((await signIn(runtime, await challenge(runtime))).status, 200);
+    } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+test('throttling enrollment never blocks authenticated sign-out or existing service access', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    try {
+        const session = await (await signIn(runtime, await challenge(runtime))).json();
+        for (let n = 0; n < 30; n++) await challengeResponse(runtime);
+        assert.equal((await challengeResponse(runtime)).status, 429);
+        assert.equal((await call(runtime, '/api/status', undefined, session.accessToken, 'GET')).status, 200);
         assert.equal((await call(runtime, '/api/auth/session', undefined, session.accessToken, 'DELETE')).status, 200);
     } finally { await runtime.dispose(); }
 });

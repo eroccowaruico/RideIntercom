@@ -1,5 +1,21 @@
 # 検証状況と証跡
 
+## Apple登録入口の過剰アクセス制限（2026-10-31）
+
+challenge作成とApple token検証の前に、送信元別・location全体の頻度を制限する。1つのchallengeに対する検証試行も5回までに抑え、並行送信・DO再起動で枠を戻さない。登録端末数の上限は一時的な頻度制限と区別した。契約は[Worker仕様](../spec/server/Worker.md#apple認証と端末資格)を参照する。
+
+証跡は`.validation/enrollment-server-delivery/`に保持する。
+
+| 検証 | 結果 |
+|---|---|
+| Worker / DO | 36件成功、失敗・skipなし。新規5件で送信元と全体の制限、偽装forwarding header・device変更、設定不備時の拒否、並行・再起動後の試行回数、制限中の資格失効と既存API継続を確認。`final.log` |
+| Swift–Worker | 実HTTP/WSとローカルDOを通る1件成功。SFUはmock。Xcode本体を指定した最終実行にwarningなし。`pair-xcode.log` |
+| 型・設定・文書 | Wrangler型再生成、TypeScript検査、dry-run bundle、文書とdiff検査が成功。公開登録の既定はfalseのまま |
+| 失敗履歴 | 未実装の赤テストを保存。Miniflareは空の送信元headerを自動補完するため、その試験を不正な長さのedge値へ補正。初回pairのCommandLineTools由来リンクwarningはDEVELOPER_DIRを明示して解消 |
+
+これはローカルの登録入口の検証であり、実Apple認証・実Cloudflare配置・分散攻撃や請求額の上限の証明ではない。アプリ側の待機・端末上限の案内は続く工程で接続する。packageとAppの製品コードはこの工程では変更していない。
+
+
 ## 本人名と端末内の呼び名を分離（2026-10-31）
 
 本人名をSettingsから保存し、署名付き招待と認証済みgroupの暗号化application dataで共有する。受取側は本人名を保持したまま呼び名を編集し、Use Shared Nameで最新の本人名へ戻せる。保存ユーザーは一覧と所属groupで共通、直接招待関係のない相手は対象group内だけに保持する。名前編集で通話を切ったり、ID・鍵・ユーザー登録・通知権限を変えたりしない。契約は[名前の仕様](../spec/App/通信仕様.md#本人名と端末内の呼び名)、操作は[使い方](../manual/使い方.md#グループを作る参加する)を参照する。

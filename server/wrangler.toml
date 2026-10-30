@@ -12,6 +12,17 @@ MAX_ACTIVE_SESSIONS = "32"
 MONTHLY_PARTICIPANT_SECONDS = "1000000"
 LEASE_SECONDS = "600"
 
+# Approximate per-location abuse limits, not a billing cap. Separate namespaces
+# below keep preview traffic out of production counters.
+[[ratelimits]]
+name = "APPLE_ENROLLMENT_IP_LIMIT"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
+[[ratelimits]]
+name = "APPLE_ENROLLMENT_GLOBAL_LIMIT"
+namespace_id = "1002"
+simple = { limit = 300, period = 60 }
+
 [[durable_objects.bindings]]
 name = "SIGNALING_ROOM"
 class_name = "SignalingRoom"
@@ -45,6 +56,15 @@ MAX_ROOM_PARTICIPANTS = "8"
 MAX_ACTIVE_SESSIONS = "32"
 MONTHLY_PARTICIPANT_SECONDS = "1000000"
 LEASE_SECONDS = "600"
+
+[[previews.ratelimits]]
+name = "APPLE_ENROLLMENT_IP_LIMIT"
+namespace_id = "1003"
+simple = { limit = 30, period = 60 }
+[[previews.ratelimits]]
+name = "APPLE_ENROLLMENT_GLOBAL_LIMIT"
+namespace_id = "1004"
+simple = { limit = 300, period = 60 }
 
 [[previews.durable_objects.bindings]]
 name = "SIGNALING_ROOM"
