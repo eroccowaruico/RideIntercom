@@ -122,7 +122,7 @@ extension IntercomViewModel {
 
     func removeMember(_ memberID: String, from groupID: UUID) {
         guard canRemoveMember(memberID),
-              let groupIndex = groups.firstIndex(where: { $0.id == groupID }) else { return }
+              let groupIndex = groups.firstIndex(where: { $0.id == groupID }), groups[groupIndex].kind == .group else { return }
 
         var updated = groups
         updated[groupIndex].members.removeAll { $0.id == memberID }
@@ -176,6 +176,7 @@ extension IntercomViewModel {
 
     func reserveInviteMemberSlot(displayName: String? = nil) {
         guard var group = selectedGroup,
+              group.kind == .group,
               group.members.count < IntercomGroup.maximumMemberCount else { return }
 
         let nextNumber = group.members.count
@@ -198,8 +199,26 @@ extension IntercomViewModel {
         guard !token.isExpired(now: now) else {
             throw GroupInviteTokenError.expired
         }
+        if let recipient = token.recipientMemberID, recipient != localMemberIdentity.memberID {
+            groupErrorMessage = "This call invitation is addressed to another rider."
+            throw GroupInviteTokenError.wrongRecipient
+        }
+        let kind: IntercomGroup.Kind = token.recipientMemberID == nil ? .group : .direct
+        if let existing = groups.first(where: { $0.id == token.groupID }), existing.kind != kind {
+            groupErrorMessage = "This invitation cannot change an individual call into a group."
+            throw GroupInviteTokenError.incompatibleCall
+        }
 
         let previous = try groupRepository.credential(for: token.groupID)
+        // Simultaneous first invitations converge on the smaller member ID's key.
+        // Do not replace a call that has already connected; reconnect explicitly.
+        if kind == .direct, let previous, previous.secret != token.groupSecret,
+           let existing = groups.first(where: { $0.id == token.groupID }),
+           localMemberIdentity.memberID < token.inviterMemberID {
+            selectGroup(existing)
+            groupErrorMessage = "You both created a call invitation. Share this call's invitation so you use the same call."
+            return
+        }
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
             let name = savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             do {
@@ -222,7 +241,8 @@ extension IntercomViewModel {
         let group = try IntercomGroup(
             id: token.groupID,
             name: token.groupName,
-            members: members
+            members: members,
+            kind: kind
         )
         var updated = groups
         if let existingIndex = updated.firstIndex(where: { $0.id == group.id }) {

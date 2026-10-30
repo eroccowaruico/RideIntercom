@@ -12,6 +12,7 @@ struct GroupSnapshot: Codable, Equatable {
         var name: String
         var members: [Member]
         var credentialReference: UUID?
+        var kind: IntercomGroup.Kind?
         var pendingInvitation: DirectInvitationReceipt?
         var receivedInvitationIDs: [UUID] = []
 
@@ -19,10 +20,11 @@ struct GroupSnapshot: Codable, Equatable {
             id = group.id; name = group.name
             members = group.members.map { Member(id: $0.id, displayName: $0.displayName) }
             self.credentialReference = credentialReference
+            kind = group.kind
         }
 
         private enum CodingKeys: String, CodingKey {
-            case id, name, members, credentialReference, pendingInvitation, receivedInvitationIDs
+            case id, name, members, credentialReference, kind, pendingInvitation, receivedInvitationIDs
         }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -30,14 +32,15 @@ struct GroupSnapshot: Codable, Equatable {
             name = try values.decode(String.self, forKey: .name)
             members = try values.decode([Member].self, forKey: .members)
             credentialReference = try values.decodeIfPresent(UUID.self, forKey: .credentialReference)
+            kind = try values.decodeIfPresent(IntercomGroup.Kind.self, forKey: .kind)
             pendingInvitation = try values.decodeIfPresent(DirectInvitationReceipt.self, forKey: .pendingInvitation)
             receivedInvitationIDs = try values.decodeIfPresent([UUID].self, forKey: .receivedInvitationIDs) ?? []
         }
         func group() throws -> IntercomGroup {
-            try IntercomGroup(id: id, name: name, members: members.map { GroupMember(id: $0.id, displayName: $0.displayName) })
+            try IntercomGroup(id: id, name: name, members: members.map { GroupMember(id: $0.id, displayName: $0.displayName) }, kind: kind ?? .group)
         }
     }
-    var version = 2
+    var version = 3
     var generation = UUID()
     var groups: [Record] = []
     var users: [SavedUser] = []
@@ -61,8 +64,10 @@ struct GroupSnapshot: Codable, Equatable {
     }
 
     func upgraded() -> GroupSnapshot {
-        guard version == 1 else { return self }
-        return GroupSnapshot(groups: groups)
+        guard version < 3 else { return self }
+        var records = groups
+        for index in records.indices { records[index].kind = .group }
+        return GroupSnapshot(groups: records, users: users)
     }
 
     mutating func synchronizeUserReferences() {
@@ -80,7 +85,9 @@ struct GroupSnapshot: Codable, Equatable {
     }
 
     func validated() throws -> GroupSnapshot {
-        guard version == 1 || version == 2 else { throw GroupStorageError.unsupportedVersion }
+        guard (1...3).contains(version) else { throw GroupStorageError.unsupportedVersion }
+        guard version != 3 || groups.allSatisfy({ $0.kind != nil }) else { throw IntercomGroupError.invalidStoredGroups }
+        guard version == 3 || groups.allSatisfy({ $0.kind == nil || $0.kind == .group }) else { throw IntercomGroupError.invalidStoredGroups }
         guard groups.count <= 256, Set(groups.map(\.id)).count == groups.count else { throw IntercomGroupError.invalidStoredGroups }
         let references = groups.compactMap(\.credentialReference)
         guard Set(references).count == references.count else { throw IntercomGroupError.invalidStoredGroups }
@@ -92,7 +99,7 @@ struct GroupSnapshot: Codable, Equatable {
                 guard receipt.isValid, receipt.kind == .accepted, receipt.groupID == record.id else { throw IntercomGroupError.invalidStoredGroups }
             }
         }
-        if version == 2 {
+        if version >= 2 {
             let memberIDs = users.flatMap(\.memberIDs)
             guard Set(users.map(\.id)).count == users.count,
                   Set(memberIDs).count == memberIDs.count,
@@ -118,7 +125,7 @@ struct GroupSnapshot: Codable, Equatable {
         guard bytes.count <= 1_048_576 else { throw IntercomGroupError.invalidStoredGroups }
         // Inspect the version first, even when a future schema has different fields.
         struct Header: Decodable { let version: Int }
-        guard [1, 2].contains(try JSONDecoder().decode(Header.self, from: bytes).version) else { throw GroupStorageError.unsupportedVersion }
+        guard (1...3).contains(try JSONDecoder().decode(Header.self, from: bytes).version) else { throw GroupStorageError.unsupportedVersion }
         do {
             return try JSONDecoder().decode(Self.self, from: bytes).validated()
         } catch is IntercomGroupError {

@@ -65,6 +65,12 @@ extension IntercomViewModel {
             markConnectedMembers(peerIDs: peerIDs)
             publishRuntimePackageReports(force: true)
         case .authenticated(let peerIDs):
+            if let group = groups.first(where: { $0.id == activeGroupID }), group.kind == .direct,
+               !Set(peerIDs).isSubset(of: Set(group.members.filter { $0.id != localMemberIdentity.memberID }.map(\.id))) {
+                disconnect()
+                groupErrorMessage = "An unexpected participant joined this individual call. The call was stopped."
+                return
+            }
             let authenticatedPeerIDSet = Set(peerIDs)
             authenticatedPeerIDs = Array(authenticatedPeerIDSet).sorted()
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()

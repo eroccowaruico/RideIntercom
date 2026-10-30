@@ -7,15 +7,19 @@ extension View {
             .listRowBackground(Color.clear)
     }
 
-    func appDeleteActions(_ action: @escaping () -> Void) -> some View {
+    func appDeleteActions(isEnabled: Bool = true, _ action: @escaping () -> Void) -> some View {
         swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive, action: action) {
-                Label("Delete", systemImage: "trash")
+            if isEnabled {
+                Button(role: .destructive, action: action) {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
         .contextMenu {
-            Button(role: .destructive, action: action) {
-                Label("Delete", systemImage: "trash")
+            if isEnabled {
+                Button(role: .destructive, action: action) {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
     }

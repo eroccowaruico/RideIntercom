@@ -23,7 +23,7 @@ final class GroupRepository {
         do {
             var current = try store.read() ?? migrate(localMemberID: localMemberID)
             _ = try validateIdentity(current, localMemberID: localMemberID)
-            if current.version == 1 {
+            if current.version < 3 {
                 current = current.upgraded()
                 try store.commit(current)
                 guard try store.read() == current else { throw GroupStorageError.verificationFailed }

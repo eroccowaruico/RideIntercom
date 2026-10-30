@@ -10,6 +10,14 @@ struct CallView: View {
             VStack(alignment: .leading, spacing: AppSpacing.screen) {
                 statusHeader
                 controls
+                if viewModel.selectedGroup?.kind == .direct {
+                    Text(viewModel.selectedGroup.flatMap(viewModel.directCallRecipient) == nil
+                         ? "This user was removed from Saved Users. Your current call stays available until you disconnect."
+                         : "Share this call's invitation with the other person the first time. Both of you can then reopen the same call from Users. Opening the call does not send a notification.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("directCallHelpLabel")
+                }
                 if viewModel.selectedGroup?.id == viewModel.activeGroupID {
                     if let notice = viewModel.connectivityNotice {
                         Label(notice, systemImage: "network")
@@ -34,14 +42,16 @@ struct CallView: View {
                     Text("Participants")
                         .font(AppTypography.sectionTitle)
                         .foregroundStyle(AppColorPalette.textSecondary)
-                    Button("Add Saved Users", systemImage: "person.badge.plus") {
-                        addingUsersToGroup = viewModel.selectedGroup
+                    if viewModel.selectedGroup?.kind == .group {
+                        Button("Add Saved Users", systemImage: "person.badge.plus") {
+                            addingUsersToGroup = viewModel.selectedGroup
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: viewModel.selectedGroup?.id).isEmpty
+                                  || (viewModel.selectedGroup?.members.count ?? 8) >= IntercomGroup.maximumMemberCount)
+                        .accessibilityIdentifier("addSavedUsersButton")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: viewModel.selectedGroup?.id).isEmpty
-                              || (viewModel.selectedGroup?.members.count ?? 8) >= IntercomGroup.maximumMemberCount)
-                    .accessibilityIdentifier("addSavedUsersButton")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -61,7 +71,7 @@ struct CallView: View {
                                 member: member
                             )
                             .accessibilityIdentifier("remoteParticipantRow\(index)")
-                            .appDeleteActions {
+                            .appDeleteActions(isEnabled: viewModel.selectedGroup?.kind == .group) {
                                 removeMember(member.id)
                             }
                         }
@@ -263,17 +273,17 @@ struct CallView: View {
         ShareLink(
             item: inviteURL,
             subject: Text("RideIntercom Invite"),
-            message: Text("Join \(viewModel.selectedGroup?.name ?? "RideIntercom")")
+            message: Text(viewModel.selectedGroup?.kind == .direct ? "Join me for a call on RideIntercom." : "Join \(viewModel.selectedGroup?.name ?? "RideIntercom")")
         ) {
-            Label("Invite", systemImage: "square.and.arrow.up")
+            Label(viewModel.selectedGroup?.kind == .direct ? "Share Call Invite" : "Invite", systemImage: "square.and.arrow.up")
         }
         .appSecondaryButtonStyle()
         .controlSize(.large)
         .simultaneousGesture(TapGesture().onEnded {
             viewModel.reserveInviteMemberSlot()
         })
-        .accessibilityLabel("Invite Group")
-        .accessibilityHint("Opens sharing options for this group invite.")
+        .accessibilityLabel(viewModel.selectedGroup?.kind == .direct ? "Share Call Invite" : "Invite Group")
+        .accessibilityHint("Opens sharing options for this invitation.")
         .accessibilityIdentifier("inviteButton")
     }
 

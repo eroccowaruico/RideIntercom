@@ -1,5 +1,24 @@
 # 検証状況と証跡
 
+## 保存ユーザーを指定する個別通話（2026-10-30）
+
+依存順の共通設計に残っていた、保存ユーザー指定からの1対1内部groupの解決・再利用をAppへ実装した。Usersから相手名を選択し、初回は相手宛ての招待を共有する。同じ二人の再選択ではIDと鍵を再利用し、別通話の閲覧では既存接続を切り替えない。直接招待関係のない参加者を対象へ昇格させず、宛先違いの招待・参加者追加・通常groupへの読み替えを拒否する。契約は[個別通話の仕様](../spec/App/通信仕様.md#保存ユーザーを指定する個別通話)、操作は[使い方](../manual/使い方.md#保存した相手と個別に話す)を参照する。
+
+| 検証 | 結果と証跡 |
+|---|---|
+| 個別通話の回帰 | 11件成功。二人の通話先・鍵の一致、順序によらない再利用、同時招待、宛先違い、削除、改ざん、保存失敗、schema移行、想定外参加者を検証。`.validation/direct-calls-delivery/direct-green-2/macos-tests.xcresult` |
+| macOS App全体 | 最終コードで170件成功。失敗・skip・runtime warningなし。`.validation/direct-calls-delivery/direct-macos-final/macos-tests.xcresult` |
+| iOS App・UI全体 | App 170件とUI・起動7件、計177件成功。`.validation/direct-calls-delivery/direct-ios-verified/ios-tests.xcresult` |
+| iOS破損復旧 | 専用UI 1件と、元bytes退避・schema 3の空manifestを確認するホスト処理が成功。同directoryの`ios-recovery.xcresult`と`recovery-verify.log` |
+| 最終UI確認 | 目視で削除後も共有案内が残る点を修正し、該当UI 1件を再実行して成功。選択、明示切替、再起動、ユーザー削除後のCurrent Callと終了、共有ボタン非表示、削除後の説明を確認。`.validation/direct-calls-delivery/direct-ui-final/ios-tests.xcresult`。上記macOS全体もこの最終修正を含む |
+| 画面証跡 | `individual-call.png`、`users-and-groups.png`、`user-removed-call-retained.png`を`.validation/direct-calls-delivery`へ保存し、説明文と操作が一致することを目視した |
+| 保存・文書 | Python保存復旧fixture 5件、文書の参照・到達性・Settings網羅・空directory検査、差分の空白検査が成功 |
+| ソースと資源 | 最終App・テスト・fixture 20ファイルが検証コピーと一致し、`code-source-sha256.json`へ保存。Simulatorを追加せず、別作業の利用終了後に既存の管理端末を再利用し、各回のShutdownと所有Mac hostの終了を確認 |
+
+全体iOSコマンドの`unchanged-inputs`は、通常Build/Test時の自動採番で失敗した。`build-number-comparison.json`では変更がprojectの番号15→16だけであることを元のhashと照合済み。テストの成功と、総合コマンドの非ゼロ終了を区別する。未実装APIでのred、検証中の構文修正、共有Simulator待機に至った最初のblocked結果も保存している。
+
+保存形式はschema 3へ移行し、旧版はこの形式を開かない。旧group・users・鍵の保持と移行失敗時の非破壊性は自動検証済み。個別招待のversion 2も対応版同士で使う。初回共有を省く呼出し通知、Appleログイン・複数端末の本人確認、StoreKit・24時間の利用権判定は未実装であり、今回の完了には含めない。実機2台の実音声、実Cloudflare、macOSの実画面操作も今回の検証対象外。
+
 ## 直接招待したユーザーの保存・再利用・削除（2026-10-30）
 
 グループから独立した端末内ユーザー保存、schema 2への移行、直接招待の受取確認、標準SwiftUIによる一覧・表示名編集・グループ再利用・一覧削除をAppへ実装した。同席しただけの参加者はグループ情報に残すが、ユーザー一覧には登録しない。一覧削除後も所属と通話を維持し、受取確認の再送で復活させない。package・Workerは変更していない。

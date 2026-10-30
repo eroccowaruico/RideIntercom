@@ -14,8 +14,30 @@ struct GroupSelectionView: View {
                     reloadRequiresDisconnect: viewModel.activeGroupID != nil,
                     reload: viewModel.reloadSavedGroups, reset: viewModel.resetSavedGroups)
             }
+            if let active = viewModel.activeDirectCall {
+                Section("Current Call") {
+                    Button { viewModel.selectGroup(active) } label: {
+                        Label(viewModel.callTitle(for: active), systemImage: "phone.fill")
+                    }
+                    .accessibilityIdentifier("activeDirectCallButton")
+                }
+            }
+            if !viewModel.savedRemoteUsers.isEmpty {
+                Section {
+                    ForEach(viewModel.savedRemoteUsers) { user in
+                        Button { viewModel.selectUser(user.id) } label: {
+                            Label(user.displayName, systemImage: "person.crop.circle")
+                                .frame(minHeight: 44)
+                        }
+                        .accessibilityHint("Opens your individual call with this user.")
+                        .accessibilityIdentifier("userCall-\(user.id)")
+                    }
+                } header: { Text("Users") } footer: {
+                    Text("Only people you invited directly, or whose invitations you accepted, appear here.")
+                }
+            }
             Section("Recent Groups") {
-                if viewModel.groups.isEmpty {
+                if viewModel.regularGroups.isEmpty {
                     Text("Create a group to start a call.")
                         .font(AppTypography.subheadline)
                         .foregroundStyle(AppColorPalette.textSecondary)
@@ -25,7 +47,7 @@ struct GroupSelectionView: View {
                         .listRowBackground(Color.clear)
                 }
 
-                ForEach(viewModel.groups) { group in
+                ForEach(viewModel.regularGroups) { group in
                     Button {
                         viewModel.selectGroup(group)
                     } label: {

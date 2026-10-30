@@ -31,6 +31,10 @@ extension IntercomViewModel {
             groupErrorMessage = "This group is no longer available. Return to the group list."
             return false
         }
+        guard groups[index].kind == .group else {
+            groupErrorMessage = "An individual call has only two participants. Create a group to include more people."
+            return false
+        }
         guard let members = membersForSavedUsers(ids), !members.isEmpty else { return false }
         let combined = groups[index].members + members
         guard combined.count <= IntercomGroup.maximumMemberCount,

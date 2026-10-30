@@ -9,6 +9,7 @@ struct GroupInviteToken: Codable, Equatable {
     let groupName: String
     let groupSecret: String
     let inviterMemberID: String
+    let recipientMemberID: String?
     let issuedAt: TimeInterval
     let expiresAt: TimeInterval?
     let signature: String
@@ -19,11 +20,12 @@ struct GroupInviteToken: Codable, Equatable {
         groupName: String,
         groupSecret: String,
         inviterMemberID: String,
+        recipientMemberID: String? = nil,
         issuedAt: TimeInterval,
         expiresAt: TimeInterval?,
         signature: String
     ) throws {
-        guard version == Self.currentVersion else {
+        guard version == 1 || version == 2 else {
             throw GroupInviteTokenError.unsupportedVersion
         }
 
@@ -32,6 +34,7 @@ struct GroupInviteToken: Codable, Equatable {
         self.groupName = groupName
         self.groupSecret = groupSecret
         self.inviterMemberID = inviterMemberID
+        self.recipientMemberID = recipientMemberID
         self.issuedAt = issuedAt
         self.expiresAt = expiresAt
         self.signature = signature
@@ -42,22 +45,27 @@ struct GroupInviteToken: Codable, Equatable {
         groupName: String,
         groupSecret: String,
         inviterMemberID: String,
+        recipientMemberID: String? = nil,
         issuedAt: TimeInterval = Date().timeIntervalSince1970,
         expiresAt: TimeInterval? = nil
     ) throws -> GroupInviteToken {
-        try GroupInviteToken(
+        let version = recipientMemberID == nil ? 1 : 2
+        return try GroupInviteToken(
+            version: version,
             groupID: groupID,
             groupName: groupName,
             groupSecret: groupSecret,
             inviterMemberID: inviterMemberID,
+            recipientMemberID: recipientMemberID,
             issuedAt: issuedAt,
             expiresAt: expiresAt,
             signature: makeSignature(
-                version: currentVersion,
+                version: version,
                 groupID: groupID,
                 groupName: groupName,
                 groupSecret: groupSecret,
                 inviterMemberID: inviterMemberID,
+                recipientMemberID: recipientMemberID,
                 issuedAt: issuedAt,
                 expiresAt: expiresAt
             )
@@ -71,13 +79,24 @@ struct GroupInviteToken: Codable, Equatable {
             groupName: groupName,
             groupSecret: groupSecret,
             inviterMemberID: inviterMemberID,
+            recipientMemberID: recipientMemberID,
             issuedAt: issuedAt,
             expiresAt: expiresAt
         )
     }
 
     func validate() throws {
-        guard version == Self.currentVersion else { throw GroupInviteTokenError.unsupportedVersion }
+        guard version == 1 || version == 2 else { throw GroupInviteTokenError.unsupportedVersion }
+        if version == 1 {
+            guard recipientMemberID == nil else { throw GroupInviteTokenError.invalidTokenEncoding }
+        } else {
+            guard let recipientMemberID, IntercomGroup.isValidMemberID(recipientMemberID),
+                  recipientMemberID != inviterMemberID,
+                  !recipientMemberID.hasPrefix(GroupMember.pendingInvitePrefix),
+                  !inviterMemberID.hasPrefix(GroupMember.pendingInvitePrefix),
+                  groupID == IntercomGroup.directCallID(memberIDs: [inviterMemberID, recipientMemberID])
+            else { throw GroupInviteTokenError.invalidTokenEncoding }
+        }
         guard IntercomGroup.isValidName(groupName), !groupName.contains("|"),
               IntercomGroup.isValidMemberID(inviterMemberID),
               !groupSecret.isEmpty, groupSecret.utf8.count <= 256, !groupSecret.contains("|"),
@@ -98,10 +117,11 @@ struct GroupInviteToken: Codable, Equatable {
         groupName: String,
         groupSecret: String,
         inviterMemberID: String,
+        recipientMemberID: String?,
         issuedAt: TimeInterval,
         expiresAt: TimeInterval?
     ) -> String {
-        let message = [
+        var fields = [
             "\(version)",
             groupID.uuidString,
             groupName,
@@ -109,7 +129,9 @@ struct GroupInviteToken: Codable, Equatable {
             inviterMemberID,
             String(format: "%.3f", issuedAt),
             expiresAt.map { String(format: "%.3f", $0) } ?? ""
-        ].joined(separator: "|")
+        ]
+        if version == 2 { fields.append(recipientMemberID ?? "") }
+        let message = fields.joined(separator: "|")
         let key = SymmetricKey(data: Data(groupSecret.utf8))
         return HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: key)
             .map { String(format: "%02x", $0) }
@@ -125,6 +147,8 @@ enum GroupInviteTokenError: Error, Equatable {
     case expired
     case credentialStorageFailed
     case activeGroupKeyChanged
+    case wrongRecipient
+    case incompatibleCall
 }
 
 enum GroupInviteTokenCodec {

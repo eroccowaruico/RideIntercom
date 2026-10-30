@@ -169,7 +169,7 @@ struct UserDirectoryTests {
         let restarted = f.restart()
         #expect(try restarted.load(localMemberID: "local").map(\.id) == [group.id])
         #expect(try restarted.credential(for: group.id)?.secret == "key")
-        #expect(try f.file.read()?.version == 2)
+        #expect(try f.file.read()?.version == 3)
         let again = f.restart()
         _ = try again.load(localMemberID: "local")
         #expect(again.users == restarted.users)
