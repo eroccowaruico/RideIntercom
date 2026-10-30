@@ -27,7 +27,7 @@ struct TransportAdapterTests {
         let delivery = AudioFrameDelivery { _ in }
         defer { delivery.finish(); adapter.disconnect(); pipeline.stop() }
         let completed = DispatchSemaphore(value: 0)
-        let task = Task.detached {
+        let task = Task.detached(priority: .userInitiated) {
             for index in 0..<6 {
                 pipeline.processMicrophoneFrame(.init(sequenceNumber: UInt64(index),
                     capturedAt: Double(index) * 0.01, samples: Array(repeating: 0.2, count: 480)),

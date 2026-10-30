@@ -102,7 +102,7 @@ struct RealtimeConversationTests {
             frame: .init(sequenceNumber: 0, samples: Array(repeating: 0.1, count: 480)), codec: .pcm16)
         let started = DispatchSemaphore(value: 0), finished = Mutex(false)
         defer { finished.withLock { $0 = true } }
-        let task = Task.detached {
+        let task = Task.detached(priority: .userInitiated) {
             var failed = 0, received = 0
             started.signal()
             repeat {
@@ -128,7 +128,7 @@ struct RealtimeConversationTests {
             frame: .init(sequenceNumber: 0, samples: Array(repeating: 0.1, count: 480)), codec: .pcm16)
         let completed = DispatchSemaphore(value: 0)
         let task = pipeline.reconfigureInput {
-            let task = Task.detached {
+            let task = Task.detached(priority: .userInitiated) {
                 let result = Result { try pipeline.processReceivedAudioPacket(packet) }
                 completed.signal()
                 return result
@@ -232,7 +232,7 @@ struct RealtimeConversationTests {
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: [])
         defer { pipeline.stop() }
         let completion = DispatchSemaphore(value: 0)
-        let task = Task.detached {
+        let task = Task.detached(priority: .userInitiated) {
             try pipeline.processCapturedFrame(.init(sequenceNumber: 0,
                 samples: Array(repeating: 0.1, count: 480)))
             completion.signal()
@@ -249,7 +249,7 @@ struct RealtimeConversationTests {
         let packet = try AppTestSupport.receivedAudioPacket(peerID: "peer",
             frame: .init(sequenceNumber: 0, samples: Array(repeating: 0.1, count: 480)), codec: .pcm16)
         let completion = DispatchSemaphore(value: 0)
-        let task = Task.detached {
+        let task = Task.detached(priority: .userInitiated) {
             try pipeline.processReceivedAudioPacket(packet)
             completion.signal()
         }
