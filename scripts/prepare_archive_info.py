@@ -7,6 +7,25 @@ import plistlib
 import re
 import shlex
 import sys
+from urllib.parse import urlsplit
+
+
+def development_internet_defaults(env):
+    # Trial credentials remain in an ignored local directory, outside App resources.
+    if (env.get('CONFIGURATION') != 'Debug' or env.get('ACTION') == 'install'
+            or env.get('RIDEINTERCOM_STORAGE_NAMESPACE', 'RideIntercom') != 'RideIntercom'):
+        return None
+    host = env.get('RIDEINTERCOM_DEVELOPMENT_WORKER_HOST', '')
+    token = env.get('RIDEINTERCOM_DEVELOPMENT_ACCESS_TOKEN', '')
+    if not host and not token:
+        return None
+    url = 'https://' + host
+    parsed = urlsplit(url)
+    if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
+            or parsed.path not in ('', '/') or parsed.query or parsed.fragment
+            or not token.strip() or len(token.strip()) > 256):
+        raise ValueError('Invalid local development Internet credentials')
+    return {'workerURL': url, 'accessToken': token.strip()}
 
 
 def info_contents(source, env):
@@ -17,6 +36,11 @@ def info_contents(source, env):
     asset-catalog and toolchain metadata in ProcessInfoPlistFile before signing.
     """
     info = plistlib.loads(source.read_bytes())
+    # Never carry a development credential from a previous source or configuration.
+    info.pop('DevelopmentInternetConnection', None)
+    development = development_internet_defaults(env)
+    if development:
+        info['DevelopmentInternetConnection'] = development
     for key, setting in {
         'CFBundleDevelopmentRegion': 'DEVELOPMENT_LANGUAGE',
         'CFBundleExecutable': 'EXECUTABLE_NAME',

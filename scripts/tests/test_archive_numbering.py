@@ -48,6 +48,43 @@ class ArchiveNumberingTests(unittest.TestCase):
         self.assertEqual(len(set(values)), 1)
         return int(values[0])
 
+    def install_development_credentials(self):
+        self.env.update(RIDEINTERCOM_DEVELOPMENT_WORKER_HOST='preview.example.com',
+                        RIDEINTERCOM_DEVELOPMENT_ACCESS_TOKEN='synthetic-mac-token')
+
+    def test_debug_defaults_select_the_platform_without_logging_credentials(self):
+        self.install_development_credentials()
+        for platform, token in [('macosx', 'synthetic-mac-token'),
+                                ('iphoneos', 'synthetic-phone-token'),
+                                ('iphonesimulator', 'synthetic-phone-token')]:
+            self.env.update(CONFIGURATION='Debug', PLATFORM_NAME=platform,
+                            RIDEINTERCOM_DEVELOPMENT_ACCESS_TOKEN=token)
+            result, output = self.run_phase(name=platform)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = plistlib.loads(output.read_bytes())['DevelopmentInternetConnection']
+            self.assertEqual(config, {'workerURL': 'https://preview.example.com', 'accessToken': token})
+            self.assertNotIn(token, result.stdout + result.stderr)
+
+    def test_release_archive_and_local_test_builds_never_embed_development_defaults(self):
+        self.install_development_credentials()
+        source = plistlib.loads(self.source.read_bytes())
+        source['DevelopmentInternetConnection'] = {'accessToken': 'stale-secret'}
+        self.source.write_bytes(plistlib.dumps(source))
+        cases = [('Release', 'build', 'RideIntercom'),
+                 ('Debug', 'install', 'RideIntercom'),
+                 ('Debug', 'build', 'RideIntercom.Validation.private')]
+        for index, (configuration, action, namespace) in enumerate(cases):
+            self.env.update(CONFIGURATION=configuration, RIDEINTERCOM_STORAGE_NAMESPACE=namespace)
+            result, output = self.run_phase(action, name=f'isolated-{index}')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn('DevelopmentInternetConnection', plistlib.loads(output.read_bytes()))
+
+    def test_debug_without_local_credentials_remains_unconfigured(self):
+        self.env['CONFIGURATION'] = 'Debug'
+        result, output = self.run_phase()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('DevelopmentInternetConnection', plistlib.loads(output.read_bytes()))
+
     def test_indexing_and_analysis_leave_counter_and_source_untouched(self):
         before = self.config.read_bytes(), self.source.read_bytes()
         for action in ['indexbuild', 'analyze']:

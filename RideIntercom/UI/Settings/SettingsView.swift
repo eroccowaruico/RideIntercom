@@ -402,7 +402,7 @@ struct InternetConnectionPanel: View {
     @Binding var isEditing: Bool
     var body: some View {
         Section {
-            Text(viewModel.hasInternetCredentials ? "Device token saved" : "Not configured")
+            Text(viewModel.hasInternetCredentials ? "Device token configured" : "Not configured")
                 .accessibilityIdentifier("internetConfigurationStatus")
             Button("Configure Internet Connection") { isEditing = true }
                 .accessibilityIdentifier("configureInternetConnection")
@@ -453,7 +453,7 @@ private struct InternetConnectionEditor: View {
             footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
             .onAppear {
                 workerURL = viewModel.internetWorkerURL
-                if viewModel.hasInternetCredentials { status = "Device token is saved in Keychain." }
+                if viewModel.hasInternetCredentials { status = "A device token is configured." }
             }
         }
     }

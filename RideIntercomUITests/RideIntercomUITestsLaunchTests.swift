@@ -16,6 +16,7 @@ final class RideIntercomUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
         app.launch()
         app.activate()
         defer { app.terminate() }

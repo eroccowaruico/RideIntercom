@@ -73,6 +73,12 @@ node scripts/Cloudflare/check-service.mjs server/.trial-credentials/my-mac.json
 
 ## Appでの試用と記録
 
+実サービスを使う前に、[開発方針](../policies/開発方針.md#実サービスを使う検証の費用制約)に従い、単体・結合を含むローカル検証をすべて成功させる。以降の手順は明示的な実サービス確認用であり、通常テストや設定マトリクスから大量実行しない。目的・人数・時間・回数を先に決め、短い疎通から進める。
+
+Debugで手動試用する場合は、前述の端末JSONから、このcheckoutの[Configuration](../../Configuration/README.md)の`Debug.local.xcconfig`へ接続先hostとplatform別tokenを用意する。通常のXcode Run・Buildが対象端末の値を生成Info.plistへ取り込み、AppはKeychain未設定時の既定値として読む。Settingsへの手入力や保存は不要。既定値はKeychainへ自動保存せず、保存済み設定を優先する。Release・Archive・隔離された検証buildへは含めない。秘密ファイルはgitignore対象で、GitHub経由では配布されない。
+
+unit / UI / 音声E2Eのcurrent-process compositionは、XCTestの環境変数または`RIDEINTERCOM_LOCAL_TESTING=1`でInternet資格を無効にする。UI testはこのflagをlaunch environmentへ渡す。ローカルfixtureを使うテストはstoreを明示注入する。外部費用のない自動試験と、Debugの手動試用を混同しない。
+
 | 操作 | 確認すること |
 |---|---|
 | Settings → Internet Connection → Configure | 同じWorker origin、端末ごとのaccess tokenを保存 |

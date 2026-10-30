@@ -106,7 +106,7 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | 端末資格 | `internetDeviceToken` | SecureField。保存先 Keychain。招待 URL / UserDefaults / ログへ含めない |
 | 保存 | `saveInternetConnection` | 入力検証後に保存、通話終了、RTC configuration 更新。保存失敗は画面内テキストで表示 |
 
-保存済み資格は入力欄へ再表示しない。試用時は同一 Worker の個別端末資格を入力し、Local Network を OFF にして Internet のみで接続を確認できる。
+資格は入力欄へ再表示しない。設定済みの場合の状態表示は`Device token configured`。Debugの手動試用ではローカル資格を[開発用の既定値](../Configuration/設定値一覧.md#開発用の既定接続値)として自動適用でき、手入力と保存は不要。明示保存した設定はKeychainへ保存し優先する。実サービスでの試用時は同一Workerを使い、Local NetworkをOFFにしてInternetのみで接続を確認できる。自動テストはローカル代替環境を使用する。
 
 ## 音声経路による操作範囲
 

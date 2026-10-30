@@ -20,7 +20,7 @@ extension IntercomViewModel {
         return IntercomViewModel(
             groupRepository: GroupRepository(store: FileGroupStore(directory: directory), credentials: KeychainGroupCredentialStore(namespace: namespace), legacy: LegacyGroupReader(defaults: defaults, namespace: namespace)),
             appSettingsStore: UserDefaultsAppSettingsStore(defaults: defaults),
-            internetSettingsStore: InternetConnectionSettingsStore(namespace: namespace),
+            internetSettingsStore: InternetConnectionSettingsStore.makeForCurrentProcess(namespace: namespace),
             localMemberIdentityStore: localMemberIdentityStore
         )
     }

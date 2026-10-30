@@ -26,3 +26,6 @@ __pycache__/
 
 # Individually issued trial credentials (never application source)
 server/.trial-credentials/
+
+# Local Debug-only app defaults, outside the App resource directory.
+Configuration/Debug.local.xcconfig

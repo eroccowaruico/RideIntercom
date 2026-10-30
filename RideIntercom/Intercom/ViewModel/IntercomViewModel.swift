@@ -235,7 +235,7 @@ final class IntercomViewModel {
         if let saved = internetConfiguration {
             self.internetWorkerURL = saved.workerURL.absoluteString
             self.hasInternetCredentials = true
-            self.internetCheckMessage = "Device token saved. Service not checked."
+            self.internetCheckMessage = "Device token configured. Service not checked."
         }
         self.localMemberIdentity = localMemberIdentity
         self.audioSessionSnapshot = (try? sessionManager.snapshot()) ?? Self.defaultAudioSessionSnapshot()

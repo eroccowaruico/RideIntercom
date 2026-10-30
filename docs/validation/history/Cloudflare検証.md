@@ -129,3 +129,23 @@ main/devへのマージ、push、Cloudflareデプロイは行っていない。
 | 残る確認 | 実SFUの接続・双方向音声、通話中の更新・回収、TURN・制限回線、実請求。healthとstatusの成功はSFU App Secretの有効性や音声品質の証明ではない |
 
 現行の設定手順は[Cloudflare試用手順](../../development/Cloudflare試用手順.md)を参照する。
+
+## Debug既定値と実サービス検証の費用制約
+
+2026-10-30。App画面への手入力を省き、開発ビルドだけに既定の接続先と端末資格を用意する指示を適用した。大量の実Cloudflare試験による費用を抑える要求を製品要求と開発方針へ追加し、単体・結合を含むローカル検証が全成功した後の、人数・時間・回数を制限した明示実行に分けた。
+
+| 対象 | 結果 |
+|---|---|
+| 開発用入力 | `Configuration/Debug.xcconfig`をAppのDebug構成だけへ割当て、gitignore対象の`Debug.local.xcconfig`をoptional include。発行済みのmacOS / iOS用資格をこのMacに用意。Script phaseの環境変数表示を無効化 |
+| Appへの適用 | 通常のDebug buildで生成Info.plistへplatform別の値を入れ、Keychain未設定時に使用。Keychainへ自動保存しない。保存済み設定・読取り失敗・不正な保存データは上書きしない |
+| 配布との分離 | macOS / iOSのDebug・Releaseを実ビルド。Debugの2成果物がそれぞれ所定の資格と一致し、Releaseの両bundleには開発用Info keyも両端末のtokenもない。build logにもtokenがないことを検査。Archiveでの除外はmetadataの単体試験で確認し、新しいArchiveは作成していない |
+| 自動テストとの分離 | XCTestのprocess環境、またはUI testが渡す`RIDEINTERCOM_LOCAL_TESTING=1`ではcurrent-processのInternet資格読取り・保存を無効化。fixture storeの明示注入は維持。隔離storage namespaceのビルドにも既定値を含めない |
+| macOS単体 | 148件成功、failed / skipped / runtime warnings 0。`.validation/dev-internet-macos.xcresult` |
+| iOS単体 | 専用の一時Simulatorで148件成功、failed / skipped / runtime warnings 0。`.validation/dev-internet-ios-isolated/ios-tests.xcresult` |
+| UI | 初回iOS runのUI 5件は成功。同じrunの音声pipeline単体1件が失敗したため、run全体は成功扱いにしない |
+| スクリプトと文書 | Python 71件成功。metadata 14件はその内数。文書・開発環境検査、diff check成功 |
+| 試行中の失敗 | 初回の資格JSONの直接読取りはXcode sandboxに拒否され、最終構成は通常のxcconfig経由に変更。初回iOS単体は`AURemoteIO::Initialize` / `_ReportRPCTimeout`のSIGABRT。共有Simulatorの再利用が他作業のlockと衝突したため、その作業を止めず一時Simulatorで単体全件を再検証。音声処理や試験の基準は変更していない |
+| 後片付けと秘密 | 所有Mac test hostが残っていないことと、一時Simulatorの停止・削除を確認。tokenは差分・検証logへ出ていない。private fileはGitへ含めない |
+| 実サービスと全体受入れ | この変更の検証では実CloudflareのHTTP/SFU/TURNを呼び出さず、再デプロイもしない。`validate.sh all --clean`や独立音声E2Eの全体受入れとは別の確認であり、実サービスの次の検証前には正本の費用制約を満たすこと |
+
+主な証跡は`.validation/dev-internet-build-proof.json`、`.validation/dev-internet-scripts-final.log`、各xcresult。ビルド番号は既定の自動採番に従って増加し、公開バージョンは1.0.0を維持した。他のApp作業と衝突するmainへの統合と、不要なCloudflare buildを起動するpushは行っていない。

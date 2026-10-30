@@ -1,0 +1,2 @@
+// Local trial defaults are optional and never used by Release.
+#include? "Debug.local.xcconfig"

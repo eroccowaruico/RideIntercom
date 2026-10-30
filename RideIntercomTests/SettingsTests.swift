@@ -286,6 +286,50 @@ struct SettingsTests {
         #expect(!keychain.value!.contains("invitation-secret"))
     }
 
+    @Test func developmentInternetDefaultsNeedNoManualSaveAndDoNotPersist() throws {
+        let keychain = InternetTestKeychain()
+        let store = InternetConnectionSettingsStore.makeForCurrentProcess(
+            keychain: keychain, namespace: "fixture",
+            info: ["DevelopmentInternetConnection": ["workerURL": "https://preview.example.com", "accessToken": "synthetic-token"]],
+            environment: [:])
+        #expect(try store.load()?.workerURL.absoluteString == "https://preview.example.com")
+        #expect(try store.load()?.accessToken == "synthetic-token")
+        #expect(keychain.value == nil)
+        let harness = AppTestSupport.makeHarness(internetSettingsStore: store)
+        #expect(harness.viewModel.hasInternetCredentials)
+        #expect(harness.viewModel.internetWorkerURL == "https://preview.example.com")
+    }
+
+    @Test func developmentInternetDefaultsPreserveSavedOverridesAndReadFailures() throws {
+        let keychain = InternetTestKeychain()
+        let store = InternetConnectionSettingsStore.makeForCurrentProcess(
+            keychain: keychain, namespace: "fixture",
+            info: ["DevelopmentInternetConnection": ["workerURL": "https://preview.example.com", "accessToken": "synthetic-token"]],
+            environment: [:])
+        try store.save(url: "https://manual.example.com", token: "manual-token")
+        #expect(try store.load()?.workerURL.absoluteString == "https://manual.example.com")
+        keychain.value = "unreadable-saved-credentials"
+        #expect(throws: (any Error).self) { try store.load() }
+        #expect(keychain.value == "unreadable-saved-credentials")
+    }
+
+    @Test func localTestProcessesCannotLoadOrReplaceLiveInternetCredentials() throws {
+        for environment in [["RIDEINTERCOM_LOCAL_TESTING": "1"],
+                            ["XCTestConfigurationFilePath": "fixture.xctestconfiguration"],
+                            ["XCTestBundlePath": "fixture.xctest"]] {
+            let keychain = InternetTestKeychain()
+            try InternetConnectionSettingsStore(keychain: keychain).save(url: "https://saved.example.com", token: "saved-token")
+            let before = keychain.value
+            let store = InternetConnectionSettingsStore.makeForCurrentProcess(
+                keychain: keychain, namespace: "fixture",
+                info: ["DevelopmentInternetConnection": ["workerURL": "https://preview.example.com", "accessToken": "synthetic-token"]],
+                environment: environment)
+            #expect(try store.load() == nil)
+            #expect(throws: (any Error).self) { try store.save(url: "https://other.example.com", token: "other-token") }
+            #expect(keychain.value == before)
+        }
+    }
+
     @Test func internetSettingsValidationPreservesCallAndSavedCheckUsesNoMedia() async throws {
         let keychain = InternetTestKeychain()
         let store = InternetConnectionSettingsStore(keychain: keychain)

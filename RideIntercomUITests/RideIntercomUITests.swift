@@ -14,6 +14,7 @@ final class RideIntercomUITests: XCTestCase {
 
     private func launchApp(startOnDiagnostics: Bool = false) {
         app = XCUIApplication()
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
         if name.contains("Adaptive") {
             app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
