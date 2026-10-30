@@ -26,6 +26,20 @@ final class SystemKeychainSecretStore: KeychainSecretStoring {
         }
     }
 
+    func createSecretIfAbsent(_ secret: String, service: String, account: String) throws -> String {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service, kSecAttrAccount as String: account,
+            kSecValueData as String: Data(secret.utf8)]
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess || status == errSecDuplicateItem else {
+            throw KeychainSecretStoreError.unexpectedStatus(status)
+        }
+        guard let retained = try self.secret(service: service, account: account) else {
+            throw KeychainSecretStoreError.invalidData
+        }
+        return retained
+    }
+
     func saveSecret(_ secret: String, service: String, account: String) throws {
         let data = Data(secret.utf8)
         let query: [String: Any] = [

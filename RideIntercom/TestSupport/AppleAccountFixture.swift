@@ -32,6 +32,11 @@ enum AppleAccountFixture {
         init(defaults: UserDefaults) { self.defaults = defaults }
         func accounts(service: String) throws -> [String] { [] }
         func secret(service: String, account: String) throws -> String? { defaults.string(forKey: "user") }
+        func createSecretIfAbsent(_ value: String, service: String, account: String) throws -> String {
+            if let retained = try secret(service: service, account: account) { return retained }
+            try saveSecret(value, service: service, account: account)
+            return value
+        }
         func saveSecret(_ secret: String, service: String, account: String) throws { defaults.set(secret, forKey: "user") }
         func deleteSecret(service: String, account: String) throws { defaults.removeObject(forKey: "user") }
     }

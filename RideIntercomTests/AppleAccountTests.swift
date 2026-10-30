@@ -264,6 +264,11 @@ final class AccountTestKeychain: KeychainSecretStoring {
     func secret(service: String, account: String) throws -> String? {
         if fails { throw KeychainSecretStoreError.invalidData }; return value
     }
+    func createSecretIfAbsent(_ value: String, service: String, account: String) throws -> String {
+        if let retained = try secret(service: service, account: account) { return retained }
+        try saveSecret(value, service: service, account: account)
+        return value
+    }
     func saveSecret(_ secret: String, service: String, account: String) throws {
         if fails { throw KeychainSecretStoreError.invalidData }; value = secret
     }

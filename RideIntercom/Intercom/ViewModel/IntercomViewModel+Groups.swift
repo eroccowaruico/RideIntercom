@@ -211,6 +211,9 @@ extension IntercomViewModel {
             throw GroupInviteTokenError.incompatibleCall
         }
 
+        guard let grant = token.directInvitation else { throw GroupInviteTokenError.invalidTokenEncoding }
+        let receipt = try DirectInvitationReceipt.make(grant: grant, inviteeMemberID: localMemberIdentity.memberID,
+                                                       displayName: localMemberIdentity.displayName)
         let previous = try groupRepository.credential(for: token.groupID)
         // Simultaneous first invitations converge on the smaller member ID's key.
         // Do not replace a call that has already connected; reconnect explicitly.
@@ -224,7 +227,7 @@ extension IntercomViewModel {
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
             let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             do {
-                try groupRepository.acceptInvitation(from: .init(id: token.inviterMemberID, displayName: name), to: token.groupID)
+                try groupRepository.acceptInvitation(receipt, inviterName: name)
                 refreshGroupStorageStatus()
             } catch { reportGroupStorageError(error); throw error }
             selectGroup(existing)
@@ -253,8 +256,7 @@ extension IntercomViewModel {
             updated.insert(group, at: 0)
         }
         do {
-            let inviter = members.first { $0.id == token.inviterMemberID && $0.id != localMemberIdentity.memberID }
-            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitationFrom: inviter)
+            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitation: receipt)
             refreshGroupStorageStatus()
         }
         catch {

@@ -31,7 +31,7 @@ struct DisplayNameTests {
     @Test func personalNameAndLocalOverrideSurviveRestartAndResetFollowsLatestName() throws {
         let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try IntercomGroup(name: "Friends", members: [.init(id: "local", displayName: "You"), .init(id: "rider", displayName: "山田")])
-        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitationFrom: group.members[1])
+        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: group.id, inviter: group.members[1]))
         let id = try #require(f.repository.users.first).id
         try f.repository.renameUser(id, displayName: "スキー仲間")
         try f.repository.receiveDisplayName("やまだ", from: "rider", in: group.id)
@@ -96,7 +96,7 @@ struct DisplayNameTests {
     @Test func nameWriteFailurePreservesBothNamesAndExistingGroup() throws {
         let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try IntercomGroup(name: "Friends", members: [.init(id: "local", displayName: "You"), .init(id: "rider", displayName: "Rider")])
-        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitationFrom: group.members[1])
+        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: group.id, inviter: group.members[1]))
         let before = try Data(contentsOf: f.file.url); let users = f.repository.users
         f.store.failCommit = true
         #expect(throws: (any Error).self) { try f.repository.renameUser(users[0].id, displayName: "Alias") }

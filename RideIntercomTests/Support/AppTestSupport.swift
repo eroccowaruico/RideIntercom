@@ -28,7 +28,9 @@ enum AppTestSupport {
         groups: [IntercomGroup]? = nil,
         credentialStore: GroupCredentialStoring? = nil,
         appSettingsStore: AppSettingsStoring? = nil,
-        internetSettingsStore: InternetConnectionSettingsStore? = nil
+        internetSettingsStore: InternetConnectionSettingsStore? = nil,
+        invitationAuthority: DirectInvitationAuthority? = nil,
+        localMemberID: String? = nil
     ) -> Harness {
         let groups = groups ?? IntercomSeedData.recentGroups
         let credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
@@ -46,7 +48,7 @@ enum AppTestSupport {
         let outputBackend = FakeOutputStreamBackend()
         let audioDriver = OfflineAudioDriver()
         let identityStore = InMemoryLocalMemberIdentityStore(
-            identity: LocalMemberIdentity(memberID: groups.first?.members.first?.id ?? "member-local", displayName: "You")
+            identity: LocalMemberIdentity(memberID: localMemberID ?? groups.first?.members.first?.id ?? "member-local", displayName: "You")
         )
         let viewModel = IntercomViewModel(
             accountSession: accountSession ?? signedInAccount(),
@@ -55,6 +57,7 @@ enum AppTestSupport {
             appSettingsStore: appSettingsStore ?? InMemoryAppSettingsStore(),
             internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: InternetTestKeychain(), namespace: "RideIntercom.Tests." + UUID().uuidString),
             localMemberIdentityStore: identityStore,
+            invitationAuthority: invitationAuthority ?? testInvitationAuthority(),
             audioSessionManager: AudioSessionManager(backend: audioSessionBackend),
             audioInputCapture: AudioInputStreamCapture(
                 configuration: .intercom(voiceProcessing: IntercomViewModel.defaultVoiceProcessingConfiguration()),

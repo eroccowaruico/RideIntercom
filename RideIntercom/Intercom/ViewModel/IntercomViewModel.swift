@@ -16,6 +16,7 @@ import VADGate
 final class IntercomViewModel {
     let accountSession: AppleAccountSession
     let accountUserID: String?
+    let invitationAuthority: DirectInvitationAuthority
     let accountAccessID: UUID
     var canStartCalls: Bool {
         accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
@@ -195,6 +196,7 @@ final class IntercomViewModel {
         appSettingsStore: AppSettingsStoring,
         internetSettingsStore: InternetConnectionSettingsStore? = nil,
         localMemberIdentityStore: LocalMemberIdentityStoring,
+        invitationAuthority: DirectInvitationAuthority,
         audioSessionManager: SessionManager.AudioSessionManager? = nil,
         audioInputCapture: SessionManager.AudioInputStreamCapture? = nil,
         audioOutputRenderer: SessionManager.AudioOutputStreamRenderer? = nil,
@@ -203,6 +205,7 @@ final class IntercomViewModel {
         callTicker: CallTicking? = nil,
         remoteTalkerTimeout: TimeInterval = 0.6
     ) {
+        self.invitationAuthority = invitationAuthority
         self.accountSession = accountSession
         self.accountUserID = accountSession.userID
         self.accountAccessID = accountSession.accessID

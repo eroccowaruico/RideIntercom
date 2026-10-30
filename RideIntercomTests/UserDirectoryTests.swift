@@ -5,6 +5,19 @@ import Testing
 
 @MainActor
 struct UserDirectoryTests {
+    @Test func groupMemberCannotClaimAnUnissuedDirectInvitation() throws {
+        let h = AppTestSupport.makeHarness(groups: [try group()])
+        let vm = h.viewModel
+        defer { vm.disconnect() }
+        let group = try #require(vm.groups.first)
+        vm.selectGroup(group)
+        h.callSession.authenticate(["stranger"])
+        let receipt = DirectInvitationReceipt(groupID: group.id, inviterMemberID: "local", inviteeMemberID: "stranger", displayName: "Not a friend")
+        vm.handleTransportEvent(.receivedApplicationData(peerID: "stranger", message: .init(namespace: DirectInvitationReceipt.namespace, payload: try JSONEncoder().encode(receipt))))
+        #expect(vm.savedUsers.isEmpty)
+        #expect(h.groupStore.snapshot.users.isEmpty)
+    }
+
     @Test func directInvitationsStillSaveAfterCorruptionReset() throws {
         let f = try GroupStorageFixture(); defer { f.remove() }
         try Data("broken".utf8).write(to: f.file.url)
@@ -12,7 +25,7 @@ struct UserDirectoryTests {
         #expect(throws: (any Error).self) { try repository.load(localMemberID: "local") }
         try repository.reset()
         let group = try group()
-        try repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitationFrom: group.members[1])
+        try repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: group.id, inviter: group.members[1]))
         #expect(repository.users.map(\.memberIDs) == [["rider"]])
         #expect(repository.pendingInvitation(for: group.id)?.inviteeMemberID == "local")
     }
@@ -58,7 +71,7 @@ struct UserDirectoryTests {
         defer { vm.disconnect() }
         let group = try #require(vm.groups.first)
         vm.selectGroup(group)
-        var receipt = DirectInvitationReceipt(groupID: group.id, inviterMemberID: "local", inviteeMemberID: "rider", displayName: "Rider")
+        var receipt = try testInvitationReceipt(groupID: group.id, inviter: .init(id: "local", displayName: "You"), invitee: "rider", authority: vm.invitationAuthority)
         func deliver(_ value: DirectInvitationReceipt, peer: String = "rider") throws {
             vm.handleTransportEvent(.receivedApplicationData(peerID: peer, message: .init(namespace: DirectInvitationReceipt.namespace, payload: try JSONEncoder().encode(value))))
         }
@@ -77,7 +90,10 @@ struct UserDirectoryTests {
         #expect(vm.removeSavedUser(user.id))
         try deliver(receipt) // A retry cannot undo explicit deletion.
         #expect(vm.savedUsers.isEmpty)
-        receipt.id = UUID() // A newly accepted direct invitation can save again.
+        receipt.id = UUID() // Altering a replay cannot undo deletion.
+        try deliver(receipt)
+        #expect(vm.savedRemoteUsers.isEmpty)
+        receipt = try testInvitationReceipt(groupID: group.id, inviter: .init(id: "local", displayName: "You"), invitee: "rider", authority: vm.invitationAuthority)
         try deliver(receipt)
         #expect(vm.savedRemoteUsers.count == 1)
     }
@@ -85,7 +101,7 @@ struct UserDirectoryTests {
     @Test func invitationReceiptSurvivesRestartAndDeletionDoesNotReplay() throws {
         let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try group()
-        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitationFrom: group.members[1])
+        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: group.id, inviter: group.members[1]))
         let pending = try #require(f.repository.pendingInvitation(for: group.id))
         let restarted = f.restart()
         _ = try restarted.load(localMemberID: "local")
@@ -93,12 +109,13 @@ struct UserDirectoryTests {
         var acknowledgement = pending; acknowledgement.kind = .acknowledged
         try restarted.acknowledgeInvitation(acknowledgement)
         #expect(restarted.pendingInvitation(for: group.id) == nil)
-        let receipt = DirectInvitationReceipt(groupID: group.id, inviterMemberID: "local", inviteeMemberID: "rider", displayName: "Rider")
-        try restarted.receiveInvitation(receipt)
+        let authority = testInvitationAuthority()
+        let receipt = try testInvitationReceipt(groupID: group.id, inviter: .init(id: "local", displayName: "You"), invitee: "rider", authority: authority)
+        try restarted.receiveInvitation(#require(try authority.verify(receipt)))
         try restarted.removeUser(try #require(restarted.users.first).id)
         let again = f.restart()
         #expect(try again.load(localMemberID: "local").first?.members.count == 2)
-        try again.receiveInvitation(receipt)
+        try again.receiveInvitation(#require(try authority.verify(receipt)))
         #expect(again.users.isEmpty)
         #expect(try again.credential(for: group.id)?.secret == "key")
     }
@@ -142,7 +159,7 @@ struct UserDirectoryTests {
     private func invitedHarness() throws -> AppTestSupport.Harness {
         let group = try group()
         let h = AppTestSupport.makeHarness(groups: [group])
-        try h.viewModel.groupRepository.acceptInvitation(from: group.members[1], to: group.id)
+        try h.viewModel.groupRepository.acceptInvitation(testInvitationReceipt(groupID: group.id, inviter: group.members[1]), inviterName: group.members[1].displayName)
         h.viewModel.refreshGroupStorageStatus()
         return h
     }
@@ -179,7 +196,7 @@ struct UserDirectoryTests {
     @Test func invalidCurrentDirectoryIsNeverSilentlyRecreated() throws {
         let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try group()
-        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitationFrom: group.members[1])
+        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: group.id, inviter: group.members[1]))
         let original = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: f.file.url)) as? [String: Any])
         for badUsers: Any? in [nil, "broken", [] as [Any]] {
             var json = original
@@ -198,8 +215,8 @@ struct UserDirectoryTests {
         let second = try IntercomGroup(name: "Other", members: [
             .init(id: "local", displayName: "You"), .init(id: "other-rider", displayName: "Rider")
         ])
-        try f.repository.save([first, second], credential: .init(groupID: first.id, secret: "key"), acceptedInvitationFrom: first.members[1])
-        try f.repository.acceptInvitation(from: second.members[1], to: second.id)
+        try f.repository.save([first, second], credential: .init(groupID: first.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: first.id, inviter: first.members[1]))
+        try f.repository.acceptInvitation(testInvitationReceipt(groupID: second.id, inviter: second.members[1]), inviterName: second.members[1].displayName)
         #expect(f.repository.users.count == 2)
         #expect(f.repository.users.filter { $0.displayName == "Rider" }.count == 2)
         #expect(!f.repository.users.flatMap(\.memberIDs).contains("invite-pending-slot"))
@@ -216,7 +233,7 @@ struct UserDirectoryTests {
         let f = try GroupStorageFixture(); defer { f.remove() }
         let first = try group()
         let second = try IntercomGroup(name: "Other", members: first.members)
-        try f.repository.save([first, second], credential: .init(groupID: first.id, secret: "key"), acceptedInvitationFrom: first.members[1])
+        try f.repository.save([first, second], credential: .init(groupID: first.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: first.id, inviter: first.members[1]))
         let user = try #require(f.repository.users.first { $0.memberIDs == ["rider"] })
         let stale = f.restart()
         _ = try stale.load(localMemberID: "local")
@@ -284,7 +301,7 @@ struct UserDirectoryTests {
         let group = try IntercomGroup(name: "Friends", members: [
             .init(id: "local", displayName: "You"), .init(id: "rider", displayName: "Rider")
         ])
-        try f.repository.save([group], credential: .init(groupID: group.id, secret: "group-key"), acceptedInvitationFrom: group.members[1])
+        try f.repository.save([group], credential: .init(groupID: group.id, secret: "group-key"), acceptedInvitation: testInvitationReceipt(groupID: group.id, inviter: group.members[1]))
         let before = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: f.file.url)) as? [String: Any])
         let users = try #require(before["users"] as? [[String: Any]])
         #expect(users.count == 1)

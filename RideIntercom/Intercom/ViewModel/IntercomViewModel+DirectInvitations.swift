@@ -5,6 +5,7 @@ extension IntercomViewModel {
     func sendPendingInvitationReceipt() {
         guard canEditSavedGroups, let groupID = activeGroupID,
               var receipt = groupRepository.pendingInvitation(for: groupID),
+              let invitation = receipt.invitation, invitation.expiresAt > Date().timeIntervalSince1970, receipt.proof != nil,
               receipt.inviteeMemberID == localMemberIdentity.memberID,
               authenticatedPeerIDs.contains(receipt.inviterMemberID) else { return }
         receipt.displayName = localMemberIdentity.displayName
@@ -25,7 +26,8 @@ extension IntercomViewModel {
             switch receipt.kind {
             case .accepted:
                 guard receipt.inviterMemberID == localMemberIdentity.memberID, receipt.inviteeMemberID == peerID else { return }
-                try groupRepository.receiveInvitation(receipt)
+                guard let verified = try invitationAuthority.verify(receipt) else { return }
+                try groupRepository.receiveInvitation(verified)
                 refreshGroupStorageStatus()
                 var acknowledgement = receipt
                 acknowledgement.kind = .acknowledged

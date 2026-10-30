@@ -50,6 +50,7 @@ final class UserDefaultsLocalMemberIdentityStore: LocalMemberIdentityStoring {
 protocol KeychainSecretStoring: AnyObject {
     func accounts(service: String) throws -> [String]
     func saveSecret(_ secret: String, service: String, account: String) throws
+    func createSecretIfAbsent(_ secret: String, service: String, account: String) throws -> String
     func secret(service: String, account: String) throws -> String?
     func deleteSecret(service: String, account: String) throws
 }

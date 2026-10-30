@@ -222,6 +222,11 @@ private final class InternetAccountTestKeychain: KeychainSecretStoring {
         if failRead { throw KeychainSecretStoreError.invalidData }
         return values[service + account]
     }
+    func createSecretIfAbsent(_ value: String, service: String, account: String) throws -> String {
+        if let retained = try secret(service: service, account: account) { return retained }
+        try saveSecret(value, service: service, account: account)
+        return value
+    }
     func saveSecret(_ secret: String, service: String, account: String) throws { values[service + account] = secret }
     func deleteSecret(service: String, account: String) throws {
         if failDelete { throw KeychainSecretStoreError.invalidData }

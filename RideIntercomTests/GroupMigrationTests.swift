@@ -165,6 +165,11 @@ struct GroupMigrationTests {
 final class DictionaryKeychain: KeychainSecretStoring {
     private var values: [String: [String: String]] = [:]
     func accounts(service: String) -> [String] { Array(values[service, default: [:]].keys) }
+    func createSecretIfAbsent(_ value: String, service: String, account: String) throws -> String {
+        if let retained = try secret(service: service, account: account) { return retained }
+        try saveSecret(value, service: service, account: account)
+        return value
+    }
     func saveSecret(_ secret: String, service: String, account: String) throws { values[service, default: [:]][account] = secret }
     func secret(service: String, account: String) throws -> String? { values[service]?[account] }
     func deleteSecret(service: String, account: String) throws { values[service]?[account] = nil }

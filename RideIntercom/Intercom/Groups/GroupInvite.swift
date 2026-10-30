@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 struct GroupInviteToken: Codable, Equatable {
-    static let currentVersion = 3
+    static let currentVersion = 4
 
     let version: Int
     let groupID: UUID
@@ -13,6 +13,7 @@ struct GroupInviteToken: Codable, Equatable {
     let recipientMemberID: String?
     let issuedAt: TimeInterval
     let expiresAt: TimeInterval?
+    let directInvitation: DirectInvitationGrant?
     let signature: String
 
     init(
@@ -25,9 +26,10 @@ struct GroupInviteToken: Codable, Equatable {
         recipientMemberID: String? = nil,
         issuedAt: TimeInterval,
         expiresAt: TimeInterval?,
+        directInvitation: DirectInvitationGrant? = nil,
         signature: String
     ) throws {
-        guard (1...3).contains(version) else {
+        guard version == Self.currentVersion else {
             throw GroupInviteTokenError.unsupportedVersion
         }
 
@@ -40,10 +42,12 @@ struct GroupInviteToken: Codable, Equatable {
         self.recipientMemberID = recipientMemberID
         self.issuedAt = issuedAt
         self.expiresAt = expiresAt
+        self.directInvitation = directInvitation
         self.signature = signature
     }
 
     static func make(
+        authority: DirectInvitationAuthority,
         groupID: UUID,
         groupName: String,
         groupSecret: String,
@@ -53,7 +57,10 @@ struct GroupInviteToken: Codable, Equatable {
         issuedAt: TimeInterval = Date().timeIntervalSince1970,
         expiresAt: TimeInterval? = nil
     ) throws -> GroupInviteToken {
-        let version = inviterDisplayName == nil ? (recipientMemberID == nil ? 1 : 2) : currentVersion
+        let version = currentVersion
+        let expiresAt = expiresAt ?? issuedAt + 7 * 24 * 60 * 60
+        let grant = try authority.issue(.init(groupID: groupID, inviterMemberID: inviterMemberID,
+                                             recipientMemberID: recipientMemberID, expiresAt: expiresAt))
         return try GroupInviteToken(
             version: version,
             groupID: groupID,
@@ -64,6 +71,7 @@ struct GroupInviteToken: Codable, Equatable {
             recipientMemberID: recipientMemberID,
             issuedAt: issuedAt,
             expiresAt: expiresAt,
+            directInvitation: grant,
             signature: makeSignature(
                 version: version,
                 groupID: groupID,
@@ -73,7 +81,8 @@ struct GroupInviteToken: Codable, Equatable {
                 inviterDisplayName: inviterDisplayName,
                 recipientMemberID: recipientMemberID,
                 issuedAt: issuedAt,
-                expiresAt: expiresAt
+                expiresAt: expiresAt,
+                directInvitation: grant
             )
         )
     }
@@ -88,23 +97,21 @@ struct GroupInviteToken: Codable, Equatable {
             inviterDisplayName: inviterDisplayName,
             recipientMemberID: recipientMemberID,
             issuedAt: issuedAt,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            directInvitation: directInvitation
         )
     }
 
     func validate() throws {
-        guard (1...3).contains(version) else { throw GroupInviteTokenError.unsupportedVersion }
-        if version == 3 {
-            guard let inviterDisplayName, IntercomGroup.isValidName(inviterDisplayName) else { throw GroupInviteTokenError.invalidTokenEncoding }
-        } else if inviterDisplayName != nil { throw GroupInviteTokenError.invalidTokenEncoding }
-        if version == 1 || (version == 3 && recipientMemberID == nil) {
-            guard recipientMemberID == nil else { throw GroupInviteTokenError.invalidTokenEncoding }
-        } else {
-            guard let recipientMemberID, IntercomGroup.isValidMemberID(recipientMemberID),
-                  recipientMemberID != inviterMemberID,
-                  !recipientMemberID.hasPrefix(GroupMember.pendingInvitePrefix),
-                  !inviterMemberID.hasPrefix(GroupMember.pendingInvitePrefix),
-                  groupID == IntercomGroup.directCallID(memberIDs: [inviterMemberID, recipientMemberID])
+        guard version == Self.currentVersion else { throw GroupInviteTokenError.unsupportedVersion }
+        guard let directInvitation, directInvitation.isValid,
+              directInvitation.context.groupID == groupID,
+              directInvitation.context.inviterMemberID == inviterMemberID,
+              directInvitation.context.recipientMemberID == recipientMemberID,
+              directInvitation.context.expiresAt == expiresAt,
+              inviterDisplayName.map(IntercomGroup.isValidName) ?? true else { throw GroupInviteTokenError.invalidTokenEncoding }
+        if let recipientMemberID {
+            guard groupID == IntercomGroup.directCallID(memberIDs: [inviterMemberID, recipientMemberID])
             else { throw GroupInviteTokenError.invalidTokenEncoding }
         }
         guard IntercomGroup.isValidName(groupName), !groupName.contains("|"),
@@ -130,7 +137,8 @@ struct GroupInviteToken: Codable, Equatable {
         inviterDisplayName: String?,
         recipientMemberID: String?,
         issuedAt: TimeInterval,
-        expiresAt: TimeInterval?
+        expiresAt: TimeInterval?,
+        directInvitation: DirectInvitationGrant?
     ) -> String {
         var fields = [
             "\(version)",
@@ -141,9 +149,11 @@ struct GroupInviteToken: Codable, Equatable {
             String(format: "%.3f", issuedAt),
             expiresAt.map { String(format: "%.3f", $0) } ?? ""
         ]
-        if version >= 2 { fields.append(recipientMemberID ?? "") }
+        fields.append(recipientMemberID ?? "")
         // Base64 keeps arbitrary user-chosen separators out of the signed field framing.
-        if version == 3 { fields.append(Data((inviterDisplayName ?? "").utf8).base64EncodedString()) }
+        fields.append(Data((inviterDisplayName ?? "").utf8).base64EncodedString())
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        fields.append((try? encoder.encode(directInvitation))?.base64EncodedString() ?? "")
         let message = fields.joined(separator: "|")
         let key = SymmetricKey(data: Data(groupSecret.utf8))
         return HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: key)

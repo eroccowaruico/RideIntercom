@@ -199,6 +199,7 @@ extension IntercomViewModel {
         let recipient = directCallRecipient(for: selectedGroup)
         guard selectedGroup.kind != .direct || recipient != nil else { return nil }
         let token = try? GroupInviteToken.make(
+            authority: invitationAuthority,
             groupID: selectedGroup.id,
             groupName: selectedGroup.name,
             groupSecret: credential.secret,

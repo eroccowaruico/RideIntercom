@@ -27,7 +27,7 @@ struct GroupLifecycleTests {
 
     @Test func groupInviteTokenRoundTripsAndRejectsTampering() throws {
         let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
-        let token = try GroupInviteToken.make(
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(),
             groupID: groupID,
             groupName: "Talk Group",
             groupSecret: "talk-secret",
@@ -46,6 +46,7 @@ struct GroupLifecycleTests {
             inviterMemberID: decoded.inviterMemberID,
             issuedAt: decoded.issuedAt,
             expiresAt: decoded.expiresAt,
+            directInvitation: decoded.directInvitation,
             signature: decoded.signature
         )
 
@@ -72,7 +73,7 @@ struct GroupLifecycleTests {
     @Test func viewModelAcceptsInviteURLAndStoresCredential() throws {
         let credentialStore = InMemoryGroupCredentialStore()
         let groupID = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
-        let token = try GroupInviteToken.make(
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(),
             groupID: groupID,
             groupName: "Invited Group",
             groupSecret: "shared-secret",
@@ -174,7 +175,7 @@ struct GroupLifecycleTests {
         h.viewModel.disconnect()
         h.viewModel.connectLocal()
         #expect(h.callSession.connectedGroup?.accessSecret == token.groupSecret)
-        let other = AppTestSupport.makeHarness(groups: [])
+        let other = AppTestSupport.makeHarness(groups: [], localMemberID: "other-device")
         try other.viewModel.acceptInviteURL(url)
         #expect(other.callSession.connectedGroup?.accessSecret == saved.secret)
     }
@@ -195,7 +196,7 @@ struct GroupLifecycleTests {
         h.viewModel.createTalkGroup()
         #expect(h.viewModel.groups.isEmpty)
         #expect(h.callSession.connectedGroup == nil)
-        let token = try GroupInviteToken.make(groupID: UUID(), groupName: "Invite", groupSecret: "shared", inviterMemberID: "remote")
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(), groupID: UUID(), groupName: "Invite", groupSecret: "shared", inviterMemberID: "remote")
         let url = try GroupInviteTokenCodec.joinURL(for: token)
         #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(url) }
         #expect(h.viewModel.groups.isEmpty)
@@ -208,7 +209,7 @@ struct GroupLifecycleTests {
         h.viewModel.createTalkGroup()
         let group = try #require(h.viewModel.selectedGroup)
         let saved = try #require(try h.viewModel.groupRepository.credential(for: group.id))
-        let token = try GroupInviteToken.make(groupID: group.id, groupName: group.name, groupSecret: "", inviterMemberID: "remote")
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(), groupID: group.id, groupName: group.name, groupSecret: "", inviterMemberID: "remote")
         let url = try GroupInviteTokenCodec.joinURL(for: token)
         #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(url) }
         #expect(try h.viewModel.groupRepository.credential(for: group.id) == saved)
@@ -264,7 +265,7 @@ struct GroupLifecycleTests {
         h.viewModel.createTalkGroup()
         let group = try #require(h.viewModel.selectedGroup)
         let saved = try h.viewModel.groupRepository.credential(for: group.id)
-        let token = try GroupInviteToken.make(groupID: group.id, groupName: "Changed", groupSecret: "other", inviterMemberID: "remote")
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(), groupID: group.id, groupName: "Changed", groupSecret: "other", inviterMemberID: "remote")
         #expect(throws: GroupInviteTokenError.activeGroupKeyChanged) { try h.viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token)) }
         #expect(try h.viewModel.groupRepository.credential(for: group.id) == saved)
         h.viewModel.deleteGroup(group.id)

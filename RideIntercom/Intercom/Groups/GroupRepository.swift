@@ -74,14 +74,9 @@ final class GroupRepository {
     }
 
     func save(_ groups: [IntercomGroup]) throws { try update(groups, credential: nil) }
-    func save(_ groups: [IntercomGroup], credential: GroupAccessCredential, acceptedInvitationFrom inviter: GroupMember? = nil) throws {
+    func save(_ groups: [IntercomGroup], credential: GroupAccessCredential, acceptedInvitation: DirectInvitationReceipt? = nil) throws {
         try update(groups, credential: credential) { next in
-            guard let inviter, let localMemberID = self.localMemberID, inviter.id != localMemberID,
-                  let index = next.groups.firstIndex(where: { $0.id == credential.groupID }),
-                  let local = groups.first(where: { $0.id == credential.groupID })?.members.first(where: { $0.id == localMemberID }) else { return }
-            Self.remember(inviter, in: &next)
-            next.groups[index].pendingInvitation = .init(groupID: credential.groupID, inviterMemberID: inviter.id,
-                                                        inviteeMemberID: localMemberID, displayName: local.displayName)
+            if let receipt = acceptedInvitation { try self.storeAcceptedInvitation(receipt, in: &next) }
         }
     }
     func delete(_ id: UUID, remaining: [IntercomGroup]) throws { try update(remaining, credential: nil) }
@@ -140,17 +135,24 @@ final class GroupRepository {
         try update(snapshot.groups.map { try $0.group() }, credential: nil, users: snapshot.users.filter { $0.id != id })
     }
 
-    func acceptInvitation(from inviter: GroupMember, to groupID: UUID) throws {
-        guard let snapshot, let localMemberID,
-              let group = snapshot.groups.first(where: { $0.id == groupID }),
-              let local = group.members.first(where: { $0.id == localMemberID }), inviter.id != localMemberID
-        else { return }
+    func acceptInvitation(_ receipt: DirectInvitationReceipt, inviterName: String) throws {
+        guard let snapshot else { throw GroupStorageError.invalidUpdate }
         try update(snapshot.groups.map { try $0.group() }, credential: nil) { next in
-            guard let index = next.groups.firstIndex(where: { $0.id == groupID }) else { throw GroupStorageError.invalidUpdate }
-            Self.remember(inviter, in: &next)
-            next.groups[index].pendingInvitation = .init(groupID: groupID, inviterMemberID: inviter.id,
-                                                        inviteeMemberID: localMemberID, displayName: local.displayName)
+            try self.storeAcceptedInvitation(receipt, inviterName: inviterName, in: &next)
         }
+    }
+
+    private func storeAcceptedInvitation(_ receipt: DirectInvitationReceipt, inviterName: String? = nil, in next: inout GroupSnapshot) throws {
+        guard receipt.isValid, receipt.kind == .accepted, receipt.invitation != nil, receipt.proof != nil,
+              receipt.inviteeMemberID == localMemberID,
+              let index = next.groups.firstIndex(where: { $0.id == receipt.groupID }),
+              next.groups[index].members.contains(where: { $0.id == receipt.inviteeMemberID }) else {
+            throw GroupStorageError.invalidUpdate
+        }
+        let name = inviterName ?? next.groups[index].members.first(where: { $0.id == receipt.inviterMemberID })?.displayName
+        guard let name, IntercomGroup.isValidName(name) else { throw GroupStorageError.invalidUpdate }
+        Self.remember(.init(id: receipt.inviterMemberID, displayName: name), in: &next)
+        next.groups[index].pendingInvitation = receipt
     }
 
     private static func remember(_ member: GroupMember, in snapshot: inout GroupSnapshot) {
@@ -165,7 +167,8 @@ final class GroupRepository {
         snapshot?.groups.first { $0.id == groupID }?.pendingInvitation
     }
 
-    func receiveInvitation(_ receipt: DirectInvitationReceipt) throws {
+    func receiveInvitation(_ verified: VerifiedDirectInvitation) throws {
+        let receipt = verified.receipt
         guard receipt.isValid, receipt.kind == .accepted, receipt.inviterMemberID == localMemberID,
               let snapshot, let record = snapshot.groups.first(where: { $0.id == receipt.groupID }) else { throw GroupStorageError.invalidUpdate }
         // Persist receipt IDs even if the contact is later deleted. Retrying an
@@ -183,7 +186,8 @@ final class GroupRepository {
               let index = snapshot.groups.firstIndex(where: { $0.id == receipt.groupID }),
               let pending = snapshot.groups[index].pendingInvitation,
               pending.id == receipt.id, pending.inviterMemberID == receipt.inviterMemberID,
-              pending.inviteeMemberID == receipt.inviteeMemberID else { return }
+              pending.inviteeMemberID == receipt.inviteeMemberID,
+              pending.invitation == receipt.invitation, pending.proof == receipt.proof else { return }
         try update(snapshot.groups.map { try $0.group() }, credential: nil) { next in next.groups[index].pendingInvitation = nil }
     }
 

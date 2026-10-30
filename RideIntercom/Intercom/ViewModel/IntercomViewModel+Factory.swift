@@ -22,7 +22,8 @@ extension IntercomViewModel {
             groupRepository: GroupRepository(store: FileGroupStore(directory: directory), credentials: KeychainGroupCredentialStore(namespace: namespace)),
             appSettingsStore: UserDefaultsAppSettingsStore(defaults: defaults),
             internetSettingsStore: InternetConnectionSettingsStore.makeForCurrentProcess(namespace: namespace),
-            localMemberIdentityStore: localMemberIdentityStore
+            localMemberIdentityStore: localMemberIdentityStore,
+            invitationAuthority: DirectInvitationAuthority(keychain: SystemKeychainSecretStore(), namespace: namespace)
         )
     }
 

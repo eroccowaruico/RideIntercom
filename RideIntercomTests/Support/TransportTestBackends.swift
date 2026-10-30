@@ -222,6 +222,11 @@ final class NoOpCallTicker: CallTicking {
 final class InternetTestKeychain: KeychainSecretStoring {
     func accounts(service: String) -> [String] { [] }
     var value: String?
+    func createSecretIfAbsent(_ value: String, service: String, account: String) throws -> String {
+        if let retained = try secret(service: service, account: account) { return retained }
+        try saveSecret(value, service: service, account: account)
+        return value
+    }
     func saveSecret(_ secret: String, service: String, account: String) throws { value = secret }
     func secret(service: String, account: String) throws -> String? { value }
     func deleteSecret(service: String, account: String) throws { value = nil }

@@ -133,16 +133,25 @@ final class RideIntercomUITests: XCTestCase {
     private func openSavedUserInvitation(inviter: String, sharedName: String? = nil) throws {
         let groupID = UUID()
         let secret = "ui-test-invitation-key"
-        let issuedAt = Date().timeIntervalSince1970
-        let version = sharedName == nil ? 1 : 3
-        var fields = [String(version), groupID.uuidString, "Talk Group", secret, inviter, String(format: "%.3f", issuedAt), ""]
-        if let sharedName { fields += ["", Data(sharedName.utf8).base64EncodedString()] }
+        let issuedAt = floor(Date().timeIntervalSince1970)
+        let expiresAt = issuedAt + 3600
+        let version = 4
+        // Synthetic remote inviter capability. The UI test never contacts a real account.
+        struct Context: Encodable { let id: UUID; let groupID: UUID; let inviterMemberID: String; let expiresAt: Double }
+        struct Grant: Encodable { let context: Context; let secret: String }
+        let grant = Grant(context: .init(id: UUID(), groupID: groupID, inviterMemberID: inviter, expiresAt: expiresAt),
+                          secret: Data(repeating: 42, count: 32).base64EncodedString())
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let grantData = try encoder.encode(grant)
+        let fields = [String(version), groupID.uuidString, "Talk Group", secret, inviter, String(format: "%.3f", issuedAt),
+                      String(format: "%.3f", expiresAt), "", Data((sharedName ?? "").utf8).base64EncodedString(), grantData.base64EncodedString()]
         let message = fields.joined(separator: "|")
         let signature = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: SymmetricKey(data: Data(secret.utf8)))
             .map { String(format: "%02x", $0) }.joined()
         var object: [String: Any] = [
             "version": version, "groupID": groupID.uuidString, "groupName": "Talk Group", "groupSecret": secret,
-            "inviterMemberID": inviter, "issuedAt": issuedAt, "signature": signature
+            "inviterMemberID": inviter, "issuedAt": issuedAt, "expiresAt": expiresAt,
+            "directInvitation": try JSONSerialization.jsonObject(with: grantData), "signature": signature
         ]
         object["inviterDisplayName"] = sharedName
         let token = try JSONSerialization.data(withJSONObject: object)

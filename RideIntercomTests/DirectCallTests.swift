@@ -53,7 +53,7 @@ struct DirectCallTests {
         let invite = try #require(a.viewModel.selectedGroupInviteURL)
         let token = try GroupInviteTokenCodec.decodeJoinURL(invite)
         #expect(token.recipientMemberID == "bob")
-        #expect(token.version == 3)
+        #expect(token.version == 4)
         try b.viewModel.acceptInviteURL(invite)
         #expect(b.viewModel.selectedGroup?.kind == .direct)
         let id = try #require(a.viewModel.selectedGroup?.id)
@@ -154,7 +154,7 @@ struct DirectCallTests {
     @Test func versionTwoMigrationPreservesUsersAndKeysAndRejectsMissingCurrentKind() throws {
         let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try IntercomGroup(name: "Riders", members: [.init(id: "local", displayName: "You"), .init(id: "rider", displayName: "Rider")])
-        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitationFrom: group.members[1])
+        try f.repository.save([group], credential: .init(groupID: group.id, secret: "key"), acceptedInvitation: testInvitationReceipt(groupID: group.id, inviter: group.members[1]))
         let users = f.repository.users
         var json = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: f.file.url)) as? [String: Any])
         var records = try #require(json["groups"] as? [[String: Any]])
@@ -184,13 +184,14 @@ struct DirectCallTests {
         #expect(vm.selectUser(try #require(vm.savedRemoteUsers.first).id))
         let id = try #require(vm.selectedGroup?.id)
         let key = try #require(try vm.groupRepository.credential(for: id)).secret
-        let groupInvite = try GroupInviteToken.make(groupID: id, groupName: "Direct Call", groupSecret: key, inviterMemberID: "bob")
+        let groupInvite = try GroupInviteToken.make(authority: testInvitationAuthority(), groupID: id, groupName: "Direct Call", groupSecret: key, inviterMemberID: "bob")
         #expect(throws: GroupInviteTokenError.incompatibleCall) { try vm.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: groupInvite)) }
         let token = try GroupInviteTokenCodec.decodeJoinURL(#require(vm.selectedGroupInviteURL))
-        let tampered = try GroupInviteToken(version: 2,
+        let tampered = try GroupInviteToken(version: 4,
             groupID: IntercomGroup.directCallID(memberIDs: ["alice", "charlie"]), groupName: token.groupName,
             groupSecret: token.groupSecret, inviterMemberID: "alice", recipientMemberID: "charlie",
-            issuedAt: token.issuedAt, expiresAt: token.expiresAt, signature: token.signature)
+            issuedAt: token.issuedAt, expiresAt: token.expiresAt,
+            directInvitation: testInvitationAuthority().issue(.init(groupID: IntercomGroup.directCallID(memberIDs: ["alice", "charlie"]), inviterMemberID: "alice", recipientMemberID: "charlie", expiresAt: token.expiresAt!)), signature: token.signature)
         #expect(throws: GroupInviteTokenError.invalidSignature) { try GroupInviteTokenCodec.decodeJoinURL(GroupInviteTokenCodec.joinURL(for: tampered)) }
         #expect(vm.selectedGroup?.kind == .direct)
     }
@@ -198,7 +199,7 @@ struct DirectCallTests {
     private func harness(local: String, remote: String) throws -> AppTestSupport.Harness {
         let group = try IntercomGroup(name: "Riders", members: [.init(id: local, displayName: "You")], accessSecret: "original-key")
         let h = AppTestSupport.makeHarness(groups: [group])
-        let token = try GroupInviteToken.make(groupID: group.id, groupName: group.name, groupSecret: "original-key", inviterMemberID: remote)
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(), groupID: group.id, groupName: group.name, groupSecret: "original-key", inviterMemberID: remote)
         try h.viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token))
         return h
     }
