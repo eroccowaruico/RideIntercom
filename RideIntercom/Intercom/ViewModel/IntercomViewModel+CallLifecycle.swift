@@ -76,6 +76,7 @@ extension IntercomViewModel {
             return false
         }
 
+        inputFrameDelivery?.activate()
         callTicker.start()
         isAudioReady = true
         callSession.setAudioPolicy(currentAudioPipelineConfiguration().audioPolicy)
@@ -176,7 +177,7 @@ extension IntercomViewModel {
         audioGeneration = UUID()
         let generation = audioGeneration
         inputFrameDelivery?.finish()
-        let delivery = AudioFrameDelivery { [weak self] frame in
+        let delivery = AudioFrameDelivery(initiallyActive: false) { [weak self] frame in
             guard let self, self.audioGeneration == generation else { return }
             self.handleMicrophoneFrame(frame)
         }
@@ -185,6 +186,7 @@ extension IntercomViewModel {
         pipeline.setInputMuted(isMuted)
         audioInputCapture.setRuntimeEventHandler { [weak self] event in
             if case .inputFrame(let frame) = event {
+                guard delivery.isActive else { return }
                 pipeline.processMicrophoneFrame(frame, shouldProcess: { delivery.isActive })
                 delivery.yield(frame)
                 return

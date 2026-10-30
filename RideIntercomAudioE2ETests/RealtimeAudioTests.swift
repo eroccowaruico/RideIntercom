@@ -33,7 +33,7 @@ extension AudioE2ETests {
             let inputAges = Mutex<[Double]>([]), txAges = Mutex<[Double]>([])
             var mixAges: [Double] = []
             let errorStore = Mutex<[String]>([])
-            let delivery = AudioFrameDelivery { _ in }
+            let delivery = AudioFrameDelivery(initiallyActive: false) { _ in }
             defer {
                 try? input.stopCapture()
                 delivery.finish()
@@ -54,8 +54,9 @@ extension AudioE2ETests {
                 mixAges.append(ProcessInfo.processInfo.systemUptime - frame.capturedAt)
             }
             _ = try input.startCapture(configuration: .intercom(voiceProcessing: .init())) { frame in
+                guard delivery.isActive else { return }
                 inputAges.withLock { $0.append(ProcessInfo.processInfo.systemUptime - frame.capturedAt) }
-                pipeline.processMicrophoneFrame(frame)
+                pipeline.processMicrophoneFrame(frame, shouldProcess: { delivery.isActive })
                 delivery.yield(frame)
             }
             // Match startAudioPipelineIfNeeded: input, output, then graph.
@@ -67,6 +68,7 @@ extension AudioE2ETests {
                 receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peerIDs: ["loopback"])
             XCTAssertEqual(pipeline.codecRuntimeReport.selectedCodec.rawValue, codec.rawValue)
             XCTAssertFalse(pipeline.codecRuntimeReport.isFallback)
+            delivery.activate()
             try await Task.sleep(for: .seconds(1))
             probe.reset(); transmitted.reset(); mixed.reset()
             inputAges.withLock { $0.removeAll() }; txAges.withLock { $0.removeAll() }; mixAges.removeAll()

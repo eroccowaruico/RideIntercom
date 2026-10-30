@@ -601,6 +601,27 @@ struct AudioPipelineTests {
         #expect(received.last == 999)
     }
 
+    @Test func captureObservationStartsOnlyWhenMediaIsReadyAndCannotReviveAfterStop() async {
+        var received: [UInt64] = []
+        let delivery = AudioFrameDelivery(initiallyActive: false) { received.append($0.sequenceNumber) }
+        #expect(!delivery.isActive)
+        for sequence in 0..<1000 {
+            delivery.yield(.init(sequenceNumber: UInt64(sequence), capturedAt: 0, samples: [0]))
+        }
+        delivery.activate()
+        #expect(delivery.isActive)
+        delivery.yield(.init(sequenceNumber: 1000, capturedAt: 0, samples: [0.2]))
+        await AppTestSupport.waitUntil { !received.isEmpty }
+        #expect(received == [1000], "Initialization must not accumulate a stale UI backlog")
+        #expect(delivery.droppedFrameCount == 0)
+        delivery.finish()
+        delivery.activate()
+        #expect(!delivery.isActive)
+        delivery.yield(.init(sequenceNumber: 1001, capturedAt: 0, samples: [0.2]))
+        await Task.yield()
+        #expect(received == [1000])
+    }
+
     @Test func internetUsesSharedCaptureMixerAndDeviceRestart() async {
         let h = AppTestSupport.makeHarness()
         h.viewModel.setRTCTransportRoute(.multipeer, enabled: false)

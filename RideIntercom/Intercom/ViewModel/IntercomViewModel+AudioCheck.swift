@@ -31,6 +31,7 @@ extension IntercomViewModel {
             }
         }
 
+        inputFrameDelivery?.activate()
         audioCheckTask = Task { [weak self] in
             try? await Task.sleep(for: recordDuration)
             guard !Task.isCancelled else { return }
