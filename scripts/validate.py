@@ -231,7 +231,10 @@ def main():
             if args.thread_sanitizer:
                 command += ['--sanitize=thread']
             if name == 'RTC':
-                command += ['--skip', 'WorkerPairTests']  # Executed with its server in the pair stage.
+                # Swift Testing otherwise runs suites concurrently even when
+                # SwiftPM's default says "no parallel". Keep accelerated ten-minute
+                # CPU stress and deliberate actor stalls off the real-time gates.
+                command += ['--no-parallel', '--skip', 'WorkerPairTests']  # Pair has its own server stage.
             runner.run('package-' + name, command, needs=['swift-toolchain'] + (['webrtc-artifact'] if name == 'RTC' else []), tests=True)
     if mode in ('all', 'headless', 'worker', 'pair'):
         runner.run('worker-install', ['npm', '--prefix', 'server', 'ci'], needs=['node-toolchain'])

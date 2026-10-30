@@ -11,8 +11,9 @@ enum MultipeerStreamRuntime {
     static func prepare() async -> Bool {
         await withCheckedContinuation { continuation in
             // A Swift Task awaited by a UI caller can inherit its priority.
-            // Enforce the bootstrap queue's QoS; the caller suspends, never waits.
-            DispatchQueue.global(qos: .utility).async(flags: .enforceQoS) {
+            // The queue's QoS alone does not override the work item's inherited
+            // priority: explicitly set both. The caller suspends, never waits.
+            DispatchQueue.global(qos: .utility).async(qos: .utility, flags: .enforceQoS) {
                 continuation.resume(returning: initialized)
             }
         }

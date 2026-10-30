@@ -27,6 +27,9 @@ extension RealtimeTransportTests {
         for i in records.indices {
             try await eventually { await records[i].audio.count == 7 }
             let received = await records[i].audio
+            let diagnostics = await managers[i].networkDiagnostics()
+            #expect(diagnostics.eventDrops.expired == 0, "Healthy local audio must not expire in the consumer mailbox")
+            #expect(diagnostics.eventDrops.overflow == 0)
             #expect(Set(received.compactMap { $0.packet.payload.first }) == Set((0..<8).filter { $0 != i }.map(UInt8.init)))
         }
         #expect(await network.routes[.webRTC] == nil)
