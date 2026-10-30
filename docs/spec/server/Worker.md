@@ -71,7 +71,20 @@ AppのSettingsからnonce取得・native Apple認証・資格保存と、サイ�
 
 [CloudflareのRate Limiting API](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)はlocation単位で非同期に集計する近似制限であり、分散攻撃の厳密な全世界上限・請求額上限ではない。共有回線では登録枠を共有する。公開時のedge対策・請求監視・緊急停止は別途整備する。
 
-このserver実装は公開運用の完了ではない。Apple認可コードの交換・refresh token・アカウント削除／Apple grant取消、サーバー通知は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
+このserver実装は公開運用の完了ではない。Apple認可コードの交換・refresh token・Appからのアカウント削除完結／Apple grant取消、サーバー通知は後続工程とする。登録成功応答を失った場合は新しいnonceで再認証する。資格失効後は新規APIとlease更新を拒否するが、成立済みのmedia・WebSocketは現在のlease回収まで残り得る。
+
+### アカウントの端末登録削除
+
+| 項目 | 契約 |
+|---|---|
+| API | `DELETE /api/auth/account`。確認済みの端末Bearerが属するアカウントだけを対象にし、bodyやheaderで他のuserIDを指定できない |
+| 削除範囲 | 対象アカウントの全端末資格を同じSQLite transactionで削除する。他アカウントの資格は維持する。登録入口・通話サービスの停止中も削除を受け付ける |
+| 応答 | `{deleted: true, appleAuthorizationRevoked: false}`。Apple側の認可取消や端末内のグループ削除が完了したという意味ではない |
+| 応答を失った再送 | 削除元のdeviceID・資格hash・削除時刻だけを含む受領記録を1件、24時間保持する。同じ資格での再送は成功を返すが、その後の新規登録へ削除を再適用しない。別の失効済み資格は401 |
+| 登録との競合 | challengeの発行時刻が保持中の削除時刻以前なら登録を401で拒否する。新しいchallengeから再認証する。時刻はserverで設定し、clientの申告値を使わない |
+| 回収と限界 | alarmで期限切れ受領記録を削除する。実行中の通話状態・利用枠は既存lease回収に従う。バックアップの物理削除や他端末内のデータ消去をこのAPIの完了として扱わない |
+
+Appの削除確認・端末内データ消去・Apple認可取消は[残課題](../../backlog/未実装課題.md)で続ける。Apple tokenを持たない場合でもデータ削除を進め、必要なら手動の認可取消を案内する方針は[Apple TN3194](https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple)に基づく。
 
 試用の静的`CLIENT_TOKENS_JSON`も既存の運用入口として残る。`ri1.`資格が無効でも静的registryへfallbackしない。静的資格には確認済みユーザーIDがないため、以下のユーザー単位制限は公開用のApple端末資格へ適用する。
 

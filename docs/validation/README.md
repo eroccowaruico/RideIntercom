@@ -1,5 +1,18 @@
 # 検証状況と証跡
 
+## アカウント端末登録の削除API（2026-10-31）
+
+認証したアカウントの全端末資格を削除し、成功応答を失った再送で再登録後の資格を消さないserver処理を追加した。App操作とApple認可取消は後続であり、機能全体の完了とは扱わない。[契約](../spec/server/Worker.md#アカウントの端末登録削除)を参照する。
+
+証跡は`.validation/account-delete-server/`。
+
+| 検証 | 結果 |
+|---|---|
+| Worker / DO | 43件成功、失敗・skipなし。追加2件で全端末失効、他アカウントの維持、並行再送、削除前challengeの拒否、再登録後の再送、再起動・24時間経過・サービス停止中の削除を確認。`final.log` |
+| Swift–Worker | ローカルDOとの実HTTP/WS契約1件成功。外部SFUはmock。`pair.log` |
+| 型・文書 | TypeScript、文書・diff検査成功。`type-check-final.log`、`documentation.log` |
+| 失敗履歴 | 未実装APIの404を確認。最初の実装では同期KVのIterableをMapとして扱ったため型・実行が失敗し、正しい反復へ修正。`red.log`、`green.log`、`type-check.log` |
+
 ## 接続競合のApp案内と明示再開（2026-10-31）
 
 検証済みRTCの手動復帰通知をAppへ接続した。アカウントの既存通話と競合した際、Callに復帰方法を表示してLocal音声は維持する。全体が再試行しない失敗ならidleへ戻し、Connectから再操作できる。新しい判定状態をAppへ重複保持せず、共通eventの意味を維持する。

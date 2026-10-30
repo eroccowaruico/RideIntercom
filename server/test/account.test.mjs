@@ -354,3 +354,43 @@ test('a failed SFU setup keeps its account slot until the room alarm completes c
         assert.equal((await call(runtime, `/api/rooms/${'b'.repeat(64)}/join`, { participantId: two.deviceID, offer }, two.accessToken)).status, 200);
     } finally { provider.establishFails = false; await runtime.dispose(); }
 });
+
+
+test('account deletion removes every device of only the authenticated account and retries safely', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime), two = await enrolled(runtime), other = await enrolled(runtime, 'different-person');
+        const oldAttempt = await challenge(runtime);
+        const responses = await Promise.all([0, 1].map(() => call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')));
+        assert.deepEqual(responses.map(r => r.status), [200, 200]);
+        assert.deepEqual(await responses[0].json(), { deleted: true, appleAuthorizationRevoked: false });
+        for (const credential of [one, two]) assert.equal((await call(runtime, '/api/auth/session', undefined, credential.accessToken, 'GET')).status, 401);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, other.accessToken, 'GET')).status, 200);
+        assert.equal((await signIn(runtime, oldAttempt)).status, 401, 'A proof issued before deletion must not recreate device access');
+        const replacement = await enrolled(runtime);
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, replacement.accessToken, 'GET')).status, 200, 'A repeated old deletion must not delete new registrations');
+        assert.equal((await call(runtime, '/api/auth/account', undefined, two.accessToken, 'DELETE')).status, 401);
+    } finally { await runtime.dispose(); }
+});
+
+test('account deletion receipt survives restart, expires, and still works with enrollment disabled', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-account-deletion-'));
+    let runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime);
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'GET')).status, 405);
+        assert.equal((await call(runtime, '/api/auth/account', undefined, 'invalid', 'DELETE')).status, 401);
+        await runtime.dispose();
+        runtime = await makeRuntime({ ...options, APPLE_AUTH_ENABLED: 'false', SERVICE_ENABLED: 'false' }, { storageDirectory, appleKeys: [publicKey] });
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
+        await runtime.dispose();
+        runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
+        const replacement = await enrolled(runtime);
+        await runtime.dispose();
+        runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey], clockOffsetMs: 86401000 });
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 401);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, replacement.accessToken, 'GET')).status, 200);
+    } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
