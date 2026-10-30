@@ -19,6 +19,7 @@ struct DirectInvitationReceipt: Codable, Equatable {
 
     static func make(grant: DirectInvitationGrant, signer: DeviceIdentitySigner, inviteeMemberID: String, displayName: String) throws -> Self {
         guard signer.memberID == inviteeMemberID, grant.isValid, let bytes = Data(base64Encoded: grant.secret) else { throw GroupInviteTokenError.invalidTokenEncoding }
+        guard grant.context.recipientAccount == nil || grant.context.recipientAccount == signer.principal else { throw GroupInviteTokenError.wrongRecipient }
         var receipt = Self(id: receiptID(invitationID: grant.context.id, inviteeMemberID: inviteeMemberID), groupID: grant.context.groupID, inviterMemberID: grant.context.inviterMemberID,
                            inviteeMemberID: inviteeMemberID, inviteeDeviceKey: signer.publicKey, displayName: displayName, invitation: grant.context)
         guard receipt.isValid else { throw GroupInviteTokenError.invalidTokenEncoding }

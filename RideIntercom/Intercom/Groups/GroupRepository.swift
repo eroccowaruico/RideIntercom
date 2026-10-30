@@ -23,7 +23,7 @@ final class GroupRepository {
         do {
             var current = try store.read() ?? migrate(localMemberID: localMemberID)
             _ = try validateIdentity(current, localMemberID: localMemberID)
-            if current.version < 5 {
+            if current.version < 6 {
                 current = current.upgraded()
                 try store.commit(current)
                 guard try store.read() == current else { throw GroupStorageError.verificationFailed }
@@ -115,26 +115,59 @@ final class GroupRepository {
     }
 
     @discardableResult
-    func receiveProfile(_ profile: VerifiedPeerProfile) throws -> Bool {
+    func receiveProfile(_ profile: VerifiedPeerProfile, connectedMemberIDs: Set<String> = []) throws -> Bool {
         let name = profile.displayName, memberID = profile.identity.memberID, groupID = profile.groupID
         guard let snapshot else { throw IntercomGroupError.storageUnavailable }
         guard memberID != localMemberID, IntercomGroup.isValidName(name),
-              let index = snapshot.groups.firstIndex(where: { $0.id == groupID }),
-              let member = snapshot.groups[index].members.firstIndex(where: { $0.id == memberID }) else { return false }
+              let index = snapshot.groups.firstIndex(where: { $0.id == groupID }) else { return false }
         var groups = try snapshot.groups.map { try $0.group() }
         var users = snapshot.users
         if let user = users.firstIndex(where: { $0.memberIDs.contains(memberID) }) {
             guard users[user].deviceKeys?[memberID] == profile.identity.publicKey,
                   users[user].principal == nil || profile.identity.principal == nil
                     || users[user].principal == profile.identity.principal else { return false }
-            guard users[user].displayName != name else { return true }
             users[user].displayName = name
+        }
+        if groups[index].accountPair != nil {
+            guard bindAccountDevice(profile.identity, name: name, to: &groups[index], retaining: connectedMemberIDs) else { return false }
         } else {
-            guard groups[index].members[member].displayName != name else { return true }
+            guard let member = groups[index].members.firstIndex(where: { $0.id == memberID }) else { return false }
             groups[index].members[member].displayName = name
         }
-        try update(groups, credential: nil, users: users)
+        if groups[index] != (try snapshot.groups[index].group()) || users != snapshot.users {
+            try update(groups, credential: nil, users: users)
+        }
         return true
+    }
+
+    /// Existing device keys remain usable offline. Only a current, trusted account
+    /// certificate may enroll an unseen device in an account-addressed call.
+    private func bindAccountDevice(_ identity: VerifiedDeviceProof, name: String,
+                                   to group: inout IntercomGroup, retaining connected: Set<String> = []) -> Bool {
+        guard let localMemberID, let local = group.accountDevices[localMemberID]?.principal,
+              let remote = group.accountPair?.other(than: local) else { return false }
+        let memberID = identity.memberID
+        if let known = group.accountDevices[memberID] {
+            guard known.principal == remote, known.publicKey == identity.publicKey,
+                  identity.principal == nil || identity.principal == remote else { return false }
+        } else {
+            guard identity.principal == remote else { return false }
+        }
+        if let index = group.members.firstIndex(where: { $0.id == memberID }) {
+            group.members[index].displayName = name
+        } else {
+            if group.members.count == IntercomGroup.maximumMemberCount {
+                guard let index = group.members.firstIndex(where: { $0.id != localMemberID && !connected.contains($0.id) }) else { return false }
+                group.accountDevices.removeValue(forKey: group.members.remove(at: index).id)
+            }
+            group.members.append(.init(id: memberID, displayName: name))
+        }
+        group.accountDevices[memberID] = .init(principal: remote, publicKey: identity.publicKey)
+        return true
+    }
+
+    func storedGroup(_ groupID: UUID) -> IntercomGroup? {
+        snapshot?.groups.first { $0.id == groupID }.flatMap { try? $0.group() }
     }
 
     func removeUser(_ id: UUID) throws {
@@ -162,6 +195,12 @@ final class GroupRepository {
         if !next.groups[index].receivedInvitationIDs.contains(receipt.id) {
             try Self.remember(.init(id: receipt.inviterMemberID, displayName: name), identity: accepted.inviter, in: &next)
             next.groups[index].receivedInvitationIDs.append(receipt.id)
+        }
+        if next.groups[index].accountPair != nil {
+            var group = try next.groups[index].group()
+            guard bindAccountDevice(accepted.inviter, name: name, to: &group, retaining: Set(group.members.map(\.id))) else { throw GroupStorageError.identityConflict }
+            next.groups[index].members = GroupSnapshot.Record(group).members
+            next.groups[index].accountDevices = group.accountDevices
         }
         next.groups[index].pendingInvitation = receipt
     }

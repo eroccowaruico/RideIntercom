@@ -2,7 +2,7 @@ import Foundation
 
 extension IntercomViewModel {
     var savedRemoteUsers: [SavedUser] {
-        savedUsers.filter { !$0.memberIDs.contains(localMemberIdentity.memberID) }
+        savedUsers.filter { !$0.memberIDs.contains(localMemberIdentity.memberID) && ($0.principal == nil || $0.principal != localAccountPrincipal) }
             .sorted {
                 let order = $0.resolvedDisplayName.localizedStandardCompare($1.resolvedDisplayName)
                 return order == .orderedSame ? $0.id.uuidString < $1.id.uuidString : order == .orderedAscending

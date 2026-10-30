@@ -10,9 +10,20 @@ struct DirectInvitationContext: Codable, Equatable {
     var inviterDeviceKey: String?
     var recipientMemberID: String?
     var expiresAt: TimeInterval
+    var inviterAccount: AccountPrincipal?
+    var recipientAccount: AccountPrincipal?
+    var accountPair: AccountCallPair? {
+        guard let inviterAccount, let recipientAccount else { return nil }
+        return AccountCallPair(inviterAccount, recipientAccount)
+    }
+    private var validAccountAddress: Bool {
+        if inviterAccount == nil && recipientAccount == nil { return true }
+        guard recipientMemberID == nil, let pair = accountPair else { return false }
+        return pair.isValid && pair.id == groupID
+    }
 
     var isValid: Bool {
-        inviterDeviceKey.map(DeviceIdentityProof.isValidPublicKey) == true
+        validAccountAddress && inviterDeviceKey.map(DeviceIdentityProof.isValidPublicKey) == true
         && IntercomGroup.isValidMemberID(inviterMemberID)
         && !inviterMemberID.hasPrefix(GroupMember.pendingInvitePrefix)
         && (recipientMemberID.map { IntercomGroup.isValidMemberID($0)
@@ -70,6 +81,7 @@ final class DirectInvitationAuthority {
         guard let proof = receipt.acceptanceProof else { return nil }
         guard let identity = try? proof.verify(receipt.identityMessage(), purpose: .acceptInvitation,
                                                memberID: receipt.inviteeMemberID, trust: trust, now: Date(timeIntervalSince1970: now)) else { return nil }
+        guard context.recipientAccount == nil || context.recipientAccount == identity.principal else { return nil }
         return VerifiedDirectInvitation(receipt, identity: identity)
     }
 

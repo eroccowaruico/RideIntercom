@@ -128,6 +128,7 @@ final class IntercomViewModel {
     var scheduledOutputBatchCount = 0
     var scheduledOutputFrameCount = 0
     var connectedPeerIDs: [String] = []
+    var localAccountPrincipal: AccountPrincipal?
     var authenticatedPeerIDs: [String] = []
     var peerProfiles: [String: PeerProfileState] = [:] {
         didSet {
@@ -254,6 +255,7 @@ final class IntercomViewModel {
         self.callTicker = callTicker ?? RepeatingCallTicker()
         self.appSettingsStore = appSettingsStore
         self.internetSettingsStore = internetSettingsStore
+        self.localAccountPrincipal = try? internetSettingsStore.loadPrincipal(memberID: localMemberIdentity.memberID)
         if let saved = internetConfiguration {
             self.internetWorkerURL = saved.workerURL.absoluteString
             self.hasInternetCredentials = true

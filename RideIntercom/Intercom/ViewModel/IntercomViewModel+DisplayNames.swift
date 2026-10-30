@@ -109,7 +109,9 @@ extension IntercomViewModel {
                     || previous.identity.principal == verified.identity.principal else { return }
         }
         do {
-            guard try groupRepository.receiveProfile(verified) else { return }
+            guard verified.identity.principal == nil || verified.identity.principal != localAccountPrincipal else { return }
+            guard try groupRepository.receiveProfile(verified, connectedMemberIDs: Set(authenticatedPeerIDs)) else { return }
+            refreshStoredAccountCall(groupID)
             state.verified = verified
             peerProfiles[peerID] = state
             refreshGroupStorageStatus()

@@ -71,7 +71,7 @@ extension IntercomViewModel {
         case .authenticated(let members):
             let peerIDs = members.filter { $0.isConnected && $0.peer.id.rawValue != localMemberIdentity.memberID }
                 .map { $0.peer.id.rawValue }
-            if let group = groups.first(where: { $0.id == activeGroupID }), group.kind == .direct,
+            if let group = groups.first(where: { $0.id == activeGroupID }), group.kind == .direct, group.accountPair == nil,
                !Set(peerIDs).isSubset(of: Set(group.members.filter { $0.id != localMemberIdentity.memberID }.map(\.id))) {
                 disconnect()
                 groupErrorMessage = "An unexpected participant joined this individual call. The call was stopped."

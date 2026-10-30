@@ -53,7 +53,7 @@ struct DirectCallTests {
         let invite = try #require(a.viewModel.makeSelectedGroupInviteURL())
         let token = try GroupInviteTokenCodec.decodeJoinURL(invite)
         #expect(token.recipientMemberID == "bob")
-        #expect(token.version == 5)
+        #expect(token.version == 6)
         try b.viewModel.acceptInviteURL(invite)
         #expect(b.viewModel.selectedGroup?.kind == .direct)
         let id = try #require(a.viewModel.selectedGroup?.id)
@@ -174,7 +174,7 @@ struct DirectCallTests {
         #expect(try restarted.load(localMemberID: "local").first?.kind == .group)
         #expect(restarted.users == users)
         #expect(try restarted.credential(for: group.id)?.secret == "key")
-        #expect(try f.file.read()?.version == 5)
+        #expect(try f.file.read()?.version == 6)
     }
 
     @Test func tamperedRecipientOrGroupKindCannotReinterpretExistingCall() throws {
@@ -187,7 +187,7 @@ struct DirectCallTests {
         let groupInvite = try GroupInviteToken.make(authority: testInvitationAuthority(), signer: testIdentitySigner("bob"), groupID: id, groupName: "Direct Call", groupSecret: key, inviterMemberID: "bob")
         #expect(throws: GroupInviteTokenError.incompatibleCall) { try vm.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: groupInvite)) }
         let token = try GroupInviteTokenCodec.decodeJoinURL(#require(vm.makeSelectedGroupInviteURL()))
-        let tampered = try GroupInviteToken(version: 5,
+        let tampered = try GroupInviteToken(version: 6,
             groupID: IntercomGroup.directCallID(memberIDs: ["alice", "charlie"]), groupName: token.groupName,
             groupSecret: token.groupSecret, inviterMemberID: "alice", recipientMemberID: "charlie",
             issuedAt: token.issuedAt, expiresAt: token.expiresAt,

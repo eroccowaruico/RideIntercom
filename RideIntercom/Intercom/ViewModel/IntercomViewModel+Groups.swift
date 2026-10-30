@@ -206,8 +206,12 @@ extension IntercomViewModel {
             groupErrorMessage = "This call invitation is addressed to another rider."
             throw GroupInviteTokenError.wrongRecipient
         }
-        let kind: IntercomGroup.Kind = token.recipientMemberID == nil ? .group : .direct
-        if let existing = groups.first(where: { $0.id == token.groupID }), existing.kind != kind {
+        if let recipient = token.recipientAccount, recipient != localAccountPrincipal {
+            groupErrorMessage = "This call invitation is addressed to another rider."
+            throw GroupInviteTokenError.wrongRecipient
+        }
+        let kind: IntercomGroup.Kind = token.recipientMemberID == nil && token.accountPair == nil ? .group : .direct
+        if let existing = groups.first(where: { $0.id == token.groupID }), (existing.kind != kind || existing.accountPair != token.accountPair) {
             groupErrorMessage = "This invitation cannot change an individual call into a group."
             throw GroupInviteTokenError.incompatibleCall
         }
@@ -215,11 +219,13 @@ extension IntercomViewModel {
         let accepted = try token.accept(signer: internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID),
                                         displayName: localMemberIdentity.displayName, trust: try internetSettingsStore.identityTrust(), now: now)
         let previous = try groupRepository.credential(for: token.groupID)
-        // Simultaneous first invitations converge on the smaller member ID's key.
+        // Account calls converge by principal, independently of which device invited.
         // Do not replace a call that has already connected; reconnect explicitly.
+        let keepsLocalKey = token.accountPair.map { $0.first == localAccountPrincipal }
+            ?? (localMemberIdentity.memberID < token.inviterMemberID)
         if kind == .direct, let previous, previous.secret != token.groupSecret,
            let existing = groups.first(where: { $0.id == token.groupID }),
-           localMemberIdentity.memberID < token.inviterMemberID {
+           keepsLocalKey {
             selectGroup(existing)
             groupErrorMessage = "You both created a call invitation. Share this call's invitation so you use the same call."
             return
@@ -228,9 +234,10 @@ extension IntercomViewModel {
             let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             do {
                 try groupRepository.acceptInvitation(accepted, inviterName: name)
+                refreshStoredAccountCall(token.groupID)
                 refreshGroupStorageStatus()
             } catch { reportGroupStorageError(error); throw error }
-            selectGroup(existing)
+            selectGroup(groups.first { $0.id == existing.id } ?? existing)
             inviteStatusMessage = "JOINED \(existing.name)"
             return
         }
@@ -243,11 +250,17 @@ extension IntercomViewModel {
             let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             members.append(GroupMember(id: token.inviterMemberID, displayName: name))
         }
+        var devices: [String: AccountDeviceBinding] = [:]
+        if token.accountPair != nil, let local = localAccountPrincipal, let remote = accepted.inviter.principal {
+            let signer = try internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID)
+            devices[signer.memberID] = .init(principal: local, publicKey: signer.publicKey)
+            devices[token.inviterMemberID] = .init(principal: remote, publicKey: accepted.inviter.publicKey)
+        }
         let group = try IntercomGroup(
             id: token.groupID,
             name: token.groupName,
             members: members,
-            kind: kind
+            kind: kind, accountPair: token.accountPair, accountDevices: devices
         )
         var updated = groups
         if let existingIndex = updated.firstIndex(where: { $0.id == group.id }) {

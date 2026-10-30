@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 struct GroupInviteToken: Codable, Equatable {
-    static let currentVersion = 5
+    static let currentVersion = 6
 
     let version: Int
     let groupID: UUID
@@ -16,6 +16,8 @@ struct GroupInviteToken: Codable, Equatable {
     let directInvitation: DirectInvitationGrant?
     let signature: String
     let identityProof: DeviceIdentityProof?
+    var accountPair: AccountCallPair? { directInvitation?.context.accountPair }
+    var recipientAccount: AccountPrincipal? { directInvitation?.context.recipientAccount }
 
     init(
         version: Int = GroupInviteToken.currentVersion,
@@ -58,13 +60,16 @@ struct GroupInviteToken: Codable, Equatable {
         inviterMemberID: String,
         inviterDisplayName: String? = nil,
         recipientMemberID: String? = nil,
+        recipientAccount: AccountPrincipal? = nil,
         issuedAt: TimeInterval = Date().timeIntervalSince1970,
         expiresAt: TimeInterval? = nil
     ) throws -> GroupInviteToken {
         guard signer.memberID == inviterMemberID else { throw GroupInviteTokenError.invalidTokenEncoding }
+        guard recipientAccount == nil || signer.principal != nil else { throw GroupInviteTokenError.accountVerificationRequired }
         let expiresAt = expiresAt ?? issuedAt + 7 * 24 * 60 * 60
         let grant = try authority.issue(.init(groupID: groupID, inviterMemberID: inviterMemberID, inviterDeviceKey: signer.publicKey,
-                                             recipientMemberID: recipientMemberID, expiresAt: expiresAt))
+                                             recipientMemberID: recipientMemberID, expiresAt: expiresAt,
+                                             inviterAccount: recipientAccount == nil ? nil : signer.principal, recipientAccount: recipientAccount))
         let signature = makeSignature(version: currentVersion, groupID: groupID, groupName: groupName, groupSecret: groupSecret,
             inviterMemberID: inviterMemberID, inviterDisplayName: inviterDisplayName, recipientMemberID: recipientMemberID,
             issuedAt: issuedAt, expiresAt: expiresAt, directInvitation: grant)
@@ -81,6 +86,10 @@ struct GroupInviteToken: Codable, Equatable {
         guard !isExpired(now: now) else { throw GroupInviteTokenError.expired }
         let inviter = try identityProof.verify(Data(signature.utf8), purpose: .issueInvitation, memberID: inviterMemberID,
                                               trust: trust, now: Date(timeIntervalSince1970: now))
+        if let recipientAccount {
+            guard signer.principal == recipientAccount else { throw GroupInviteTokenError.wrongRecipient }
+            guard inviter.principal == grant.context.inviterAccount else { throw GroupInviteTokenError.invalidSignature }
+        }
         let receipt = try DirectInvitationReceipt.make(grant: grant, signer: signer, inviteeMemberID: signer.memberID, displayName: displayName)
         return AcceptedDirectInvitation(receipt: receipt, inviter: inviter)
     }
@@ -177,6 +186,7 @@ enum GroupInviteTokenError: Error, Equatable {
     case activeGroupKeyChanged
     case wrongRecipient
     case incompatibleCall
+    case accountVerificationRequired
 }
 
 enum GroupInviteTokenCodec {

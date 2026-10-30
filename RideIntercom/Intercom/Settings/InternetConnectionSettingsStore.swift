@@ -33,7 +33,10 @@ final class InternetConnectionSettingsStore {
         return .init(keychain: keychain, namespace: namespace, developmentDefaults: developmentDefaults,
                      permitsServiceAccess: permitsServiceAccess)
     }
-    private struct Saved: Codable { let workerURL: URL; let accessToken: String; var identity: DeviceIdentityCertificate? }
+    private struct Saved: Codable {
+        let workerURL: URL; let accessToken: String; var identity: DeviceIdentityCertificate?
+        var memberID: String?; var binding: AccountDeviceBinding?
+    }
     enum ValidationError: Error { case invalidURL, missingToken, disabledDuringLocalTests }
     private func validated(url: String, token: String) throws -> Saved {
         guard let url = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)), url.scheme == "https", url.host != nil,
@@ -49,6 +52,8 @@ final class InternetConnectionSettingsStore {
             guard let key = try storedDeviceSigningKey(), identity.issuer == IdentityEncoding.origin(saved.workerURL),
                   identity.deviceKey == IdentityEncoding.encode(key.publicKey.x963Representation) else { throw ValidationError.missingToken }
             saved.identity = identity.envelope
+            saved.memberID = identity.memberID
+            saved.binding = AccountDeviceBinding(principal: .init(issuer: identity.issuer, userID: identity.userID), publicKey: identity.deviceKey)
         }
         let data = try JSONEncoder().encode(saved)
         try keychain.saveSecret(String(decoding: data, as: UTF8.self), service: service, account: "current")
@@ -89,6 +94,22 @@ final class InternetConnectionSettingsStore {
         guard let key = try storedDeviceSigningKey(), identity.memberID == memberID,
               identity.deviceKey == IdentityEncoding.encode(key.publicKey.x963Representation) else { throw KeychainSecretStoreError.invalidData }
         return identity
+    }
+
+    /// Previously verified local identity survives certificate expiry for offline calls.
+    /// This cache never certifies a new peer or signs a new account invitation.
+    func loadPrincipal(memberID: String) throws -> AccountPrincipal? {
+        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey),
+              let raw = try keychain.secret(service: service, account: "current") else { return nil }
+        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
+        if let binding = saved.binding {
+            guard saved.memberID == memberID, binding.principal.isValid,
+                  binding.principal.issuer == IdentityEncoding.origin(saved.workerURL),
+                  let key = try storedDeviceSigningKey(), binding.publicKey == IdentityEncoding.encode(key.publicKey.x963Representation)
+            else { throw KeychainSecretStoreError.invalidData }
+            return binding.principal
+        }
+        return try loadIdentity(memberID: memberID).map { .init(issuer: $0.issuer, userID: $0.userID) }
     }
 
     func invitationSigner(memberID: String, expectedPublicKey: String? = nil) throws -> DeviceIdentitySigner {

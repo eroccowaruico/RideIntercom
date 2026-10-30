@@ -169,6 +169,30 @@ enum PeerConnectionState: String, Equatable, Codable {
     case offline = "Offline"
 }
 
+/// Account identity chooses the conversation; device identities authorize its endpoints.
+struct AccountCallPair: Codable, Equatable {
+    let first: AccountPrincipal
+    let second: AccountPrincipal
+    init(_ a: AccountPrincipal, _ b: AccountPrincipal) {
+        if a.orderingKey < b.orderingKey { first = a; second = b }
+        else { first = b; second = a }
+    }
+    var isValid: Bool { first.isValid && second.isValid && first.orderingKey < second.orderingKey }
+    var id: UUID { IntercomGroup.directCallID(memberIDs: ["account-v1", first.orderingKey, second.orderingKey]) }
+    func other(than principal: AccountPrincipal) -> AccountPrincipal? {
+        principal == first ? second : principal == second ? first : nil
+    }
+}
+
+extension AccountPrincipal {
+    var orderingKey: String { Data(issuer.utf8).base64EncodedString() + ":" + userID }
+}
+
+struct AccountDeviceBinding: Codable, Equatable {
+    let principal: AccountPrincipal
+    let publicKey: String
+}
+
 struct IntercomGroup: Identifiable, Equatable {
     enum Kind: String, Codable { case group, direct }
     static let maximumMemberCount = 8
@@ -178,8 +202,10 @@ struct IntercomGroup: Identifiable, Equatable {
     var members: [GroupMember]
     var accessSecret: String?
     let kind: Kind
+    let accountPair: AccountCallPair?
+    var accountDevices: [String: AccountDeviceBinding]
 
-    init(id: UUID = UUID(), name: String, members: [GroupMember], accessSecret: String? = nil, kind: Kind = .group) throws {
+    init(id: UUID = UUID(), name: String, members: [GroupMember], accessSecret: String? = nil, kind: Kind = .group, accountPair: AccountCallPair? = nil, accountDevices: [String: AccountDeviceBinding] = [:]) throws {
         guard (1...Self.maximumMemberCount).contains(members.count) else {
             throw IntercomGroupError.invalidMemberCount
         }
@@ -187,9 +213,19 @@ struct IntercomGroup: Identifiable, Equatable {
               members.allSatisfy({ Self.isValidMemberID($0.id) && Self.isValidName($0.displayName) && ($0.localName.map(Self.isValidName) ?? true) }) else {
             throw IntercomGroupError.invalidIdentity
         }
-        if kind == .direct {
-            guard members.count == 2, !members.contains(where: { $0.id.hasPrefix(GroupMember.pendingInvitePrefix) }),
-                  id == Self.directCallID(memberIDs: members.map(\.id)) else { throw IntercomGroupError.invalidIdentity }
+        if let pair = accountPair {
+            guard kind == .direct, pair.isValid, id == pair.id,
+                  Set(accountDevices.keys) == Set(members.map(\.id)),
+                  accountDevices.allSatisfy({ memberID, binding in
+                      !memberID.hasPrefix(GroupMember.pendingInvitePrefix) && pair.other(than: binding.principal) != nil
+                      && DeviceIdentityProof.isValidPublicKey(binding.publicKey)
+                  }) else { throw IntercomGroupError.invalidIdentity }
+        } else {
+            guard accountDevices.isEmpty else { throw IntercomGroupError.invalidIdentity }
+            if kind == .direct {
+                guard members.count == 2, !members.contains(where: { $0.id.hasPrefix(GroupMember.pendingInvitePrefix) }),
+                      id == Self.directCallID(memberIDs: members.map(\.id)) else { throw IntercomGroupError.invalidIdentity }
+            }
         }
 
         self.id = id
@@ -197,6 +233,8 @@ struct IntercomGroup: Identifiable, Equatable {
         self.members = members
         self.accessSecret = accessSecret
         self.kind = kind
+        self.accountPair = accountPair
+        self.accountDevices = accountDevices
     }
 
     /// Identifies a pair, never supplies a credential. Keys remain random and private.

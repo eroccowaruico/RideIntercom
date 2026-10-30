@@ -65,12 +65,14 @@ nonisolated struct DeviceIdentityProof: Codable, Equatable, Sendable {
 nonisolated struct DeviceIdentitySigner: Sendable {
     let memberID: String
     let publicKey: String
+    let principal: AccountPrincipal?
     private let key: P256.Signing.PrivateKey
     private let certificate: DeviceIdentityCertificate?
     init(memberID: String, key: P256.Signing.PrivateKey, identity: VerifiedDeviceIdentity? = nil) throws {
         let publicKey = IdentityEncoding.encode(key.publicKey.x963Representation)
         guard IntercomGroup.isValidMemberID(memberID), !memberID.hasPrefix("invite-pending-"),
               identity.map({ $0.memberID == memberID && $0.deviceKey == publicKey }) ?? true else { throw DeviceIdentityProof.Failure.invalid }
+        self.principal = identity.map { AccountPrincipal(issuer: $0.issuer, userID: $0.userID) }
         self.memberID = memberID; self.key = key; self.publicKey = publicKey; self.certificate = identity?.envelope
     }
     func sign(_ payload: Data, purpose: DeviceIdentityProof.Purpose) throws -> DeviceIdentityProof {

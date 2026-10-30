@@ -26,6 +26,7 @@ extension IntercomViewModel {
         do { _ = try internetSettingsStore.retireAppleCredential() }
         catch { internetCheckMessage = "Could not read Internet access for sign-out. Saved data has been preserved." }
         hasInternetCredentials = false
+        localAccountPrincipal = nil
         Task { await retryInternetAccountRevocation() }
     }
     func retryInternetAccountRevocation(client: InternetAccountClient = .init()) async {
@@ -42,6 +43,7 @@ extension IntercomViewModel {
     func saveInternetConnection(url: String, token: String, identity: VerifiedDeviceIdentity? = nil) throws {
         guard canStartCalls else { throw InternetAccountClient.Failure.rejected }
         try internetSettingsStore.save(url: url, token: token, identity: identity)
+        localAccountPrincipal = try internetSettingsStore.loadPrincipal(memberID: localMemberIdentity.memberID)
         guard let configuration = try internetSettingsStore.load() else { throw InternetConnectionSettingsStore.ValidationError.missingToken }
         internetCheckGeneration = UUID()
         isCheckingInternet = false

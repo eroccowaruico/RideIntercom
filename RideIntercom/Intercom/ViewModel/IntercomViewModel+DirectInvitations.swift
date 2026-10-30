@@ -8,7 +8,7 @@ extension IntercomViewModel {
               groups.contains(where: { $0.id == group.id }),
               group.members.contains(where: { $0.id == localMemberIdentity.memberID }),
               !groupsMissingKeys.contains(group.id) || group.accessSecret != nil else { return false }
-        return group.kind != .direct || directCallRecipient(for: group) != nil
+        return group.kind != .direct || directCallRecipient(for: group) != nil || directCallAccountRecipient(for: group) != nil
     }
 
     func makeSelectedGroupInviteURL(expectedGroupID: UUID? = nil) -> URL? {
@@ -23,8 +23,11 @@ extension IntercomViewModel {
             let token = try GroupInviteToken.make(authority: invitationAuthority, signer: signer,
                 groupID: group.id, groupName: group.name, groupSecret: credential.secret,
                 inviterMemberID: localMemberIdentity.memberID, inviterDisplayName: localMemberIdentity.displayName,
-                recipientMemberID: directCallRecipient(for: group))
+                recipientMemberID: directCallRecipient(for: group), recipientAccount: directCallAccountRecipient(for: group))
             return try GroupInviteTokenCodec.joinURL(for: token)
+        } catch GroupInviteTokenError.accountVerificationRequired {
+            groupErrorMessage = "Verify your account in Internet Connection before sharing a new individual call invitation."
+            return nil
         } catch { reportGroupStorageError(error); return nil }
     }
 
