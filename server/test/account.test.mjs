@@ -39,6 +39,7 @@ test('Apple enrollment gives one account across devices and authorizes individua
         const one = await first.json(), two = await second.json();
         assert.equal(one.userID, two.userID);
         assert.match(one.userID, /^[a-f0-9]{64}$/);
+        assert.notEqual(one.userID, one.accessToken.split('.')[1], 'Public identity must not expose the private account locator');
         assert.equal(one.deviceID, a.deviceID);
         assert.notEqual(one.accessToken, two.accessToken);
         assert.ok(!JSON.stringify(one).includes('apple-private-subject'));
@@ -368,6 +369,7 @@ test('account deletion removes every device of only the authenticated account an
         assert.equal((await call(runtime, '/api/auth/session', undefined, other.accessToken, 'GET')).status, 200);
         assert.equal((await signIn(runtime, oldAttempt)).status, 401, 'A proof issued before deletion must not recreate device access');
         const replacement = await enrolled(runtime);
+        assert.notEqual(replacement.userID, one.userID, 'Deletion must retire the previous public identity');
         assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
         assert.equal((await call(runtime, '/api/auth/session', undefined, replacement.accessToken, 'GET')).status, 200, 'A repeated old deletion must not delete new registrations');
         assert.equal((await call(runtime, '/api/auth/account', undefined, two.accessToken, 'DELETE')).status, 401);
@@ -388,9 +390,54 @@ test('account deletion receipt survives restart, expires, and still works with e
         runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
         assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
         const replacement = await enrolled(runtime);
+        assert.notEqual(replacement.userID, one.userID, 'Deletion must retire the previous public identity');
         await runtime.dispose();
         runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey], clockOffsetMs: 86401000 });
         assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 401);
         assert.equal((await call(runtime, '/api/auth/session', undefined, replacement.accessToken, 'GET')).status, 200);
     } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+
+test('public identity survives all-device sign-out and expiry, but not account deletion', async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), 'ride-public-identity-'));
+    let runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, one.accessToken, 'DELETE')).status, 200);
+        const again = await enrolled(runtime);
+        assert.equal(again.userID, one.userID);
+        await runtime.dispose();
+        const offset = 31 * 86400000;
+        runtime = await makeRuntime(options, { storageDirectory, appleKeys: [publicKey], clockOffsetMs: offset });
+        assert.equal((await call(runtime, '/api/auth/session', undefined, again.accessToken, 'GET')).status, 401);
+        const now = Math.floor((Date.now() + offset) / 1000);
+        const restoredResponse = await signIn(runtime, await challenge(runtime), { iat: now, exp: now + 300 });
+        assert.equal(restoredResponse.status, 200);
+        const restored = await restoredResponse.json();
+        assert.equal(restored.userID, one.userID, 'Credential expiry is not account deletion');
+        assert.equal((await call(runtime, '/api/auth/account', undefined, restored.accessToken, 'DELETE')).status, 200);
+        const attempts = await Promise.all([challenge(runtime), challenge(runtime)]);
+        const replacements = await Promise.all(attempts.map(attempt => signIn(runtime, attempt, { iat: now, exp: now + 300 })));
+        assert.ok(replacements.every(response => response.status === 200));
+        const identities = await Promise.all(replacements.map(response => response.json()));
+        assert.notEqual(identities[0].userID, one.userID);
+        assert.equal(identities[0].userID, identities[1].userID, 'Concurrent enrollment must share the new identity');
+    } finally { await runtime.dispose(); await rm(storageDirectory, { recursive: true, force: true }); }
+});
+
+test('re-enrollment after deletion cannot bypass an uncollected account connection reservation', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey] });
+    try {
+        const one = await enrolled(runtime);
+        assert.equal((await call(runtime, `/api/rooms/${room}/join`, { participantId: one.deviceID, offer }, one.accessToken)).status, 200);
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
+        const replacement = await enrolled(runtime);
+        assert.notEqual(replacement.userID, one.userID);
+        const count = provider.requests.length;
+        const response = await call(runtime, `/api/rooms/${'b'.repeat(64)}/join`, { participantId: replacement.deviceID, offer }, replacement.accessToken);
+        assert.equal(response.status, 409);
+        assert.equal((await response.json()).code, 'account_in_use');
+        assert.equal(provider.requests.length, count);
+    } finally { await runtime.dispose(); }
 });

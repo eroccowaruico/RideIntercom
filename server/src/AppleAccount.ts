@@ -64,16 +64,24 @@ export class UserAccount extends DurableObject<Env> {
         if (deletion && (!Number.isFinite(issuedAt) || issuedAt <= deletion.deletedAt)) return 'stale-proof'
         if (!this.ctx.storage.kv.get(`device:${deviceID}`) && [...this.ctx.storage.kv.list({ prefix: 'device:' })].length >= 8) return null
         const expiresAt = Date.now() + 30 * 86400000
-        this.ctx.storage.kv.put(`device:${deviceID}`, { tokenHash, expiresAt })
+        // Public identity is stable across device expiry/sign-out, and retired only
+        // by account deletion. Never derive it from the private DO locator.
+        const userID = this.ctx.storage.kv.get<string>('userID') ?? randomSecret()
+        if (!objectPattern.test(userID)) throw new Error('Invalid account identity')
+        this.ctx.storage.transactionSync(() => {
+            this.ctx.storage.kv.put('userID', userID)
+            this.ctx.storage.kv.put(`device:${deviceID}`, { tokenHash, expiresAt })
+        })
         await this.scheduleExpiry()
-        return { userID: this.ctx.id.toString(), deviceID, expiresAt }
+        return { userID, deviceID, expiresAt }
     }
 
     authenticate(deviceID: string, tokenHash: string): DeviceIdentity | null {
+        const userID = this.ctx.storage.kv.get<string>('userID')
         const device = this.ctx.storage.kv.get<Device>(`device:${deviceID}`)
-        if (!device || device.expiresAt <= Date.now() || !crypto.subtle.timingSafeEqual(
+        if (!userID || !objectPattern.test(userID) || !device || device.expiresAt <= Date.now() || !crypto.subtle.timingSafeEqual(
             new TextEncoder().encode(device.tokenHash), new TextEncoder().encode(tokenHash))) return null
-        return { userID: this.ctx.id.toString(), deviceID, expiresAt: device.expiresAt }
+        return { userID, deviceID, expiresAt: device.expiresAt }
     }
 
     async revoke(deviceID: string, tokenHash: string): Promise<boolean> {
@@ -95,6 +103,7 @@ export class UserAccount extends DurableObject<Env> {
         if (!this.authenticate(deviceID, tokenHash)) return false
         const now = Date.now()
         this.ctx.storage.transactionSync(() => {
+            this.ctx.storage.kv.delete('userID')
             for (const [key] of this.ctx.storage.kv.list({ prefix: 'device:' })) this.ctx.storage.kv.delete(key)
             // One bounded receipt, containing a hash rather than the bearer secret.
             // Its timestamp also excludes previously issued enrollment proofs.
@@ -122,16 +131,20 @@ export class UserAccount extends DurableObject<Env> {
 }
 
 function deviceCredential(token: string, env: Env) {
-    const [version, userID, deviceID, secret, extra] = token.split('.')
-    if (version !== 'ri1' || !objectPattern.test(userID ?? '') || !devicePattern.test(deviceID ?? '')
+    const [version, accountID, deviceID, secret, extra] = token.split('.')
+    if (version !== 'ri1' || !objectPattern.test(accountID ?? '') || !devicePattern.test(deviceID ?? '')
         || !objectPattern.test(secret ?? '') || extra !== undefined) return null
-    try { return { account: env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromString(userID)), deviceID, secret } }
+    try { return { account: env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromString(accountID)), accountID, deviceID, secret } }
     catch { return null }
 }
 
-export async function authenticateDevice(token: string, env: Env): Promise<DeviceIdentity | null> {
+export async function authenticateDevice(token: string, env: Env): Promise<(DeviceIdentity & { accountID: string }) | null> {
     const credential = deviceCredential(token, env)
-    return credential ? credential.account.authenticate(credential.deviceID, await digest(credential.secret)) : null
+    if (!credential) return null
+    const identity = await credential.account.authenticate(credential.deviceID, await digest(credential.secret))
+    // Internal connection accounting survives public identity retirement, so a
+    // still-live lease cannot be bypassed by deleting and registering again.
+    return identity ? { ...identity, accountID: credential.accountID } : null
 }
 
 export async function accountRequest(request: Request, env: Env): Promise<Response> {
@@ -191,7 +204,7 @@ export async function accountRequest(request: Request, env: Env): Promise<Respon
         const identity = await account.register(verified.deviceID, await digest(secret), verified.issuedAt)
         if (identity === 'stale-proof') return json({ error: 'Prepare Apple sign-in again' }, 401)
         if (!identity) return json({ error: 'Device registration limit reached', code: 'device_limit_reached' }, 409)
-        return json({ ...identity, accessToken: `ri1.${identity.userID}.${identity.deviceID}.${secret}` })
+        return json({ ...identity, accessToken: `ri1.${account.id.toString()}.${identity.deviceID}.${secret}` })
     } catch (error) {
         return error instanceof Error && error.message === 'body'
             ? json({ error: 'Invalid body' }, 400) : json({ error: 'Account service unavailable' }, 503)

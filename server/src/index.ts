@@ -28,7 +28,7 @@ export default {
         if (!env.CLOUDFLARE_SFU_APP_ID || !env.CLOUDFLARE_SFU_APP_SECRET) return json({ error: 'SFU is not configured' }, 503)
         const headers = new Headers(request.headers)
         headers.delete('Authorization'); headers.set('X-Owner', owner)
-        headers.delete('X-User'); if (device) headers.set('X-User', device.userID)
+        headers.delete('X-User'); if (device) headers.set('X-User', device.accountID)
         if (url.pathname === '/api/status' && request.method === 'GET') {
             return env.USAGE_GUARD.get(env.USAGE_GUARD.idFromName('global')).fetch(new Request('https://internal/status'))
         }

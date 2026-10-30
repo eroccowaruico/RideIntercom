@@ -56,7 +56,8 @@ sequenceDiagram
 | POST `/api/auth/apple/session` | `challengeID`と最大16KiBの`identityToken`を照合し、`userID`・`deviceID`・`expiresAt`・`accessToken`を返す。nonceは並行再送でも1回だけ消費する。1つのchallengeの検証試行は5回までで、外部鍵取得前に回数を永続化する。上限後は新しいchallengeが必要 |
 | GET `/api/auth/session` | 端末Bearerを照合し、ユーザーID・端末ID・期限だけ返す |
 | DELETE `/api/auth/session` | そのBearerの端末資格だけを失効。他の端末は維持。通話サービス停止中も操作できる |
-| 同一人物 | Apple subjectのハッシュでユーザーDOを解決する。同じAppleユーザーの複数端末は同じ不透明なuser IDへ対応。表示名やメールによる統合はしない |
+| 同一人物 | Apple subjectのハッシュでユーザーDOを解決する。DO内で256bit乱数の公開`userID`を保存し、同じAppleユーザーの複数端末・再ログイン・全端末の資格期限切れでも維持する。アカウント削除だけで破棄し、再登録時は新しいIDへ対応する。表示名やメールによる統合はしない |
+| 識別子の分離 | `ri1`資格内のDO locatorは認証先を解決する内部IDであり、公開`userID`と一致させない。相手への本人確認・通知許可にlocatorやBearerを配布しない。AppはHTTPS登録応答のユーザーIDと資格を別々に検証する |
 | 資格の保持 | 端末資格は30日有効、同一device IDの再認証で置換。serverには秘密のSHA-256と期限を保持し、秘密自体・Apple token・メール・Apple生IDを保存しない。DO名にもApple生IDを使用しない |
 | 登録数 | ユーザーごとの有効な登録資格は最大8端末。上限でも登録済み端末の再認証は可能。WebRTC同時接続数とは別の上限。超過時は409 / `device_limit_reached`を返す |
 | 登録入口の制限 | challenge・sessionのPOSTを合算し、edgeの`CF-Connecting-IP`ごとに30回/60秒、全送信元で300回/60秒をRate Limiting bindingで判定。body読取・DO作成・Apple検証より前に拒否する。超過は429 / `enrollment_rate_limited`と`Retry-After: 60`。端末IDや`X-Forwarded-For`で枠を分割しない |
@@ -78,7 +79,8 @@ AppのSettingsからnonce取得・native Apple認証・資格保存と、サイ�
 | 項目 | 契約 |
 |---|---|
 | API | `DELETE /api/auth/account`。確認済みの端末Bearerが属するアカウントだけを対象にし、bodyやheaderで他のuserIDを指定できない |
-| 削除範囲 | 対象アカウントの全端末資格を同じSQLite transactionで削除する。他アカウントの資格は維持する。登録入口・通話サービスの停止中も削除を受け付ける |
+| 削除範囲 | 対象アカウントの公開userIDと全端末資格を同じSQLite transactionで削除する。他アカウントの資格は維持する。登録入口・通話サービスの停止中も削除を受け付ける |
+| 再登録 | 新しい公開userIDを発行し、古いIDの関係を引き継がない。並行する登録は同じ新IDを使う。WebRTCの接続枠は内部アカウントIDで管理し、削除前の通話資源が未回収なら再登録でも409を返す。関係・通知許可を内部IDへ結び付けない |
 | 応答 | `{deleted: true, appleAuthorizationRevoked: false}`。Apple側の認可取消や端末内のグループ削除が完了したという意味ではない |
 | 応答を失った再送 | 削除元のdeviceID・資格hash・削除時刻だけを含む受領記録を1件、24時間保持する。同じ資格での再送は成功を返すが、その後の新規登録へ削除を再適用しない。別の失効済み資格は401 |
 | 登録との競合 | challengeの発行時刻が保持中の削除時刻以前なら登録を401で拒否する。新しいchallengeから再認証する。時刻はserverで設定し、clientの申告値を使わない |
@@ -92,13 +94,13 @@ Appの削除確認・端末内データ消去・Apple認可取消は[残課題](
 
 | 場面 | 動作 |
 |---|---|
-| 接続の単位 | serverがApple端末資格から確認したuserIDにつき、全room・全端末で有効な接続予約を1つにする。同じ端末が別participant IDや別roomを使っても追加できない |
+| 接続の単位 | serverがApple端末資格から確認した内部アカウントIDにつき、全room・全端末で有効な接続予約を1つにする。同じ端末が別participant IDや別roomを使っても追加できない |
 | 接続準備 | TURN有効時はICE資格の発行前、無効時はjoinのSFU呼出前に予約する。ICE・join・renewは同じroomとparticipantの予約を共有する |
 | 同時要求 | UsageGuardの既存予約とユーザー対応を同じ同期KV書込で確定する。新たなDOや定期pollingは追加せず、外部I/Oを同期区間に含めない |
 | 追加接続 | HTTP 409 / `account_in_use`。先の接続を追い出さず、追加側へ既存通話の終了を案内する。受信したX-User・X-Ownerは信用せずWorkerが置き換える |
 | 更新・解放 | 同じ予約の重複準備・更新を許す。終了と準備取消はSFU/TURNの回収後に解放。SFU session作成後の失敗も回収まで予約を保持する |
-| 再起動・通信断 | 予約とuserID対応を永続化。通信断で終了要求が届かない場合、既存leaseの満了後に新規予約が可能になる。無効な資格の更新は認めない |
-| 保持情報 | 既存のroom/participant予約にserver userIDを対応付ける。メール・本名・表示名・ユーザー一覧は追加保存しない。解放・期限切れ整理で対応も削除する |
+| 再起動・通信断 | 予約と内部アカウントIDの対応を永続化。通信断で終了要求が届かない場合、既存leaseの満了後に新規予約が可能になる。無効な資格の更新は認めない |
+| 保持情報 | 既存のroom/participant予約に内部アカウントIDを対応付ける。メール・本名・表示名・ユーザー一覧は追加保存しない。解放・期限切れ整理で対応も削除する |
 
 これは有効な接続予約の制御であり、lease満了とprovider上の実媒体回収は同時完了の保証ではない。alarm遅延やprovider障害時には旧媒体が回収まで残り得る。任意に新旧2端末を併用する切替機能は提供していない。復旧時の重複の上限・切替方針は[残課題](../../backlog/未実装課題.md#appleでのログインと通知先の識別)で継続する。Appの案内は[通信仕様](../App/通信仕様.md#rtc-error-の扱い)を参照する。
 

@@ -43,10 +43,11 @@ nonisolated struct InternetAccountClient: Sendable {
         guard let token = String(data: token, encoding: .utf8), !token.isEmpty, token.utf8.count <= 16384 else { throw Failure.invalidResponse }
         let value: InternetAccountCredential = try await send(origin: origin, path: "api/auth/apple/session",
             body: ["challengeID": challenge.challengeID, "identityToken": token])
+        // The bearer locator routes private server state; it is not the public user ID.
         let parts = value.accessToken.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
         guard Self.hex(value.userID), value.deviceID == challenge.deviceID, value.expiresAt.isFinite,
               value.expiresAt > Date().timeIntervalSince1970 * 1000,
-              parts.count == 4, parts[0] == "ri1", parts[1] == value.userID, parts[2] == value.deviceID, Self.hex(parts[3]) else { throw Failure.invalidResponse }
+              parts.count == 4, parts[0] == "ri1", Self.hex(parts[1]), parts[2] == value.deviceID, Self.hex(parts[3]) else { throw Failure.invalidResponse }
         return value
     }
     func revoke(_ configuration: CloudflareRealtimeConfiguration) async throws {

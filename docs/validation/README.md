@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## 公開ユーザーIDと削除後の再登録（2026-10-31）
+
+公開ユーザーIDを認証用DO locatorから分離し、サインアウト・全端末資格の期限切れ・再ログインでは維持、アカウント削除で破棄する。再登録時の新IDは並行登録でも一致させる。Appの登録応答検証を同じ契約へ変更した。WebRTC予約は内部IDを使い、削除前の資源が残る間の追加接続を拒否する。[Worker契約](../spec/server/Worker.md#apple認証と端末資格)を参照する。
+
+証跡は`.validation/account-identity-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| Worker / DO | 45件成功、失敗・skipなし。削除後のID更新、全資格失効後の同一性、並行登録、再起動、削除再送、通話枠の迂回拒否を含む。`server/server.log` |
+| Swift–Worker | 実HTTP/WSとローカルDOの結合1件成功。外部SFUはmock。`server/pair.log` |
+| App | macOS・iOSそれぞれ220件成功、失敗・skip・runtime warningなし。公開IDと内部locatorを分離した正常応答と、不正locatorの拒否を確認。Macのsandbox無効条件は検証ホストだけ。`macos/`、`ios/` |
+| ソース・静的確認 | iOS検証前後のApp/test・serverソースhash一致。TypeScript、文書、開発設定、diff検査成功。専用Simulatorは終了済み。既知のAppIntents未使用metadata省略warningは継続 |
+
+修正前に削除後の同一IDとAppの応答拒否を再現した証跡も保持する。UI・Release・音声処理は今回変更しておらず、その再検証は含めない。公開IDと保存ユーザー・相手端末の本人確認、端末内アカウント削除、通知許可は後続に残る。実Apple認証・実機・全package/音声E2Eを含む最終受入の完了ではない。
+
 ## 直接招待の発行確認と再受理の制限（2026-10-31）
 
 group参加者による直接招待の自己申告を拒否するため、発行者のアカウント別Keychain鍵、招待専用秘密、相手IDに結び付いた受取証明をAppへ接続した。同じ招待と受取人のIDを固定し、一覧削除後の再送・URL再受理・受取IDの書換えによる再登録を拒否する。[現行契約](../spec/App/通信仕様.md#永続化と入力検証の所有)を参照する。

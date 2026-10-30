@@ -92,8 +92,21 @@ struct InternetAccountTests {
         await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("synthetic-proof".utf8))
         #expect(f.saved?.userID == String(repeating: "a", count: 64))
         #expect(f.saved?.deviceID == f.deviceID)
+        #expect(f.saved?.accessToken.split(separator: ".")[1] == Substring(String(repeating: "d", count: 64)))
         #expect(f.authorization.message == "Internet calling is connected to your Apple Account.")
         #expect(AccountHTTPStub.requests.map { $0.url!.path } == ["/api/auth/apple/challenge", "/api/auth/apple/session"])
+    }
+
+    @Test(arguments: ["", "invalid", String(repeating: "d", count: 63), String(repeating: "D", count: 64), String(repeating: "d", count: 64) + ".extra"])
+    func invalidPrivateLocatorCannotBeSaved(locator: String) async {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        await f.authorization.prepare(url: "https://account.test")
+        AccountHTTPStub.setLocator(locator)
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        f.authorization.configure(request)
+        await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
+        #expect(f.saved == nil)
+        #expect(f.authorization.message != "Internet calling is connected to your Apple Account.")
     }
 
     @Test func differentAccountAndReplayedNativeCompletionNeverExchangeProof() async {
@@ -238,18 +251,20 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var recorded: [URLRequest] = []
     nonisolated(unsafe) private static var deviceID = ""
+    nonisolated(unsafe) private static var locator = String(repeating: "d", count: 64)
     nonisolated(unsafe) private static var delayed = false
     nonisolated(unsafe) private static var responseStatus = 200
     nonisolated(unsafe) private static var responsePath: String?
     nonisolated(unsafe) private static var retryAfter: String?
     static var requests: [URLRequest] { lock.withLock { recorded } }
     static func reset(deviceID: String) { lock.withLock {
-        recorded = []; Self.deviceID = deviceID; delayed = false
+        recorded = []; Self.deviceID = deviceID; delayed = false; locator = String(repeating: "d", count: 64)
         responseStatus = 200; responsePath = nil; retryAfter = nil
     } }
     static func respond(status: Int, path: String? = nil, retryAfter: String? = nil) { lock.withLock {
         responseStatus = status; responsePath = path; Self.retryAfter = retryAfter
     } }
+    static func setLocator(_ value: String) { lock.withLock { locator = value } }
     static func delayExchange() { lock.withLock { delayed = true } }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -262,7 +277,7 @@ private final class AccountHTTPStub: URLProtocol, @unchecked Sendable {
                     "expiresAt": Date().addingTimeInterval(300).timeIntervalSince1970 * 1000]
         } else if request.httpMethod == "DELETE" { body = [:] }
         else { body = ["userID": account, "deviceID": device, "expiresAt": Date().addingTimeInterval(3600).timeIntervalSince1970 * 1000,
-                       "accessToken": "ri1.\(account).\(device).\(String(repeating: "c", count: 64))"] }
+                       "accessToken": "ri1.\(Self.lock.withLock { Self.locator }).\(device).\(String(repeating: "c", count: 64))"] }
         let data = try! JSONSerialization.data(withJSONObject: body)
         let (status, retryAfter) = Self.lock.withLock {
             (Self.responsePath == nil || Self.responsePath == request.url?.path ? Self.responseStatus : 200, Self.retryAfter)
