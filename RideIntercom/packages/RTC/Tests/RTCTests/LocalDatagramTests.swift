@@ -65,13 +65,16 @@ private final class DatagramRecording: @unchecked Sendable {
     #expect(recording.packets.map { $0.1 } == (0..<24).map { Data([UInt8($0)]) })
 }
 
-@Test func localBonjourDiscoveryDeliversNativeUDPAudioInBothDirections() async throws {
+@Test func localBonjourResolvesOnlyRegisteredPeersAndDeliversInBothDirections() async throws {
     let aRecording = DatagramRecording(), bRecording = DatagramRecording(), group = UUID().uuidString
     let aID = PeerID(rawValue: "a"), bID = PeerID(rawValue: "b")
     let a = LocalDatagramTransport(peerID: aID, groupHash: group) { aRecording.append($0, $1) }
     let b = LocalDatagramTransport(peerID: bID, groupHash: group) { bRecording.append($0, $1) }
     try a.start(); try b.start()
     defer { a.stop(); b.stop() }
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(!a.isReady(for: bID) && !b.isReady(for: aID), "Advertising alone must not start a second group discovery")
+    a.connect(to: bID); b.connect(to: aID)
     for _ in 0..<500 where !a.isReady(for: bID) || !b.isReady(for: aID) { try await Task.sleep(for: .milliseconds(10)) }
     #expect(a.isReady(for: bID), "\(a.statistics)")
     #expect(b.isReady(for: aID), "\(b.statistics)")
@@ -80,6 +83,14 @@ private final class DatagramRecording: @unchecked Sendable {
     for _ in 0..<100 where aRecording.packets.isEmpty || bRecording.packets.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
     #expect(aRecording.packets.map { $0.1 } == [Data([2])])
     #expect(bRecording.packets.map { $0.1 } == [Data([1])])
+    a.remove(bID)
+    #expect(!a.isReady(for: bID))
+    #expect(a.send(Data([3]), to: [bID]).isEmpty, "Retired membership must not restart an old endpoint")
+    a.connect(to: bID)
+    for _ in 0..<500 where !a.isReady(for: bID) { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(a.send(Data([4]), to: [bID]) == [bID])
+    for _ in 0..<100 where bRecording.packets.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(bRecording.packets.map { $0.1 } == [Data([1]), Data([4])])
 }
 
 @Test func localUDPAllowsInfrastructureFreeDiscoveryButProhibitsCellular() throws {

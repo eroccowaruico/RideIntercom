@@ -288,9 +288,11 @@ final class MultipeerConnectionTransport: NSObject, @unchecked Sendable {
             if !mediaPeers.contains(peerID), mediaPeers.count >= 7 {
                 guard let departed = mediaPeers.subtracting(connectedPeerIDs).first else { return false }
                 mediaPeers.remove(departed)
+                datagrams?.remove(departed)
             }
             authenticatedPeers.insert(peerID)
             mediaPeers.insert(peerID)
+            datagrams?.connect(to: peerID)
             onEvent?(.members(Array(mediaPeers)))
             return true
 

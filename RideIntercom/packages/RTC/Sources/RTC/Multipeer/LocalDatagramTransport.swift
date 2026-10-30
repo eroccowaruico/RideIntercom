@@ -21,7 +21,6 @@ final class LocalDatagramTransport: @unchecked Sendable {
     private let onReceive: @Sendable (PeerID, Data) -> Void
     var onFailure: (@Sendable (String) -> Void)?
     private var listener: NWListener?
-    private var browser: NWBrowser?
     private var generation = UUID()
     private var outgoing: [String: NWConnection] = [:]
     private var replacements: [String: NWConnection] = [:]
@@ -49,7 +48,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
     var statistics: RTCNetworkStatistics {
         queue.sync {
             var result = RTCNetworkStatistics(bufferedBytes: UInt64(inFlight.values.reduce(0, +)),
-                unavailableReason: "UDP media has no acknowledgement-based RTT or network loss estimate; discovered endpoints: \(endpoints.count), ready: \(ready.count)")
+                unavailableReason: "UDP media has no acknowledgement-based RTT or network loss estimate; registered endpoints: \(endpoints.count), ready: \(ready.count)")
             result.sentMediaDatagrams = sent; result.receivedMediaDatagrams = received
             return result
         }
@@ -86,36 +85,25 @@ final class LocalDatagramTransport: @unchecked Sendable {
             }
             self.listener = listener
             listener.start(queue: queue)
-            let browser = NWBrowser(for: .bonjour(type: Self.serviceType, domain: nil), using: parameters)
-            browser.stateUpdateHandler = { [weak self] state in
-                guard let self, self.generation == token else { return }
-                if case .failed(let error) = state { self.onFailure?("Local UDP discovery unavailable: \(error)") }
-            }
-            browser.browseResultsChangedHandler = { [weak self] results, _ in
-                guard let self, self.generation == token else { return }
-                let own = self.serviceName(for: self.peerID)
-                let names = Set(results.compactMap { result -> String? in
-                    guard case .service(let name, _, _, _) = result.endpoint else { return nil }
-                    return name
-                })
-                for (name, endpoint) in self.endpoints {
-                    if case .service = endpoint, !names.contains(name) {
-                        self.removeOutgoing(name); self.endpoints[name] = nil
-                    }
-                }
-                for result in results {
-                    guard case .service(let name, let type, let domain, _) = result.endpoint,
-                          name.hasPrefix(self.prefix + "-"), name != own,
-                          self.outgoing[name] == nil else { continue }
-                    // One peer can appear on Wi-Fi and AWDL simultaneously.
-                    // Resolve the service without pinning an interface, and do
-                    // not tear down a working flow for each browse result.
-                    self.connectOnQueue(serviceName: name,
-                        endpoint: .service(name: name, type: type, domain: domain, interface: nil))
-                }
-            }
-            self.browser = browser
-            browser.start(queue: queue)
+
+        }
+    }
+
+    /// Multipeer owns discovery and authentication. Resolve only that known
+    /// peer's service; a second continuous P2P browser costs power and is redundant.
+    func connect(to peer: PeerID) {
+        guard peer != peerID else { return }
+        let name = serviceName(for: peer)
+        connect(serviceName: name,
+            endpoint: .service(name: name, type: Self.serviceType, domain: "local.", interface: nil))
+    }
+
+    func remove(_ peer: PeerID) {
+        queue.sync {
+            let name = serviceName(for: peer)
+            removeOutgoing(name)
+            endpoints[name] = nil
+            peerServiceNames[peer] = nil
         }
     }
 
@@ -248,7 +236,6 @@ final class LocalDatagramTransport: @unchecked Sendable {
     func stop() { queue.sync { stopOnQueue() } }
     private func stopOnQueue() {
         generation = UUID()
-        browser?.cancel(); browser = nil
         listener?.cancel(); listener = nil
         for connection in outgoing.values { connection.cancel() }
         for connection in replacements.values { connection.cancel() }
