@@ -17,6 +17,18 @@ public final class StreamingCodecEncoder {
     private let suppressesSilence: Bool
     private var silentDuration: TimeInterval = 0
 
+    /// Silence needed to carry an explicit fade through the native history
+    /// before replacing this stream. Ordinary streaming does not wait here.
+    public var transitionDrainDuration: TimeInterval {
+        guard let converter else { return 0 }
+        let priming = converter.primeInfo
+        // Opus' postfilter tail spans three short transform packets. AAC's
+        // declared priming plus one packet suffices (verified at 16/24/48 kHz).
+        let tailPackets = configuration.codec == .opus ? 3.0 : 1.0
+        return (Double(max(priming.leadingFrames, priming.trailingFrames))
+            + tailPackets * Double(compressedFormat.streamDescription.pointee.mFramesPerPacket)) / configuration.format.sampleRate
+    }
+
     /// Drain native history for 100 ms before suspending exact digital silence.
     /// Quiet speech is never thresholded here; voice detection belongs upstream.
     public init(configuration: CodecEncodingConfiguration, suppressesSilence: Bool = false) throws {
@@ -30,11 +42,14 @@ public final class StreamingCodecEncoder {
         var compressed = initial
         if configuration.codec == .opus || configuration.codec == .mpeg4AACELD {
             var description = withExtendedLifetime(initial) { initial.streamDescription.pointee }
-            // Opus supports 10 ms frames. AAC-ELD supports 480-sample frames
+            // 5 ms Opus selects CELT-only, avoiding the short artifacts measured
+            // in native 10 ms mode. Both codec frames leave in the same 10 ms
+            // capture packet; network wakeups do not double.
+            // AAC-ELD supports 480-sample frames
             // (10 ms at 48 kHz); its default is 512. Request the native frame
             // size explicitly instead of waiting for the 20 ms Opus default.
             description.mFramesPerPacket = configuration.codec == .opus
-                ? UInt32(configuration.format.sampleRate / 100) : 480
+                ? UInt32(configuration.format.sampleRate / 200) : 480
             guard let format = AVAudioFormat(streamDescription: &description) else {
                 throw CodecError.audioFormatCreationFailed(configuration.codec)
             }
