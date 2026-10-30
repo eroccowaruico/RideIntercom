@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Xcode build phase: reserve Archive numbers and prepare an unsigned input plist."""
+"""Xcode build phase: reserve a shared build number and prepare an unsigned input plist."""
 import fcntl
 import os
 from pathlib import Path
@@ -58,30 +58,40 @@ def boolean(value):
 
 def prepare(env):
     root = Path(env['SRCROOT'])
-    config = root / 'Configuration/BuildNumber.xcconfig'
+    project = root / 'RideIntercom.xcodeproj'
+    project_file = project / 'project.pbxproj'
     output = Path(env['SCRIPT_OUTPUT_FILE_0'])
-    # Validate metadata before consuming a number. Never edit the source plist.
     info = info_contents(root / 'RideIntercom/Info.plist', env)
-    # A separate, persistent lock inode remains valid across atomic config replacement.
-    # Both its path and the staging file are declared outputs for Xcode's sandbox.
-    with config.with_suffix('.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        original = config.read_text()
-        match = re.fullmatch(r'(?P<comments>(?://[^\n]*\n|\s)*)CURRENT_PROJECT_VERSION = (?P<number>[1-9][0-9]*)\s*', original)
-        if not match:
-            raise ValueError('BuildNumber.xcconfig must contain one positive decimal CURRENT_PROJECT_VERSION')
-        number = int(match['number'])
-        # Xcode's Archive action builds with ACTION=install (including standard xcodebuild archive).
-        # Release Run/Build/Test still use ACTION=build and never consume a number.
-        if env['ACTION'] == 'install':
+    # Lock the stable directory inode: no persistent lock/state file is needed,
+    # and replacing project.pbxproj atomically does not invalidate the lock.
+    directory = os.open(project, os.O_RDONLY)
+    try:
+        fcntl.flock(directory, fcntl.LOCK_EX)
+        original = project_file.read_text()
+        pattern = r'(CURRENT_PROJECT_VERSION\s*=\s*)([^;]+)(;)'
+        values = [m[1].strip() for m in re.findall(pattern, original)]
+        if not values or any(not re.fullmatch(r'[1-9][0-9]*', v) for v in values) or len(set(values)) != 1:
+            raise ValueError('Xcode CURRENT_PROJECT_VERSION must be one shared positive decimal value')
+        number = int(values[0])
+        # Run/Build/Test and Archive share one counter; indexing alone does not build an app.
+        if env['ACTION'] in ('build', 'install'):
             number += 1
-            pending = config.with_suffix('.next')
-            with pending.open('w') as stream:
-                stream.write(f"{match['comments']}CURRENT_PROJECT_VERSION = {number}\n")
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(pending, config)
+            updated = re.sub(pattern, lambda m: f'{m[1]}{number}{m[3]}', original)
+            pending = project / '.build-number.tmp'
+            try:
+                with pending.open('w') as stream:
+                    stream.write(updated)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                # Don't overwrite an editor's intervening save with an older snapshot.
+                if project_file.read_text() != original:
+                    raise ValueError('Project changed while reserving a number; retry the build')
+                os.replace(pending, project_file)
+            finally:
+                pending.unlink(missing_ok=True)
         info['CFBundleVersion'] = str(number)
+    finally:
+        os.close(directory)
     # Each build has its own DerivedSources; a parallel Archive cannot change this number.
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(plistlib.dumps(info, sort_keys=False))

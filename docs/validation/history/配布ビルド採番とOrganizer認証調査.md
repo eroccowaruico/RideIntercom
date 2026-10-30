@@ -63,3 +63,21 @@ schemeのArchive Pre-actionで`agvtool`を実行すると、project上は新番�
 | 残る境界 | 既存Xcode画面を操作してのArchiveクリックやBuild欄の再描画は実施せず、同じscheme/build phaseを標準xcodebuildで検証。AppIntents未使用のmetadata省略warningは従前どおり。アップロード、Apple受理、TestFlight配信は未実施 |
 
 主な証跡は`/tmp/ride-archive-integration-final11.log`、`/tmp/ride-archive-integration-final12-mac.log`、`/tmp/ride-archive-integration-mac-build.log`、`/tmp/ride-archive-integration-debug.log`、`/tmp/ride-archive-integration-final11-export.log`、`/tmp/ride-archive-integration-final-settings.json`。一時領域のため永続保存ではない。採番スクリプトのSHA-256は`499b62d64098bf063f6890e9baf6a79d2c0ee2dad4855135379e296fc9987d11`。
+
+
+## project設定への集約（2026-10-30）
+
+利用者から、Xcodeで管理できればよく、Configuration内のロックなど余分なファイルは不要と指摘があった。これらはOrganizerの生成物ではなく、前節の採番スクリプトが作った補助ファイルである。最新の採番値9を保持して、番号の正本をXcode projectの`CURRENT_PROJECT_VERSION`へ戻した。さらに利用者から、構成別の番号を持たず、Debugが100回連続してもRelease／Archiveが続いても、すべて共通の連番を進めるよう指示があった。Archive限定の採番を撤回し、全ビルドを同じ規則に統一した。
+
+| 変更・確認 | 結果 |
+|---|---|
+| 補助ファイルの除去 | `BuildNumber.xcconfig`と残存する`BuildNumber.lock`を削除し、空のConfigurationディレクトリも削除。参照と旧ignore設定も除去 |
+| 同時採番 | 既存の.xcodeprojディレクトリ自体へOSのlockを掛けるため、新規の常設lockファイルは不要。書換え用の一時ファイルはatomic replace後に残さない。更新直前にprojectの別保存を検出した場合は上書きせず失敗させる |
+| 最終的な採番規則 | `build`／`install` actionで共通の10進連番を毎回1増やす。Debug・Release・Archiveでリセットせず、日付や別カウンタを導入しない。公開バージョンと他のproject設定は保持。署名前の入力plistへ予約番号を渡す |
+| 回帰 | `test_archive_numbering.py`の11件成功。Debug 100回→Release 3回→Archive 3回→Debugの107連続、7桁から8桁への増分、8並列での重複防止、別設定・lockファイルの不在、他設定の保持、失敗時の動作を確認 |
+| 移行方式の先行確認 | `95f363aa`の隔離コピーで、採番専用設定を除いても標準iOS Archiveが9→10→11となり、AppとOrganizer情報・署名の整合を確認。この時点の通常Build据え置き規則は、その後の指示で全ビルド採番へ置き換えた |
+| 最終規則の実ビルド | 同じ隔離コピーを境界試験用に9999997から開始し、標準Debug Build=9999998、Release Build=9999999、署名済みArchive=10000000を確認。公開バージョン1.0.0を維持し、project・App・Organizerの番号が各ビルドで一致。8桁のApp Store側受理を確認するアップロードは行っていない |
+| 移行 | 実行中ビルドがないことと旧lockを確保できることを確認してから、元の作業ツリーの番号9を移行。既存プロセスは停止せず、別作業のproject参照・グループ管理変更は保持 |
+| 確認範囲 | 文書・開発設定・plist・差分検査成功。既存Xcode画面の操作とアップロードは実施していない |
+
+証跡は`/tmp/ride-project-number-10.log`、`/tmp/ride-project-number-build.log`、`/tmp/ride-project-number-before-build.sha256`、`/tmp/ride-project-number-11.log`、最終規則の`/tmp/ride-shared-number-debug.log`、`/tmp/ride-shared-number-release.log`、`/tmp/ride-shared-number-archive.log`。一時領域のため永続保存ではない。現行の操作・要求は[開発環境](../../development/開発環境.md)と[開発方針](../../policies/開発方針.md#公開バージョンとビルド番号)を参照する。

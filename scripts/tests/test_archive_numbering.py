@@ -2,6 +2,7 @@ import concurrent.futures
 import os
 from pathlib import Path
 import plistlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -15,10 +16,10 @@ class ArchiveNumberingTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        (self.root / 'Configuration').mkdir()
+        (self.root / 'RideIntercom.xcodeproj').mkdir()
         (self.root / 'RideIntercom').mkdir()
-        self.config = self.root / 'Configuration/BuildNumber.xcconfig'
-        self.config.write_text('// Shared build number\nCURRENT_PROJECT_VERSION = 7\n')
+        self.config = self.root / 'RideIntercom.xcodeproj/project.pbxproj'
+        self.config.write_text('CURRENT_PROJECT_VERSION = 7;\nCURRENT_PROJECT_VERSION = 7;\nMARKETING_VERSION = 1.0.0;\nUNRELATED = keep;\n')
         self.source = self.root / 'RideIntercom/Info.plist'
         self.source.write_bytes(plistlib.dumps({'UIBackgroundModes': ['audio'], 'NSBonjourServices': ['_ride-intercom._tcp'], 'StorageNamespace': '$(RIDEINTERCOM_STORAGE_NAMESPACE)'}))
         self.env = dict(os.environ, SRCROOT=str(self.root), ACTION='build', PLATFORM_NAME='iphoneos',
@@ -42,11 +43,14 @@ class ArchiveNumberingTests(unittest.TestCase):
         return result, output
 
     def value(self):
-        return int(self.config.read_text().split('=')[1])
+        values = re.findall(r'CURRENT_PROJECT_VERSION = ([0-9]+);', self.config.read_text())
+        self.assertTrue(values)
+        self.assertEqual(len(set(values)), 1)
+        return int(values[0])
 
-    def test_internal_builds_leave_counter_and_source_untouched(self):
+    def test_indexing_and_analysis_leave_counter_and_source_untouched(self):
         before = self.config.read_bytes(), self.source.read_bytes()
-        for action in ['build', 'indexbuild', 'analyze']:
+        for action in ['indexbuild', 'analyze']:
             result, output = self.run_phase(action)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(plistlib.loads(output.read_bytes())['CFBundleVersion'], '7')
@@ -62,7 +66,7 @@ class ArchiveNumberingTests(unittest.TestCase):
             self.assertEqual(self.value(), int(number))
         result, output = self.run_phase('build')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(plistlib.loads(output.read_bytes())['CFBundleVersion'], '9')
+        self.assertEqual(plistlib.loads(output.read_bytes())['CFBundleVersion'], '10')
 
     def test_parallel_archives_reserve_distinct_numbers(self):
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -75,13 +79,13 @@ class ArchiveNumberingTests(unittest.TestCase):
         self.assertEqual(self.value(), 15)
 
     def test_invalid_counter_and_metadata_fail_without_reuse(self):
-        for bad in ['', 'CURRENT_PROJECT_VERSION = nope\n', 'CURRENT_PROJECT_VERSION = 0x10\n', 'CURRENT_PROJECT_VERSION = 7\nCURRENT_PROJECT_VERSION = 8\n']:
+        for bad in ['', 'CURRENT_PROJECT_VERSION = nope;\n', 'CURRENT_PROJECT_VERSION = 0x10;\n', 'CURRENT_PROJECT_VERSION = 7;\nCURRENT_PROJECT_VERSION = 8;\n']:
             self.config.write_text(bad)
             result, output = self.run_phase('install')
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(output.exists())
             self.assertEqual(self.config.read_text(), bad)
-        self.config.write_text('CURRENT_PROJECT_VERSION = 7\n')
+        self.config.write_text('CURRENT_PROJECT_VERSION = 7;\n')
         self.env['INFOPLIST_KEY_ITSAppUsesNonExemptEncryption'] = 'maybe'
         result, output = self.run_phase('install')
         self.assertNotEqual(result.returncode, 0)
@@ -125,3 +129,29 @@ class ArchiveNumberingTests(unittest.TestCase):
         self.assertEqual(info['CFBundleShortVersionString'], '1.0.0')
         self.assertIs(info['UIApplicationSupportsIndirectInputEvents'], False)
         self.assertEqual(info['UIStatusBarStyle'], '')
+
+    def test_archive_preserves_other_settings_and_leaves_no_management_files(self):
+        before = self.config.read_text()
+        result, output = self.run_phase('install')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.config.read_text(), before.replace('CURRENT_PROJECT_VERSION = 7;', 'CURRENT_PROJECT_VERSION = 8;'))
+        self.assertEqual(list(self.config.parent.iterdir()), [self.config])
+        self.assertFalse((self.root / 'Configuration').exists())
+
+    def test_counter_grows_to_eight_digits_without_padding_or_truncation(self):
+        self.config.write_text('CURRENT_PROJECT_VERSION = 9999999;\nCURRENT_PROJECT_VERSION = 9999999;\n')
+        result, output = self.run_phase('install')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.value(), 10000000)
+        self.assertEqual(plistlib.loads(output.read_bytes())['CFBundleVersion'], '10000000')
+
+    def test_debug_release_and_archive_share_one_sequence(self):
+        sequence = [('Debug', 'build')] * 100 + [('Release', 'build')] * 3 + [('Release', 'install')] * 3 + [('Debug', 'build')]
+        for number, (configuration, action) in enumerate(sequence, start=8):
+            self.env['CONFIGURATION'] = configuration
+            result, output = self.run_phase(action)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            info = plistlib.loads(output.read_bytes())
+            self.assertEqual(info['CFBundleVersion'], str(number))
+            self.assertEqual(self.value(), number)
+            self.assertEqual(info['CFBundleShortVersionString'], '1.0.0')

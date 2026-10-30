@@ -22,8 +22,7 @@ server/.env.*
 # Reproducible validation output
 .validation/
 __pycache__/
-/Configuration/BuildNumber.lock
-/Configuration/BuildNumber.next
+/RideIntercom.xcodeproj/.build-number.tmp
 
 # Individually issued trial credentials (never application source)
 server/.trial-credentials/
