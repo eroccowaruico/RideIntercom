@@ -47,8 +47,6 @@ export class SignalingRoom {
         if (url.pathname.endsWith('/join') && request.method === 'POST') {
             const b = await readJSON(request)
             if (typeof b.participantId !== 'string' || !/^[a-zA-Z0-9_-]{1,63}$/.test(b.participantId)
-                || typeof b.displayName !== 'string' || !b.displayName.trim()
-                || new TextEncoder().encode(b.displayName).byteLength > 320 || /[\p{Cc}\p{Cf}]/u.test(b.displayName)
                 || !dataDescription(b.offer, 'offer') || b.offer.sdp.split(/\r?\n/).filter((l: string) => l.startsWith('m=')).length !== 1) return json({ error: 'One SCTP application section is required' }, 400)
             if (members.some(m => m.id === b.participantId)) return json({ error: 'Participant already connected' }, 409)
             if (members.length >= limit(this.env.MAX_ROOM_PARTICIPANTS, 8, 8)) return json({ error: 'Room is full' }, 429)
@@ -64,7 +62,7 @@ export class SignalingRoom {
             try {
                 const created = await sfu(this.env, '/sessions/new')
                 if (typeof created.sessionId !== 'string') throw new Error('upstream')
-                member = { id: b.participantId, displayName: b.displayName, owner, sessionId: created.sessionId, expiresAt, channels: [], subscriptions: [] }
+                member = { id: b.participantId, owner, sessionId: created.sessionId, expiresAt, channels: [], subscriptions: [] }
                 // Persist before publishing; a lost upstream response must still be cleaned up.
                 await this.state.storage.put(`member:${member.sessionId}`, member)
                 await this.scheduleExpiry()
@@ -170,7 +168,7 @@ export class SignalingRoom {
     webSocketClose(ws: WebSocket): void { try { ws.close(1000, 'Closed') } catch { /* closed */ } }
     webSocketError(ws: WebSocket): void { this.webSocketClose(ws) }
     private async broadcastPeers() {
-        const peers = (await this.members()).filter(m => m.publishers !== undefined && m.expiresAt > Date.now()).map(m => ({ id: m.id, displayName: m.displayName, sessionId: m.sessionId }))
+        const peers = (await this.members()).filter(m => m.publishers !== undefined && m.expiresAt > Date.now()).map(m => ({ id: m.id, sessionId: m.sessionId }))
         for (const ws of this.state.getWebSockets()) { try { ws.send(JSON.stringify({ type: 'peers', peers })) } catch { /* closed */ } }
     }
     private async close(member: Member) {

@@ -87,6 +87,7 @@ flowchart LR
 | control channel | `group-control-v1`、ordered/reliable。送信待ち上限64KiB |
 | 接続 | 完全SDP offer → Worker `/join` → SFU datachannels/establish → answer。ICE接続後 `/publish` で2種類のchannelを確保 |
 | 購読 | roomのpeer IDから `/pull`。SFU allocation IDは端末ごとに異なり、Workerの返却値でnegotiated channelを作る |
+| 表示名 | joinへ送信しない。Workerのpeer一覧はID・session IDのみで、transportの`PeerDescriptor`はIDを代替名にする。人向けの名前はgroup鍵で暗号化したpresenceから復元する |
 | presence / 操作 | 同じgroup envelopeで中継。WorkerのWebSocketはroom情報・従来の小さい制御メッセージのみ。音声は通さない |
 | 離脱・期限切れ | known channelをcloseし、GET sessionの残存channelも確認。部分成功・応答不明の割当ては回収記録を保持 |
 | upstream不明 | timeoutしたallocationの完了を空のGET結果だけで断定しない。session消失確認まで再確認 |

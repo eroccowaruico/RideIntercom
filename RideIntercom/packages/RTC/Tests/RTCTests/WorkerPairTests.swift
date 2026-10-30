@@ -12,12 +12,21 @@ struct WorkerPairTests {
         let a = PairEndpoint(), b = PairEndpoint()
         let credential = RTCCredential.derived(groupID: UUID().uuidString, secret: "synthetic-pair")
         func request(_ id: String) -> WebRTCSignalingConnectRequest {
-            .init(call: .init(sessionID: "pair", localPeer: .init(id: .init(rawValue: id), displayName: id), credential: credential),
+            .init(call: .init(sessionID: "pair", localPeer: .init(id: .init(rawValue: id), displayName: "PrivateName-\(id)"), credential: credential),
                   cloudflare: .init(workerURL: url, accessToken: token))
         }
         let aTask = a.listen(), bTask = b.listen()
         await a.join(request("alice")); await b.join(request("bob"))
         try await eventually { a.members == ["bob"] && b.members == ["alice"] }
+        #expect(a.peerNames == ["bob"] && b.peerNames == ["alice"])
+        var aliceRelay = GroupRelay(request: request("alice").call)
+        var bobRelay = GroupRelay(request: request("bob").call)
+        let presence = try aliceRelay.make(.presence, now: 0)
+        #expect(presence.range(of: Data("PrivateName-alice".utf8)) == nil)
+        await a.client.sendApplicationData(.init(namespace: GroupRelay.namespace, payload: presence), to: nil)
+        try await eventually { b.groupPresence != nil }
+        let received = try #require(b.groupPresence)
+        #expect(bobRelay.receive(received, from: .init(rawValue: "alice"), now: 0)?.peer.displayName == "PrivateName-alice")
         let originalAnswers = a.answers
         await a.client.sendApplicationData(.init(namespace: "pair", payload: Data("a-to-b".utf8)), to: nil)
         await b.client.sendApplicationData(.init(namespace: "pair", payload: Data("b-to-a".utf8)), to: nil)
@@ -47,6 +56,18 @@ private final class PairEndpoint: @unchecked Sendable {
     var members: Set<String> {
         for event in values.reversed() { if case .members(let peers) = event { return Set(peers.map(\.id.rawValue)) } }
         return []
+    }
+    var peerNames: Set<String> {
+        for event in values.reversed() { if case .members(let peers) = event { return Set(peers.map(\.displayName)) } }
+        return []
+    }
+    var groupPresence: Data? {
+        for event in values.reversed() {
+            if case .receivedApplicationData(let data) = event, data.message.namespace == GroupRelay.namespace {
+                return data.message.payload
+            }
+        }
+        return nil
     }
     var answers: Int { values.filter { if case .answer = $0 { return true }; return false }.count }
     var failures: [String] { values.compactMap { if case .failed(let reason) = $0 { return reason }; return nil } }

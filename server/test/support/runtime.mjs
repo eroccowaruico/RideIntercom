@@ -7,8 +7,9 @@ export const hash = createHash('sha256').update(token).digest('hex');
 export const room = 'a'.repeat(64);
 export const offer = { type: 'offer', sdp: 'v=0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:0\r\na=sctp-port:5000\r\n' };
 export const provider = { requests: [], serial: 0, upstreamFails: false, upstreamGone: false };
-export async function makeRuntime(overrides = {}) {
-    const instance = new Miniflare({ modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2024-11-01',
+export async function makeRuntime(overrides = {}, { storageDirectory } = {}) {
+    const instance = new Miniflare({ durableObjectsPersist: storageDirectory,
+        modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2024-11-01',
         durableObjects: { SIGNALING_ROOM: { className: 'SignalingRoom', useSQLite: true }, USAGE_GUARD: { className: 'UsageGuard', useSQLite: true } },
         bindings: { SERVICE_ENABLED: 'true', CLIENT_TOKENS_JSON: JSON.stringify({ [hash]: 'tester' }),
             CLOUDFLARE_SFU_APP_ID: 'test-app', CLOUDFLARE_SFU_APP_SECRET: 'test-secret',

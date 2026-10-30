@@ -1,5 +1,24 @@
 # 検証状況と証跡
 
+## 通話サーバーの表示名保存を除去（2026-10-30）
+
+RTCのjoinとWorkerの永続member・peer一覧から表示名を除去した。既存のグループ鍵による暗号化presenceで名前を交換し、端末のグループ内表示に使う。新規開発のため旧client用の互換フィールド・データ移行は追加していない。契約は[Worker仕様](../spec/server/Worker.md#表示名を保存しない境界)を参照する。
+
+証跡は`.validation/signaling-privacy-delivery/`に保持する。
+
+| 検証 | 結果と証跡 |
+|---|---|
+| RTC package | RTC 81件・native WebRTC 4件が成功。失敗・skipなし。`rtc-tests.log`。Workerとの契約1件は下記で別実行 |
+| Worker | 22件成功、失敗・skip・todoなし。`worker-tests.log`。名前なしjoin、余分な表示名の非保存・非配信、認可・人数・期限・TURN・回収を確認 |
+| 永続状態 | 最終の検査方法で2件を再実行して成功。`worker-privacy-final.log`。隔離したSQLiteとWALの両方を読み、実際のparticipant IDが保存され、表示名fieldとテスト用の名前が含まれないことを確認 |
+| Swift–Worker契約 | HTTP/WS・workerd・SQLite DOを通す1件が成功。`worker-pair.log`。peer一覧はIDのみ、暗号化presenceから表示名を復元、双方向メッセージ、lease更新、離脱・再参加を確認。外部SFUはfixture |
+| 静的確認 | TypeScript型検査、文書リンク検査、差分の空白検査が成功。`worker-typecheck.log`、`documentation.log` |
+| 対象の一致 | `source-manifest.json`で今回変更した実装・テスト・文書を記録し、main統合後のhash一致を確認 |
+
+修正前に、Swiftのjoinが表示名を送ること、Workerが名前なしjoinを拒否し、永続memberに表示名を残すことを失敗テストで確認した（`rtc-red.log`、`worker-red-storage.log`）。最初のstorage inspectionは既存DOのRPC未対応により使えず、隔離SQLiteの直接検査へ変更した経緯も`worker-red.log`へ残す。最終検査はSQLite/WALのbytesを読み、新しいNode専用SQLite APIへの依存を追加していない。
+
+実Cloudflareへの手動デプロイ、providerの過去データ・backup削除、実端末・音声E2Eの再測定はこの工程には含まない。Appleログイン側の検証と残件は次節を参照する。
+
 ## Appleログイン必須化とアカウント別保存（2026-10-30）
 
 全通話のAppleログイン、Keychainでの識別子保持、保存ログインによる圏外利用、取消・サインアウトによる通話停止を実装した。メール・本名を要求せず、アカウントごとにグループ・保存ユーザー・鍵・設定・端末IDを分離する。複数windowはApp所有のアカウントと通話モデルを共有する。新規開発のため既存ユーザーの移行処理は追加しない。現行契約は[通信仕様](../spec/App/通信仕様.md#appleログインと端末内データ)。

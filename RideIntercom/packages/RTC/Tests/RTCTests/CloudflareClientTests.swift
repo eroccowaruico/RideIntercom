@@ -14,6 +14,19 @@ struct CloudflareClientTests {
                          credential: .derived(groupID: "group", secret: "invitation-secret")),
               cloudflare: .init(workerURL: URL(string: url)!, accessToken: "device-token"))
     }
+    @Test func joinDoesNotSendTheLocalDisplayName() async throws {
+        SFUHTTPStub.reset()
+        let client = makeClient()
+        await client.connect(request())
+        await client.sendOffer(.init(kind: .offer, sdp: "audio-offer"), to: .init(rawValue: "cloudflare-sfu"))
+        let join = try #require(SFUHTTPStub.requests.first { $0.url?.path.hasSuffix("/join") == true })
+        let data = try #require(join.httpBody)
+        let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(body["participantId"] as? String == "device")
+        #expect(body["displayName"] == nil)
+        #expect(!String(decoding: data, as: UTF8.self).contains("Device"))
+        await client.disconnect()
+    }
     @Test func iceCredentialsArriveBeforeOfferAndAreCleanedUpWithoutSession() async {
         SFUHTTPStub.reset()
         let client = makeClient()
@@ -129,8 +142,20 @@ private final class SFUHTTPStub: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { request.url?.scheme == "https" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        var captured = request
+        if captured.httpBody == nil, let stream = captured.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var bytes = Data(), buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count > 0 else { break }
+                bytes.append(contentsOf: buffer.prefix(count))
+            }
+            captured.httpBody = bytes
+        }
         let renewals = Self.lock.withLock {
-            Self.recorded.append(request)
+            Self.recorded.append(captured)
             return Self.recorded.filter { $0.url!.path.hasSuffix("/renew") }.count
         }
         let transient = Self.lock.withLock { Self.transient }

@@ -79,7 +79,7 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
         let generation = generation
         do {
             let response = try await http(request, path: "join", body: ["participantId": request.call.localPeer.id.rawValue,
-                "displayName": request.call.localPeer.displayName, "iceLeaseID": iceLeaseID ?? "", "offer": ["type": "offer", "sdp": offer.sdp]])
+                "iceLeaseID": iceLeaseID ?? "", "offer": ["type": "offer", "sdp": offer.sdp]])
             let lease = try JSONDecoder().decode(Lease.self, from: response)
             guard self.generation == generation else {
                 _ = try? await http(request, path: "sessions/\(lease.sessionId)", method: "DELETE"); return
@@ -160,7 +160,9 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
             switch message { case .data(let bytes): data = bytes; case .string(let text): data = Data(text.utf8); @unknown default: continue }
             let event = try JSONDecoder().decode(WireEvent.self, from: data)
             if event.type == "peers", let remote = event.peers {
-                peers = remote.filter { $0.id != request.call.localPeer.id.rawValue }.map { .init(id: .init(rawValue: $0.id), displayName: $0.displayName) }
+                // Signaling supplies routing identities only. Human-readable names
+                // travel inside the authenticated, encrypted group presence.
+                peers = remote.filter { $0.id != request.call.localPeer.id.rawValue }.map { .init(id: .init(rawValue: $0.id), displayName: $0.id) }
                 peerSessions = Dictionary(remote.filter { $0.id != request.call.localPeer.id.rawValue }.map {
                     (PeerID(rawValue: $0.id), $0.sessionId)
                 }, uniquingKeysWith: { first, _ in first })
@@ -255,7 +257,7 @@ public actor CloudflareRealtimeSignalingClient: WebRTCSignalingClient {
     private struct Lease: Decodable { let sessionId: String; let expiresAt: Double; let renewAfterSeconds: Double; let sessionDescription: Description?; let channels: [WebRTCDataChannel]?; let iceServers: [WebRTCIceServer]? }
     private struct Pull: Decodable { let channels: [WebRTCDataChannel] }
     private struct WireEvent: Decodable {
-        struct Peer: Decodable { let id: String; let displayName: String; let sessionId: String }
+        struct Peer: Decodable { let id: String; let sessionId: String }
         let type: String; let peers: [Peer]?; let from: String?; let namespace: String?; let payload: String?
     }
     private enum Failure: Error, LocalizedError {

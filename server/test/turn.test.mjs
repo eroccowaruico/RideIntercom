@@ -20,7 +20,7 @@ test('TURN preflight is quota guarded, owned, idempotent and revoked on disconne
         await call(runtime, 'ice/alice', { leaseID });
         assert.equal(provider.requests.filter(r => r.url.includes('generate-ice-servers')).length, 1);
         assert.equal((await call(runtime, 'ice/alice', { leaseID: 'old-attempt' }, 'DELETE')).status, 409);
-        const joined = await call(runtime, 'join', { participantId: 'alice', displayName: 'Alice', offer, iceLeaseID: leaseID });
+        const joined = await call(runtime, 'join', { participantId: 'alice', offer, iceLeaseID: leaseID });
         assert.equal(joined.status, 200);
         const lease = await joined.json();
         assert.equal((await call(runtime, `sessions/${lease.sessionId}`, undefined, 'DELETE')).status, 200);
@@ -48,7 +48,7 @@ test('TURN renewal keeps the SFU session and retires all issued credentials at d
     try {
         provider.requests = [];
         assert.equal((await call(runtime, 'ice/a', { leaseID })).status, 200);
-        const lease = await (await call(runtime, 'join', { participantId: 'a', displayName: 'A', offer, iceLeaseID: leaseID })).json();
+        const lease = await (await call(runtime, 'join', { participantId: 'a', offer, iceLeaseID: leaseID })).json();
         await new Promise(resolve => setTimeout(resolve, 2100));
         const renewed = await (await call(runtime, `sessions/${lease.sessionId}/renew`, {})).json();
         assert.equal(renewed.sessionId, lease.sessionId);

@@ -10,10 +10,10 @@ test('SFU packet channels use no retransmission, authorize subscriptions and clo
     }
     try {
         provider.requests = [];
-        const a = await call('join', { participantId: 'a', displayName: 'A', offer });
+        const a = await call('join', { participantId: 'a', offer });
         assert.equal(a.status, 200);
         const alice = await a.json();
-        const b = await call('join', { participantId: 'b', displayName: 'B', offer });
+        const b = await call('join', { participantId: 'b', offer });
         assert.equal(b.status, 200);
         const bob = await b.json();
         assert.equal((await call(`sessions/${alice.sessionId}/publish`, {})).status, 200);

@@ -7,22 +7,22 @@ before(async () => { runtime = await makeRuntime(); });
 after(async () => { await runtime?.dispose(); });
 const call = (path, body, method = 'POST', instance = runtime, credential = token) => instance.dispatchFetch(`https://worker.test${path}`, {
     method, headers: { Authorization: `Bearer ${credential}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-const join = (id, target = room, instance = runtime) => call(`/api/rooms/${target}/join`, { participantId: id, displayName: id, offer }, 'POST', instance);
+const join = (id, target = room, instance = runtime) => call(`/api/rooms/${target}/join`, { participantId: id, offer }, 'POST', instance);
 
 test('join rejects coerced identities and partial SCTP attribute matches before allocation', async () => {
     const instance = await makeRuntime();
     try {
         for (const body of [
-            { participantId: 123, displayName: 'Number', offer },
-            { participantId: 'bad-port', displayName: 'Port', offer: { ...offer, sdp: offer.sdp.replace('5000', '50000') } },
-            { participantId: 'empty-name', displayName: '', offer },
-            { participantId: 'control-name', displayName: 'A\u0000B', offer },
-            { participantId: 'long-name', displayName: 'x'.repeat(321), offer },
+            { participantId: 123, offer },
+            { participantId: 'bad-port', offer: { ...offer, sdp: offer.sdp.replace('5000', '50000') } },
+            { participantId: '', offer },
+            { participantId: 'A\u0000B', offer },
+            { participantId: 'x'.repeat(64), offer },
         ]) {
             assert.equal((await call(`/api/rooms/${room}/join`, body, 'POST', instance)).status, 400);
         }
         assert.equal((await call(`/api/rooms/${room}/join`,
-            { participantId: 'unicode-name', displayName: '乗'.repeat(100), offer }, 'POST', instance)).status, 200);
+            { participantId: 'valid-id', offer }, 'POST', instance)).status, 200);
     } finally { await instance.dispose(); }
 });
 

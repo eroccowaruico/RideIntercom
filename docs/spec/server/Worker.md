@@ -49,14 +49,14 @@ sequenceDiagram
 |---|---|---|
 | GET `/health` | なし | service / protocol。SFUへの接続確認ではない |
 | GET `/api/status` | Bearer | 月の予約参加者秒・上限・active数。試用資格保持者に公開 |
-| POST `R/join` | participantId、displayName、offer {type,sdp} | sessionId、expiresAt (Unix ms)、renewAfterSeconds、answer |
+| POST `R/join` | participantId、iceLeaseID、offer {type,sdp} | sessionId、expiresAt (Unix ms)、renewAfterSeconds、answer |
 | POST `R/sessions/{id}/publish` | `{}` | audio/control channel ID。ICE接続後、同じsessionで1回確保 |
 | POST `R/sessions/{id}/pull` | peerIds | peerID・channel ID・配送方針。部屋外peerは拒否 |
 | POST `R/sessions/{id}/renew` | `{}` | 同じsessionIdのlease。前半の重複更新は予約追加しない |
 | DELETE `R/sessions/{id}` | なし | 全channelをclose。利用枠のactive slotを解放 |
 | GET `R/sessions/{id}/signal` Upgrade | Bearer | Hibernation WebSocket。1 sessionにつき1接続 |
 | WS → server | `{type:"appData",namespace,payload:base64}` | serverが送信者を付与して同部屋へ中継 |
-| WS ← server | `{type:"peers",peers:[{id,displayName}]}` / appData | RTCが差分購読 / App data受信 |
+| WS ← server | `{type:"peers",peers:[{id,sessionId}]}` / appData | RTCが差分購読 / App data受信 |
 
 | 拒否・上限 | 動作 |
 |---|---|
@@ -70,6 +70,12 @@ sequenceDiagram
 | WS | 最大32KiB、600 messages/UTC分。senderを信用せず所有sessionから決定 |
 
 公開招待URLは維持。中継用wire contractは変更し、全参加者を同じ版へ更新する。これはWebRTC SFU用のWorker APIであり、旧 `/api/sessions`・部屋全体のoffer/ICE中継は廃止する。
+
+### 表示名を保存しない境界
+
+RTCはjoinへ表示名を送らず、Workerは参加者の表示名を保存・配信しない。余分な`displayName`を受け取ってもmemberへコピーしない。participant ID・owner・SFU session ID・期限・channel・購読関係は接続認可と回収のため保持する。表示名は端末側のグループ情報と、グループ鍵で認証・暗号化されたpresenceで扱う。Workerのpeer一覧ではIDだけを名前の代替値に使い、グループの復号後に相手の表示名を取得する。
+
+新規開発のため旧形式の利用者データ移行や旧client用の互換フィールドは追加しない。これは今回以後に作る通話状態の契約であり、配置済みproviderのbackup・保存期間・過去データの物理削除を確認したものではない。
 
 ## 継続と後始末
 
