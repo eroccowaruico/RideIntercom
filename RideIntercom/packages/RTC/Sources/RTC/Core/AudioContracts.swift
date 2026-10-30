@@ -40,19 +40,29 @@ public struct RTCAudioFormat: Codable, Equatable, Sendable {
     }
 }
 
+/// Local media admission, independent of transport and group-key forwarding.
+/// Membership IDs come from this CallSession's current membersChanged event.
+public enum RTCAudioPeerPolicy: Codable, Equatable, Sendable {
+    case groupMembers
+    case admittedMemberships([PeerID: UUID])
+}
+
 public struct RTCAudioPolicy: Codable, Equatable, Sendable {
     public var preferredSendFormat: RTCAudioFormat
     public var preferredCodecs: [RTCAudioCodecIdentifier]
     public var maximumBitRate: Int?
+    public var peerPolicy: RTCAudioPeerPolicy
 
     public init(
         preferredSendFormat: RTCAudioFormat = RTCAudioFormat(),
         preferredCodecs: [RTCAudioCodecIdentifier] = [.pcm16],
-        maximumBitRate: Int? = nil
+        maximumBitRate: Int? = nil,
+        peerPolicy: RTCAudioPeerPolicy = .groupMembers
     ) {
         self.preferredSendFormat = preferredSendFormat
         self.preferredCodecs = preferredCodecs.isEmpty ? [.pcm16] : preferredCodecs
         self.maximumBitRate = maximumBitRate.map { max(0, $0) }
+        self.peerPolicy = peerPolicy
     }
 }
 

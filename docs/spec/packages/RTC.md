@@ -78,6 +78,23 @@ flowchart LR
 | route capabilities | Local / Internetとも符号化済みPCM16・Opus・AAC-ELD・旧AAC-ELD v2を転送可能。初期codec設定に固定しない。OSの実encode/decode能力と受理codecのpolicyは別に判定する |
 | パケットsequence | 中継epoch内のsequenceで再生順を管理。収録再起動によるApp側counterのリセットと分離 |
 
+## 参加単位の音声許可
+
+`RTCAudioPolicy.peerPolicy`は、自端末への音声配送と、自端末からの音声送信開始を共通のCallSession境界で制御する。既定の`groupMembers`は有効なgroup参加者の音声を配送する。`admittedMemberships`は、現在の`membersChanged`に含まれるPeerIDと`CallMemberState.membershipID`の組を明示的に許可する。空集合なら自端末への配送・自端末からの音声送信を行わない。
+
+| 境界 | 動作 |
+|---|---|
+| membershipID | 受信端末のRTCが参加ごとに発行する不透明なUUID。相手の本人証明や秘密資格ではなく、古い許可を新しい参加へ持ち越さないための参照。native routeの観測ではnil、RouteManagerの有効なgroup参加者では必ず値を持つ |
+| 再参加・再接続 | 相手のepoch変更、leave後の再参加、8秒の活動期限後のpresence、受信側sessionのprepareで新しい値になる。期限後のpresenceが次の定期snapshot更新より先に届いても以前の許可を復活させない |
+| 複数経路 | 有効な同一参加のLocal/Internet間の経路変化、codec/format設定更新では値を維持する |
+| 受信 | 許可していない参加者の音声を受信待ちへ入れず破棄する。許可取り消し時にその参加者の受信待ちを消去し、配送時にも現在の許可を確認する。後で許可しても過去の音声を再生しない |
+| 送信 | 明示許可方式では、現在も有効な参加と一致する許可が一つ以上ある場合だけ自端末の音声を送信する。自端末のミュート・media開始条件も引き続き適用する |
+| 制御と中継 | 本人確認などのapplication data、presence、他端末の暗号化音声の中継はこの許可で止めない。自分が再生しない端末を経由する混在通話も維持する |
+
+許可する本人・アカウント・用途の判断は呼び出し側が行い、RTCへその時点の参加参照を渡す。RTCはAppleログイン・連絡先・購入条件を扱わない。古い参照による遅延更新は現在の参加に一致せず、許可にならない。
+
+この設定は自端末の媒体処理の制御であり、送信先別の暗号化ではない。group鍵を持つ端末には中継音声が届き得るため、特定のgroup参加者が暗号文を復号できないことや、音声の個人署名による本人認証を保証しない。取り消し以前にCallSessionのイベントへ配送済みの音声を回収する契約でもない。
+
 ## Cloudflareの媒体契約
 
 | 項目 | 実装 |

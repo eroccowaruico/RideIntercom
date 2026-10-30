@@ -36,7 +36,7 @@ extension RealtimeTransportTests {
         for manager in managers { await manager.stopConnection() }
     }
 
-    @Test(.timeLimit(.minutes(1))) func localOnlyMemberKeepsTalkingAcrossMixedRoutesAndGatewayDeparture() async throws {
+    @Test(.timeLimit(.minutes(1)), arguments: [false, true]) func localOnlyMemberKeepsTalkingAcrossMixedRoutesAndGatewayDeparture(requiresAdmission: Bool) async throws {
         let network = VirtualNetwork()
         let ids = ["a", "b", "c", "d"]
         let kinds: [Set<RouteKind>] = [[.multipeer], [.multipeer, .webRTC], [.webRTC], [.multipeer, .webRTC]]
@@ -48,11 +48,19 @@ extension RealtimeTransportTests {
             let record = CallRecorder(), events = manager.events
             listeners.append(Task { for await event in events { await record.record(event) } })
             managers.append(manager); records.append(record)
-            await manager.prepare(.init(sessionID: "group", localPeer: .init(id: .init(rawValue: id), displayName: id), credential: .derived(groupID: "group", secret: "secret"), configuration: config))
+            await manager.prepare(.init(sessionID: "group", localPeer: .init(id: .init(rawValue: id), displayName: id), credential: .derived(groupID: "group", secret: "secret"), configuration: config,
+                audioPolicy: .init(peerPolicy: requiresAdmission ? .admittedMemberships([:]) : .groupMembers)))
             await manager.startConnection(); await manager.startMedia()
         }
         defer { listeners.forEach { $0.cancel() } }
-        try await eventually { await records[0].memberCount == 3 }
+        for record in records { try await eventually { await record.memberCount == 3 } }
+        let cMembership = try #require(await records[0].members.first { $0.peer.id.rawValue == "c" }?.membershipID)
+        let aMembership = try #require(await records[2].members.first { $0.peer.id.rawValue == "a" }?.membershipID)
+        if requiresAdmission {
+            // Only A and C play each other; both unapproved gateways still relay.
+            await managers[0].updateAudioPolicy(.init(peerPolicy: .admittedMemberships([.init(rawValue: "c"): cMembership])))
+            await managers[2].updateAudioPolicy(.init(peerPolicy: .admittedMemberships([.init(rawValue: "a"): aMembership])))
+        }
         func audio(_ marker: UInt8) -> RTCAudioPacket { .init(sequenceNumber: 1, codec: .pcm16, format: .init(sampleRate: 16000, channelCount: 1), payload: Data(repeating: marker, count: 640)) }
         await managers[0].sendAudioPacket(audio(1)); await managers[2].sendAudioPacket(audio(2))
         try await eventually { await records[2].audio.contains(where: { $0.peerID.rawValue == "a" && $0.packet.payload.first == 1 }) }
@@ -66,7 +74,8 @@ extension RealtimeTransportTests {
         try await eventually { await records[2].audio.contains(where: { $0.packet.payload.first == 3 }) }
         // Join a replacement gateway, then remove B without reconnecting A or C.
         let dconfig = CallRouteConfiguration(enabledRoutes: kinds[3], preferredRoute: .multipeer, fallbackDelay: 0)
-        await managers[3].prepare(.init(sessionID: "group", localPeer: .init(id: .init(rawValue: "d"), displayName: "d"), credential: .derived(groupID: "group", secret: "secret"), configuration: dconfig))
+        await managers[3].prepare(.init(sessionID: "group", localPeer: .init(id: .init(rawValue: "d"), displayName: "d"), credential: .derived(groupID: "group", secret: "secret"), configuration: dconfig,
+            audioPolicy: .init(peerPolicy: requiresAdmission ? .admittedMemberships([:]) : .groupMembers)))
         await managers[3].startConnection(); await managers[3].startMedia()
         try await eventually { await records[3].memberCount == 3 }
         await managers[1].stopConnection()
@@ -75,6 +84,12 @@ extension RealtimeTransportTests {
         try await eventually {
             let paths = await managers[2].networkDiagnostics().peers
             return paths.contains { $0.peerID.rawValue == "a" && $0.path.map(\.rawValue) == ["a", "d", "c"] }
+        }
+        #expect(await records[0].members.first { $0.peer.id.rawValue == "c" }?.membershipID == cMembership)
+        #expect(await records[2].members.first { $0.peer.id.rawValue == "a" }?.membershipID == aMembership)
+        if requiresAdmission {
+            #expect(await records[1].audio.isEmpty)
+            #expect(await records[3].audio.isEmpty)
         }
         #expect(await records[2].audio.filter { $0.packet.payload.first == 1 }.count == 1)
         for manager in managers {
@@ -87,10 +102,11 @@ extension RealtimeTransportTests {
 }
 
 private actor CallRecorder {
-    var memberCount = 0
+    var members: [CallMemberState] = []
+    var memberCount: Int { members.count }
     var audio: [ReceivedAudioPacket] = []
     func record(_ event: CallSessionEvent) {
-        if case .membersChanged(let members) = event { memberCount = members.count }
+        if case .membersChanged(let members) = event { self.members = members }
         if case .receivedAudioPacket(let packet) = event { audio.append(packet) }
     }
 }

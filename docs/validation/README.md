@@ -1,5 +1,21 @@
 # 検証状況と証跡
 
+## RTCの参加単位の音声許可（2026-10-31）
+
+本人確認前や対象外の参加者の音声を、Appの画面イベントより前にRTCの共通受信境界で抑止できる契約を追加した。再参加・活動期限・受信側sessionの世代をまたぐ古い許可を無効にする。通信方式と本人確認・アカウント判断を分離した[現行契約](../spec/packages/RTC.md#参加単位の音声許可)を参照する。
+
+証跡は`.validation/audio-admission-delivery/`。
+
+| 検証 | 結果 |
+|---|---|
+| TDD | 新しい参加参照・音声policy APIがないcompile失敗を先に確認した。`red.log`。実装後の契約テストは成功 |
+| RTC | RTC 92件とnative WebRTC 4件成功。未許可の再生・自端末送信の抑止、許可後の開始、取り消し後の受信待ち破棄、再参加・再準備時の古い許可拒否を含む。`rtc-full.log`。Worker pairはこのpackage実行から分離 |
+| 継続性・競合 | 8人のLocal通話、音声を再生しない中継端末を経由するLocal/Internet通話、中継交代でも参加許可が維持されることを確認。関連8件はThread Sanitizer付きでも成功し、競合報告なし。`rtc-tsan.log` |
+| Appへの影響 | App実装を変更せずmacOS・iOS各243件成功、失敗・skip・runtime warningなし。既定のgroup参加者方式で既存API利用を維持。Mac sandbox無効化は検証ホスト限定。専用Simulator終了済み。`macos/`、`ios/` |
+| 静的・ソース | 文書・開発設定・diff検査成功。App・package・tests・server・scriptsの検証前後hash一致。`source-manifest.json`。App buildは既知のAppIntents未使用metadata省略warningのみ |
+
+Appから本人確認結果を音声許可へ渡す処理は次の別工程である。個人署名付き音声、送信先別暗号化、通知認可・購入判定の完成を意味しない。実機・実サービスと全package/Worker/音声E2Eを含む最終受入は未完である。
+
 ## 接続中の本人名と端末署名の照合（2026-10-31）
 
 group認証だけで保存ユーザーの本人名を上書きできる問題を修正した。接続ごとの確認値、group・送信者・宛先・revision・名前へ署名し、直接招待で保存した端末鍵と照合する。確認済み本人が異なる場合も更新しない。検証済みの応答だけを保存処理へ渡し、グループ内だけの相手は一覧へ追加しない。[現行契約](../spec/App/通信仕様.md#本人名と端末内の呼び名)を参照する。

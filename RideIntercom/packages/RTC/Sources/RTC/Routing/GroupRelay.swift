@@ -44,6 +44,7 @@ struct GroupRelay: Sendable {
     private struct Member: Sendable {
         var peer: PeerDescriptor
         var epoch: UUID
+        var membershipID = UUID()
         var retired: [UUID] = []
         var highest: UInt64 = 0
         var seen = [UInt64?](repeating: nil, count: 1024)
@@ -111,6 +112,12 @@ struct GroupRelay: Sendable {
         }
         if isPresence, envelope.sequence <= member.presenceSequence { return nil }
         guard member.accept(envelope.sequence) else { return nil }
+        if isPresence, member.left || now - member.lastActivity >= Self.presenceLifetime {
+            // A fresh presence after absence is a new admission boundary even
+            // when the sender kept its transport epoch during the outage.
+            member.membershipID = UUID()
+            didRestart = true
+        }
         if isPresence { member.lastActivity = now; member.presenceSequence = envelope.sequence; member.left = false; member.peer = envelope.origin; member.internetReady = envelope.internetReady }
         if envelope.body == .leave { member.left = true; member.presenceSequence = envelope.sequence }
         if case .audio(let packet) = envelope.body {
@@ -126,6 +133,12 @@ struct GroupRelay: Sendable {
         envelope.path.append(request.localPeer.id)
         let forwarded = envelope.path.count < 8 ? try? encode(envelope) : nil
         return Reception(peer: envelope.origin, body: envelope.body, forward: forwarded, didRestart: didRestart, path: envelope.path)
+    }
+
+    func membershipID(for peerID: PeerID, now: TimeInterval) -> UUID? {
+        guard let member = peers[peerID], !member.left,
+              now - member.lastActivity < Self.presenceLifetime else { return nil }
+        return member.membershipID
     }
 
     func members(now: TimeInterval) -> [PeerDescriptor] {

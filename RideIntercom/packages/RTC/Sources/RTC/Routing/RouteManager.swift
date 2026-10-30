@@ -138,6 +138,10 @@ public actor RouteManager: CallSession {
     }
     public func sendAudioPacket(_ packet: RTCAudioPacket) async {
         guard isMediaStarted, !localMute, packet.payload.count <= 8192 else { return }
+        if case .admittedMemberships(let admitted) = request?.audioPolicy.peerPolicy {
+            let now = ProcessInfo.processInfo.systemUptime
+            guard admitted.contains(where: { relay?.membershipID(for: $0.key, now: now) == $0.value }) else { return }
+        }
         await broadcast(.audio(packet))
     }
     public func sendApplicationData(_ message: ApplicationDataMessage) async {
@@ -163,6 +167,10 @@ public actor RouteManager: CallSession {
         guard request != nil else { return }
         request?.audioPolicy = policy
         relay?.updateAudioPolicy(policy)
+        let now = ProcessInfo.processInfo.systemUptime
+        for member in memberSnapshot where !allowsAudio(from: member.peer.id, now: now) {
+            receiveBuffer.removePeer(member.peer.id)
+        }
         await sendRuntimeStatus(reason: .localControlsChanged)
     }
     private func broadcast(_ body: RelayBody) async {
@@ -223,10 +231,10 @@ public actor RouteManager: CallSession {
             updateMembers()
             switch result.body {
             case .audio(let packet):
-                if isMediaStarted {
-                    let now = ProcessInfo.processInfo.systemUptime
+                let now = ProcessInfo.processInfo.systemUptime
+                if isMediaStarted, allowsAudio(from: result.peer.id, now: now) {
                     receiveBuffer.enqueue(.init(received: .init(peerID: result.peer.id, packet: packet)), receivedAt: now)
-                    for ready in receiveBuffer.drain(now: now).readyPackets { emit(.receivedAudioPacket(ready)) }
+                    deliverAudio(now: now)
                 }
             case .application(let message): emit(.receivedApplicationData(.init(peerID: result.peer.id, message: message)))
             case .presence, .leave: break
@@ -284,7 +292,7 @@ public actor RouteManager: CallSession {
         defer { if generation == token { scheduleMaintenance() } }
         guard generation == token, let request else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        for packet in receiveBuffer.drain(now: now).readyPackets { emit(.receivedAudioPacket(packet)) }
+        deliverAudio(now: now)
         if now - lastPresence >= 2 {
             lastPresence = now
             await broadcast(.presence)
@@ -308,9 +316,25 @@ public actor RouteManager: CallSession {
             await sendRuntimeStatus(reason: .periodic)
         }
     }
+    private func allowsAudio(from peerID: PeerID, now: TimeInterval) -> Bool {
+        guard let membership = relay?.membershipID(for: peerID, now: now) else { return false }
+        switch request?.audioPolicy.peerPolicy {
+        case .groupMembers: return true
+        case .admittedMemberships(let admitted): return admitted[peerID] == membership
+        case nil: return false
+        }
+    }
+    private func deliverAudio(now: TimeInterval) {
+        for packet in receiveBuffer.drain(now: now).readyPackets
+            where isMediaStarted && allowsAudio(from: packet.peerID, now: now) {
+            emit(.receivedAudioPacket(packet))
+        }
+    }
     private func updateMembers() {
-        let next = (relay?.members(now: ProcessInfo.processInfo.systemUptime) ?? []).map {
-            CallMemberState(peer: $0, route: memberRoutes[$0.id], isConnected: true)
+        let now = ProcessInfo.processInfo.systemUptime
+        let next = (relay?.members(now: now) ?? []).map {
+            CallMemberState(peer: $0, route: memberRoutes[$0.id], isConnected: true,
+                            membershipID: relay?.membershipID(for: $0.id, now: now))
         }
         guard next != memberSnapshot else { return }
         let departed = Set(memberSnapshot.map { $0.peer.id }).subtracting(next.map { $0.peer.id })
