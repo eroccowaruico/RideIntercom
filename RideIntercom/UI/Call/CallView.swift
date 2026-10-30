@@ -3,6 +3,7 @@ import RTC
 
 struct CallView: View {
     @Bindable var viewModel: IntercomViewModel
+    @State private var addingUsersToGroup: IntercomGroup?
 
     var body: some View {
         ScrollView {
@@ -33,6 +34,14 @@ struct CallView: View {
                     Text("Participants")
                         .font(AppTypography.sectionTitle)
                         .foregroundStyle(AppColorPalette.textSecondary)
+                    Button("Add Saved Users", systemImage: "person.badge.plus") {
+                        addingUsersToGroup = viewModel.selectedGroup
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: viewModel.selectedGroup?.id).isEmpty
+                              || (viewModel.selectedGroup?.members.count ?? 8) >= IntercomGroup.maximumMemberCount)
+                    .accessibilityIdentifier("addSavedUsersButton")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -70,6 +79,7 @@ struct CallView: View {
         }
         .background(AppColorPalette.callScreenBackground)
         .accessibilityIdentifier("callScreen")
+        .sheet(item: $addingUsersToGroup) { group in SavedUsersView(viewModel: viewModel, groupID: group.id) }
     }
 
     private var statusHeader: some View {

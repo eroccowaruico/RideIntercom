@@ -30,6 +30,14 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 | コンテキスト削除 | `groupRow-{group.name}` | なし | `Delete` | 対象 `group.id` | context menu | swipe と同一意味 |
 | グループ作成ボタン | `call-groups-toolbar` | `createGroupButton` | `Create Talk Group` | Action | 右上ボタン | 押下で `Talk Group` を作成して選択 |
 
+## 保存済みユーザーの操作
+
+Groupsの`Saved Users`（`savedUsersButton`）から標準Formを開く。名前入力（`savedUsersGroupNameField`）、ユーザー選択（`selectUser-{UUID}`）、`Create Group`（`saveUserSelectionButton`）で保存済みの相手を使うグループを作成する。`Cancel`（`closeSavedUsersButton`）では変更しない。
+
+鉛筆ボタン（`editUser-{UUID}`）は表示名編集を開き、`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
+
+CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、参加にはInviteの共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
+
 ## 通話画面
 
 ### 親セクション

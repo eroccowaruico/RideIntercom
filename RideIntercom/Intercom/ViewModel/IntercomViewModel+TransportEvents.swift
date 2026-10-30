@@ -15,6 +15,7 @@ extension IntercomViewModel {
 
     func broadcastMetadataKeepalive() {
         callSession.sendControl(.keepalive)
+        sendPendingInvitationReceipt()
     }
 
     func sendStateMetadataSnapshot() {
@@ -84,8 +85,8 @@ extension IntercomViewModel {
         case .remoteRuntimeStatus(let peerID, let status):
             guard authenticatedPeerIDs.contains(peerID) else { return }
             remoteRuntimeStatuses[peerID] = status
-        case .receivedApplicationData:
-            break
+        case .receivedApplicationData(let peerID, let message):
+            receiveInvitationReceipt(peerID: peerID, message: message)
         case .disconnected:
             networkDiagnostics = nil
             stopAudioPipeline()

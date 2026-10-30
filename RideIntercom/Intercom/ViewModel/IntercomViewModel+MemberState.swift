@@ -171,7 +171,7 @@ extension IntercomViewModel {
         guard let index = groups.firstIndex(where: { $0.id == group.id }) else { return }
         var updated = groups
         updated[index] = group
-        if commitGroups(updated) { selectedGroup = group }
+        if commitGroups(updated) { selectedGroup = groups[index] }
     }
 
     func persistGroups() {

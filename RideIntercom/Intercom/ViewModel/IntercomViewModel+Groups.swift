@@ -141,29 +141,37 @@ extension IntercomViewModel {
         }
     }
 
-    func createTalkGroup() {
+    @discardableResult
+    func createTalkGroup(name: String = "Talk Group", userIDs: Set<UUID> = []) -> Bool {
         groupErrorMessage = nil
+        guard canEditSavedGroups else { groupErrorMessage = groupStorageNotice; return false }
+        guard let remoteMembers = membersForSavedUsers(userIDs) else { return false }
+        guard remoteMembers.count < IntercomGroup.maximumMemberCount, IntercomGroup.isValidName(name), !name.contains("|") else {
+            groupErrorMessage = "Enter a group name without | and choose up to 7 other members."
+            return false
+        }
         let groupID = UUID()
         let newGroup = try? IntercomGroup(
             id: groupID,
-            name: "Talk Group",
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             members: [
                 GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)
-            ]
+            ] + remoteMembers
         )
 
         guard let newGroup else {
             groupErrorMessage = "Could not create the group because the saved rider identity is invalid. Saved groups have not been changed."
-            return
+            return false
         }
         let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
         do { try groupRepository.save([newGroup] + groups, credential: .init(groupID: groupID, secret: secret)); refreshGroupStorageStatus() }
         catch {
             reportGroupStorageError(error)
-            return
+            return false
         }
         groups.insert(newGroup, at: 0)
         selectGroup(newGroup)
+        return true
     }
 
     func reserveInviteMemberSlot(displayName: String? = nil) {
@@ -193,6 +201,11 @@ extension IntercomViewModel {
 
         let previous = try groupRepository.credential(for: token.groupID)
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
+            let name = savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
+            do {
+                try groupRepository.acceptInvitation(from: .init(id: token.inviterMemberID, displayName: name), to: token.groupID)
+                refreshGroupStorageStatus()
+            } catch { reportGroupStorageError(error); throw error }
             selectGroup(existing)
             inviteStatusMessage = "JOINED \(existing.name)"
             return
@@ -203,7 +216,8 @@ extension IntercomViewModel {
         }
         var members = [GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)]
         if token.inviterMemberID != localMemberIdentity.memberID {
-            members.append(GroupMember(id: token.inviterMemberID, displayName: "Inviter"))
+            let name = savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
+            members.append(GroupMember(id: token.inviterMemberID, displayName: name))
         }
         let group = try IntercomGroup(
             id: token.groupID,
@@ -216,7 +230,11 @@ extension IntercomViewModel {
         } else {
             updated.insert(group, at: 0)
         }
-        do { try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret)); refreshGroupStorageStatus() }
+        do {
+            let inviter = members.first { $0.id == token.inviterMemberID && $0.id != localMemberIdentity.memberID }
+            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitationFrom: inviter)
+            refreshGroupStorageStatus()
+        }
         catch {
             reportGroupStorageError(error)
             throw error

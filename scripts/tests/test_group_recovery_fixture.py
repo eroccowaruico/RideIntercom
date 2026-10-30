@@ -24,7 +24,7 @@ class GroupRecoveryFixtureTests(unittest.TestCase):
         self.assertEqual((directory / 'groups.json').read_bytes(), CORRUPT)
         with self.assertRaises(ValueError):
             verify(directory)
-        (directory / 'groups.json').write_text(json.dumps({'version': 1, 'groups': []}))
+        (directory / 'groups.json').write_text(json.dumps({'version': 2, 'groups': [], 'users': []}))
         with self.assertRaises(ValueError):
             verify(directory)
         (directory / 'groups-corrupt-fixture.json').write_bytes(CORRUPT)
@@ -68,7 +68,7 @@ class GroupRecoveryFixtureTests(unittest.TestCase):
         directory = group_directory(container, root, self.namespace)
         prepare(directory)
         (directory / 'groups-corrupt-fixture.json').write_bytes(CORRUPT)
-        (directory / 'groups.json').write_text(json.dumps({'version': 1, 'groups': []}))
+        (directory / 'groups.json').write_text(json.dumps({'version': 2, 'groups': [], 'users': []}))
         relocated = container.with_name(str(uuid4()))
         container.rename(relocated)
         out = Path(self.temporary.name) / '20261021-1234'

@@ -3,6 +3,7 @@ import RTC
 
 struct GroupSelectionView: View {
     @Bindable var viewModel: IntercomViewModel
+    @State private var showingUsers = false
 
     var body: some View {
         List {
@@ -51,6 +52,11 @@ struct GroupSelectionView: View {
         .background(AppColorPalette.callScreenBackground)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button { showingUsers = true } label: { Label("Saved Users", systemImage: "person.2") }
+                    .accessibilityIdentifier("savedUsersButton")
+                    .disabled(!viewModel.canEditSavedGroups)
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button {
                     viewModel.createTalkGroup()
                 } label: {
@@ -60,6 +66,7 @@ struct GroupSelectionView: View {
                 .disabled(!viewModel.canEditSavedGroups)
             }
         }
+        .sheet(isPresented: $showingUsers) { SavedUsersView(viewModel: viewModel) }
         .accessibilityIdentifier("groupSelectionList")
     }
 

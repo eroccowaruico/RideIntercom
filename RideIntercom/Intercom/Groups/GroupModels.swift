@@ -1,6 +1,7 @@
 import Foundation
 
 struct GroupMember: Identifiable, Equatable, Hashable, Codable {
+    static let pendingInvitePrefix = "invite-pending-"
     let id: String
     var displayName: String
     var isMuted: Bool

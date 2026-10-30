@@ -1,5 +1,24 @@
 # 検証状況と証跡
 
+## 直接招待したユーザーの保存・再利用・削除（2026-10-30）
+
+グループから独立した端末内ユーザー保存、schema 2への移行、直接招待の受取確認、標準SwiftUIによる一覧・表示名編集・グループ再利用・一覧削除をAppへ実装した。同席しただけの参加者はグループ情報に残すが、ユーザー一覧には登録しない。一覧削除後も所属と通話を維持し、受取確認の再送で復活させない。package・Workerは変更していない。
+
+| 検証 | 結果と証跡 |
+|---|---|
+| macOS App全体 | 最終コードで159件成功、失敗・skipなし。`.validation/users-delivery/users-macos-regression-final/macos-tests.xcresult` |
+| iOS App・UI全体 | App 158件とUI 6件、計164件成功。招待受取、グループ削除、再起動、表示名編集、新規／既存グループへの再利用、一覧削除後の参加者維持、再起動後も一覧に戻らないことを画面操作で確認。`.validation/users-delivery/users-ios-final-verified/ios-tests.xcresult` |
+| iOS破損復旧 | 専用UI 1件とホスト側の元bytes退避・空manifest確認が成功。同じ出力directoryの`ios-recovery.xcresult`と`recovery-verify.log` |
+| 最終追加回帰 | 全体iOS検証後に、破損reset後も招待者を保存する修正と、別参加者の応答で未完了の招待を消さない照合を追加。iOSのUserDirectoryTests 14件成功。`.validation/users-delivery/users-ios-regression-final/ios-tests.xcresult`。この変更を上記macOS 159件にも含めた |
+| scripts・文書 | 保存復旧fixtureのPython 5件、文書参照・到達性・空directory・Settings網羅検査、差分の空白検査が成功。検証用worktreeでもAppソースを列挙できるよう、テスト補助の相対path処理を修正 |
+| 目視 | `saved-users.png`、`group-with-saved-user.png`、`user-removed.png`を`.validation/users-delivery`へ保存。ユーザー選択・説明文・追加後の参加者・削除後の空一覧を確認 |
+| ソース一致 | 最終Appコード・テスト・関連文書29ファイルが検証コピーと一致。`scoped-source-sha256.json`を保存。全体検証の`unchanged-inputs`は、別作業で変更された通常Build/Test時の自動採番により失敗している。`build-number-comparison.json`でprojectのビルド番号以外の差分がないことを別途確認した。テスト成功と、この総合コマンドの非ゼロ終了を区別する |
+| 資源回収 | 既存の管理Simulatorを再利用し、各実行後のShutdownと所有Mac hostの終了を確認。一般用のSimulatorや他作業のアプリは停止していない |
+
+初回の全体iOS実行では、検証コピーのpath誤りに加え、既存音声テストのOS初期化でRPC timeoutとプロセス終了が発生した。path処理を修正し、macOS終了後のiOS単独実行では上記164件と復旧が成功した。並行実行が原因とは断定せず、失敗logとsummaryは`earlier-failures`へ保持した。
+
+Appleログイン、課金判定、ID宛て通知、1対1の内部グループ解決は未実装。招待・追加を購入者相当に限定する条件と、グループ内だけの相手へグループ外で接触させない境界は[利用権とデータ保持の設計](../backlog/利用権とデータ保持の設計.md)へ反映した。現在の連絡先や受取確認を、将来の公開通知サービスの認可証明には使わない。実機・Bluetooth・実Cloudflare・macOSの実画面操作・購入は今回の検証対象ではない。
+
 ## AAC設定表示とSimulator資源管理（2026-10-30）
 
 利用者の指摘は48 / 24 / 16 kHzの切替に伴うAAC候補の変化だった。対応値の変化自体は既存仕様で、segmented Pickerが項目名を画面に表示せず関係が伝わっていなかった。`Codec`・`Sample Rate`の項目名と、候補・選択値の補正理由を追加した。音声codecの実装や品質下限は変更していない。
