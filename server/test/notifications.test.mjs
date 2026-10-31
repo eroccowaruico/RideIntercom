@@ -55,8 +55,11 @@ test('only a recipient capability authorizes a fixed alert; dedupe, read and can
         assert.equal((await send(r, a, g.capability, id.toUpperCase())).status, 200);
         assert.equal(requests.length, 1);
         assert.equal(requests[0].headers['apns-push-type'], 'alert');
-        assert.equal(requests[0].body.requestID, id);
-        assert.equal(requests[0].body.aps.alert['loc-key'], 'CALL_REQUEST_BODY');
+        assert.deepEqual(requests[0].body, {
+            aps: { alert: { 'title-loc-key': 'CALL_REQUEST_TITLE', 'loc-key': 'CALL_REQUEST_BODY' },
+                sound: 'default', category: 'RIDEINTERCOM_CALL_REQUEST' },
+            version: 1, requestID: id, recipientID: b.userID
+        });
         assert.ok(!JSON.stringify(requests).includes(g.capability));
         const path = `/api/notifications/calls/${b.userID}/${id}`;
         assert.equal((await call(r, path, undefined, c.accessToken, 'GET')).status, 404);

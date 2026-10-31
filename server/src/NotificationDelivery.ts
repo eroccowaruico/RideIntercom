@@ -37,7 +37,7 @@ export async function deliverNotification(device: NotificationDevice, providerTo
             headers: { authorization: `bearer ${providerToken}`, 'content-type': 'application/json',
                 'apns-topic': device.topic, 'apns-push-type': 'alert', 'apns-priority': '10',
                 'apns-id': requestID, 'apns-collapse-id': requestID, 'apns-expiration': String(Math.floor(expiresAt / 1000)) },
-            body: JSON.stringify({ aps: { alert: { 'title-loc-key': 'CALL_REQUEST_TITLE', 'loc-key': 'CALL_REQUEST_BODY' }, sound: 'default' },
+            body: JSON.stringify({ aps: { alert: { 'title-loc-key': 'CALL_REQUEST_TITLE', 'loc-key': 'CALL_REQUEST_BODY' }, sound: 'default', category: 'RIDEINTERCOM_CALL_REQUEST' },
                 version: 1, requestID, recipientID })
         })
         // No provider body, token or payload is logged or forwarded to callers.

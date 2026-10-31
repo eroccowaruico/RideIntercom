@@ -22,6 +22,12 @@ OS許可・端末登録/取消、直接相手への用途別同意、内部1対1
 
 その後、購入・通話権利を統合した`fbaaeaac`へ同じserver入力を取り込み、Worker全74件と型検査を再度成功させた。集約は`.validation/notification-server-delivery`、server26入力の前後一致とApp入力が`fbaaeaac`から不変であることを確認。集計helperの初回はNodeのspec reporterをTAP形式と誤認したため、成功済みのtestログを正しく解析し直した。test自体を失敗から成功へ書き換えず、初回集計ログも保持している。
 
+## 通知応答categoryのserver契約
+
+2026-10-31、`62b93965339588d6749079ef6d1c71c518e7fce1`から隔離したserver工程で、固定payloadへ`aps.category=RIDEINTERCOM_CALL_REQUEST`だけを追加した。既存payload契約試験を全fieldのdeepEqualへ変更し、category欠落の失敗を先に再現した。通知本文・grant・認可・保存・配送条件とmain/previewの通知既定OFFは変更しない。App/package、実APNs鍵、配置は操作しない。固定categoryと後続App接続の責務は[通知仕様](../spec/server/通知.md#保存する情報と配送)を参照する。
+
+最終の型検査・Worker全74件・文書検査が成功し、失敗・skip・cancelled・todo・warningはない。`.validation/notification-category-final`へログと357のsource/configuration入力（server 26を含む）の前後一致を保存した。証跡helperの初回は日本語pathのGit引用表現を比較して停止したが、NUL区切りへ修正し、成功済み試験を再実行せず入力不変と変更範囲を確認した。初回helperの理由とcategory欠落のREDログも保持している。実配送・Watch転送・「iPhoneで応答」actionとOS背景起動は未確認で、serverのpayload契約成功だけでは代替しない。
+
 ## 購入・復元と通話利用権の統合（2026-10-31）
 
 Apple標準の購入画面と提供後の取引完了を追加し、現在ログインの権利をグループ作成・追加・招待と通話開始へ接続した。未購入者の制御接続を許し、認証と双方の媒体準備が成立してから24時間を記録する。公開商品は空のまま試用を維持し、購入台帳・端末間lock・常時購入照会は追加していない。
