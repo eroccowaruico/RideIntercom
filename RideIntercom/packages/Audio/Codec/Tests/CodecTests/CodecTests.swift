@@ -34,7 +34,7 @@ import Testing
 @Test func codecSpecificOptionsClampBitRates() {
     #expect(AACELDv2Options(bitRate: 1_000).bitRate == 12_000)
     #expect(AACELDv2Options(bitRate: 256_000).bitRate == 128_000)
-    #expect(OpusOptions(bitRate: 1_000).bitRate == 48_000)
+    #expect(OpusOptions(bitRate: 1_000).bitRate == 24_000)
     #expect(OpusOptions(bitRate: 256_000).bitRate == 128_000)
 }
 
@@ -246,11 +246,11 @@ func opusRoundTripPreservesSpeechAtTheEndOfEachPacket(sampleRate: Double) throws
         "Encoder priming must not replace the end of every speech packet")
 }
 
-@Test func opusQualityFloorAppliesToDecodedAndChangedSettings() throws {
+@Test func opusSupportedRangeAppliesToDecodedAndChangedSettings() throws {
     var options = try JSONDecoder().decode(OpusOptions.self, from: Data(#"{"bitRate":16000}"#.utf8))
-    #expect(options.bitRate == 48_000)
+    #expect(options.bitRate == 24_000)
     options.bitRate = 32_000
-    #expect(options.bitRate == 48_000)
+    #expect(options.bitRate == 32_000)
     options.bitRate = 64_000
     #expect(options.bitRate == 64_000)
 }

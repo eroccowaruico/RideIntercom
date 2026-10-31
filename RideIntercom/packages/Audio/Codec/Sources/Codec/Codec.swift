@@ -64,9 +64,10 @@ public struct AACELDv2Options: Codable, Equatable, Sendable {
 }
 
 public struct OpusOptions: Codable, Equatable, Sendable {
-    // The native low-delay encoder needs this floor to preserve short waveform
-    // detail, including quantized microphone input, at the supported rates.
-    public static let allowedBitRateRange: ClosedRange<Int> = 48_000...128_000
+    // Product-supported range, not the native encoder's technical minimum.
+    // 24/32 kbps permit manually chosen quality loss; 48 kbps remains the
+    // default and the reference for the existing waveform-fidelity tests.
+    public static let allowedBitRateRange: ClosedRange<Int> = 24_000...128_000
 
     public var bitRate: Int {
         didSet { bitRate = min(max(bitRate, Self.allowedBitRateRange.lowerBound), Self.allowedBitRateRange.upperBound) }

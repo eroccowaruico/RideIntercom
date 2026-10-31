@@ -98,7 +98,7 @@ PCMFrame(format A)
 | `codec` | `CodecIdentifier` | `pcm16` | なし | 全codec |
 | `format` | `AudioCore.AudioFormat` | `48_000Hz / mono` | `AudioFormat` の範囲正規化 | 全codec |
 | `aacELDv2Options.bitRate` | `Int` | `32_000` | `12_000...128_000` | `mpeg4AACELDv2` |
-| `opusOptions.bitRate` | `Int` | `48_000` | `48_000...128_000` | `opus` |
+| `opusOptions.bitRate` | `Int` | `48_000` | `24_000...128_000` | `opus` |
 
 | format項目 | 範囲 | 備考 |
 |---|---|---|
@@ -261,7 +261,7 @@ bit rateはAVAudioFormatの辞書だけでなく、生成したAVAudioConverter�
 |---|---|
 | StreamingCodecEncoder | 送信stream専有のnative変換器を保持。各入力でEOS/resetせず、historyと部分packetを維持する。入力は最大1秒 |
 | suppressesSilence | 既定false。trueでは完全な0の入力が100ms続くまでnative末尾を送り、その後は符号化とpacket生成を休止する。音量閾値による小声の除去はしない。次の非無音入力を同じ呼出しで処理し、省略した時刻の不連続によりstream identityとnative履歴を更新する。各packetにcookieを保持し、信頼あり通信への依存を追加しない |
-| Opus | native frameは5msのCELT-only。10ms入力の2frameを同じ送信packetに格納し、送信回数を増やさず短時間の波形乱れを防ぐ。制約付き可変bitrateで短い変化へbitを配分し、選択したbitrateをstreamの目標として維持する。既定20msのpacket完成待ちを減らす |
+| Opus | native frameは5msのCELT-only。10ms入力の2frameを同じ送信packetに格納し、送信回数を増やさず、既定48kbpsで短時間の波形乱れを抑える。24／32kbpsは音質低下を許容する手動候補。制約付き可変bitrateで短い変化へbitを配分し、選択したbitrateをstreamの目標として維持する。既定20msのpacket完成待ちを減らす |
 | AAC-ELD | ELD v1 monoのnative変換。480sample/frame（48/24/16kHzで10/20/30ms）。long-term average bitrateで発話過渡音と無音へのbit配分を行う |
 | availableEncodingBitRates | OSが当該codec/PCM formatで受け入れるencode bitrate一覧。App側の品質下限とは別の能力情報 |
 | stream identity | UUIDをpayloadに含め、入力clockが2sampleを超えて不連続ならencoder履歴をリセットしてidentityを更新 |
@@ -280,7 +280,7 @@ compressed envelopeはFoundation JSONのCodableを維持し、内部CodingKeys�
 
 Streamingの外側EncodedCodecFrameのsampleCountとcapturedAtは、内部primingを除いた実音声を表す。native packet数・buffer容量を表すenvelope内のsourceFrameCountとは区別する。復号後にもprimingを足し直さず、実音声時刻を保持する。
 
-Opusの範囲は初期化・Codableでの旧設定読み込み・property変更の各入口で共通に正規化する。最低48kbpsでは、16bit量子化を含む12位相×3振幅×2入力の72条件で、2ms窓の波形誤差上限0.006を維持する。Appの既定値とUIもこのpackageの範囲を使う。
+Opusの公開範囲は24〜128kbpsとし、初期化・Codable読み込み・property変更の各入口で共通に正規化する。24kbpsは今回検証して提供する製品上の下限であり、OSの技術下限ではない。24／32kbpsは帯域節約のため波形誤差の増加を許容する手動候補で、既定・品質推奨の48kbpsを置き換えない。既定48kbpsでは、16bit量子化を含む12位相×3振幅×2入力の72条件で、2ms窓の波形誤差上限0.006を維持する。低帯域専用試験は16／24／48kHzの実native bitrate・復号・短い音声の連続性・符号化payload削減を確認し、この波形基準を緩めない。OSの対応値とAppの選択肢はそれぞれ別の契約とする。[比較と検証記録](../../../validation/history/低帯域codecの通信なし比較.md)を参照。
 
 継続streamの受信では、無音後にstream IDだけ変わりcodec・PCM format・magic cookieが一致する場合、専有decoderを`reset()`して再利用する。設定が変わる場合はnative converterを作り直す。履歴を共有せず、独立decoderと同じ全sample結果（明示的な復帰fade込み）になることを16/24/48kHzのOpus/AACで検証する。
 
