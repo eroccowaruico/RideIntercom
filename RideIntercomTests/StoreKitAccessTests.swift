@@ -1,9 +1,48 @@
 import Foundation
+import StoreKit
 import Testing
 @testable import RideIntercom
 
 @MainActor
 struct StoreKitAccessTests {
+    @Test func purchaseCancellationPendingAndFailureNeverGrantOrReadPurchases() async {
+        let source = FixtureStoreSource()
+        let access = StoreKitAccess(catalog: .init(weeklyProductID: "fixture.week", monthlyProductID: nil), source: source)
+        await access.start()
+        await access.purchaseCompleted(productID: "fixture.week", result: .success(.userCancelled))
+        #expect(access.message == "Purchase cancelled.")
+        await access.purchaseCompleted(productID: "fixture.week", result: .success(.pending))
+        #expect(access.message == "Purchase pending approval. Access will update when it is approved.")
+        await access.purchaseCompleted(productID: "fixture.week", result: .failure(FixtureStoreSource.Failure.unavailable))
+        #expect(access.message == "The purchase could not be completed. Please try again.")
+        #expect(source.readCount == 1 && source.syncCount == 0)
+        #expect(access.evaluation(at: .now).status == .notPurchased)
+        access.stop()
+    }
+    @Test func purchaseNotificationsFromUnconfiguredProductsOrOldAccountsAreIgnored() async {
+        let source = FixtureStoreSource()
+        let owner = FixtureStoreOwner()
+        let access = StoreKitAccess(catalog: .init(weeklyProductID: "fixture.week", monthlyProductID: nil), source: source,
+                                    isCurrentUser: { owner.current })
+        await access.start()
+        await access.purchaseCompleted(productID: "unrelated", result: .success(.pending))
+        #expect(access.message == nil)
+        owner.current = false
+        await access.purchaseCompleted(productID: "fixture.week", result: .success(.pending))
+        #expect(access.message == nil && source.readCount == 1)
+        access.stop()
+    }
+    @Test func purchaseCatalogRequiresBothConfiguredIDAndExpectedStoreKitType() {
+        #expect(StoreProductCatalog.production == .unconfigured)
+        #expect(StoreProductCatalog.currentProcess == .production)
+        let catalog = StoreProductCatalog(weeklyProductID: "fixture.week", monthlyProductID: "fixture.month")
+        #expect(catalog.accepts(productID: "fixture.week", type: .nonRenewable))
+        #expect(catalog.accepts(productID: "fixture.month", type: .autoRenewable))
+        #expect(!catalog.accepts(productID: "fixture.week", type: .autoRenewable))
+        #expect(!catalog.accepts(productID: "fixture.month", type: .nonRenewable))
+        #expect(!catalog.accepts(productID: "unrelated", type: .nonRenewable))
+        #expect(!StoreProductCatalog.unconfigured.accepts(productID: "fixture.week", type: .nonRenewable))
+    }
     @Test func unconfiguredNeverContactsStoreAndCannotRestore() async {
         let source = FixtureStoreSource()
         let access = StoreKitAccess(catalog: .unconfigured, source: source)
@@ -167,10 +206,10 @@ private final class FixtureStoreSource: StoreKitAccessSource {
     var gate: ManualAsyncGate?
     var fails = false
     var continuation: AsyncStream<Void>.Continuation?
-    func read(catalog: StoreProductCatalog, onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Void) async throws -> StoreEntitlementSnapshot {
+    func read(catalog: StoreProductCatalog, onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Bool) async throws -> StoreEntitlementSnapshot {
         readCount += 1
         let result = snapshot
-        if let partial { onVerifiedTransactions(partial) }
+        if let partial { _ = onVerifiedTransactions(partial) }
         if let gate { await gate.wait() }
         if fails { throw Failure.unavailable }
         return result

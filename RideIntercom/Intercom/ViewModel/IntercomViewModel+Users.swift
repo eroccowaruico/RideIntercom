@@ -25,6 +25,7 @@ extension IntercomViewModel {
 
     @discardableResult
     func addSavedUsers(_ ids: Set<UUID>, to groupID: UUID) -> Bool {
+        guard requireGroupAccess() else { return false }
         groupErrorMessage = nil
         guard canEditSavedGroups else { groupErrorMessage = groupStorageNotice; return false }
         guard let index = groups.firstIndex(where: { $0.id == groupID }) else {

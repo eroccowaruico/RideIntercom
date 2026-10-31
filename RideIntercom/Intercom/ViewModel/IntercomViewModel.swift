@@ -18,6 +18,13 @@ final class IntercomViewModel {
     let accountUserID: String?
     let invitationAuthority: DirectInvitationAuthority
     let accountAccessID: UUID
+    let enforceCallAccess: Bool
+    @ObservationIgnored let callAccessNow: @MainActor () -> Date
+    @ObservationIgnored let callAccessEvaluation: (@MainActor (Date) -> StoreAccessEvaluation)?
+    var callAccessState = CallAccessState()
+    @ObservationIgnored var callAccessObservationGeneration = UUID()
+    @ObservationIgnored var isRefreshingCallAccess = false
+    @ObservationIgnored var lastCallAccessSaveAttempt: TimeInterval?
     let storeAccess: StoreKitAccess
     var hasCurrentAccountAccess: Bool {
         !accountSession.deletion.blocksSignIn && accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
@@ -137,7 +144,9 @@ final class IntercomViewModel {
     var authenticatedPeerIDs: [String] = []
     var peerProfiles: [String: PeerProfileState] = [:] {
         didSet {
-            if Self.admittedMemberships(in: oldValue) != Self.admittedMemberships(in: peerProfiles) {
+            let previousAdmission = admittedCallAccessMemberships(in: oldValue)
+            callAccessPeersChanged()
+            if previousAdmission != callAccessAdmittedMemberships {
                 callSession.setAudioPolicy(currentCallAudioPolicy())
             }
         }
@@ -204,6 +213,9 @@ final class IntercomViewModel {
 
     init(
         accountSession: AppleAccountSession,
+        enforceCallAccess: Bool? = nil,
+        callAccessEvaluation: (@MainActor (Date) -> StoreAccessEvaluation)? = nil,
+        callAccessNow: @escaping @MainActor () -> Date = Date.init,
         callSession: CallSession? = nil,
         groupRepository: GroupRepository,
         appSettingsStore: AppSettingsStoring,
@@ -218,16 +230,20 @@ final class IntercomViewModel {
         callTicker: CallTicking? = nil,
         remoteTalkerTimeout: TimeInterval = 0.6
     ) {
+        self.callAccessEvaluation = callAccessEvaluation
+        self.callAccessNow = callAccessNow
         self.invitationAuthority = invitationAuthority
         self.accountSession = accountSession
         self.accountUserID = accountSession.userID
         self.accountAccessID = accountSession.accessID
         let purchaseUserID = accountSession.userID
         let purchaseAccessID = accountSession.accessID
-        self.storeAccess = StoreKitAccess(isCurrentUser: {
+        let storeAccess = StoreKitAccess(isCurrentUser: {
             !accountSession.deletion.blocksSignIn && purchaseUserID != nil &&
             accountSession.userID == purchaseUserID && accountSession.accessID == purchaseAccessID
         })
+        self.storeAccess = storeAccess
+        self.enforceCallAccess = enforceCallAccess ?? storeAccess.catalog.isConfigured
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()
@@ -303,5 +319,6 @@ final class IntercomViewModel {
             self?.handleCallTick(now: now)
         }
         accountSession.onAccessRevoked = { [weak self] in self?.endAccountAccess() }
+        observeCallAccess()
     }
 }

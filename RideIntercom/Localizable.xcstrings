@@ -23,6 +23,28 @@
         }
       }
     },
+    "Access": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権"
+          }
+        }
+      }
+    },
+    "Access Status": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権の状態"
+          }
+        }
+      }
+    },
     "Account": {
       "extractionState": "manual",
       "localizations": {
@@ -118,6 +140,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "一度ログインした後は、Internetにつながらない場所でも近距離通話を利用できます。"
+          }
+        }
+      }
+    },
+    "An active pass is required to create a group or invite riders. Check Access in Settings.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループの作成や招待には有効な利用権が必要です。設定の「利用権」を確認してください。"
           }
         }
       }
@@ -441,6 +473,17 @@
         }
       }
     },
+    "Available with Test Distribution": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テスト配布で利用可能"
+          }
+        }
+      }
+    },
     "Call": {
       "extractionState": "manual",
       "localizations": {
@@ -448,6 +491,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "通話"
+          }
+        }
+      }
+    },
+    "Call Again": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう一度通話"
+          }
+        }
+      }
+    },
+    "Call destination": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話先"
+          }
+        }
+      }
+    },
+    "Call ended.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を終了しました。"
           }
         }
       }
@@ -463,6 +536,17 @@
         }
       }
     },
+    "Check Access": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権を確認"
+          }
+        }
+      }
+    },
     "Check your headphones or speaker, then resume audio.": {
       "extractionState": "manual",
       "localizations": {
@@ -470,6 +554,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "ヘッドホンやスピーカーを確認してから音声を再開してください。"
+          }
+        }
+      }
+    },
+    "Checking Access": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権を確認中"
           }
         }
       }
@@ -562,6 +657,16 @@
         }
       }
     },
+    "Connect to a saved user or group in RideIntercom.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomに保存したユーザーやグループへ接続します。"
+          }
+        }
+      }
+    },
     "Connect with Apple": {
       "extractionState": "manual",
       "localizations": {
@@ -580,6 +685,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "接続中・相手の参加を待っています"
+          }
+        }
+      }
+    },
+    "Connection started. The other person must also join the call.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続を開始しました。相手も通話に参加する必要があります。"
           }
         }
       }
@@ -936,6 +1051,26 @@
         }
       }
     },
+    "End current call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在の通話を終了"
+          }
+        }
+      }
+    },
+    "End the current call before starting a different call.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別の通話を始める前に、現在の通話を終了してください。"
+          }
+        }
+      }
+    },
     "End your call before checking audio.": {
       "extractionState": "manual",
       "localizations": {
@@ -987,6 +1122,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "期限切れ"
+          }
+        }
+      }
+    },
+    "Group": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ"
           }
         }
       }
@@ -1200,6 +1345,17 @@
         }
       }
     },
+    "Loading Purchases": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入内容を読み込み中"
+          }
+        }
+      }
+    },
     "Manual Access Token": {
       "extractionState": "manual",
       "localizations": {
@@ -1387,6 +1543,26 @@
         }
       }
     },
+    "No recent call is available. Choose a saved user or group in RideIntercom.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近の通話はありません。RideIntercomで保存済みのユーザーかグループを選んでください。"
+          }
+        }
+      }
+    },
+    "No recent call is available. Choose a saved user or group.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再開できる通話がありません。保存したユーザーかグループを選んでください。"
+          }
+        }
+      }
+    },
     "Not Available Yet": {
       "extractionState": "manual",
       "localizations": {
@@ -1530,6 +1706,28 @@
         }
       }
     },
+    "Purchase cancelled.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入をキャンセルしました。"
+          }
+        }
+      }
+    },
+    "Purchase pending approval. Access will update when it is approved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入は承認待ちです。承認されると利用権が更新されます。"
+          }
+        }
+      }
+    },
     "Purchase status could not be checked. Try Restore Purchases.": {
       "extractionState": "manual",
       "localizations": {
@@ -1563,6 +1761,17 @@
         }
       }
     },
+    "Purchases could not be loaded. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入内容を読み込めませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
     "Purchases could not be restored. Check your App Store account and try again.": {
       "extractionState": "manual",
       "localizations": {
@@ -1592,6 +1801,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "接続できます"
+          }
+        }
+      }
+    },
+    "Recent Call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近の通話"
           }
         }
       }
@@ -1636,6 +1855,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "保存済みグループを再読み込み"
+          }
+        }
+      }
+    },
+    "Remove Data": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "データを削除"
+          }
+        }
+      }
+    },
+    "Remove Previous Account Data": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以前のアカウントデータを削除"
+          }
+        }
+      }
+    },
+    "Remove its saved users, groups, settings and keys from this device, then sign in and set up Internet calling again. You will need new invitations to reconnect with friends.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の保存ユーザー、グループ、設定、鍵を削除してからログインし、インターネット通話を設定し直してください。友達と再接続するには新しい招待が必要です。"
+          }
+        }
+      }
+    },
+    "Remove the previous account data on this device to set up your account again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の以前のアカウントデータを削除して、アカウントを設定し直してください。"
           }
         }
       }
@@ -1702,6 +1961,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "音声を再開"
+          }
+        }
+      }
+    },
+    "Resume recent call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近の通話を再開"
           }
         }
       }
@@ -1827,6 +2096,16 @@
         }
       }
     },
+    "Saved users, groups, settings and keys on this device will be permanently removed. Your new account will be kept.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の保存ユーザー、グループ、設定、鍵を完全に削除します。新しいアカウントは保持します。"
+          }
+        }
+      }
+    },
     "Saved. Use Check Internet Service in Diagnostics before connecting.": {
       "extractionState": "manual",
       "localizations": {
@@ -1856,6 +2135,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "インターネット通話を設定"
+          }
+        }
+      }
+    },
+    "Set Up Your Account Again": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを設定し直す"
           }
         }
       }
@@ -1944,6 +2233,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "招待を開くにはログインしてください。"
+          }
+        }
+      }
+    },
+    "Sign in with Apple in RideIntercom first.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先にRideIntercomでAppleにサインインしてください。"
           }
         }
       }
@@ -2058,6 +2357,26 @@
         }
       }
     },
+    "Start a call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を開始"
+          }
+        }
+      }
+    },
+    "Start a call with ${target}": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${target}と通話を開始"
+          }
+        }
+      }
+    },
     "Stop Audio Check": {
       "extractionState": "manual",
       "localizations": {
@@ -2080,6 +2399,27 @@
         }
       }
     },
+    "Test distribution access does not require a purchase.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テスト配布の利用に購入は必要ありません。"
+          }
+        }
+      }
+    },
+    "The call could not be started.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を開始できませんでした。"
+          }
+        }
+      }
+    },
     "The group changes were invalid. Saved groups have been preserved. Reload before trying again.": {
       "extractionState": "manual",
       "localizations": {
@@ -2091,6 +2431,17 @@
         }
       }
     },
+    "The purchase could not be completed. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入を完了できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
     "The saved call conflicts with another group. Reload your saved groups.": {
       "extractionState": "manual",
       "localizations": {
@@ -2098,6 +2449,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "保存された通話先が別のグループと競合しています。保存済みのグループを読み込み直してください。"
+          }
+        }
+      }
+    },
+    "There is no current call to end.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終了する通話はありません。"
           }
         }
       }
@@ -2208,6 +2569,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "この招待は、保存された相手の本人情報または呼び名と一致しません。相手を確認してから、古い項目の削除や呼び名の変更を行ってください。既存のグループと通話は変わりません。"
+          }
+        }
+      }
+    },
+    "This saved call destination is no longer available. Choose it again in RideIntercom.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この通話先は利用できなくなりました。RideIntercomでもう一度選んでください。"
           }
         }
       }
@@ -2374,6 +2745,16 @@
         }
       }
     },
+    "User": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザー"
+          }
+        }
+      }
+    },
     "Users": {
       "extractionState": "manual",
       "localizations": {
@@ -2440,6 +2821,17 @@
         }
       }
     },
+    "View Purchases": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入内容を見る"
+          }
+        }
+      }
+    },
     "Voice Isolation": {
       "extractionState": "manual",
       "localizations": {
@@ -2469,6 +2861,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@の音量"
+          }
+        }
+      }
+    },
+    "Waiting for a rider with an active pass. You can also check Access in Settings.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効な利用権を持つ参加者を待っています。設定の「利用権」も確認できます。"
           }
         }
       }
@@ -2660,6 +3062,16 @@
         }
       }
     },
+    "Your new account, Apple authorization and purchases will be kept. This cleanup does not need an Internet connection.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいアカウント、Appleの連携、購入は保持します。この端末のデータ削除にインターネット接続は必要ありません。"
+          }
+        }
+      }
+    },
     "Your previous account is deleted. A newer account is registered with Apple; its registration and Apple authorization have been kept.": {
       "extractionState": "manual",
       "localizations": {
@@ -2671,338 +3083,12 @@
         }
       }
     },
-    "Set Up Your Account Again": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アカウントを設定し直す"
-          }
-        }
-      }
-    },
     "Your previous account was deleted and a new account was registered. This device still has data from the previous account.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "以前のアカウントが削除され、新しいアカウントが登録されています。この端末には以前のアカウントのデータが残っています。"
-          }
-        }
-      }
-    },
-    "Remove its saved users, groups, settings and keys from this device, then sign in and set up Internet calling again. You will need new invitations to reconnect with friends.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この端末の保存ユーザー、グループ、設定、鍵を削除してからログインし、インターネット通話を設定し直してください。友達と再接続するには新しい招待が必要です。"
-          }
-        }
-      }
-    },
-    "Your new account, Apple authorization and purchases will be kept. This cleanup does not need an Internet connection.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新しいアカウント、Appleの連携、購入は保持します。この端末のデータ削除にインターネット接続は必要ありません。"
-          }
-        }
-      }
-    },
-    "Remove Previous Account Data": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "以前のアカウントデータを削除"
-          }
-        }
-      }
-    },
-    "Remove Data": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "データを削除"
-          }
-        }
-      }
-    },
-    "Saved users, groups, settings and keys on this device will be permanently removed. Your new account will be kept.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この端末の保存ユーザー、グループ、設定、鍵を完全に削除します。新しいアカウントは保持します。"
-          }
-        }
-      }
-    },
-    "Recent Call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近の通話"
-          }
-        }
-      }
-    },
-    "Call Again": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "もう一度通話"
-          }
-        }
-      }
-    },
-    "End the current call before starting a different call.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "別の通話を始める前に、現在の通話を終了してください。"
-          }
-        }
-      }
-    },
-    "No recent call is available. Choose a saved user or group.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "再開できる通話がありません。保存したユーザーかグループを選んでください。"
-          }
-        }
-      }
-    },
-    "Start a call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話を開始"
-          }
-        }
-      }
-    },
-    "Resume recent call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近の通話を再開"
-          }
-        }
-      }
-    },
-    "End current call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在の通話を終了"
-          }
-        }
-      }
-    },
-    "Connect to a saved user or group in RideIntercom.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "RideIntercomに保存したユーザーやグループへ接続します。"
-          }
-        }
-      }
-    },
-    "Call destination": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話先"
-          }
-        }
-      }
-    },
-    "Start a call with ${target}": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "${target}と通話を開始"
-          }
-        }
-      }
-    },
-    "Connection started. The other person must also join the call.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接続を開始しました。相手も通話に参加する必要があります。"
-          }
-        }
-      }
-    },
-    "There is no current call to end.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "終了する通話はありません。"
-          }
-        }
-      }
-    },
-    "Call ended.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話を終了しました。"
-          }
-        }
-      }
-    },
-    "This saved call destination is no longer available. Choose it again in RideIntercom.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この通話先は利用できなくなりました。RideIntercomでもう一度選んでください。"
-          }
-        }
-      }
-    },
-    "The call could not be started.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話を開始できませんでした。"
-          }
-        }
-      }
-    },
-    "No recent call is available. Choose a saved user or group in RideIntercom.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近の通話はありません。RideIntercomで保存済みのユーザーかグループを選んでください。"
-          }
-        }
-      }
-    },
-    "Sign in with Apple in RideIntercom first.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先にRideIntercomでAppleにサインインしてください。"
-          }
-        }
-      }
-    },
-    "User": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ユーザー"
-          }
-        }
-      }
-    },
-    "Group": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "グループ"
-          }
-        }
-      }
-    },
-    "Remove the previous account data on this device to set up your account again.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この端末の以前のアカウントデータを削除して、アカウントを設定し直してください。"
-          }
-        }
-      }
-    },
-    "Access": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用権"
-          }
-        }
-      }
-    },
-    "Access Status": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用権の状態"
-          }
-        }
-      }
-    },
-    "Available with Test Distribution": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テスト配布で利用可能"
-          }
-        }
-      }
-    },
-    "Check Access": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用権を確認"
-          }
-        }
-      }
-    },
-    "Checking Access": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用権を確認中"
-          }
-        }
-      }
-    },
-    "Test distribution access does not require a purchase.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テスト配布の利用に購入は必要ありません。"
           }
         }
       }

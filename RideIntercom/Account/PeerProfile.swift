@@ -60,5 +60,8 @@ struct PeerProfileState {
     var response: Data?
     var responseName: String?
     var responseRevision: UInt64 = 0
+    var callAccess: SharedCallAccess?
+    var sentCallAccess: SharedCallAccess?
+    var callAccessRevision: UInt64 = 0
     var lastResponseAt: TimeInterval = -.infinity
 }

@@ -193,11 +193,11 @@ private final class DistributionFixture: StoreKitAccessSource {
         if fails { throw Failure.offline }
         return value
     }
-    func read(catalog: StoreProductCatalog, onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Void) async throws -> StoreEntitlementSnapshot {
+    func read(catalog: StoreProductCatalog, onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Bool) async throws -> StoreEntitlementSnapshot {
         readCount += 1
         let snapshot = StoreEntitlementSnapshot(entitlements: [.init(transactionID: 1, productID: "fixture.week", kind: .week,
             purchaseDate: bought, expirationDate: nil, revocationDate: nil, isUpgraded: false, isFreeTrial: false, graceExpirationDate: nil)].filter { _ in hasPurchase }, hasUnverifiedTransactions: false)
-        onVerifiedTransactions(snapshot)
+        _ = onVerifiedTransactions(snapshot)
         if let purchaseGate { await purchaseGate.wait() }
         return snapshot
     }

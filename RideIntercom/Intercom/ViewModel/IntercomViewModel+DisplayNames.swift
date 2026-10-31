@@ -38,9 +38,16 @@ extension IntercomViewModel {
         }
     }
 
+    var callAccessAdmittedMemberships: [RTC.PeerID: UUID] { admittedCallAccessMemberships(in: peerProfiles) }
+
+    func admittedCallAccessMemberships(in profiles: [String: PeerProfileState]) -> [RTC.PeerID: UUID] {
+        let admitted = profiles.filter { !enforceCallAccess || (callAccessState.isEstablished && ($0.value.callAccess?.mediaReady == true || $0.value.callAccess?.isEstablished == true)) }
+        return canStartCalls ? Self.admittedMemberships(in: admitted) : [:]
+    }
+
     func currentCallAudioPolicy() -> RTC.RTCAudioPolicy {
         var policy = currentAudioPipelineConfiguration().audioPolicy
-        policy.peerPolicy = .admittedMemberships(canStartCalls ? Self.admittedMemberships(in: peerProfiles) : [:])
+        policy.peerPolicy = .admittedMemberships(callAccessAdmittedMemberships)
         return policy
     }
 
@@ -66,6 +73,7 @@ extension IntercomViewModel {
         state.remoteChallenge = challenge.nonce
         peerProfiles[peerID] = state
         sendSharedDisplayName(to: peerID, now: now)
+        refreshCallAccess()
     }
 
     func sendSharedDisplayName() {
@@ -115,6 +123,7 @@ extension IntercomViewModel {
             state.verified = verified
             peerProfiles[peerID] = state
             refreshGroupStorageStatus()
+            refreshCallAccess()
             recordEstablishedCall()
         } catch { reportGroupStorageError(error) }
     }

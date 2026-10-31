@@ -17,7 +17,7 @@ nonisolated struct DeviceIdentityTrust: Sendable {
 }
 
 nonisolated struct DeviceIdentityProof: Codable, Equatable, Sendable {
-    enum Purpose: String { case issueInvitation, acceptInvitation, acknowledgeInvitation, shareDisplayName }
+    enum Purpose: String { case issueInvitation, acceptInvitation, acknowledgeInvitation, shareDisplayName, shareCallAccess }
     let publicKey: String
     var certificate: DeviceIdentityCertificate?
     let signature: String

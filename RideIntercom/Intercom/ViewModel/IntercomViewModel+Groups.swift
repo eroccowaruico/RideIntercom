@@ -68,6 +68,8 @@ extension IntercomViewModel {
     }
 
     func resetConnectionRuntimeState() {
+        callAccessState = CallAccessState()
+        lastCallAccessSaveAttempt = nil
         connectionState = .idle
         isVoiceActive = false
         connectedPeerIDs = []
@@ -148,6 +150,7 @@ extension IntercomViewModel {
     func createTalkGroup(name: String = "Talk Group", userIDs: Set<UUID> = []) -> Bool {
         groupErrorMessage = nil
         guard canEditSavedGroups else { groupErrorMessage = groupStorageNotice; return false }
+        guard requireGroupAccess() else { return false }
         guard let remoteMembers = membersForSavedUsers(userIDs) else { return false }
         guard remoteMembers.count < IntercomGroup.maximumMemberCount, IntercomGroup.isValidName(name), !name.contains("|") else {
             groupErrorMessage = "Enter a group name without | and choose up to 7 other members."
@@ -178,6 +181,7 @@ extension IntercomViewModel {
     }
 
     func reserveInviteMemberSlot(displayName: String? = nil) {
+        guard requireGroupAccess() else { return }
         guard var group = selectedGroup,
               group.kind == .group,
               group.members.count < IntercomGroup.maximumMemberCount else { return }

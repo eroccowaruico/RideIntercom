@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## 購入・復元と通話利用権の統合（2026-10-31）
+
+Apple標準の購入画面と提供後の取引完了を追加し、現在ログインの権利をグループ作成・追加・招待と通話開始へ接続した。未購入者の制御接続を許し、認証と双方の媒体準備が成立してから24時間を記録する。公開商品は空のまま試用を維持し、購入台帳・端末間lock・常時購入照会は追加していない。
+
+| 検証 | 結果 |
+|---|---|
+| App統合 | macOS・iOS各360件成功、失敗・skip・runtime warningなし。`.validation/purchase-call-access-final-macos`・`purchase-call-access-final-ios` |
+| 共通通話条件 | 新規22件。Local代替backendの2 VMで無権利待機→権利反映→成立、未準備の購入者、途中参加、継続中の失効、全相手消失、24時間境界、機器停止、時計差、署名改ざん、旧参加・旧ログイン、保存失敗、schema 7を検証 |
+| StoreKit | 専用39件成功。実Product.purchase、承認・取消、復元、提供後finish、月額照会が止まった際の週券提供、旧要求の遅延応答、過去の未完了更新を確認。統合版のStoreKit入力が先行最終試験と一致 |
+| 既存画面 | Standard英日4件、個別通話1件、保存ユーザーのgroup削除後の再利用1件成功。商品未設定の試用を維持し、同じ通話状態・一覧を使うことを確認 |
+| 購入復旧UI | 統合版の専用schemeで1件成功。取得不能→再試行→Done→購入と復元の再操作へ戻る。`.validation/purchase-call-access-recovery-ui`。有効商品の購入成功UIとは区別 |
+| ソース・資源 | App検証前後325入力の一致、所有Mac host回収、同じ専用Simulatorのshutdownを確認。先行の未変更server/script入力も照合し、集約は`.validation/purchase-call-access-delivery`。元のxcresultはevidence-locations.jsonを参照 |
+
+package・Worker・独立音声E2EはこのApp工程で変更・再実行していない。実機・実媒体・Apple sandbox/TestFlight・実家族共有・販売設定は別の受入条件を維持する。標準StoreViewからの購入成功UIはSKTestSession Code=3により未確認で、取得不能の復旧成功から代用しない。既知のApp Intentsを持たないUIテストbundleのmetadata省略warningは継続する。
+
 ## 配布利用権と外部操作の英日対応（2026-10-31）
 
 購入とは別の配布由来の権利を追加し、取得失敗から再確認できるようにした。現在ログインへ適用し、独自の購入台帳・端末間lock・永続paidフラグは追加しない。ショートカットの操作名・種類・応答・エラーとSiriフレーズを英日対応にし、本人名・呼び名を翻訳しない。

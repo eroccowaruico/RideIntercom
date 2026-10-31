@@ -14,6 +14,7 @@ extension IntercomViewModel {
 
     func handleCallTick(now: TimeInterval) {
         sendPeerProfileChallenges(now: now)
+        refreshCallAccess(retryMedia: false)
         expireRemoteTalkers(now: now)
         refreshOtherAudioDuckingState(now: now)
         publishRuntimePackageReports(now: now)

@@ -56,3 +56,34 @@ Appleの[StoreKit 2紹介](https://developer.apple.com/videos/play/wwdc2021/1011
 | 残る受入 | 実TestFlight・App Store版、実機・圏外・配布切替は未確認。注入した配布状態のunit成功を、実配布環境の識別成功とは扱わない |
 
 同時refresh/restoreは既存処理へまとめる契約を仕様へ記録した。新しいqueue・lock・サーバー台帳は追加していない。標準の再実行scriptへ配布unitを対象追加した1行はroot側の変更と一致させ、配布patchからは除外した。
+
+
+## 標準購入入口と提供後の取引完了
+
+同日、`71527487062db6c207fa59e70e41cad1c3f6d54d`から隔離した`RideIntercom-purchase-flow`で、StoreKit標準購入画面と現在ログイン世代への採用後のfinishを追加した。公開商品・価格は未設定のままで、実Appleアカウント・実購入・Cloudflareへ接続していない。
+
+| 対象 | 条件と結果 |
+|---|---|
+| 専用回帰 | `.validation/purchase-flow-verified`。39件成功（既存29件、新しいpurchase unit 3件、実StoreKit 7件）。失敗・skip・runtime warningなし。test・所有host cleanup・summary・acceptance・source/fixture/config不変の全stage成功 |
+| 標準画面 | StoreView(products:)、storeProductsTask、onInAppPurchaseCompletionを現SDKでコンパイル。取得した全IDと商品の種別を確認してから表示し、StoreViewの重複する復元ボタンは非表示。実画面を操作した受入結果ではない |
+| 実購入API | SKTestSessionのローカル設定とdisableDialogsで実Product.purchaseを呼び、検証済み履歴の再取得後に権利を反映。成功通知だけを残して履歴を消した場合は購入済みにならないことを確認 |
+| 取消・承認待ち | 公式のpurchase APIへの取消エラーとAsk to Buyを使用。取消・承認待ちだけでは権利を与えず、承認後の実updatesで権利反映とfinishを確認 |
+| 提供順と範囲 | 受領を拒否したsource読取は未完了を維持。現在世代のAccessが署名済みsnapshotを受領後にfinishし、別商品の未完了取引、種別不一致、未検証completionはfinishしない |
+| 再取得と旧ユーザー | 古いアカウントのcompletionは権利を付けず未完了を維持。新モデルのstartと明示restoreで未完了を回収。プロセス自体の強制終了・再起動ではなくモデルの作り直しを試験した |
+| 月額の過去更新 | ローカルのforceRenewalで複数の未完了更新を作成。表示は最新期間だけでも、履歴全verified IDとの照合で過去更新もfinishすることを確認 |
+| 状態照会の待機 | 月額statusをgateで止め、期限前に採用した週券をfinishし、同じ実Product.purchaseから次の週券を買えることを確認。timeout後に新しく届いたrenewalと、stop後の新renewalは古い読取でfinishされない |
+| 試験上の補正 | SKTestSessionの設定を各testでresetToDefaultStateしてAsk to Buy等を分離。forceRenewalの非同期反映をbounded待機で確認。意図的にdeliveryを遅らせる試験にも非deliveryのupdates観測を先に設置し、StoreKitのobserverなしruntime warningを解消。先行失敗のxcresultは保持 |
+| 残る受入 | 実StoreViewでの商品表示から購入成功・認証シート・VoiceOver、実商品設定・価格・販売開始、実Apple sandbox/TestFlight・家族共有の実アカウント連携は未確認。ローカルの実Product.purchase成功をこれらの受入へ読み替えない |
+
+
+### iOSの購入入口と取得不能からの復旧
+
+| 対象 | 条件と結果 |
+|---|---|
+| 共通UIのビルド | `.validation/purchase-ios-build`のgeneric iOS Simulator build成功。Simulator起動なしで実行し、入力不変を確認 |
+| UI受入 | `.validation/purchase-ui-recovery`。専用StoreKit UI schemeの1件成功、失敗・skip・runtime warningなし。既存の専用Simulatorをshared run.lockとSimulatorLeaseで再利用し、終了時にshutdown。新規作成・他のSimulator操作なし |
+| 実操作 | SettingsからView Purchasesへ進み、取得不能の表示、Try Againによる再取得、Doneで設定へ戻る操作、購入とRestoreの両ボタンが再びenabledかつhittableであることを確認。スクリーンショット2枚をxcresultへ保持。15秒の期限到達自体のUI実測ではなく、初回読取後の再操作を確認した |
+| 発見したUI差分 | Section全体のaccessibility containerが行ボタンの親frameをラベル幅にして操作できなかった。識別子をAccess見出しへ置き、sheetを購入ボタンへ付けてnativeな行のhit testingを維持するよう修正 |
+| 失敗実験 | 成功購入を試みる専用試験のSKTestSession操作でSKInternalErrorDomain Code=3（設定保存・override・disableDialogs・clearTransactions）が発生。`.validation/purchase-ui-red`、`purchase-ui-green`、`purchase-ui-products`のxcresultと成功試験の実験ソースを保全。成功へ読み替えず、通常suiteへ失敗試験を含めない |
+| 環境差の根拠 | [Apple DTSの既知問題の説明](https://developer.apple.com/forums/thread/826971)にCLIからのStoreKit設定同期と同じCode=3の報告がある。ただし当該説明は異なるOS版の履歴であり、今回の原因を同一バグと断定しない。標準のSimulator署名で再現し、StoreKit内部ファイルや署名の迂回は行っていない |
+| 独立した未確認ゲート | 有効なfixture商品を標準StoreViewへ表示し、購入ボタンから購入して利用可能・期限まで到達するiOS UIの成功は未確認。macOSの実Product.purchase成功と、取得不能を使ったUI復旧成功から代用しない |

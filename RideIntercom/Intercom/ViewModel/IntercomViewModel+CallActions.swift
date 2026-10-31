@@ -41,7 +41,7 @@ extension IntercomViewModel {
     /// Transport connection alone is insufficient: the current participant proof
     /// and the local media pipeline must both be ready.
     func recordEstablishedCall() {
-        guard canStartCalls, isAudioReady,
+        guard canStartCalls, isAudioReady, !enforceCallAccess || callAccessState.isEstablished,
               authenticatedPeerIDs.contains(where: { peerProfiles[$0]?.verified != nil }),
               let group = groups.first(where: { $0.id == activeGroupID }) else { return }
         let destination: CallDestination?

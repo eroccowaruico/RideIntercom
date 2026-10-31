@@ -252,7 +252,7 @@ struct AccountDirectCallTests {
         old.version = 5
         let receipt = try #require(old.groups.first?.pendingInvitation)
         let upgraded = try GroupSnapshot.decode(old.encoded()).upgraded()
-        #expect(upgraded.version == 6)
+        #expect(upgraded.version == 7)
         #expect(upgraded.groups.first?.pendingInvitation == receipt)
         #expect(upgraded.groups.first?.credentialReference == old.groups.first?.credentialReference)
         #expect(upgraded.users == old.users)

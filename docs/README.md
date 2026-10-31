@@ -104,6 +104,7 @@
 | [spec/App/利用権仕様.md](<spec/App/利用権仕様.md>) | StoreKitの読取・期限・復元・ログイン寿命 |
 | [spec/App/配布環境の利用権仕様.md](<spec/App/配布環境の利用権仕様.md>) | 配布環境の利用権仕様 |
 | [spec/App/ログ仕様.md](<spec/App/ログ仕様.md>) | RideIntercom App ログ仕様 |
+| [spec/App/通話利用権仕様.md](<spec/App/通話利用権仕様.md>) | 共通操作・媒体許可・24時間起算点 |
 | [spec/App/通信仕様.md](<spec/App/通信仕様.md>) | RideIntercom App 通信仕様 |
 | [spec/App/音声処理仕様.md](<spec/App/音声処理仕様.md>) | RideIntercom App 音声処理仕様 |
 

@@ -62,6 +62,7 @@ extension IntercomViewModel {
             addDiscoveredMembersIfNeeded(peerIDs: peerIDs)
             removeDisconnectedAuthenticatedPeers(connectedPeerIDs: peerIDs)
             if authenticatedPeerIDs.isEmpty, isAudioReady { stopAudioPipeline() }
+            refreshCallAccess()
             localNetworkStatus = peerIDs.isEmpty ? .advertisingBrowsing : .connected
             connectionState = isInternetOnlyCall
                 ? (peerIDs.isEmpty ? .internetConnecting : .internetConnected)
@@ -102,8 +103,10 @@ extension IntercomViewModel {
             receivePeerProfileChallenge(peerID: peerID, message: message)
             receiveSharedDisplayName(peerID: peerID, message: message)
             receiveInvitationReceipt(peerID: peerID, message: message)
+            receiveCallAccess(peerID: peerID, message: message)
         case .disconnected:
             networkDiagnostics = nil
+            callTicker.stop()
             stopAudioPipeline()
             connectedPeerIDs = []
             authenticatedPeerIDs = []
@@ -115,6 +118,7 @@ extension IntercomViewModel {
             publishRuntimePackageReports(force: true)
         case .linkFailed(let willRetry):
             networkDiagnostics = nil
+            if !willRetry { callTicker.stop() }
             AppLoggers.rtc.error(
                 "rtc.connection.failed",
                 metadata: .event("rtc.connection.failed", [

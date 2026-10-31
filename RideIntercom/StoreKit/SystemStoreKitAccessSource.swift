@@ -10,10 +10,11 @@ final class SystemStoreKitAccessSource: StoreKitAccessSource {
     }
 
     func read(catalog: StoreProductCatalog,
-              onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Void = { _ in }) async throws -> StoreEntitlementSnapshot {
+              onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Bool = { _ in false }) async throws -> StoreEntitlementSnapshot {
         guard catalog.isConfigured else { return .init(entitlements: [], hasUnverifiedTransactions: false) }
         var entitlements: [StoreEntitlement] = []
         var unverified = false
+        var verifiedIDs: Set<UInt64> = []
         if let id = catalog.weeklyProductID, !id.isEmpty {
             // All non-renewing purchases must be evaluated independently. A later
             // refunded purchase must not hide an earlier still-active ticket.
@@ -21,6 +22,7 @@ final class SystemStoreKitAccessSource: StoreKitAccessSource {
                 switch result {
                 case .verified(let transaction):
                     guard transaction.productID == id, transaction.productType == .nonRenewable else { unverified = true; continue }
+                    verifiedIDs.insert(transaction.id)
                     entitlements.append(Self.entitlement(transaction, kind: .week))
                 case .unverified: unverified = true
                 }
@@ -32,6 +34,7 @@ final class SystemStoreKitAccessSource: StoreKitAccessSource {
                 switch result {
                 case .verified(let transaction):
                     guard transaction.productID == id, transaction.productType == .autoRenewable else { unverified = true; continue }
+                    verifiedIDs.insert(transaction.id)
                     let value = Self.entitlement(transaction, kind: .monthly)
                     if let group = transaction.subscriptionGroupID { monthlyGroups[group, default: []].append(value) }
                     else { entitlements.append(value); unverified = true }
@@ -42,9 +45,12 @@ final class SystemStoreKitAccessSource: StoreKitAccessSource {
         monthlyGroups = monthlyGroups.mapValues(StoreEntitlement.latestSubscriptionPeriods)
         // Publish locally verified purchase dates/expirations before any status
         // request. A slow StoreKit status service must not hide a known ticket.
-        onVerifiedTransactions(.init(entitlements: entitlements + monthlyGroups.values.flatMap { $0 },
-                                     hasUnverifiedTransactions: unverified))
+        let localSnapshot = StoreEntitlementSnapshot(entitlements: entitlements + monthlyGroups.values.flatMap { $0 },
+                                                     hasUnverifiedTransactions: unverified)
+        await finishAdoptedTransactions(localSnapshot, verifiedIDs: verifiedIDs, catalog: catalog,
+                                        adopt: onVerifiedTransactions)
         for (group, fallback) in monthlyGroups {
+            try Task.checkCancellation()
             do {
                 // The array can include both a purchased subscription and family
                 // subscriptions to the same product. No single latest wins.
@@ -54,6 +60,7 @@ final class SystemStoreKitAccessSource: StoreKitAccessSource {
                 for status in statuses where status.transaction.unsafePayloadValue.productID == catalog.monthlyProductID {
                     switch status.transaction {
                     case .verified(let transaction) where transaction.productType == .autoRenewable:
+                        verifiedIDs.insert(transaction.id)
                         var grace: Date?
                         if status.state == .inGracePeriod {
                             if case .verified(let renewal) = status.renewalInfo { grace = renewal.gracePeriodExpirationDate }
@@ -87,7 +94,28 @@ final class SystemStoreKitAccessSource: StoreKitAccessSource {
                 entitlements += fallback
             }
         }
-        return .init(entitlements: entitlements, hasUnverifiedTransactions: unverified)
+        let snapshot = StoreEntitlementSnapshot(entitlements: entitlements, hasUnverifiedTransactions: unverified)
+        await finishAdoptedTransactions(snapshot, verifiedIDs: verifiedIDs, catalog: catalog,
+                                        adopt: onVerifiedTransactions)
+        return snapshot
+    }
+
+    private func finishAdoptedTransactions(_ snapshot: StoreEntitlementSnapshot, verifiedIDs: Set<UInt64>,
+                                           catalog: StoreProductCatalog,
+                                           adopt: @MainActor (StoreEntitlementSnapshot) -> Bool) async {
+        // Delivery is the current login generation adopting the verified read.
+        // Keep every history ID: the UI may display only the latest renewal.
+        guard !Task.isCancelled, adopt(snapshot), !verifiedIDs.isEmpty else { return }
+        for await result in Transaction.unfinished {
+            guard !Task.isCancelled else { break }
+            guard case .verified(let transaction) = result,
+                  verifiedIDs.contains(transaction.id),
+                  catalog.accepts(productID: transaction.productID, type: transaction.productType) else { continue }
+            // Enumeration suspends. Recheck adoption immediately before finish;
+            // a stopped, superseded, or timed-out read must leave it unfinished.
+            guard adopt(snapshot) else { break }
+            await transaction.finish()
+        }
     }
 
     func sync() async throws { try await AppStore.sync() }
@@ -120,6 +148,4 @@ final class SystemStoreKitAccessSource: StoreKitAccessSource {
               environment: transaction.environment.rawValue, appAccountToken: transaction.appAccountToken,
               appTransactionID: transaction.appTransactionID)
     }
-    // Reading and observing is not delivery. Transactions are deliberately not
-    // finished until a configured offering grants its actual product benefit.
 }

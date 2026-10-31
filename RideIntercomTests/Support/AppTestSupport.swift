@@ -32,7 +32,10 @@ enum AppTestSupport {
         appSettingsStore: AppSettingsStoring? = nil,
         internetSettingsStore: InternetConnectionSettingsStore? = nil,
         invitationAuthority: DirectInvitationAuthority? = nil,
-        localMemberID: String? = nil
+        localMemberID: String? = nil,
+        enforceCallAccess: Bool? = nil,
+        callAccessEvaluation: (@MainActor (Date) -> StoreAccessEvaluation)? = nil,
+        callAccessNow: @escaping @MainActor () -> Date = Date.init
     ) -> Harness {
         let groups = groups ?? IntercomSeedData.recentGroups
         let credentialStore = credentialStore ?? InMemoryGroupCredentialStore()
@@ -58,6 +61,9 @@ enum AppTestSupport {
                                         service: identityNamespace + ".InternetConnection", account: "identity-key")
         let viewModel = IntercomViewModel(
             accountSession: accountSession ?? signedInAccount(),
+            enforceCallAccess: enforceCallAccess,
+            callAccessEvaluation: callAccessEvaluation,
+            callAccessNow: callAccessNow,
             callSession: callSession,
             groupRepository: GroupRepository(store: groupStore, credentials: credentialStore),
             appSettingsStore: appSettingsStore ?? InMemoryAppSettingsStore(),

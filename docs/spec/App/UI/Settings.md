@@ -35,14 +35,17 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 | Save Name | `saveLocalDisplayNameButton` | 前後空白を除き保存。通話を維持して参加者へ更新を送る |
 | 保存済み | `localDisplayNameSaved` | 保存成功を表示。再編集すると表示を消す |
 
-## 利用権の状態と復元
+## 利用権の状態・購入・復元
 
 | 項目 | ID | 操作・状態 |
 |---|---|---|
 | Access | `storeAccessSection` | 同じログインモデルの購入・配布由来の利用権を表示。商品未設定でも配布環境を独立に確認する |
 | Access Status | `purchaseStatus` | 未取得・有効・期限切れ・取消を区別。購入有効時はAvailable Untilも表示し、期限で端末内評価を更新。testDistributionでは「テスト配布で利用可能」と表示して購入と区別し、架空の期限は付けない |
 | Check Access | `checkAccess` | 判定不能時に表示し、商品未設定でも再確認できる。購入復元のsyncは呼ばない。処理中は確認中と表示して無効化 |
+| View Purchases | `viewPurchases` | 商品設定済みの場合だけ標準StoreViewの購入画面を開く。設定ID・商品種別を検証してから価格・説明を表示し、不足・取得失敗は再試行を案内。購入の確認・取消はStoreKit標準操作。Doneで閉じる |
 | Restore Purchases | `restorePurchases` | 商品設定済みの場合だけ表示。明示操作でApp Storeから復元し、購入または配布の確認中は無効化して重複操作を抑止。購入日の期限は延ばさない |
+
+購入画面の成功通知だけでは利用可能へ変えず、検証済み取引を再取得する。取消・承認待ち・失敗・検証不能を区別し、標準StoreViewの重複する復元ボタンは表示しない。公開商品は未設定のため現時点の本番ではView Purchasesも表示しない。
 
 購入履歴の正本・失敗時の扱い・ユーザー切替は[利用権仕様](../利用権仕様.md)を参照する。ログイン画面からの復元や、独自サーバーの購入登録待ちは設けない。
 

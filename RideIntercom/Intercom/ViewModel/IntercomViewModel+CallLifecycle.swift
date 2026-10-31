@@ -56,6 +56,7 @@ extension IntercomViewModel {
             callSession.setAudioPolicy(currentCallAudioPolicy())
             publishRuntimePackageReports(force: true)
             callSession.connect(group: group)
+            if enforceCallAccess { callTicker.start() }
         }
         if !authenticatedPeerIDs.isEmpty {
             startActiveCallAfterAuthenticatedPeer()
@@ -63,6 +64,7 @@ extension IntercomViewModel {
     }
 
     func startActiveCallAfterAuthenticatedPeer() {
+        if enforceCallAccess { refreshCallAccess(); return }
         guard !isAudioPausedForDeviceChange,
               !authenticatedPeerIDs.isEmpty,
               startAudioPipelineIfNeeded() else { return }
@@ -72,7 +74,7 @@ extension IntercomViewModel {
     }
 
     func startAudioPipelineIfNeeded() -> Bool {
-        guard canStartCalls else { return false }
+        guard canStartCalls, canPrepareCallMedia else { return false }
         if isAudioReady {
             return true
         }
@@ -103,6 +105,7 @@ extension IntercomViewModel {
                 "codec": "\(selectedTransmitCodec.rawValue)"
             ])
         )
+        refreshCallAccess()
         recordEstablishedCall()
         return true
     }
@@ -117,7 +120,7 @@ extension IntercomViewModel {
         audioPipeline.stop()
         _ = audioInputCapture.stop()
         _ = audioOutputRenderer.stop()
-        callTicker.stop()
+        if !enforceCallAccess || activeGroupID == nil { callTicker.stop() }
         if deactivateSession {
             _ = try? audioSessionManager.setActive(false)
         }
@@ -134,6 +137,9 @@ extension IntercomViewModel {
     }
 
     func disconnect() {
+        callTicker.stop()
+        callAccessState = CallAccessState()
+        lastCallAccessSaveAttempt = nil
         let disconnectingGroupID = activeGroupID
         connectionGeneration = UUID()
         callSession.onEvent = nil

@@ -8,6 +8,7 @@ extension IntercomViewModel {
               groups.contains(where: { $0.id == group.id }),
               group.members.contains(where: { $0.id == localMemberIdentity.memberID }),
               !groupsMissingKeys.contains(group.id) || group.accessSecret != nil else { return false }
+        guard group.kind == .direct || canManageRegularGroups else { return false }
         return group.kind != .direct || directCallRecipient(for: group) != nil || directCallAccountRecipient(for: group) != nil
     }
 

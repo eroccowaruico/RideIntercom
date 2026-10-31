@@ -42,6 +42,7 @@ struct ContentView: View {
             // neither reconnect nor leave another account's media running.
             guard viewModel?.accountAccessID != account.accessID else { return }
             let previous = viewModel?.accountUserID
+            viewModel?.stopCallAccessObservation()
             viewModel?.storeAccess.stop()
             viewModel?.disconnect()
             viewModel = IntercomViewModel.makeForCurrentProcess(accountSession: account)

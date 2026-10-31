@@ -23,7 +23,7 @@ final class GroupRepository {
         do {
             var current = try store.read() ?? migrate(localMemberID: localMemberID)
             _ = try validateIdentity(current, localMemberID: localMemberID)
-            if current.version < 6 {
+            if current.version < 7 {
                 current = current.upgraded()
                 try store.commit(current)
                 guard try store.read() == current else { throw GroupStorageError.verificationFailed }
@@ -80,6 +80,20 @@ final class GroupRepository {
         }
     }
     func delete(_ id: UUID, remaining: [IntercomGroup]) throws { try update(remaining, credential: nil) }
+
+    func lastSponsoredStart(for groupID: UUID) -> TimeInterval? {
+        snapshot?.groups.first { $0.id == groupID }?.lastSponsoredStart
+    }
+
+    func recordSponsoredStart(_ start: TimeInterval, for groupID: UUID, now: TimeInterval) throws {
+        guard CallAccessState.validStart(start, now: now), let snapshot,
+              let index = snapshot.groups.firstIndex(where: { $0.id == groupID }) else { throw GroupStorageError.invalidUpdate }
+        if let previous = snapshot.groups[index].lastSponsoredStart,
+           CallAccessState.validStart(previous, now: now), previous >= start { return }
+        try update(snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            next.groups[index].lastSponsoredStart = start
+        }
+    }
 
     func renameUser(_ id: UUID, displayName: String) throws {
         guard let snapshot, let index = snapshot.users.firstIndex(where: { $0.id == id }),
@@ -290,6 +304,7 @@ final class GroupRepository {
         var next = GroupSnapshot(groups: groups.map { group in
             let old = previous.groups.first(where: { $0.id == group.id })
             var record = GroupSnapshot.Record(group, credentialReference: old?.credentialReference)
+            record.lastSponsoredStart = old?.lastSponsoredStart
             record.pendingInvitation = old?.pendingInvitation
             record.receivedInvitationIDs = old?.receivedInvitationIDs ?? []
             return record

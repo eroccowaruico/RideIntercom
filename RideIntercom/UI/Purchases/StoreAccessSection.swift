@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StoreAccessSection: View {
     @Bindable var access: StoreKitAccess
+    @State private var showingPurchases = false
 
     var body: some View {
         Section {
@@ -22,13 +23,17 @@ struct StoreAccessSection: View {
                 }
             }
             if access.catalog.isConfigured {
+                Button("View Purchases") { showingPurchases = true }
+                    .disabled(access.isCheckingAccess)
+                    .accessibilityIdentifier("viewPurchases")
+                    .sheet(isPresented: $showingPurchases) { StorePurchaseView(access: access) }
                 Button("Restore Purchases") { Task { await access.restore() } }
                     .disabled(access.isCheckingAccess)
                     .accessibilityIdentifier("restorePurchases")
             }
             if let message = access.message { Text(LocalizedStringKey(message)).foregroundStyle(.secondary) }
         } header: {
-            Label("Access", systemImage: "ticket")
+            Label("Access", systemImage: "ticket").accessibilityIdentifier("storeAccessSection")
         } footer: {
             if access.evaluation(at: Date()).origin == .testDistribution {
                 Text("Test distribution access does not require a purchase.")
@@ -38,8 +43,6 @@ struct StoreAccessSection: View {
                 Text("Restore purchases using the App Store account on this device. Restoring does not extend their original period.")
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("storeAccessSection")
     }
 
     private var expirationBoundaries: [Date] {

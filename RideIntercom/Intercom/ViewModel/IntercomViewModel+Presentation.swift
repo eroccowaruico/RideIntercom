@@ -21,7 +21,7 @@ extension IntercomViewModel {
         guard selectedGroup.id == activeGroupID, hasAnyActiveGroupConnection else { return .ready }
         if isAudioPausedForDeviceChange { return .audioPaused }
         if !isAudioReady, audioErrorMessage != nil { return .audioUnavailable }
-        return isAudioReady && !authenticatedPeerIDs.isEmpty ? .inCall : .connecting
+        return isAudioReady && !authenticatedPeerIDs.isEmpty && (!enforceCallAccess || callAccessState.isEstablished) ? .inCall : .connecting
     }
 
     func setInterfaceMode(_ mode: InterfaceMode) {

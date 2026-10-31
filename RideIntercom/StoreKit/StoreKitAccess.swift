@@ -1,9 +1,10 @@
 import Foundation
 import Observation
+import StoreKit
 
 @MainActor
 protocol StoreKitAccessSource: AnyObject {
-    func read(catalog: StoreProductCatalog, onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Void) async throws -> StoreEntitlementSnapshot
+    func read(catalog: StoreProductCatalog, onVerifiedTransactions: @MainActor (StoreEntitlementSnapshot) -> Bool) async throws -> StoreEntitlementSnapshot
     func sync() async throws
     func updates(catalog: StoreProductCatalog) -> AsyncStream<Void>
 }
@@ -33,7 +34,7 @@ final class StoreKitAccess {
     init(catalog: StoreProductCatalog? = nil, source: (any StoreKitAccessSource)? = nil,
          isCurrentUser: (@MainActor () -> Bool)? = nil, readTimeout: Duration = .seconds(15),
          distributionReader: (@MainActor () async throws -> StoreDistributionAccess)? = nil) {
-        self.catalog = catalog ?? .production
+        self.catalog = catalog ?? .currentProcess
         self.source = source ?? SystemStoreKitAccessSource()
         self.isCurrentUser = isCurrentUser ?? { true }
         self.readTimeout = readTimeout
@@ -102,6 +103,27 @@ final class StoreKitAccess {
         await refreshDistribution(generation: expectedGeneration)
     }
 
+    /// StoreKit views report completion; only a new verified read grants access.
+    func purchaseCompleted(productID: String, result: Result<Product.PurchaseResult, any Error>) async {
+        guard isCurrentUser(), catalog.productIDs.contains(productID) else { return }
+        switch result {
+        case .success(.success(.verified(let transaction))):
+            guard transaction.productID == productID,
+                  catalog.accepts(productID: productID, type: transaction.productType) else { return }
+            await load(restore: false)
+        case .success(.success(.unverified)):
+            message = "Some purchases could not be verified. Try Restore Purchases."
+        case .success(.userCancelled), .failure(StoreKitError.userCancelled):
+            message = "Purchase cancelled."
+        case .success(.pending):
+            message = "Purchase pending approval. Access will update when it is approved."
+        case .failure:
+            message = "The purchase could not be completed. Please try again."
+        @unknown default:
+            message = "The purchase could not be completed. Please try again."
+        }
+    }
+
     private func refreshDistribution(generation expectedGeneration: Int) async {
         guard let distributionReader, generation == expectedGeneration, isCurrentUser(),
               !Task.isCancelled, cancelDistributionRead == nil else { return }
@@ -145,8 +167,9 @@ final class StoreKitAccess {
                 cancelRead = attempt.cancel
                 let value = try await attempt.run(timeout: readTimeout) { [source, catalog, weak self] in
                     return try await source.read(catalog: catalog) { [weak self] partial in
-                        guard let self, self.generation == expectedGeneration, self.isCurrentUser(), !attempt.isCompleted else { return }
+                        guard let self, self.generation == expectedGeneration, self.isCurrentUser(), !attempt.isCompleted, !Task.isCancelled else { return false }
                         self.snapshot = partial.retainingKnownSubscriptionStatus(from: self.snapshot)
+                        return true
                     }
                 }
                 guard generation == expectedGeneration, isCurrentUser(), !Task.isCancelled else { return }
