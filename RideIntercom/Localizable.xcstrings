@@ -1,0 +1,2786 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%lld of 8 members including you": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分を含めて%lld人（上限8人）"
+          }
+        }
+      }
+    },
+    "A device token is configured.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端末の接続設定は保存済みです。"
+          }
+        }
+      }
+    },
+    "Account": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウント"
+          }
+        }
+      }
+    },
+    "Account Data Deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントデータを削除しました"
+          }
+        }
+      }
+    },
+    "Account Deletion": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントの削除"
+          }
+        }
+      }
+    },
+    "Account deletion is still pending. Finish deletion on the device where you started it, then set up Internet calling again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントの削除はまだ完了していません。削除を始めた端末で処理を終えてから、インターネット通話を設定し直してください。"
+          }
+        }
+      }
+    },
+    "Add Saved Users": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みユーザーを追加"
+          }
+        }
+      }
+    },
+    "Add Users": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザーを追加"
+          }
+        }
+      }
+    },
+    "Advanced": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳細"
+          }
+        }
+      }
+    },
+    "Advanced includes detailed call information and diagnostics. Switching layouts keeps your call connected.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳細表示では通話の詳しい情報と診断を確認できます。表示を切り替えても通話は続きます。"
+          }
+        }
+      }
+    },
+    "After signing in, you can use nearby calls without an Internet connection.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一度ログインした後は、Internetにつながらない場所でも近距離通話を利用できます。"
+          }
+        }
+      }
+    },
+    "An individual call has only two participants. Create a group to include more people.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "個別通話の参加者は2人です。ほかの相手を含めるにはグループを作成してください。"
+          }
+        }
+      }
+    },
+    "An unexpected participant joined this individual call. The call was stopped.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この個別通話に予定外の参加者が加わったため、通話を停止しました。"
+          }
+        }
+      }
+    },
+    "App Layout": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面表示"
+          }
+        }
+      }
+    },
+    "Apple authorization has not been removed. Open your Apple Account settings, choose Sign in with Apple, and remove RideIntercom.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleの連携解除は完了していません。Appleアカウント設定の「Appleでサインイン」からRideIntercomを削除してください。"
+          }
+        }
+      }
+    },
+    "Apple sign-in could not be checked. Your saved sign-in remains available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleへのログイン状態を確認できませんでした。保存済みのログインは引き続き使えます。"
+          }
+        }
+      }
+    },
+    "Apple sign-in could not be completed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleへのログインを完了できませんでした。"
+          }
+        }
+      }
+    },
+    "Apple verification could not be prepared. Check your connection and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleでの確認を準備できませんでした。接続を確認して、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Audio": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声"
+          }
+        }
+      }
+    },
+    "Audio Check": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声チェック"
+          }
+        }
+      }
+    },
+    "Audio I/O": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声の入出力"
+          }
+        }
+      }
+    },
+    "Audio check complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声チェックが完了しました"
+          }
+        }
+      }
+    },
+    "Audio check idle": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を録音して再生できます"
+          }
+        }
+      }
+    },
+    "Audio could not restart on the selected device. The group connection and relay continue. Check your device, then resume.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した機器で音声を再開できません。グループの接続と中継は続いています。機器を確認してから再開してください。"
+          }
+        }
+      }
+    },
+    "Audio device changed. Run Audio Check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声機器が変わりました。音声チェックをやり直してください。"
+          }
+        }
+      }
+    },
+    "Audio device disconnected. Choose a device and run Audio Check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声機器が切断されました。機器を選んで、音声チェックをやり直してください。"
+          }
+        }
+      }
+    },
+    "Audio device disconnected. Your microphone and playback are paused; the group connection and relay continue. Check your audio device, then resume.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声機器が外れたため、マイクと再生を停止しています。グループの接続と中継は続いています。機器を確認してから音声を再開してください。"
+          }
+        }
+      }
+    },
+    "Audio effect configuration failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声効果を設定できませんでした"
+          }
+        }
+      }
+    },
+    "Audio encoding change failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声の送信形式を変更できませんでした"
+          }
+        }
+      }
+    },
+    "Audio input processing update failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクの音声処理を更新できませんでした"
+          }
+        }
+      }
+    },
+    "Audio output failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を出力できませんでした。"
+          }
+        }
+      }
+    },
+    "Audio paused — check your audio device": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を停止中です。音声機器を確認してください。"
+          }
+        }
+      }
+    },
+    "Audio pipeline failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声処理を続けられませんでした"
+          }
+        }
+      }
+    },
+    "Audio playback failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を再生できませんでした"
+          }
+        }
+      }
+    },
+    "Audio session activation failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を開始できませんでした"
+          }
+        }
+      }
+    },
+    "Audio session configuration failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を設定できませんでした"
+          }
+        }
+      }
+    },
+    "Audio setup failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声の準備ができませんでした"
+          }
+        }
+      }
+    },
+    "Audio unavailable — check your settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を利用できません。設定を確認してください。"
+          }
+        }
+      }
+    },
+    "Available": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能"
+          }
+        }
+      }
+    },
+    "Available Until": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効期限"
+          }
+        }
+      }
+    },
+    "Call": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル"
+          }
+        }
+      }
+    },
+    "Check your headphones or speaker, then resume audio.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヘッドホンやスピーカーを確認してから音声を再開してください。"
+          }
+        }
+      }
+    },
+    "Choose a Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループを選ぶ"
+          }
+        }
+      }
+    },
+    "Choose a User": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザーを選ぶ"
+          }
+        }
+      }
+    },
+    "Choose someone or a group to call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話する相手かグループを選んでください。"
+          }
+        }
+      }
+    },
+    "Choose the name you share with people in your groups. They can keep a different name for you on their own device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループの相手に伝える名前を設定できます。相手は自分の端末内で別の呼び名を付けることもできます。"
+          }
+        }
+      }
+    },
+    "Choose users who are not already in this group, up to 8 members including you.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだこのグループにいない相手を選んでください。自分を含めて8人まで参加できます。"
+          }
+        }
+      }
+    },
+    "Close": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        }
+      }
+    },
+    "Configure Internet Connection": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネット通話を設定"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続"
+          }
+        }
+      }
+    },
+    "Connect with Apple": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleで接続"
+          }
+        }
+      }
+    },
+    "Connecting — waiting for others": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続中・相手の参加を待っています"
+          }
+        }
+      }
+    },
+    "Continue Deletion": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除を続ける"
+          }
+        }
+      }
+    },
+    "Continue Without Apple Verification": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleの確認なしで続ける"
+          }
+        }
+      }
+    },
+    "Continue with the same Apple Account to also remove its authorization for RideIntercom.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同じApple Accountで続けると、RideIntercomへの認可も取り消します。"
+          }
+        }
+      }
+    },
+    "Copies on other devices and information already shared with friends remain. Purchases and subscriptions are not cancelled.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほかの端末のコピーや、友達に共有済みの情報は残ります。購入やサブスクリプションは取り消されません。"
+          }
+        }
+      }
+    },
+    "Could Not Verify": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認できませんでした"
+          }
+        }
+      }
+    },
+    "Could not create the group because the saved rider identity is invalid. Saved groups have not been changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存された本人情報を確認できないため、グループを作成できませんでした。保存済みのグループは変更していません。"
+          }
+        }
+      }
+    },
+    "Could not finish the deletion record. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除の記録を完了できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not read the group key. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループの鍵を読み取れません。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not read the pending deletion. Your account stays unavailable until this can be read. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除処理の記録を読み込めませんでした。読み込みができるまでアカウントは利用できません。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not read your saved sign-in. Your data has been preserved. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのログインを読み込めませんでした。データは保持されています。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not release the rider's audio. Reconnect to reset audio.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相手の音声処理を終了できませんでした。接続し直して音声をリセットしてください。"
+          }
+        }
+      }
+    },
+    "Could not save the deletion recovery state. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除処理の復旧状態を保存できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not save the deletion request. Your data has been preserved. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除の要求を保存できませんでした。データは保持されています。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not save your sign-in. Try signing in again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログインを保存できませんでした。もう一度ログインしてください。"
+          }
+        }
+      }
+    },
+    "Could not save. Check the HTTPS URL, device token, and Keychain access.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存できませんでした。HTTPSのURL、端末トークン、キーチェーンへのアクセスを確認してください。"
+          }
+        }
+      }
+    },
+    "Could not update the deletion request. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除の要求を更新できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not verify your saved Internet account. Your data has been preserved. Reconnect Internet calling with Apple in Settings, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのインターネット通話アカウントを確認できませんでした。データは保持されています。設定からAppleでインターネット通話を接続し直して、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Create Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループを作成"
+          }
+        }
+      }
+    },
+    "Create a group or open an invitation from a friend.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループを作成するか、友達からの招待を開いてください。"
+          }
+        }
+      }
+    },
+    "Current Call": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在の通話"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除"
+          }
+        }
+      }
+    },
+    "Delete Account": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを削除"
+          }
+        }
+      }
+    },
+    "Delete Data on This Device": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末のデータを削除"
+          }
+        }
+      }
+    },
+    "Delete Without Apple Verification": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleで確認せずに削除"
+          }
+        }
+      }
+    },
+    "Delete your account?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを削除しますか？"
+          }
+        }
+      }
+    },
+    "Deletion has not finished. Your account stays unavailable. Check your connection and try again. If Apple verification expired, verify again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除が完了していません。アカウントは利用停止中です。接続を確認して再試行してください。Appleの確認が期限切れの場合は、もう一度確認してください。"
+          }
+        }
+      }
+    },
+    "Device token configured": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続設定済み"
+          }
+        }
+      }
+    },
+    "Disconnect before reloading saved groups.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再読み込みする前に通話を終了してください。"
+          }
+        }
+      }
+    },
+    "Edit %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@の名前を編集"
+          }
+        }
+      }
+    },
+    "Edit Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前を編集"
+          }
+        }
+      }
+    },
+    "Edit User": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザーを編集"
+          }
+        }
+      }
+    },
+    "End Call": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を終了"
+          }
+        }
+      }
+    },
+    "End your call before checking audio.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声チェックを使うには通話を終了してください。"
+          }
+        }
+      }
+    },
+    "Enter a group name without | and choose up to 7 other members.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「|」を含まないグループ名を入力し、相手を7人以内で選んでください。"
+          }
+        }
+      }
+    },
+    "Enter a valid display name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効な表示名を入力してください。"
+          }
+        }
+      }
+    },
+    "Enter your service address and continue with Apple.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サービスのアドレスを入力して、Appleで続けてください。"
+          }
+        }
+      }
+    },
+    "Expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "期限切れ"
+          }
+        }
+      }
+    },
+    "Group key is missing. Open a valid invite or create a new group.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループの鍵がありません。有効な招待を開くか、新しいグループを作成してください。"
+          }
+        }
+      }
+    },
+    "Group name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ名"
+          }
+        }
+      }
+    },
+    "Groups": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ"
+          }
+        }
+      }
+    },
+    "Groups were saved. Unused group keys will be removed on the next reload.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループを保存しました。使われていない鍵は次回の再読み込みで削除します。"
+          }
+        }
+      }
+    },
+    "If a saved Internet account is found, all device registrations at that service are deleted. Copies on other devices and information shared with friends remain. Deletion does not cancel purchases or subscriptions.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Internetアカウントの登録情報が保存されている場合、そのサービスの全端末登録を削除します。他端末のコピーや友達に共有済みの情報は残ります。購入やサブスクリプションは解約されません。"
+          }
+        }
+      }
+    },
+    "In a call": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話中"
+          }
+        }
+      }
+    },
+    "Input": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力"
+          }
+        }
+      }
+    },
+    "Internet Connection": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Internet接続"
+          }
+        }
+      }
+    },
+    "Internet access has been signed out. Verify with Apple to delete the saved account; signing out did not delete it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Internet接続はサインアウト済みです。アカウントを削除するにはAppleで確認してください。サインアウトだけではアカウントは削除されません。"
+          }
+        }
+      }
+    },
+    "Internet calling is connected to your Apple Account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleアカウントでインターネット通話を設定しました。"
+          }
+        }
+      }
+    },
+    "Internet calling is not connected on this device. Only this device's data will be deleted. Any Internet registration on another device is unaffected.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末ではInternet通話の登録がありません。この端末内のデータだけを削除します。別端末のInternet登録には影響しません。"
+          }
+        }
+      }
+    },
+    "Internet is not set up": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネット通話は未設定です"
+          }
+        }
+      }
+    },
+    "Internet is set up": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネット通話は設定済みです"
+          }
+        }
+      }
+    },
+    "Internet is unavailable. Retrying automatically; reachable riders stay connected.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネットに接続できません。自動で再試行します。接続できる相手との通話は続きます。"
+          }
+        }
+      }
+    },
+    "Internet sign-in could not be prepared. Check the service address and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続の準備ができませんでした。サービスのアドレスを確認して、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Internet sign-in could not be saved. Prepare sign-in and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続設定を保存できませんでした。接続の準備からやり直してください。"
+          }
+        }
+      }
+    },
+    "Internet sign-in is unavailable. Check your account and saved device information.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネット通話を設定できません。アカウントと保存された端末情報を確認してください。"
+          }
+        }
+      }
+    },
+    "Invite": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待"
+          }
+        }
+      }
+    },
+    "Join me for a call on RideIntercom.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomで一緒に通話しましょう。"
+          }
+        }
+      }
+    },
+    "Manual Access Token": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テスト用の接続トークン"
+          }
+        }
+      }
+    },
+    "Microphone capture failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクを利用できませんでした。"
+          }
+        }
+      }
+    },
+    "Microphone muted": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクはミュート中です"
+          }
+        }
+      }
+    },
+    "Microphone on": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクはオンです"
+          }
+        }
+      }
+    },
+    "Microphone waiting for the call": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話開始までマイクは待機しています"
+          }
+        }
+      }
+    },
+    "More Audio and Connection Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声・接続の詳しい設定"
+          }
+        }
+      }
+    },
+    "More Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳しい設定"
+          }
+        }
+      }
+    },
+    "Mute Microphone": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクをミュート"
+          }
+        }
+      }
+    },
+    "Mute Speaker": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スピーカーをミュート"
+          }
+        }
+      }
+    },
+    "Name on this device": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末での呼び名"
+          }
+        }
+      }
+    },
+    "Name saved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前を保存しました。"
+          }
+        }
+      }
+    },
+    "Name shared by this person": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本人が共有している名前"
+          }
+        }
+      }
+    },
+    "New Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいグループ"
+          }
+        }
+      }
+    },
+    "No Groups Yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループはまだありません"
+          }
+        }
+      }
+    },
+    "No Purchases": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入はありません"
+          }
+        }
+      }
+    },
+    "No Saved Users": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みユーザーはいません"
+          }
+        }
+      }
+    },
+    "No microphone samples captured": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクの音声を録音できませんでした"
+          }
+        }
+      }
+    },
+    "Not Available Yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ利用できません"
+          }
+        }
+      }
+    },
+    "Not configured": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未設定"
+          }
+        }
+      }
+    },
+    "Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "直接招待した相手だけを保存します。ユーザーを一覧から削除しても、既存のグループと通話は残ります。"
+          }
+        }
+      }
+    },
+    "Opens sharing options for this invitation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待の共有方法を選びます。"
+          }
+        }
+      }
+    },
+    "Output": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出力"
+          }
+        }
+      }
+    },
+    "People in This Call": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この通話の参加者"
+          }
+        }
+      }
+    },
+    "People you invite directly, or whose invitations you accept, are saved here. Deleting a group does not remove them.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "直接招待した相手や、招待を受け取った相手を保存します。グループを削除しても、この一覧からは削除されません。"
+          }
+        }
+      }
+    },
+    "Permanently delete this account's data?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアカウントのデータを削除しますか？"
+          }
+        }
+      }
+    },
+    "Playing recorded audio for 5 seconds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "録音した音声を5秒間再生しています"
+          }
+        }
+      }
+    },
+    "Prepare Apple Verification": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleの本人確認を準備"
+          }
+        }
+      }
+    },
+    "Prepare Apple verification again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleでの確認を準備し直してください。"
+          }
+        }
+      }
+    },
+    "Prepare Internet sign-in again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネット通話の接続準備をやり直してください。"
+          }
+        }
+      }
+    },
+    "Purchase Status": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入状態"
+          }
+        }
+      }
+    },
+    "Purchase status could not be checked. Try Restore Purchases.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入状態を確認できませんでした。「購入を復元」をお試しください。"
+          }
+        }
+      }
+    },
+    "Purchases": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入"
+          }
+        }
+      }
+    },
+    "Purchases are not available yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入はまだ利用できません。"
+          }
+        }
+      }
+    },
+    "Purchases could not be restored. Check your App Store account and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入を復元できませんでした。App Storeアカウントを確認してから、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Ready to Talk": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を始める"
+          }
+        }
+      }
+    },
+    "Ready to connect": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続できます"
+          }
+        }
+      }
+    },
+    "Record 5s and Play": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5秒録音して再生"
+          }
+        }
+      }
+    },
+    "Recording microphone for 5 seconds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクの音声を5秒間録音しています"
+          }
+        }
+      }
+    },
+    "Refunded or Revoked": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返金または取消済み"
+          }
+        }
+      }
+    },
+    "Reload Saved Groups": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みグループを再読み込み"
+          }
+        }
+      }
+    },
+    "Reset Saved Groups": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みグループを初期化"
+          }
+        }
+      }
+    },
+    "Reset Saved Groups and Users…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのグループとユーザーを初期化…"
+          }
+        }
+      }
+    },
+    "Reset all saved groups and users?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みグループとユーザーをすべて初期化しますか？"
+          }
+        }
+      }
+    },
+    "Restore Purchases": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入を復元"
+          }
+        }
+      }
+    },
+    "Restore purchases using the App Store account on this device. Restoring does not extend their original period.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末のApp Storeアカウントで購入を復元します。復元しても元の有効期間は延長されません。"
+          }
+        }
+      }
+    },
+    "Resume Audio": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を再開"
+          }
+        }
+      }
+    },
+    "Retry Deletion": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除を再試行"
+          }
+        }
+      }
+    },
+    "Return to Sign In": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン画面に戻る"
+          }
+        }
+      }
+    },
+    "RideIntercom Invite": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomへの招待"
+          }
+        }
+      }
+    },
+    "Save": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
+          }
+        }
+      }
+    },
+    "Save Internet Connection": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続設定を保存"
+          }
+        }
+      }
+    },
+    "Save Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前を保存"
+          }
+        }
+      }
+    },
+    "Saved Groups": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みグループ"
+          }
+        }
+      }
+    },
+    "Saved Users": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みユーザー"
+          }
+        }
+      }
+    },
+    "Saved groups could not be accessed. Unlock this device or close another running copy, then reload.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みグループにアクセスできません。端末のロックを解除するか、別に起動しているアプリを閉じてから再読み込みしてください。"
+          }
+        }
+      }
+    },
+    "Saved groups could not be read. Reload to retry, or reset saved groups after preserving the unreadable data.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みグループを読み取れません。再読み込みするか、読み取れないデータを退避してから初期化してください。"
+          }
+        }
+      }
+    },
+    "Saved groups were created by a newer app. Open them with that version.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みグループは新しいバージョンのアプリで作成されています。そのバージョンで開いてください。"
+          }
+        }
+      }
+    },
+    "Saved. Use Check Internet Service in Diagnostics before connecting.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存しました。詳細表示の診断から接続先を確認できます。"
+          }
+        }
+      }
+    },
+    "Service Address": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サービスのアドレス"
+          }
+        }
+      }
+    },
+    "Set Up Internet Calling": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネット通話を設定"
+          }
+        }
+      }
+    },
+    "Set the service address and connect with Apple, or enter a device token for testing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サービスのアドレスを設定してAppleで接続できます。テスト用の端末トークンも入力できます。"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定"
+          }
+        }
+      }
+    },
+    "Share Call Invite": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の招待を共有"
+          }
+        }
+      }
+    },
+    "Share a group invitation or accept someone's invitation to save each other.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループの招待を直接共有するか、相手の招待を受け取ると、お互いを保存できます。"
+          }
+        }
+      }
+    },
+    "Share the group's invitation so the selected users can join. Selecting a user does not call or notify them. Deleting a saved user keeps existing groups and calls.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選んだ相手が参加できるよう、グループの招待を共有してください。選ぶだけでは呼び出しや通知は行いません。ユーザーを削除しても既存のグループと通話は残ります。"
+          }
+        }
+      }
+    },
+    "Share the invitation the first time. Your friend needs to open this call too; this does not send a notification.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初回は招待を共有してください。相手もこの通話を開く必要があります。この操作で通知は送信されません。"
+          }
+        }
+      }
+    },
+    "Sign Out": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインアウト"
+          }
+        }
+      }
+    },
+    "Sign in to open your invitation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待を開くにはログインしてください。"
+          }
+        }
+      }
+    },
+    "Sign in with Apple to call your friends. Your groups and saved users stay with your account on this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "友達と通話するにはAppleでログインしてください。グループと保存済みユーザーは、この端末のアカウントごとに保持します。"
+          }
+        }
+      }
+    },
+    "Sign in with Apple to start a call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話するにはAppleでログインしてください。"
+          }
+        }
+      }
+    },
+    "Sign out and end the current call?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインアウトして現在の通話を終了しますか？"
+          }
+        }
+      }
+    },
+    "Sign-in could not be completed. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログインを完了できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Signed in with Apple": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleでログイン済み"
+          }
+        }
+      }
+    },
+    "Some groups have no saved key. Ask a member for a new invitation to those groups.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鍵が保存されていないグループがあります。参加者に新しい招待を依頼してください。"
+          }
+        }
+      }
+    },
+    "Some purchases could not be verified. Try Restore Purchases.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認できない購入があります。「購入を復元」をお試しください。"
+          }
+        }
+      }
+    },
+    "Some selected users are no longer available. Reload the user list and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選んだ相手の一部は現在利用できません。ユーザー一覧を読み込み直して、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Speaker Volume": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スピーカー音量"
+          }
+        }
+      }
+    },
+    "Standard": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "標準"
+          }
+        }
+      }
+    },
+    "Stop Audio Check": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声チェックを停止"
+          }
+        }
+      }
+    },
+    "Switch to This Call": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この通話に切り替える"
+          }
+        }
+      }
+    },
+    "The group changes were invalid. Saved groups have been preserved. Reload before trying again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループの変更を反映できませんでした。保存済みの内容は保持しています。再読み込みしてから操作してください。"
+          }
+        }
+      }
+    },
+    "The saved call conflicts with another group. Reload your saved groups.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存された通話先が別のグループと競合しています。保存済みのグループを読み込み直してください。"
+          }
+        }
+      }
+    },
+    "This account has 8 registered devices. Sign out of RideIntercom on another device, then set up Internet calling again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアカウントには8台の端末が登録されています。別の端末でRideIntercomからサインアウトしてから、もう一度設定してください。"
+          }
+        }
+      }
+    },
+    "This call invitation is addressed to another rider.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この通話の招待は、ほかの人に宛てられています。"
+          }
+        }
+      }
+    },
+    "This edit stays on this device. People you have not invited directly remain in this group only.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この変更はこの端末だけに保存します。直接招待していない相手との関係は、このグループ内だけに留まります。"
+          }
+        }
+      }
+    },
+    "This ends the current call and removes saved users, groups, and group keys. Unreadable data is preserved first. Your rider identity, audio settings, and Internet credentials stay unchanged. You will need new invitations.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在の通話を終了し、保存済みのユーザー・グループ・グループの鍵を削除します。読み取れないデータは先に退避します。本人の識別情報・音声設定・Internet接続情報は保持します。参加には新しい招待が必要です。"
+          }
+        }
+      }
+    },
+    "This ends your call and permanently removes your saved users, groups, settings and keys from this device. This cannot be undone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を終了し、この端末から保存済みのユーザー・グループ・設定・鍵を削除します。元に戻すことはできません。"
+          }
+        }
+      }
+    },
+    "This group has no saved key. Ask a member for a new invitation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このグループの鍵が保存されていません。参加者に新しい招待を頼んでください。"
+          }
+        }
+      }
+    },
+    "This group is no longer available. Return to the group list.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このグループは現在利用できません。グループ一覧に戻ってください。"
+          }
+        }
+      }
+    },
+    "This invitation cannot change an individual call into a group.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この招待では個別通話をグループ通話に変更できません。"
+          }
+        }
+      }
+    },
+    "This invitation changes the active group key. Disconnect before opening it again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この招待では通話中のグループの鍵が変わります。通話を終了してから、もう一度開いてください。"
+          }
+        }
+      }
+    },
+    "This invitation conflicts with a saved rider's identity or nickname. Check the rider before removing the old entry or changing its nickname. Existing groups and calls are unchanged.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この招待は、保存された相手の本人情報または呼び名と一致しません。相手を確認してから、古い項目の削除や呼び名の変更を行ってください。既存のグループと通話は変わりません。"
+          }
+        }
+      }
+    },
+    "This saved group is no longer available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このグループは保存されていません。"
+          }
+        }
+      }
+    },
+    "This saved user is no longer available for an individual call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このユーザーは保存されていないため、個別通話を開始できません。"
+          }
+        }
+      }
+    },
+    "This sign-in has ended. Open your current account to continue.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このログインは終了しています。現在のアカウントで開き直してください。"
+          }
+        }
+      }
+    },
+    "Too many attempts. Wait before trying again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "試行が多すぎます。しばらく待ってから、もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Too many pending operations. The call stopped; connect again to retry.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作が集中したため通話を停止しました。もう一度接続してください。"
+          }
+        }
+      }
+    },
+    "Too many sign-in attempts. Wait %lld seconds, then choose Set Up Internet Calling again.": {
+      "comment": "Internet setup retry delay in seconds; the named action starts setup again.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many sign-in attempts. Wait %lld second, then choose Set Up Internet Calling again."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many sign-in attempts. Wait %lld seconds, then choose Set Up Internet Calling again."
+                }
+              }
+            }
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログインの試行が多すぎます。%lld秒待ってから「インターネット通話を設定」を選び直してください。"
+          }
+        }
+      }
+    },
+    "Transmit Voice Isolation Effect": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信する声を明瞭にする"
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう一度試す"
+          }
+        }
+      }
+    },
+    "Use Shared Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本人の名前に戻す"
+          }
+        }
+      }
+    },
+    "Use the Apple Account currently being deleted and verify again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除中のAppleアカウントを使って、もう一度確認してください。"
+          }
+        }
+      }
+    },
+    "Use the Apple Account currently signed in to RideIntercom.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomにログイン中のAppleアカウントを使ってください。"
+          }
+        }
+      }
+    },
+    "Use the same Apple Account as RideIntercom. Updating Internet access ends the current call. Nearby calling remains available if this service cannot be reached.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomと同じApple Accountを使ってください。Internet接続を更新すると現在の通話を終了します。サービスにつながらない場合も近距離通話は利用できます。"
+          }
+        }
+      }
+    },
+    "Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サービスURLと端末トークンを使います。保存すると現在の通話は終了します。Cloudflareアカウントの秘密情報はサーバー側だけで保持します。"
+          }
+        }
+      }
+    },
+    "Users": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザー"
+          }
+        }
+      }
+    },
+    "Verify with Apple again to finish deleting this account. Your data stays unavailable.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除を完了するには、Appleで再確認してください。データは引き続き利用できません。"
+          }
+        }
+      }
+    },
+    "Verify with Apple to delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleで確認して削除"
+          }
+        }
+      }
+    },
+    "Verify your account in Internet Connection before sharing a new individual call invitation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しい個別通話の招待を共有する前に、インターネット接続の設定でアカウントを確認してください。"
+          }
+        }
+      }
+    },
+    "Verify your account in Internet Connection to call this user.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この相手と通話するには、Internet接続設定でアカウントを確認してください。"
+          }
+        }
+      }
+    },
+    "Verifying…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認しています…"
+          }
+        }
+      }
+    },
+    "Voice Isolation": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "声を明瞭にする"
+          }
+        }
+      }
+    },
+    "Volume": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音量"
+          }
+        }
+      }
+    },
+    "Volume for %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@の音量"
+          }
+        }
+      }
+    },
+    "We do not request your email address or real name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メールアドレスと本名は取得しません。"
+          }
+        }
+      }
+    },
+    "Welcome to RideIntercom": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomへようこそ"
+          }
+        }
+      }
+    },
+    "Without verification, remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleで確認しない場合は、Apple Accountの設定にある「Appleでサインイン」からRideIntercomをご自身で削除してください。"
+          }
+        }
+      }
+    },
+    "Worker URL": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サービスURL"
+          }
+        }
+      }
+    },
+    "You are signed out. The saved sign-in could not be removed from this device. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインアウトしましたが、この端末のログイン記録を削除できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "You both created a call invitation. Share this call's invitation so you use the same call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "双方で通話の招待を作成しました。同じ通話につながるように、この通話の招待を共有してください。"
+          }
+        }
+      }
+    },
+    "You must remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleアカウント設定の「Appleでサインイン」から、ご自身でRideIntercomを削除してください。"
+          }
+        }
+      }
+    },
+    "You will need to remove the Apple authorization yourself. Your data cannot be restored by signing in again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleの認可はご自身で解除してください。再びログインしてもデータは復元されません。"
+          }
+        }
+      }
+    },
+    "Your Apple sign-in is no longer valid. Sign in again to call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleへのログインが無効になりました。通話するにはログインし直してください。"
+          }
+        }
+      }
+    },
+    "Your Display Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分の表示名"
+          }
+        }
+      }
+    },
+    "Your data on this device has been deleted.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末のデータを削除しました。"
+          }
+        }
+      }
+    },
+    "Your data on this device has been deleted. Apple authorization removal is pending. Retry when online.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末のデータを削除しました。Appleの連携解除は保留中です。オンラインで再試行してください。"
+          }
+        }
+      }
+    },
+    "Your data on this device has been deleted. Internet call cleanup and Apple authorization removal are pending. Retry when online.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末のデータを削除しました。インターネット通話の削除処理とAppleの連携解除は保留中です。オンラインで再試行してください。"
+          }
+        }
+      }
+    },
+    "Your data on this device has been deleted. Internet call cleanup is pending. Retry when online.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末のデータを削除しました。インターネット通話の削除処理は保留中です。オンラインで再試行してください。"
+          }
+        }
+      }
+    },
+    "Your groups and saved users stay on this device. Sign in with the same Apple Account to use them again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループと保存済みユーザーはこの端末に残ります。同じApple Accountで再びログインすると利用できます。"
+          }
+        }
+      }
+    },
+    "Your name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分の名前"
+          }
+        }
+      }
+    },
+    "Your name for this person stays on this device. Use Shared Name removes your edit and follows their name updates.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この呼び名はこの端末だけに保存します。「本人の名前に戻す」で変更を取り消し、本人が更新した名前を使います。"
+          }
+        }
+      }
+    },
+    "Your previous account is deleted. A newer account is registered with Apple; its registration and Apple authorization have been kept.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以前のアカウントを削除しました。Appleには新しいアカウントが登録されているため、その登録と連携は保持しました。"
+          }
+        }
+      }
+    },
+    "Set Up Your Account Again": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを設定し直す"
+          }
+        }
+      }
+    },
+    "Your previous account was deleted and a new account was registered. This device still has data from the previous account.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以前のアカウントが削除され、新しいアカウントが登録されています。この端末には以前のアカウントのデータが残っています。"
+          }
+        }
+      }
+    },
+    "Remove its saved users, groups, settings and keys from this device, then sign in and set up Internet calling again. You will need new invitations to reconnect with friends.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の保存ユーザー、グループ、設定、鍵を削除してからログインし、インターネット通話を設定し直してください。友達と再接続するには新しい招待が必要です。"
+          }
+        }
+      }
+    },
+    "Your new account, Apple authorization and purchases will be kept. This cleanup does not need an Internet connection.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいアカウント、Appleの連携、購入は保持します。この端末のデータ削除にインターネット接続は必要ありません。"
+          }
+        }
+      }
+    },
+    "Remove Previous Account Data": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以前のアカウントデータを削除"
+          }
+        }
+      }
+    },
+    "Remove Data": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "データを削除"
+          }
+        }
+      }
+    },
+    "Saved users, groups, settings and keys on this device will be permanently removed. Your new account will be kept.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の保存ユーザー、グループ、設定、鍵を完全に削除します。新しいアカウントは保持します。"
+          }
+        }
+      }
+    },
+    "Recent Call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近の通話"
+          }
+        }
+      }
+    },
+    "Call Again": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう一度通話"
+          }
+        }
+      }
+    },
+    "End the current call before starting a different call.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別の通話を始める前に、現在の通話を終了してください。"
+          }
+        }
+      }
+    },
+    "No recent call is available. Choose a saved user or group.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再開できる通話がありません。保存したユーザーかグループを選んでください。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -18,7 +18,7 @@ struct AccountDataResetView: View {
                     .accessibilityIdentifier("removePreviousAccountDataButton")
                 Button("Sign Out") { viewModel.accountSession.signOut() }
                     .accessibilityIdentifier("accountResetSignOutButton")
-                if let message { Text(message).font(.callout) }
+                if let message { Text(LocalizedStringKey(message)).font(.callout) }
             }
             .padding(32).frame(maxWidth: 540).frame(maxWidth: .infinity)
         }

@@ -2,7 +2,14 @@ import Codec
 import Foundation
 import RTC
 
+enum InterfaceMode: String, CaseIterable, Identifiable {
+    case standard, advanced
+    var id: Self { self }
+}
+
 struct AppSettings: Equatable {
+    var interfaceMode: InterfaceMode = .standard
+    var recentCallDestination: CallDestination?
     var audioSessionProfile: AudioSessionProfile
     var vadSensitivity: VoiceActivitySensitivity
     var preferredTransmitCodec: AudioCodecIdentifier
@@ -12,6 +19,7 @@ struct AppSettings: Equatable {
     var enabledRTCTransportRoutes: Set<RTC.RouteKind>
 
     init(
+        recentCallDestination: CallDestination? = nil,
         audioSessionProfile: AudioSessionProfile = IntercomViewModel.defaultAudioSessionProfile,
         vadSensitivity: VoiceActivitySensitivity = IntercomViewModel.defaultVADSensitivity,
         preferredTransmitCodec: AudioCodecIdentifier = IntercomViewModel.defaultTransmitCodec,
@@ -20,6 +28,7 @@ struct AppSettings: Equatable {
         opusBitRate: Int = IntercomViewModel.defaultOpusBitRate,
         enabledRTCTransportRoutes: Set<RTC.RouteKind> = IntercomViewModel.defaultEnabledRTCTransportRoutes
     ) {
+        self.recentCallDestination = recentCallDestination
         self.audioSessionProfile = audioSessionProfile
         self.vadSensitivity = vadSensitivity
         self.preferredTransmitCodec = preferredTransmitCodec
@@ -38,6 +47,8 @@ protocol AppSettingsStoring: AnyObject {
 
 final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     private let defaults: UserDefaults
+    private let interfaceModeKey = "RideIntercom.settings.interfaceMode"
+    private let recentCallDestinationKey = "RideIntercom.history.recentCallDestination"
     private let audioSessionProfileKey = "RideIntercom.settings.audioSessionProfile"
     private let vadSensitivityKey = "RideIntercom.settings.vadSensitivity"
     private let preferredTransmitCodecKey = "RideIntercom.settings.preferredTransmitCodec"
@@ -53,7 +64,8 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     }
 
     func load() -> AppSettings {
-        AppSettings(
+        var settings = AppSettings(
+            recentCallDestination: defaults.data(forKey: recentCallDestinationKey).flatMap { try? JSONDecoder().decode(CallDestination.self, from: $0) },
             audioSessionProfile: loadAudioSessionProfile(),
             vadSensitivity: loadVADSensitivity(),
             preferredTransmitCodec: loadPreferredTransmitCodec(),
@@ -68,9 +80,13 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
             ),
             enabledRTCTransportRoutes: loadEnabledRTCTransportRoutes()
         )
+        settings.interfaceMode = defaults.string(forKey: interfaceModeKey).flatMap(InterfaceMode.init(rawValue:)) ?? .standard
+        return settings
     }
 
     func save(_ settings: AppSettings) {
+        defaults.set(settings.interfaceMode.rawValue, forKey: interfaceModeKey)
+        defaults.set(settings.recentCallDestination.flatMap { try? JSONEncoder().encode($0) }, forKey: recentCallDestinationKey)
         defaults.set(settings.audioSessionProfile.rawValue, forKey: audioSessionProfileKey)
         defaults.set(settings.vadSensitivity.rawValue, forKey: vadSensitivityKey)
         defaults.set(settings.preferredTransmitCodec.rawValue, forKey: preferredTransmitCodecKey)

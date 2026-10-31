@@ -103,6 +103,7 @@ extension IntercomViewModel {
                 "codec": "\(selectedTransmitCodec.rawValue)"
             ])
         )
+        recordEstablishedCall()
         return true
     }
 

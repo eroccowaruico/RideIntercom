@@ -54,18 +54,18 @@ struct SavedUsersView: View {
                 Section {
                     Text("\(memberCount) of 8 members including you")
                     if let message = viewModel.groupErrorMessage {
-                        Text(message).foregroundStyle(AppColorPalette.danger)
+                        Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger)
                             .accessibilityIdentifier("savedUsersErrorLabel")
                     }
                 }
             }
-            .navigationTitle(groupID == nil ? "Saved Users" : "Add Saved Users")
+            .navigationTitle(LocalizedStringKey(groupID == nil ? "Saved Users" : "Add Saved Users"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }.accessibilityIdentifier("closeSavedUsersButton")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(groupID == nil ? "Create Group" : "Add Users") {
+                    Button(LocalizedStringKey(groupID == nil ? "Create Group" : "Add Users")) {
                         let saved = if let groupID {
                             viewModel.addSavedUsers(selection, to: groupID)
                         } else {
@@ -86,7 +86,7 @@ struct SavedUsersView: View {
     }
 }
 
-private struct SavedUserNameView: View {
+struct SavedUserNameView: View {
     @Bindable var viewModel: IntercomViewModel
     let user: SavedUser
     @Environment(\.dismiss) private var dismiss
@@ -110,7 +110,7 @@ private struct SavedUserNameView: View {
                 }
                 .accessibilityIdentifier("resetUserNameButton")
                 Text("Your name for this person stays on this device. Use Shared Name removes your edit and follows their name updates.").font(.footnote)
-                if let message = viewModel.groupErrorMessage { Text(message).foregroundStyle(AppColorPalette.danger) }
+                if let message = viewModel.groupErrorMessage { Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger) }
             }
             .navigationTitle("Edit User")
             .toolbar {

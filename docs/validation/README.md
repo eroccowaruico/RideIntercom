@@ -1,5 +1,20 @@
 # 検証状況と証跡
 
+## 一般画面・直近通話・ショートカットの統合（2026-10-31）
+
+Standardの英日画面、Advancedとの同一状態の共有、認証と音声準備の成立後だけ保存する直近宛先、App所有の同じ通話モデルを使うApp Intentsを統合した。閲覧だけでは別通話へ切り替えず、削除済み宛先と古いログインの外部操作を拒否する。
+
+| 検証 | 結果 |
+|---|---|
+| App回帰 | macOS・iOS各320件成功、失敗・skip・runtime warningなし。`.validation/standard-recent-intents-final-macos`・`standard-recent-intents-final-ios`。Mac完了後のApp差分は日本語の設定ボタン名1件だけで、最終iOS側で一致を確認 |
+| 一般UI | Standardの英語・日本語、タブ・mute・表示modeの保持、購入状態表示、一般/詳細Internet設定、音量label、日本語の再試行案内を4件で確認。既存Advancedの英語再試行案内も1件確認 |
+| 既存UI | 先行統合版で個別通話・名前編集/復元・再登録後の端末内整理を各1件成功。`.validation/standard-recent-intents-ios`。その後のApp変更は再試行文言の翻訳と音量labelで、対象経路を最終UIで再確認 |
+| 履歴・共通状態 | 直近1件、音声準備と認証の順序、削除・読取失敗・アカウント切替、表示modeと履歴の同時保存・音声設定resetをApp試験で確認 |
+| App Intents | perform/queryの5件とApp metadata生成を確認。実OS経由のIPCはMacのシステム認証でrunner開始前に失敗し、実行対象へ到達していない。分離した試験案を保持し、通常テストへ未検証の入口を混ぜない |
+| ソース・資源 | 最終iOS実行前後の入力一致、専用Simulatorのshutdownとlease返却を確認。集約は`.validation/standard-recent-intents-delivery`、元のxcresultは同記録のevidence-locations.jsonに保持 |
+
+package・Worker・独立音声E2E・実機・実サービスはこのApp工程で変更/再実行していない。Siri発話・ロック状態でのOS起動、実機VoiceOver、通知・Widget・利用権の通話制限は完了としていない。Appのmetadataは生成され、App Intentsを持たないUIテストbundleのmetadata省略warningだけは既知のまま残る。
+
 ## StoreKit・共通通話操作のApp統合（2026-10-31）
 
 [利用権仕様](../spec/App/利用権仕様.md)の読取・復元をログイン後の画面、前面復帰、サインアウト・削除・モデル置換へ接続した。独自の購入台帳や端末間lockは設けず、公開商品は未設定として表示する。共通通話操作も同じAppへ統合した。

@@ -7,7 +7,8 @@ struct StoreAccessSection: View {
         Section {
             TimelineView(.explicit(expirationBoundaries)) { context in
                 let state = access.evaluation(at: context.date)
-                LabeledContent("Purchase Status", value: title(for: state.status))
+                LabeledContent("Purchase Status") { Text(LocalizedStringKey(title(for: state.status))) }
+                    .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("purchaseStatus")
                 if let until = state.activeUntil {
                     LabeledContent("Available Until", value: until.formatted(date: .abbreviated, time: .shortened))
@@ -18,7 +19,7 @@ struct StoreAccessSection: View {
                     .disabled(access.isRefreshing)
                     .accessibilityIdentifier("restorePurchases")
             }
-            if let message = access.message { Text(message).foregroundStyle(.secondary) }
+            if let message = access.message { Text(LocalizedStringKey(message)).foregroundStyle(.secondary) }
         } header: {
             Label("Purchases", systemImage: "ticket")
         } footer: {
@@ -28,6 +29,7 @@ struct StoreAccessSection: View {
                 Text("Restore purchases using the App Store account on this device. Restoring does not extend their original period.")
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("storeAccessSection")
     }
 

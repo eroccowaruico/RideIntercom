@@ -11,7 +11,7 @@ struct GroupStorageSection: View {
 
     var body: some View {
         Section("Saved Groups") {
-            Label(message, systemImage: "externaldrive.badge.exclamationmark")
+            Label(LocalizedStringKey(message), systemImage: "externaldrive.badge.exclamationmark")
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("groupStorageStatus")
             Button("Reload Saved Groups", action: reload)
@@ -21,7 +21,7 @@ struct GroupStorageSection: View {
                 Text("Disconnect before reloading saved groups.").font(.footnote)
             }
             if canReset {
-                Button("Reset Saved Groups…", role: .destructive) { confirmingReset = true }
+                Button("Reset Saved Groups and Users…", role: .destructive) { confirmingReset = true }
                     .accessibilityIdentifier("resetSavedGroupsButton")
             }
         }

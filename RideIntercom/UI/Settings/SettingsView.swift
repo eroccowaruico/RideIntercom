@@ -8,17 +8,29 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            InterfaceModeSection(viewModel: viewModel)
             AccountSettingsPanel(viewModel: viewModel)
-            LocalDisplayNameSection(viewModel: viewModel)
             StoreAccessSection(access: viewModel.storeAccess)
-            CommunicationPanel(viewModel: viewModel)
-            InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
-            AudioSessionPanel(viewModel: viewModel)
-            AudioIOPanel(viewModel: viewModel)
-            AudioCheckPanel(viewModel: viewModel)
-            TransmitCodecPanel(viewModel: viewModel)
-            VoiceActivityPanel(viewModel: viewModel)
-            ResetSettingsPanel(viewModel: viewModel)
+            LocalDisplayNameSection(viewModel: viewModel)
+            if viewModel.interfaceMode == .advanced {
+                CommunicationPanel(viewModel: viewModel)
+                InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
+                AudioSessionPanel(viewModel: viewModel)
+                AudioIOPanel(viewModel: viewModel)
+                AudioCheckPanel(viewModel: viewModel)
+                TransmitCodecPanel(viewModel: viewModel)
+                VoiceActivityPanel(viewModel: viewModel)
+                ResetSettingsPanel(viewModel: viewModel)
+            } else {
+                InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
+                AudioIOPanel(viewModel: viewModel)
+                AudioCheckPanel(viewModel: viewModel)
+                Section {
+                    NavigationLink("More Audio and Connection Settings") {
+                        Form { advancedSections }.formStyle(.grouped).navigationTitle("More Settings")
+                    }.accessibilityIdentifier("moreSettingsLink")
+                }
+            }
         }
         .formStyle(.grouped)
         .accessibilityIdentifier("settingsScrollView")
@@ -37,6 +49,27 @@ struct SettingsView: View {
             .frame(minWidth: 480, minHeight: 320)
             #endif
         }
+    }
+    @ViewBuilder private var advancedSections: some View {
+        CommunicationPanel(viewModel: viewModel)
+        AudioSessionPanel(viewModel: viewModel)
+        TransmitCodecPanel(viewModel: viewModel)
+        VoiceActivityPanel(viewModel: viewModel)
+        ResetSettingsPanel(viewModel: viewModel)
+    }
+}
+
+struct InterfaceModeSection: View {
+    let viewModel: IntercomViewModel
+    var body: some View {
+        Section {
+            Picker("App Layout", selection: Binding(get: { viewModel.interfaceMode }, set: viewModel.setInterfaceMode)) {
+                Text("Standard").tag(InterfaceMode.standard)
+                Text("Advanced").tag(InterfaceMode.advanced)
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("interfaceModePicker")
+        } footer: { Text("Advanced includes detailed call information and diagnostics. Switching layouts keeps your call connected.") }
     }
 }
 
@@ -280,42 +313,46 @@ struct AudioCheckPanel: View {
 
     var body: some View {
         Section {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Call")
-                Spacer()
-                VStack(alignment: .trailing, spacing: AppSpacing.xxs) {
-                    Text(viewModel.connectionLabel)
-                        .font(AppTypography.bodyStrong)
-                        .foregroundStyle(AppColorPalette.textPrimary)
-                        .accessibilityIdentifier("liveAudioStateLabel")
-                    Text(viewModel.audioCheckPhase.rawValue)
-                        .font(AppTypography.captionStrongMono)
-                        .foregroundStyle(statusColor)
-                        .accessibilityIdentifier("audioCheckPhaseLabel")
+            if viewModel.interfaceMode == .advanced {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Call")
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: AppSpacing.xxs) {
+                        Text(viewModel.connectionLabel)
+                            .font(AppTypography.bodyStrong)
+                            .foregroundStyle(AppColorPalette.textPrimary)
+                            .accessibilityIdentifier("liveAudioStateLabel")
+                        Text(viewModel.audioCheckPhase.rawValue)
+                            .font(AppTypography.captionStrongMono)
+                            .foregroundStyle(statusColor)
+                            .accessibilityIdentifier("audioCheckPhaseLabel")
+                    }
                 }
+
+                AudioCheckMeterSection(
+                    title: "Microphone Input",
+                    systemImage: "mic.fill",
+                    level: viewModel.diagnosticsInputLevel,
+                    peakLevel: viewModel.diagnosticsInputPeakLevel,
+                    isMuted: viewModel.isMuted,
+                    accessibilityIdentifier: "audioCheckInputMeter"
+                )
+                .listRowSeparator(.hidden)
+
+                AudioCheckMeterSection(
+                    title: "Speaker Output",
+                    systemImage: "speaker.wave.2.fill",
+                    level: viewModel.diagnosticsOutputLevel,
+                    peakLevel: viewModel.diagnosticsOutputPeakLevel,
+                    isMuted: false,
+                    accessibilityIdentifier: "audioCheckOutputMeter"
+                )
+                .listRowSeparator(.hidden)
             }
-
-            AudioCheckMeterSection(
-                title: "Microphone Input",
-                systemImage: "mic.fill",
-                level: viewModel.diagnosticsInputLevel,
-                peakLevel: viewModel.diagnosticsInputPeakLevel,
-                isMuted: viewModel.isMuted,
-                accessibilityIdentifier: "audioCheckInputMeter"
-            )
-            .listRowSeparator(.hidden)
-
-            AudioCheckMeterSection(
-                title: "Speaker Output",
-                systemImage: "speaker.wave.2.fill",
-                level: viewModel.diagnosticsOutputLevel,
-                peakLevel: viewModel.diagnosticsOutputPeakLevel,
-                isMuted: false,
-                accessibilityIdentifier: "audioCheckOutputMeter"
-            )
-            .listRowSeparator(.hidden)
-
-            Text(viewModel.audioCheckStatusMessage)
+            if viewModel.interfaceMode == .standard && viewModel.hasAnyActiveGroupConnection {
+                Text("End your call before checking audio.")
+            }
+            Text(LocalizedStringKey(viewModel.audioCheckStatusMessage))
                 .font(AppTypography.footnote)
                 .foregroundStyle(AppColorPalette.textSecondary)
                 .lineLimit(nil)
@@ -405,12 +442,18 @@ struct InternetConnectionPanel: View {
     @Binding var isEditing: Bool
     var body: some View {
         Section {
-            Text(viewModel.hasInternetCredentials ? "Device token configured" : "Not configured")
+            Text(LocalizedStringKey(viewModel.interfaceMode == .advanced
+                ? (viewModel.hasInternetCredentials ? "Device token configured" : "Not configured")
+                : (viewModel.hasInternetCredentials ? "Internet is set up" : "Internet is not set up")))
                 .accessibilityIdentifier("internetConfigurationStatus")
             Button("Configure Internet Connection") { isEditing = true }
                 .accessibilityIdentifier("configureInternetConnection")
         } header: { Label("Internet Connection", systemImage: "globe") }
-        footer: { Text("Set the service address and connect with Apple, or enter a device token for testing.") }
+        footer: {
+            Text(LocalizedStringKey(viewModel.interfaceMode == .advanced
+                ? "Set the service address and connect with Apple, or enter a device token for testing."
+                : "Enter your service address and continue with Apple."))
+        }
     }
 }
 
@@ -424,7 +467,7 @@ private struct InternetConnectionEditor: View {
     var body: some View {
         Form {
             Section {
-                TextField("Worker URL", text: $workerURL)
+                TextField(LocalizedStringKey(viewModel.interfaceMode == .advanced ? "Worker URL" : "Service Address"), text: $workerURL)
                     .focused($focusedField, equals: .url)
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("internetWorkerURL")
@@ -434,29 +477,31 @@ private struct InternetConnectionEditor: View {
                     #endif
             }
             InternetAppleSignInSection(viewModel: viewModel, workerURL: workerURL)
-            Section {
-                SecureField("Device access token", text: $token)
-                    .focused($focusedField, equals: .token)
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("internetDeviceToken")
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    #endif
-                Button("Save Internet Connection") {
-                    focusedField = nil
-                    do {
-                        try viewModel.saveInternetConnection(url: workerURL, token: token)
-                        token = ""
-                        status = "Saved. Use Check Internet Service in Diagnostics before connecting."
-                    } catch {
-                        status = "Could not save. Check the HTTPS URL, device token, and Keychain access."
+            if viewModel.interfaceMode == .advanced {
+                Section {
+                    SecureField("Device access token", text: $token)
+                        .focused($focusedField, equals: .token)
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("internetDeviceToken")
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                    Button("Save Internet Connection") {
+                        focusedField = nil
+                        do {
+                            try viewModel.saveInternetConnection(url: workerURL, token: token)
+                            token = ""
+                            status = "Saved. Use Check Internet Service in Diagnostics before connecting."
+                        } catch {
+                            status = "Could not save. Check the HTTPS URL, device token, and Keychain access."
+                        }
                     }
-                }
-                .disabled(workerURL.isEmpty || token.isEmpty)
-                .accessibilityIdentifier("saveInternetConnection")
-                if !status.isEmpty { Text(status).font(.footnote) }
-            } header: { Label("Manual Access Token", systemImage: "globe") }
-            footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
+                    .disabled(workerURL.isEmpty || token.isEmpty)
+                    .accessibilityIdentifier("saveInternetConnection")
+                    if !status.isEmpty { Text(LocalizedStringKey(status)).font(.footnote) }
+                } header: { Label("Manual Access Token", systemImage: "globe") }
+                footer: { Text("Use your service URL and device token. Saving ends the current call. Cloudflare account secrets stay on the server.") }
+            }
         }
         .onAppear {
             workerURL = viewModel.internetWorkerURL

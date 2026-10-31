@@ -43,7 +43,7 @@ struct GroupMemberNameView: View {
                     if viewModel.resetGroupMemberName(member.id, in: groupID) { dismiss() }
                 }.accessibilityIdentifier("resetGroupMemberNameButton")
                 Text("This edit stays on this device. People you have not invited directly remain in this group only.").font(.footnote)
-                if let error = viewModel.groupErrorMessage { Text(error).foregroundStyle(AppColorPalette.danger) }
+                if let error = viewModel.groupErrorMessage { Text(LocalizedStringKey(error)).foregroundStyle(AppColorPalette.danger) }
             }
             .navigationTitle("Edit Name")
             .toolbar {

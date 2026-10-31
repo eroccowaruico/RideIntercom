@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated enum CallDestination: Equatable, Sendable {
+nonisolated enum CallDestination: Codable, Equatable, Sendable {
     case group(UUID)
     case user(UUID)
 }
@@ -13,6 +13,58 @@ nonisolated struct CallReference: Equatable, Sendable {
 }
 
 extension IntercomViewModel {
+    var recentCallDestination: CallDestination? {
+        guard canStartCalls, groupStorageIssue == nil, let destination = storedRecentCallDestination else { return nil }
+        switch destination {
+        case .user(let id): return savedRemoteUsers.contains { $0.id == id } ? destination : nil
+        case .group(let id): return regularGroups.contains { $0.id == id } ? destination : nil
+        }
+    }
+
+    var recentCallTitle: String? {
+        switch recentCallDestination {
+        case .user(let id): savedRemoteUsers.first { $0.id == id }?.resolvedDisplayName
+        case .group(let id): regularGroups.first { $0.id == id }?.name
+        case nil: nil
+        }
+    }
+
+    @discardableResult
+    func startRecentCall(accountAccessID: UUID) -> Bool {
+        guard let destination = recentCallDestination else {
+            groupErrorMessage = groupStorageNotice ?? "No recent call is available. Choose a saved user or group."
+            return false
+        }
+        return startCall(to: destination, accountAccessID: accountAccessID)
+    }
+
+    /// Transport connection alone is insufficient: the current participant proof
+    /// and the local media pipeline must both be ready.
+    func recordEstablishedCall() {
+        guard canStartCalls, isAudioReady,
+              authenticatedPeerIDs.contains(where: { peerProfiles[$0]?.verified != nil }),
+              let group = groups.first(where: { $0.id == activeGroupID }) else { return }
+        let destination: CallDestination?
+        if group.kind == .group {
+            destination = .group(group.id)
+        } else if let principal = directCallAccountRecipient(for: group) {
+            destination = savedRemoteUsers.first { $0.principal == principal }.map { .user($0.id) }
+        } else if let memberID = directCallRecipient(for: group) {
+            destination = savedRemoteUsers.first { $0.memberIDs.contains(memberID) }.map { .user($0.id) }
+        } else { destination = nil }
+        guard let destination, destination != storedRecentCallDestination else { return }
+        storedRecentCallDestination = destination
+        saveAppSettings()
+    }
+
+    func discardUnavailableRecentCall() {
+        // A read failure is not evidence that the destination was removed.
+        guard canStartCalls, groupStorageIssue == nil,
+              storedRecentCallDestination != nil, recentCallDestination == nil else { return }
+        storedRecentCallDestination = nil
+        saveAppSettings()
+    }
+
     var currentCallReference: CallReference {
         .init(accountAccessID: accountAccessID, connectionGeneration: connectionGeneration, groupID: activeGroupID)
     }
@@ -20,11 +72,12 @@ extension IntercomViewModel {
     /// Resolve a durable destination again when the action runs, not when a screen
     /// or external control originally displayed it.
     @discardableResult
-    func startCall(to destination: CallDestination, accountAccessID requestedAccess: UUID) -> Bool {
+    func startCall(to destination: CallDestination, accountAccessID requestedAccess: UUID, allowSwitchingCall: Bool = true) -> Bool {
         guard canStartCalls, requestedAccess == accountAccessID else {
             groupErrorMessage = groupStorageNotice ?? "This sign-in has ended. Open your current account to continue."
             return false
         }
+        let previousSelection = selectedGroup
         switch destination {
         case .group(let id):
             guard let group = groups.first(where: { $0.id == id }) else {
@@ -42,6 +95,11 @@ extension IntercomViewModel {
             guard selectUser(id, connectIfIdle: false) else { return false }
         }
         guard let selectedGroup else { return false }
+        if !allowSwitchingCall, hasAnyActiveGroupConnection, activeGroupID != selectedGroup.id {
+            self.selectedGroup = previousSelection
+            groupErrorMessage = "End the current call before starting a different call."
+            return false
+        }
         if activeGroupID == selectedGroup.id, hasAnyActiveGroupConnection { return true }
         connectSelectedGroup()
         return activeGroupID == selectedGroup.id && hasAnyActiveGroupConnection

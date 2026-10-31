@@ -404,9 +404,10 @@ extension IntercomViewModel {
         )
     }
 
-    private func saveAppSettings() {
+    func saveAppSettings() {
         guard canStartCalls else { return }
-        appSettingsStore.save(AppSettings(
+        var settings = AppSettings(
+            recentCallDestination: storedRecentCallDestination,
             audioSessionProfile: audioSessionProfile,
             vadSensitivity: vadSensitivity,
             preferredTransmitCodec: preferredTransmitCodec,
@@ -414,7 +415,9 @@ extension IntercomViewModel {
             aacELDv2BitRate: aacELDv2BitRate,
             opusBitRate: opusBitRate,
             enabledRTCTransportRoutes: enabledRTCTransportRoutes
-        ))
+        )
+        settings.interfaceMode = interfaceMode
+        appSettingsStore.save(settings)
     }
 
     private func logCodecFallbackIfNeeded() {

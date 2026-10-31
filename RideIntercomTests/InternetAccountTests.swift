@@ -13,7 +13,7 @@ struct InternetAccountTests {
         let authorization = f.authorization
         AccountHTTPStub.respond(status: 429, path: "/api/auth/apple/challenge", retryAfter: "1")
         await authorization.prepare(url: "https://account.test")
-        #expect(authorization.message?.contains("Wait 1 second") == true)
+        #expect(authorization.message == authorization.retryMessage(seconds: 1))
         #expect(!authorization.isBusy && !authorization.isReady)
         authorization.cancel()
         await authorization.prepare(url: "https://account.test")
@@ -31,7 +31,7 @@ struct InternetAccountTests {
         let authorization = f.authorization
         AccountHTTPStub.respond(status: 429, path: "/api/auth/apple/challenge", retryAfter: value)
         await authorization.prepare(url: "https://account.test")
-        #expect(authorization.message?.contains(value == "3601" ? "Wait 3600 seconds" : "Wait 60 seconds") == true)
+        #expect(authorization.message == authorization.retryMessage(seconds: value == "3601" ? 3600 : 60))
         #expect(!authorization.isReady)
     }
 
@@ -44,7 +44,7 @@ struct InternetAccountTests {
         await f.authorization.exchange(userID: "apple-user", state: request.state, identityToken: Data("proof".utf8))
         #expect(f.saved == nil)
         #expect(!f.authorization.isReady)
-        #expect(f.authorization.message?.contains("Wait 60 seconds") == true)
+        #expect(f.authorization.message == f.authorization.retryMessage(seconds: 60))
         await f.authorization.prepare(url: "https://account.test")
         #expect(AccountHTTPStub.requests.count == 2)
     }

@@ -8,7 +8,7 @@ struct AudioPortPicker: View {
     let accessibilityIdentifier: String
 
     var body: some View {
-        Picker(title, selection: selection) {
+        Picker(LocalizedStringKey(title), selection: selection) {
             ForEach(ports) { port in
                 Text(port.name).tag(port as AudioPortInfo)
             }

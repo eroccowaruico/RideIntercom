@@ -116,6 +116,7 @@ extension IntercomViewModel {
         if activeGroupID == groupID { disconnect() }
         if selectedGroup?.id == groupID { selectedGroup = nil }
         groups = remaining
+        discardUnavailableRecentCall()
     }
 
     func canRemoveMember(_ memberID: String) -> Bool {

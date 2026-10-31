@@ -15,8 +15,10 @@ final class RideIntercomUITests: XCTestCase {
 
     private func launchApp(startOnDiagnostics: Bool = false) {
         app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
         app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "advanced"
         if name.contains("InternetEnrollmentThrottle") {
             app.launchEnvironment["RIDEINTERCOM_INTERNET_ACCOUNT_FIXTURE"] = "throttled"
         }
@@ -24,7 +26,7 @@ final class RideIntercomUITests: XCTestCase {
             app.launchEnvironment["RIDEINTERCOM_ACCOUNT_REPLACEMENT_FIXTURE"] = UUID().uuidString
         }
         if name.contains("Adaptive") {
-            app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+            app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
         app.launch()
         app.activate()

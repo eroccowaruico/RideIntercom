@@ -239,7 +239,9 @@ final class InternetAccountAuthorization {
         }
     }
 
-    private func retryMessage(seconds: Int) -> String {
-        "Too many sign-in attempts. Wait \(seconds) \(seconds == 1 ? "second" : "seconds"), then choose Set Up Internet Calling again."
+    func retryMessage(seconds: Int, bundle: Bundle = .main, locale: Locale = .current) -> String {
+        String(localized: "Too many sign-in attempts. Wait \(seconds) seconds, then choose Set Up Internet Calling again.",
+               bundle: bundle, locale: locale,
+               comment: "Internet setup retry delay in seconds; the named action starts setup again.")
     }
 }

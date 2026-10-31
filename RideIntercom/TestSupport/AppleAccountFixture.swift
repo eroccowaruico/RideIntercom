@@ -15,6 +15,10 @@ enum AppleAccountFixture {
               environment["RIDEINTERCOM_LOCAL_TESTING"] == "1",
               let mode = environment["RIDEINTERCOM_ACCOUNT_FIXTURE"],
               mode == "signed-in" || mode == "signed-out" else { return nil }
+        if let raw = environment["RIDEINTERCOM_INTERFACE_FIXTURE"], let layout = InterfaceMode(rawValue: raw) {
+            UserDefaults(suiteName: AppleAccountSession.storageNamespace(base: namespace, userID: userID))!
+                .set(layout.rawValue, forKey: "RideIntercom.settings.interfaceMode")
+        }
         let defaults = UserDefaults(suiteName: namespace + ".AccountFixture")!
         let session = AppleAccountSession(keychain: FixtureKeychain(defaults: defaults), defaults: defaults,
             namespace: namespace, credentialState: { _ in .authorized })

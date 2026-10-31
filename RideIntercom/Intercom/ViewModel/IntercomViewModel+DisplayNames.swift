@@ -115,6 +115,7 @@ extension IntercomViewModel {
             state.verified = verified
             peerProfiles[peerID] = state
             refreshGroupStorageStatus()
+            recordEstablishedCall()
         } catch { reportGroupStorageError(error) }
     }
 

@@ -1,14 +1,14 @@
 #if os(macOS)
 import AppKit
 #endif
+import AppIntents
 import Foundation
 import Logging
 import SwiftUI
 
 @main
 struct RideIntercomApp: App {
-    @State private var account = AppleAccountSession.makeForCurrentProcess()
-    @State private var viewModel: IntercomViewModel?
+    @State private var callOwner: AppCallOwner
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     @NSApplicationDelegateAdaptor(RideIntercomApplicationDelegate.self) private var appDelegate
@@ -16,6 +16,10 @@ struct RideIntercomApp: App {
 
     init() {
         RideIntercomLogging.bootstrap()
+        let account = AppleAccountSession.makeForCurrentProcess()
+        let owner = AppCallOwner(account: account, viewModel: IntercomViewModel.makeForCurrentProcess(accountSession: account))
+        _callOwner = State(initialValue: owner)
+        AppDependencyManager.shared.add(dependency: owner)
         AppLoggers.app.info(
             "app.lifecycle.started",
             metadata: .event("app.lifecycle.started", [
@@ -29,7 +33,7 @@ struct RideIntercomApp: App {
         let _ = configureOpenWindowBridge()
 
         return WindowGroup(id: SingleWindowPolicy.mainWindowID) {
-            ContentView(account: account, viewModel: $viewModel)
+            ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
                 .onAppear {
                     SingleWindowPolicy.enforce()
                 }
@@ -41,7 +45,7 @@ struct RideIntercomApp: App {
         }
         #else
         return WindowGroup {
-            ContentView(account: account, viewModel: $viewModel)
+            ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
         }
         #endif
     }

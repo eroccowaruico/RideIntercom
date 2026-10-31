@@ -42,6 +42,7 @@ final class IntercomViewModel {
     nonisolated static let audibleOutputLevelThreshold: Float = 0.00025
     nonisolated static let runtimePackageReportPublishInterval: TimeInterval = 0.5
 
+    var interfaceMode: InterfaceMode = .standard
     var internetWorkerURL = ""
     var hasInternetCredentials = false
     var internetCheckMessage = "Not checked. Configure Internet Connection in Settings."
@@ -49,6 +50,7 @@ final class IntercomViewModel {
     var internetCheckGeneration = UUID()
     let internetSettingsStore: InternetConnectionSettingsStore
 
+    var storedRecentCallDestination: CallDestination?
     var groups: [IntercomGroup]
     var savedUsers: [SavedUser] = []
     var selectedGroup: IntercomGroup?
@@ -229,6 +231,7 @@ final class IntercomViewModel {
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()
+        self.interfaceMode = appSettings.interfaceMode
         let repository = groupRepository
         self.groupRepository = repository
         do {
@@ -275,6 +278,7 @@ final class IntercomViewModel {
         self.localMemberIdentityStore = localMemberIdentityStore
         self.audioSessionSnapshot = (try? sessionManager.snapshot()) ?? Self.defaultAudioSessionSnapshot()
         self.remoteTalkerTimeout = remoteTalkerTimeout
+        self.storedRecentCallDestination = appSettings.recentCallDestination
         self.audioSessionProfile = appSettings.audioSessionProfile
         self.vadSensitivity = appSettings.vadSensitivity
         self.preferredTransmitCodec = appSettings.preferredTransmitCodec

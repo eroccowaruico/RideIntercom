@@ -32,7 +32,7 @@ struct AccountDeletionView: View {
                     Text("Internet access has been signed out. Verify with Apple to delete the saved account; signing out did not delete it.")
                 } else {
                     Section {
-                        Button(access == nil ? "Delete Data on This Device" : "Delete Without Apple Verification", role: .destructive) {
+                        Button(LocalizedStringKey(access == nil ? "Delete Data on This Device" : "Delete Without Apple Verification"), role: .destructive) {
                             confirmsManualDeletion = true
                         }
                         .disabled(authorization?.isBusy == true)
@@ -41,7 +41,7 @@ struct AccountDeletionView: View {
                     }
                 }
             }
-            if let message { Section { Text(message); Button("Try Again", action: load) } }
+            if let message { Section { Text(LocalizedStringKey(message)); Button("Try Again", action: load) } }
         }
         .navigationTitle("Delete Account")
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { authorization?.cancel(); dismiss() } } }
@@ -93,7 +93,7 @@ struct DeletionAppleVerification: View {
                 .disabled(authorization.isBusy)
         }
         if authorization.isBusy { ProgressView("Verifying…") }
-        if let message = authorization.message { Text(message).font(.callout) }
+        if let message = authorization.message { Text(LocalizedStringKey(message)).font(.callout) }
     }
 }
 
@@ -106,11 +106,11 @@ struct AccountDeletionProgressView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text(deletion.isLocalReset ? "Remove Previous Account Data" : (deletion.canFinish ? "Account Data Deleted" : "Account Deletion")).font(.largeTitle).accessibilityAddTraits(.isHeader)
+                Text(LocalizedStringKey(deletion.isLocalReset ? "Remove Previous Account Data" : (deletion.canFinish ? "Account Data Deleted" : "Account Deletion"))).font(.largeTitle).accessibilityAddTraits(.isHeader)
                 if deletion.isBusy { ProgressView("Deleting…") }
-                if let text = deletion.message { Text(text) }
-                if let text = account.message { Text(text) }
-                if let message { Text(message) }
+                if let text = deletion.message { Text(LocalizedStringKey(text)) }
+                if let text = account.message { Text(LocalizedStringKey(text)) }
+                if let message { Text(LocalizedStringKey(message)) }
                 if deletion.canFinish {
                     if deletion.record?.serverResult?.newerAccountPreserved == true {
                         Text("Your previous account is deleted. A newer account is registered with Apple; its registration and Apple authorization have been kept.")

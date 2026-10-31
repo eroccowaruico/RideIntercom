@@ -275,23 +275,9 @@ struct CallView: View {
     }
 
     private func inviteLink(_ group: IntercomGroup) -> some View {
-        ShareLink(
-            item: GroupInvitationShare(viewModel: viewModel, groupID: group.id),
-            subject: Text("RideIntercom Invite"),
-            message: Text(group.kind == .direct ? "Join me for a call on RideIntercom." : "Join \(group.name)"),
-            preview: SharePreview(Text(viewModel.callTitle(for: group)))
-        ) {
-            Label(viewModel.selectedGroup?.kind == .direct ? "Share Call Invite" : "Invite", systemImage: "square.and.arrow.up")
-        }
-        .appSecondaryButtonStyle()
-        .controlSize(.large)
-        .simultaneousGesture(TapGesture().onEnded {
-            guard viewModel.selectedGroup?.id == group.id, viewModel.canShareSelectedGroup else { return }
-            viewModel.reserveInviteMemberSlot()
-        })
-        .accessibilityLabel(viewModel.selectedGroup?.kind == .direct ? "Share Call Invite" : "Invite Group")
-        .accessibilityHint("Opens sharing options for this invitation.")
-        .accessibilityIdentifier("inviteButton")
+        CallInvitationButton(viewModel: viewModel, group: group)
+            .appSecondaryButtonStyle()
+            .controlSize(.large)
     }
 
     @ViewBuilder

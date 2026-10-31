@@ -6,6 +6,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     let account: AppleAccountSession
     @Binding var viewModel: IntercomViewModel?
+    var callPresentationID: UUID? = nil
     @State private var pendingInviteURL: URL?
     @State private var selectedTab: AppTab = .call
 
@@ -23,6 +24,7 @@ struct ContentView: View {
                 AppleSignInView(account: account, hasPendingInvite: pendingInviteURL != nil)
             }
         }
+        .onChange(of: callPresentationID) { _, _ in selectedTab = .call }
         .task { await account.refresh() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

@@ -4,6 +4,13 @@
 
 本書は Settings タブの UI 項目を定義する。
 
+## 表示切替と共通設定
+
+App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・購入状態・本人の表示名・Internet接続・音声入出力・簡単な録音再生チェックを表示する。録音チェックの接続状態やmeterはAdvancedに限る。通信経路・Audio Session・送信codec・VAD・Reset All SettingsはMore Audio and Connection Settings（`moreSettingsLink`）から同じ設定操作へ進む。Advancedへ戻るPickerは設定の先頭に常設する。
+
+StandardのInternet接続はInternet is set up / Internet is not set upとService Addressを表示し、Appleによる接続操作を案内する。手動のDevice access token入力・保存はAdvancedだけに表示する。AdvancedはWorker URLを含め従来の項目・識別子・保存操作とDiagnosticsを維持する。両表示で同じ設定保存先と音声処理を使う。未設定商品の購入状態はNot Available Yetで、Restore Purchasesを表示しない。
+
+
 Settings はアカウントのサインアウトと削除、通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
 
 ## 親セクション
@@ -168,3 +175,7 @@ Apple認証の登録入口はserver側で有効化されている必要があり
 サインアウト済みの登録が残る場合は、その登録の削除にAppleでの再確認が必要と説明し、確認なしの削除を提示しない。退避読取失敗では端末だけの削除へ進めない。
 
 削除処理はsheetの寿命に依存しない。再起動しても削除記録を先に読み、未完了なら同じ再開画面へ戻る。削除記録・保存資格を読み出せない場合、空のアカウントとして削除を進めない。資格の期限切れ・失効、または取消待ちの受領記録失効でserverが401を返すと、保存済みの公開IDを対象としてApple再認証へ戻る。再認証は新しいInternet登録を作らない。元のアカウントが既に削除され、新しい公開IDで登録されている場合は、元の端末内データだけを消し、新しい登録とApple認可は維持したと表示する。この場合はAppleの手動解除を案内しない。公開IDを確認できない手入力資格は削除開始前に拒否し、SettingsからAppleでInternet接続を再確認するよう案内する。
+
+## 利用者向け案内の言語
+
+Internetログインの再試行案内は、待ち時間を数値のままString Catalogへ補間し、英語の1 second / 複数secondsと日本語の秒表示を切り替える。1・60・3,600秒でも同じ待機値を保持し、翻訳のために再試行制限やアカウント状態を変えない。招待、名前入力、音声復旧のApp定型メッセージも日本語を用意する。ユーザー名・グループ名は補間時に保持し、OSや接続先が返した任意の自由文は独自翻訳しない。Advancedの診断文言の全訳は対象外。

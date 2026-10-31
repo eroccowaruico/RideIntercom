@@ -25,7 +25,7 @@ struct AppleSignInView: View {
                     .disabled(account.storageUnavailable || account.isSigningIn)
                     .accessibilityIdentifier("signInWithAppleButton")
                 if let message = account.message {
-                    Text(message).font(.callout)
+                    Text(LocalizedStringKey(message)).font(.callout)
                         .accessibilityIdentifier("accountMessage")
                     Button("Try Again") { Task { await account.reload() } }
                         .accessibilityIdentifier("retrySignInButton")
@@ -51,7 +51,7 @@ struct AccountSettingsPanel: View {
     var body: some View {
         Section {
             Label("Signed in with Apple", systemImage: "person.crop.circle.badge.checkmark")
-            if let message = account.message { Text(message).font(.footnote) }
+            if let message = account.message { Text(LocalizedStringKey(message)).font(.footnote) }
             Button("Sign Out", role: .destructive) { confirmsSignOut = true }
                 .accessibilityIdentifier("signOutButton")
                 .confirmationDialog("Sign out and end the current call?", isPresented: $confirmsSignOut, titleVisibility: .visible) {

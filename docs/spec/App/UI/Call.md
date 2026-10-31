@@ -4,6 +4,25 @@
 
 本書は Call タブの UI 項目を定義する。
 
+## Standardの通話・ユーザー・グループ
+
+初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
+
+| 画面・項目ID | 表示と操作 |
+|---|---|
+| Call / `standardCallScreen` | 相手名または通常グループ名、接続前・接続待ち・会話中・音声停止・音声エラーの短い案内。認証だけでは会話中にせず、音声準備も成立している状態を使う |
+| `standardConnectButton` / `standardEndCallButton` | 共通startCall / endCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
+| `standardMuteToggle` / `standardMicrophoneStatus` | 共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する |
+| `standardUsersList` | 保存済みユーザーだけを表示。相手の選択は共通selectUserで内部通話先を解決してCallへ移る。内部グループの作成や選択は要求しない。鉛筆で本人名と端末の呼び名を編集できる |
+| `standardGroupsList` | 通常グループだけを表示。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
+| Current Call | 別の相手・一覧の閲覧中でも進行中の通話へ戻る／終了する操作を維持する。保存ユーザー削除で現在の通話を隠さない |
+| 招待・参加者 | 既存の署名付き共有、本人名／別名編集、通常groupへの保存ユーザー追加・削除を共用する。groupで会っただけの相手をUsersへ追加しない |
+| 入出力 | マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
+| 復旧 | 保存読込失敗・破損の既存reload/reset操作、通話・音声のエラーと再試行案内を同じ状態から表示する |
+
+英語を原文としてString Catalogに一般画面と共通の操作・設定・アカウント案内の日本語を保持する。本人名・別名・グループ名は翻訳しない。Advancedの診断項目の全訳は対象外。購入商品未設定は利用不可と表示し、通知の送信・24時間利用権の完成を装わない。通話権利条件は画面側に追加しない。
+
+
 Call は通話開始、接続維持、参加者確認、入出力の最小操作を行う主画面である。
 
 Connect・Disconnect・ローカルマイクの操作は[通話先と操作対象の共通境界](../通信仕様.md#通話先と操作対象の共通境界)を使う。描画時の通話先・通話世代・設定値を保持し、遅れた終了やミュートが別の通話に作用しないようにする。
@@ -151,7 +170,7 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 |---|---|---|
 | groupStorageStatus | Groups上部のSaved Groups Section、文字とSF Symbol | 一時アクセス失敗・破損・未知schema・鍵欠落・回収待ちを区別。固定高を設けず折り返す。同じ保存エラーを上部bannerへ重複表示しない |
 | reloadSavedGroupsButton | Reload Saved Groups | 通話中は無効でDisconnectを案内。未知schemaも無効。成功時は一覧を再構成し選択とerrorを解除 |
-| resetSavedGroupsButton | Reset Saved Groups… | 破損時のみ標準destructive Button。標準alertに影響、退避、再招待の必要性を表示 |
+| resetSavedGroupsButton | Reset Saved Groups and Users… | 破損時のみ標準destructive Button。標準alertに影響、退避、再招待の必要性を表示 |
 | confirmResetSavedGroupsButton / cancelResetSavedGroupsButton | Reset Saved Groups / Cancel | 確認後だけ通話を終了し、元データ退避→空manifest commit→group鍵回収。Cancelを明示し、取り消しなら変更なし |
 | createGroupButton | Create Talk Group | 保存読込に失敗している間は無効。鍵欠落・回収待ちだけなら他groupの利用を妨げない |
 
@@ -160,3 +179,7 @@ resetでrider identity・音声設定・Internet資格は変更しない。退�
 ### グループ内の名前編集
 
 参加者名（`participantName{index}`）は名前編集ボタン。対象groupを固定したFormで、`groupMemberNameField`にこの端末の呼び名、`groupMemberOriginalName`に本人名を表示する。`saveGroupMemberNameButton`で保存、`resetGroupMemberNameButton`で本人名へ戻す。保存ユーザーなら一覧の呼び名も更新し、それ以外は対象groupだけへ保存する。編集を理由にユーザー登録・通知をしない。
+
+### Standardの直近通話
+
+通話していないときに、現在のアカウントと保存一覧で確認できる直近宛先をRecent Callに表示する。`recentCallName`は現在の名前、`recentCallButton`はCall Again。描画時に示した宛先とログイン世代を共通開始操作へ渡し、削除やログイン変更後は再検証する。通話成立時の記録、設定との保存、破損時の扱いは[通信仕様](../通信仕様.md#直近の成立済み通話先)を参照する。

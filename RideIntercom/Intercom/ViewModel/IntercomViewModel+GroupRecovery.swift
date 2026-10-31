@@ -34,6 +34,7 @@ extension IntercomViewModel {
         applySavedUserNames()
         groupsMissingKeys = groupRepository.missingCredentialGroupIDs
         groupKeyCleanupPending = groupRepository.needsCleanup
+        discardUnavailableRecentCall()
     }
     func reportGroupStorageError(_ error: Error) {
         if error as? GroupStorageError == .identityConflict {
