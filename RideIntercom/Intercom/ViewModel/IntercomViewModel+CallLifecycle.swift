@@ -6,6 +6,12 @@ import SessionManager
 
 extension IntercomViewModel {
     func connectLocal() {
+        guard let groupID = selectedGroup?.id else { return }
+        startCall(to: .group(groupID), accountAccessID: accountAccessID)
+    }
+
+    /// Internal lifecycle after the destination and account have been resolved.
+    func connectSelectedGroup() {
         guard canStartCalls else {
             groupErrorMessage = groupStorageNotice ?? "Sign in with Apple to start a call."
             return
@@ -29,7 +35,7 @@ extension IntercomViewModel {
             disconnect()
         }
 
-        if activeGroupID != selectedGroup.id {
+        if activeGroupID != selectedGroup.id || !hasAnyActiveGroupConnection {
             activeGroupID = selectedGroup.id
             resetConnectionRuntimeState()
             bindConnectionEvents()

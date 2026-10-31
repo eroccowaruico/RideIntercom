@@ -101,6 +101,7 @@
 | [spec/App/UI/共通項目.md](<spec/App/UI/共通項目.md>) | RideIntercom UI 共通項目 |
 | [spec/App/UI/画面・状態遷移.md](<spec/App/UI/画面・状態遷移.md>) | RideIntercom 画面・状態遷移 |
 | [spec/App/UI/画面項目定義.md](<spec/App/UI/画面項目定義.md>) | RideIntercom 画面項目定義 |
+| [spec/App/利用権仕様.md](<spec/App/利用権仕様.md>) | StoreKitの読取・期限・復元・ログイン寿命 |
 | [spec/App/ログ仕様.md](<spec/App/ログ仕様.md>) | RideIntercom App ログ仕様 |
 | [spec/App/通信仕様.md](<spec/App/通信仕様.md>) | RideIntercom App 通信仕様 |
 | [spec/App/音声処理仕様.md](<spec/App/音声処理仕様.md>) | RideIntercom App 音声処理仕様 |
@@ -145,6 +146,7 @@
 | 文書 | 役割 / 表題 |
 |---|---|
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
+| [validation/history/StoreKit端末利用権のローカル検証.md](<validation/history/StoreKit端末利用権のローカル検証.md>) | StoreKitの署名・期限・返金・復元の局所検証 |
 | [validation/history/音声境界の共通化と再点検.md](<validation/history/音声境界の共通化と再点検.md>) | 音声・RTC境界の共通化と二巡の再点検 |
 | [validation/history/近距離オフライン通信.md](<validation/history/近距離オフライン通信.md>) | AP・セルラー不在とLocal優先の調査・検証 |
 | [validation/history/音声同一性と途切れの再現.md](<validation/history/音声同一性と途切れの再現.md>) | 複数発話の全文照合と通信なし結合試験による途切れの再現 |

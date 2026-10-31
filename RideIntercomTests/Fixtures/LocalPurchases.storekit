@@ -1,0 +1,31 @@
+{
+  "identifier" : "889CF11D-F3D4-4764-ACF9-4F21C305AE31",
+  "nonRenewingSubscriptions" : [
+    {
+      "displayPrice" : "1.00",
+      "familyShareable" : false,
+      "internalID" : "1001",
+      "localizations" : [ { "description" : "Local test only: seven days from purchase", "displayName" : "Fixture Week", "locale" : "en_US" } ],
+      "productID" : "test.rideintercom.week",
+      "referenceName" : "Fixture Week - not for sale",
+      "type" : "NonRenewingSubscription"
+    }
+  ],
+  "products" : [],
+  "settings" : { "_applicationInternalID" : "", "_developerTeamID" : "", "_failTransactionsEnabled" : false, "_locale" : "en_US", "_storefront" : "USA" },
+  "subscriptionGroups" : [
+    {
+      "id" : "2001", "localizations" : [], "name" : "Fixture Monthly",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [], "codeOffers" : [], "displayPrice" : "2.00", "familyShareable" : false,
+          "groupNumber" : 1, "internalID" : "2002", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Local test only", "displayName" : "Fixture Month", "locale" : "en_US" } ],
+          "productID" : "test.rideintercom.month", "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Fixture Month - not for sale", "subscriptionGroupID" : "2001", "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : { "major" : 3, "minor" : 0 }
+}

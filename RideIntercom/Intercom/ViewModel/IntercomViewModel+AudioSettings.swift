@@ -110,7 +110,12 @@ extension IntercomViewModel {
     }
 
     func toggleMute() {
-        isMuted.toggle()
+        setCallMuted(!isMuted, for: currentCallReference)
+    }
+
+    func applyLocalMute(_ muted: Bool) {
+        guard isMuted != muted else { return }
+        isMuted = muted
         audioPipeline.setInputMuted(isMuted)
         applyCurrentVoiceProcessingConfiguration()
         callSession.setLocalMute(isMuted)

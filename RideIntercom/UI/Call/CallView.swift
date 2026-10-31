@@ -128,10 +128,12 @@ struct CallView: View {
             }
 
             if let localMember {
+                let reference = viewModel.currentCallReference
+                let muted = !viewModel.isMuted
                 LocalMicrophoneHeaderControl(
                     member: localMember,
                     isMuted: viewModel.isMuted,
-                    onToggleMute: { viewModel.toggleMute() }
+                    onToggleMute: { viewModel.setCallMuted(muted, for: reference) }
                 )
             }
 
@@ -246,10 +248,13 @@ struct CallView: View {
     }
 
     private var primaryConnectionButton: some View {
-        Group {
+        let reference = viewModel.currentCallReference
+        let destination = viewModel.selectedGroup.map { CallDestination.group($0.id) }
+        let accessID = viewModel.accountAccessID
+        return Group {
             if viewModel.canDisconnectCall {
                 Button {
-                    viewModel.disconnect()
+                    viewModel.endCall(reference)
                 } label: {
                     Label("Disconnect", systemImage: "xmark.circle.fill")
                 }
@@ -257,7 +262,7 @@ struct CallView: View {
                 .accessibilityIdentifier("disconnectButton")
             } else {
                 Button {
-                    viewModel.connectLocal()
+                    if let destination { viewModel.startCall(to: destination, accountAccessID: accessID) }
                 } label: {
                     Label("Connect", systemImage: "antenna.radiowaves.left.and.right")
                 }

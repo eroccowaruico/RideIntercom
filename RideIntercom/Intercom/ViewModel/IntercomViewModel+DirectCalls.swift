@@ -16,7 +16,7 @@ extension IntercomViewModel {
     }
 
     @discardableResult
-    func selectUser(_ userID: UUID) -> Bool {
+    func selectUser(_ userID: UUID, connectIfIdle: Bool = true) -> Bool {
         groupErrorMessage = nil
         guard canEditSavedGroups else { groupErrorMessage = groupStorageNotice; return false }
         guard let user = savedRemoteUsers.first(where: { $0.id == userID }) else {
@@ -44,7 +44,7 @@ extension IntercomViewModel {
                 groupErrorMessage = "The saved call conflicts with another group. Reload your saved groups."
                 return false
             }
-            selectGroup(existing)
+            selectGroup(existing, connectIfIdle: connectIfIdle)
             return true
         }
         do {
@@ -63,7 +63,7 @@ extension IntercomViewModel {
             try groupRepository.save([group] + groups, credential: .init(groupID: id, secret: secret))
             refreshGroupStorageStatus()
             groups.insert(group, at: 0)
-            selectGroup(group)
+            selectGroup(group, connectIfIdle: connectIfIdle)
             return true
         } catch { reportGroupStorageError(error); return false }
     }

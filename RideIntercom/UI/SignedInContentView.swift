@@ -29,5 +29,6 @@ struct SignedInContentView: View {
             }
             .accessibilityIdentifier("settingsTab")
         }
+        .task { await viewModel.storeAccess.start() }
     }
 }

@@ -28,6 +28,16 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 | Save Name | `saveLocalDisplayNameButton` | 前後空白を除き保存。通話を維持して参加者へ更新を送る |
 | 保存済み | `localDisplayNameSaved` | 保存成功を表示。再編集すると表示を消す |
 
+## 購入状態と復元
+
+| 項目 | ID | 操作・状態 |
+|---|---|---|
+| Purchases | `storeAccessSection` | 同じログインモデルのStoreKit状態を表示。公開商品未設定ではNot Available Yetと案内する |
+| Purchase Status | `purchaseStatus` | 未取得・有効・期限切れ・取消を区別。有効時はAvailable Untilも表示し、期限で端末内評価を更新 |
+| Restore Purchases | `restorePurchases` | 商品設定済みの場合だけ表示。明示操作でApp Storeから復元し、復元中は重複操作を抑止。購入日の期限は延ばさない |
+
+購入履歴の正本・失敗時の扱い・ユーザー切替は[利用権仕様](../利用権仕様.md)を参照する。ログイン画面からの復元や、独自サーバーの購入登録待ちは設けない。
+
 ## Communication
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 異常系の考え方 |

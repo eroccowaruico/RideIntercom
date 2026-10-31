@@ -25,7 +25,12 @@ struct ContentView: View {
         }
         .task { await account.refresh() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await account.refresh() } }
+            if phase == .active {
+                Task {
+                    await account.refresh()
+                    await viewModel?.storeAccess.refresh()
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: ASAuthorizationAppleIDProvider.credentialRevokedNotification)) { _ in
             account.revoke()
@@ -35,6 +40,7 @@ struct ContentView: View {
             // neither reconnect nor leave another account's media running.
             guard viewModel?.accountAccessID != account.accessID else { return }
             let previous = viewModel?.accountUserID
+            viewModel?.storeAccess.stop()
             viewModel?.disconnect()
             viewModel = IntercomViewModel.makeForCurrentProcess(accountSession: account)
             if previous != nil { pendingInviteURL = nil }

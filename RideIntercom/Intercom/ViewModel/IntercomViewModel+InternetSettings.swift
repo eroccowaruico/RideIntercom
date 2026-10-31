@@ -19,6 +19,7 @@ extension IntercomViewModel {
             })
     }
     func endAccountAccess() {
+        storeAccess.stop()
         disconnect()
         internetCheckGeneration = UUID()
         isCheckingInternet = false

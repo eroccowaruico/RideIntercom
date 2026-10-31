@@ -18,6 +18,7 @@ final class IntercomViewModel {
     let accountUserID: String?
     let invitationAuthority: DirectInvitationAuthority
     let accountAccessID: UUID
+    let storeAccess: StoreKitAccess
     var hasCurrentAccountAccess: Bool {
         !accountSession.deletion.blocksSignIn && accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
     }
@@ -219,6 +220,12 @@ final class IntercomViewModel {
         self.accountSession = accountSession
         self.accountUserID = accountSession.userID
         self.accountAccessID = accountSession.accessID
+        let purchaseUserID = accountSession.userID
+        let purchaseAccessID = accountSession.accessID
+        self.storeAccess = StoreKitAccess(isCurrentUser: {
+            !accountSession.deletion.blocksSignIn && purchaseUserID != nil &&
+            accountSession.userID == purchaseUserID && accountSession.accessID == purchaseAccessID
+        })
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()

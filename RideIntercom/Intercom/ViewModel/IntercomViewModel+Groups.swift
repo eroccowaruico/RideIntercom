@@ -8,7 +8,7 @@ import SessionManager
 import VADGate
 
 extension IntercomViewModel {
-    func selectGroup(_ group: IntercomGroup) {
+    func selectGroup(_ group: IntercomGroup, connectIfIdle: Bool = true) {
         groupErrorMessage = nil
         if selectedGroup?.id == group.id {
             return
@@ -37,7 +37,7 @@ extension IntercomViewModel {
 
         selectedGroup = group.withMemberAuthenticationState(.open)
         inviteStatusMessage = nil
-        connectLocal()
+        if connectIfIdle { connectLocal() }
     }
 
     func showGroupSelection() {

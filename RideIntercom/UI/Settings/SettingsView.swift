@@ -10,6 +10,7 @@ struct SettingsView: View {
         Form {
             AccountSettingsPanel(viewModel: viewModel)
             LocalDisplayNameSection(viewModel: viewModel)
+            StoreAccessSection(access: viewModel.storeAccess)
             CommunicationPanel(viewModel: viewModel)
             InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
             AudioSessionPanel(viewModel: viewModel)

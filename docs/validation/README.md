@@ -1,5 +1,31 @@
 # 検証状況と証跡
 
+## StoreKit・共通通話操作のApp統合（2026-10-31）
+
+[利用権仕様](../spec/App/利用権仕様.md)の読取・復元をログイン後の画面、前面復帰、サインアウト・削除・モデル置換へ接続した。独自の購入台帳や端末間lockは設けず、公開商品は未設定として表示する。共通通話操作も同じAppへ統合した。
+
+| 検証 | 結果 |
+|---|---|
+| App回帰 | macOS・iOS各299件成功、失敗・skip・runtime warningなし。`.validation/storekit-call-actions-final-macos`・`storekit-call-actions-final-ios` |
+| 個別通話UI | iOSで直接相手の内部group再利用、参加者をUsersへ自動追加しないこと、終了・再開始を確認。1件成功 |
+| StoreKit | macOSの専用schemeで18件成功（unit 15・実StoreKit 3）。週券期限・復元・返金updates、月額と猶予、本人購入と共有の併存、stop/start、非協調readの期限と再試行、標準認証待ちを確認。`.validation/storekit-call-actions-final-store`。詳細は[局所検証履歴](history/StoreKit端末利用権のローカル検証.md) |
+| 検証基盤 | 既存スクリプト30件成功。初回はsandboxによるps拒否3件を記録し、所有processを確認できる権限付きで同じ試験を成功させた。StoreKit fixture・String Catalogもsource照合の対象へ追加 |
+| ソース・資源 | 最終iOSとStoreKit実行の入力一致、所有Mac host回収、既存Simulatorのshutdownを確認。集約記録は`.validation/storekit-call-actions-delivery`、xcresultは同記録のevidence-locations.jsonが指す元の場所に保持 |
+
+package・Workerは変更せず、独立音声E2E・実機・実サービスは再実行していない。公開商品・購入開始・通話への権利適用、Apple sandbox/TestFlight/実家族間の共有は完了としていない。既知のAppIntents未使用metadata省略warningは継続する。
+
+## 通話先と操作対象を明示する共通操作（2026-10-31）
+
+開始は保存ユーザー／groupとログイン世代、終了とマイク設定は対象通話の参照を照合する[共通操作](../spec/App/通信仕様.md#通話先と操作対象の共通境界)へ接続した。既存Call画面も同じ入口を使う。
+
+| 検証 | 結果 |
+|---|---|
+| TDD | 古い終了・muteが次の通話へ作用すること、削除した相手の内部groupから開始できること、同じユーザーの再ログイン後に古い開始要求が通ることを先に再現。`.validation/call-actions-red/`・`call-actions-generation-red/` |
+| App全体 | macOS 277件成功、失敗・skip・runtime warningなし。新規6件で明示宛先、重複開始・mute、閲覧先と通話先の区別、削除後の開始拒否と終了許可、ログイン世代、transport停止後の同group再接続を確認。`.validation/call-actions-full-retry/` |
+| 実行環境 | 初回の全体試験はsandboxの既存module/package cache書込み拒否でテスト未開始。`.validation/call-actions-full/`に残し、専用DerivedDataの権限付き再実行で確認。所有するtest hostの回収も成功 |
+
+上表は分離worktreeの先行結果。iOS・UIの実操作と統合後の結果は本書のStoreKit・共通通話操作のApp統合を参照。package・Worker・独立音声E2E・実機・実サービスは変更・実行していない。既知のAppIntents未使用metadata省略warningは継続。利用権・24時間条件・OS外部操作の検証完了も意味しない。
+
 ## 再登録後の端末内整理と再設定（2026-10-31）
 
 同じサービスへの再認証で公開IDが変わった場合に、旧通話を止め、端末内の旧関係・鍵を消して再設定へ進めるようにした。新server登録・Apple認可は保持し、追加Apple証明やserver削除を復旧条件にしない。端末登録枠だけ再利用する。[現行仕様](../spec/App/通信仕様.md#公開idの再登録後に残った端末内データ)と[画面](../spec/App/UI/全体構成.md#再登録後の端末内データ整理)を参照。
