@@ -1,5 +1,6 @@
 """Ownership-scoped cleanup for local test hosts; no application-name pkill."""
 from contextlib import contextmanager
+from dataclasses import dataclass
 import fcntl
 import json
 import os
@@ -33,6 +34,94 @@ def matching_processes(executable):
         if len(fields) == 2 and fields[0].isdigit() and Path(fields[1]).resolve() == expected:
             result.append(int(fields[0]))
     return result
+
+
+@dataclass(frozen=True)
+class ProcessIdentity:
+    pid: int
+    ppid: int
+    uid: int
+    started: float
+    command: str
+    state: str
+
+    def same_process(self, other, *, check_command=True):
+        return (other is not None and (self.pid, self.uid, self.started) ==
+                (other.pid, other.uid, other.started) and
+                (not check_command or self.command == other.command))
+
+
+def process_snapshot():
+    # Keep command lines only in memory for identity checks, never in evidence.
+    output = subprocess.check_output(
+        ['ps', '-ww', '-axo', 'pid=,ppid=,uid=,stat=,lstart=,command='],
+        text=True, timeout=10, env={**os.environ, 'LC_ALL': 'C'})
+    result = {}
+    for line in output.splitlines():
+        fields = line.split(None, 9)
+        if len(fields) != 10:
+            continue
+        started = time.mktime(time.strptime(' '.join(fields[4:9]), '%a %b %d %H:%M:%S %Y'))
+        info = ProcessIdentity(int(fields[0]), int(fields[1]), int(fields[2]),
+                               started, fields[9], fields[3])
+        result[info.pid] = info
+    return result
+
+
+def owned_process_tree(original):
+    snapshot = process_snapshot()
+    root = snapshot.get(original.pid) if original else None
+    # Commands may exec while running; birth time and UID still identify the root.
+    if root is None or not original.same_process(root, check_command=False):
+        return []
+    owned = [root]
+    seen = {root.pid}
+    for parent in owned:
+        for child in snapshot.values():
+            if (child.pid not in seen and child.ppid == parent.pid and
+                    child.uid == root.uid and child.started >= parent.started):
+                owned.append(child)
+                seen.add(child.pid)
+    return owned
+
+
+def live_owned_process(original, snapshot):
+    current = snapshot.get(original.pid)
+    return original.same_process(current) and not current.state.startswith('Z')
+
+
+def signal_owned_process(original, signum):
+    # PPID can change after the parent exits. Never replace the captured identity
+    # with a new occupant of that PID, even during TERM -> KILL escalation.
+    if live_owned_process(original, process_snapshot()):
+        try:
+            os.kill(original.pid, signum)
+        except ProcessLookupError:
+            pass
+
+
+def stop_process_tree(process, original):
+    # Capture descendants before terminating their parent. A test executable may
+    # have its own session/PGID, so killpg alone cannot reclaim it.
+    owned = owned_process_tree(original)
+    if not owned and process.poll() is None:
+        raise RuntimeError('Cannot establish command process ownership')
+    for signum in (signal.SIGTERM, signal.SIGKILL):
+        for info in reversed(owned):
+            signal_owned_process(info, signum)
+        deadline = time.monotonic() + 2
+        while True:
+            process.poll()  # Reap our direct child; orphan zombies are not running.
+            snapshot = process_snapshot()
+            remaining = [info for info in owned if live_owned_process(info, snapshot)]
+            if not remaining:
+                process.wait(timeout=2)
+                return
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+    raise RuntimeError('Owned command processes did not terminate: ' +
+                       ', '.join(str(info.pid) for info in remaining))
 
 
 def stop_executable(executable):

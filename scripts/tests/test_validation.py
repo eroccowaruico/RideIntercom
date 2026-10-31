@@ -51,6 +51,39 @@ class ValidationTests(unittest.TestCase):
         state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
         self.assertTrue(not state or state.startswith('Z'), state)
 
+    def test_timeout_reaps_separate_session_child_without_touching_unrelated_process(self):
+        marker = Path(self.temporary.name) / 'separate-session.pid'
+        child_code = ('import os,signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+                      f'open({str(marker)!r}, "w").write(str(os.getpid())); time.sleep(60)')
+        parent_code = ('import subprocess,time; '
+                       f'subprocess.Popen([{sys.executable!r}, "-c", {child_code!r}], start_new_session=True); '
+                       'time.sleep(60)')
+        unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+        try:
+            self.assertFalse(self.runner.run('separate', [sys.executable, '-c', parent_code], timeout=0.5))
+            self.assertEqual(self.runner.results['separate']['status'], 'timeout')
+            self.assertEqual(self.runner.results['separate']['exit_code'], 124)
+            self.assertIsNone(unrelated.poll())
+            state = subprocess.run(['ps', '-o', 'stat=', '-p', marker.read_text()], capture_output=True, text=True).stdout.strip()
+            self.assertTrue(not state or state.startswith('Z'), state)
+            self.assertFalse(self.runner.run('dependent', [sys.executable, '-c', 'pass'], needs=['separate']))
+            self.assertTrue(self.runner.run('independent', [sys.executable, '-c', 'pass']))
+            self.assertEqual(self.runner.exit_code, 1)
+        finally:
+            try:
+                # Recover the deliberately leaked red fixture, never by executable name.
+                if marker.exists():
+                    pid = int(marker.read_text())
+                    command = subprocess.run(['ps', '-ww', '-o', 'command=', '-p', str(pid)], capture_output=True, text=True).stdout
+                    if str(marker) in command:
+                        try:
+                            os.kill(pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+            finally:
+                unrelated.kill()
+                unrelated.wait(timeout=5)
+
     def test_zero_skipped_and_failed_tests_are_rejected(self):
         for output in ['Ran 0 tests\nOK', 'Ran 2 tests\nOK (skipped=1)',
                        'Test run with 0 tests passed', '# tests 2\n# pass 1\n# fail 1\n# skipped 0']:
@@ -80,7 +113,10 @@ class ValidationTests(unittest.TestCase):
     def test_interrupt_records_failure_and_stops_owned_children(self):
         folder = Path(self.temporary.name) / 'interrupt'
         marker = Path(self.temporary.name) / 'interrupt-child.pid'
-        child_code = f'import os,time; open({str(marker)!r}, "w").write(str(os.getpid())); time.sleep(60)'
+        leaf_code = f'import os,time; open({str(marker)!r}, "w").write(str(os.getpid())); time.sleep(60)'
+        child_code = ('import subprocess,time; '
+                      f'subprocess.Popen([{sys.executable!r}, "-c", {leaf_code!r}], start_new_session=True); '
+                      'time.sleep(60)')
         script = ('from scripts.validate import Runner\n'
                   f'r = Runner({str(folder)!r})\n'
                   'try:\n'
@@ -100,6 +136,13 @@ class ValidationTests(unittest.TestCase):
         finally:
             if process.poll() is None:
                 process.kill(); process.wait()
+
+    def test_cleanup_failure_preserves_timeout_status_and_exit_code(self):
+        with patch.object(self.module, 'stop_process_tree', side_effect=RuntimeError('fixture cleanup failed')):
+            self.assertFalse(self.runner.run('cleanup-failure', [sys.executable, '-c', 'import time; time.sleep(60)'], timeout=0.05))
+        result = self.runner.results['cleanup-failure']
+        self.assertEqual((result['status'], result['exit_code']), ('timeout', 124))
+        self.assertIn('fixture cleanup failed', result['reason'])
 
     def test_results_preserve_command_and_failure(self):
         self.runner.run('bad', [sys.executable, '-c', 'raise SystemExit(7)'])

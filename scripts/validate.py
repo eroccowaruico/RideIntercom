@@ -15,7 +15,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.test_lifecycle import stop_executable, exclusive_run, SimulatorLease, simulator_resource_root
+from scripts.test_lifecycle import (stop_executable, exclusive_run, SimulatorLease,
+                                    simulator_resource_root, process_snapshot, stop_process_tree)
 
 
 def swift_supported(output):
@@ -88,21 +89,21 @@ class Runner:
         return status == 'passed'
 
     @staticmethod
-    def stop(process):
-        # Only the session created for this command, never a name-based pkill.
+    def stop(process, original):
         try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            return
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            pass
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        process.wait()
+            if original is None and process.returncode is None:
+                original = process_snapshot().get(process.pid)
+            stop_process_tree(process, original)
+            return ''
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+            # A cleanup failure must not erase the original timeout/interruption.
+            # Popen still owns its unreaped direct child; do not guess other PIDs.
+            try:
+                process.kill()
+                process.wait(timeout=2)
+            except (OSError, subprocess.SubprocessError) as fallback:
+                return f'process cleanup failed: {error}; direct child cleanup failed: {fallback}'
+            return f'process cleanup failed: {error}'
 
     def run(self, name, command, needs=(), tests=False, timeout=None, reason=''):
         started = time.monotonic()
@@ -119,15 +120,22 @@ class Runner:
             with path.open('w') as output:
                 process = subprocess.Popen(command, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT,
                                            start_new_session=True)
+                original = None
                 try:
+                    original = process_snapshot().get(process.pid)
                     code = process.wait(timeout=timeout if timeout is not None else self.timeout)
                     status = 'passed' if code == 0 else 'failed'
                 except subprocess.TimeoutExpired:
-                    self.stop(process)
+                    cleanup = self.stop(process, original)
                     status, code, reason = 'timeout', 124, 'command exceeded deadline'
+                    if cleanup:
+                        reason += '; ' + cleanup
                 except KeyboardInterrupt:
-                    self.stop(process)
-                    self.record(name, command, 'interrupted', 130, started)
+                    cleanup = self.stop(process, original)
+                    self.record(name, command, 'interrupted', 130, started, cleanup)
+                    raise
+                except (OSError, ValueError, subprocess.SubprocessError):
+                    self.stop(process, original)
                     raise
         except OSError as error:
             path.write_text(str(error) + '\n')

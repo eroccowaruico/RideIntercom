@@ -1,4 +1,7 @@
 # 検証状況と証跡
+
+[検証プロセスの終了と回収](history/検証プロセスの終了と回収.md)で、別process groupの所有子孫回収を確認した。Python 105件・Node 4件成功。音声packageのCoreAudio待ち解消とは区別する。
+
 ## Watchからの呼出しとiPhoneでの通知応答
 
 2026-10-31、`6c8ea8c8527285c42825971e72923ce66b1a4877`から隔離したApp工程で、Watchの保存ユーザーへの用途別通知可否投影・明示呼出し・現在requestIDだけの取消と、iOSの固定category／「iPhoneで応答」背景actionを共通通知検証へ接続した。[現行契約](../spec/App/Watch操作.md)に通常tapとの違いとiPhone音声の範囲を記載した。
