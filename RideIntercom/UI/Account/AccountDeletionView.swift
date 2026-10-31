@@ -106,7 +106,7 @@ struct AccountDeletionProgressView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text(deletion.canFinish ? "Account Data Deleted" : "Account Deletion").font(.largeTitle).accessibilityAddTraits(.isHeader)
+                Text(deletion.isLocalReset ? "Remove Previous Account Data" : (deletion.canFinish ? "Account Data Deleted" : "Account Deletion")).font(.largeTitle).accessibilityAddTraits(.isHeader)
                 if deletion.isBusy { ProgressView("Deleting…") }
                 if let text = deletion.message { Text(text) }
                 if let text = account.message { Text(text) }

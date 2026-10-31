@@ -22,6 +22,12 @@ enum AppleAccountFixture {
             let request = ASAuthorizationAppleIDProvider().createRequest()
             session.prepare(request)
             _ = session.completeSignIn(userID: userID, state: request.state)
+            if let seed = environment["RIDEINTERCOM_ACCOUNT_REPLACEMENT_FIXTURE"],
+               defaults.string(forKey: "replacementSeed") != seed {
+                let scoped = AppleAccountSession.storageNamespace(base: namespace, userID: userID)
+                UserDefaults(suiteName: scoped)!.set(true, forKey: "InternetAccount.requiresDataReset")
+                defaults.set(seed, forKey: "replacementSeed")
+            }
         } else {
             session.signOut()
         }

@@ -18,6 +18,8 @@ final class AccountDeletion {
         var proof: InternetAccountDeletionProof?
         var serverResult: InternetAccountDeletionResult?
         var localErased = false
+        var localReset: Bool? = nil
+        var retainedDeviceID: String? = nil
     }
     private(set) var record: Record?
     private(set) var storageUnavailable = false
@@ -29,7 +31,8 @@ final class AccountDeletion {
         return record.localErased && (record.access == nil || record.serverResult?.deleted == true)
             && record.serverResult?.cleanupPending != true && !isBusy && !storageUnavailable
     }
-    var requiresManualAppleRemoval: Bool { record?.serverResult?.appleAuthorizationRevoked != true && record?.serverResult?.newerAccountPreserved != true }
+    var isLocalReset: Bool { record?.localReset == true }
+    var requiresManualAppleRemoval: Bool { !isLocalReset && record?.serverResult?.appleAuthorizationRevoked != true && record?.serverResult?.newerAccountPreserved != true }
     private let keychain: KeychainSecretStoring
     private let service: String
     private let eraser: AccountDataEraser
@@ -55,6 +58,14 @@ final class AccountDeletion {
         guard !blocksSignIn, !isBusy, !userID.isEmpty, proof == nil || access != nil, access?.requiresAppleVerification != true || proof != nil else { throw InternetAccountClient.Failure.rejected }
         try persist(Record(userID: userID, access: access, proof: proof))
     }
+    /// A verified new public identity means the previous account was replaced.
+    /// Only its old device data is removed; the new server account and Apple
+    /// authorization do not need another network operation to recover.
+    func beginLocalReset(userID: String, deviceID: String? = nil) throws {
+        guard !blocksSignIn, !isBusy, !userID.isEmpty,
+              deviceID == nil || UUID(uuidString: deviceID!) != nil else { throw InternetAccountClient.Failure.rejected }
+        try persist(Record(userID: userID, access: nil, proof: nil, localReset: true, retainedDeviceID: deviceID))
+    }
     /// Reauthentication is explicit. A failed proof is never silently downgraded
     /// to deletion without Apple cancellation.
     func replaceProof(_ proof: InternetAccountDeletionProof?) throws {
@@ -75,9 +86,13 @@ final class AccountDeletion {
                 try persist(next)
             }
             if !next.localErased {
-                try eraser.erase(userID: next.userID)
+                try eraser.erase(userID: next.userID, retainingDeviceID: next.localReset == true ? next.retainedDeviceID : nil)
                 next.localErased = true
                 try persist(next)
+            }
+            if next.localReset == true {
+                message = "The previous account data has been removed from this device. Sign in and set up Internet calling again. Your new account and Apple authorization have been kept."
+                return
             }
             switch (next.serverResult?.mediaCleanupPending == true, next.serverResult?.appleRevocationPending == true) {
             case (true, true): message = "Your data on this device has been deleted. Internet call cleanup and Apple authorization removal are pending. Retry when online."
@@ -95,7 +110,9 @@ final class AccountDeletion {
                 message = "Verify with Apple again to finish deleting this account. Your data stays unavailable."
             } catch { message = "Could not save the deletion recovery state. Try again." }
         } catch {
-            message = "Deletion has not finished. Your account stays unavailable. Check your connection and try again. If Apple verification expired, verify again."
+            message = next.localReset == true
+                ? "Could not finish removing the previous account data. Close another running copy or unlock this device, then try again. No Internet connection is needed."
+                : "Deletion has not finished. Your account stays unavailable. Check your connection and try again. If Apple verification expired, verify again."
         }
     }
     func finish() throws {

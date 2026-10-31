@@ -8,7 +8,8 @@ struct AccountDataEraser {
     let namespace: String
     let applicationSupport: URL
 
-    func erase(userID: String) throws {
+    func erase(userID: String, retainingDeviceID: String? = nil) throws {
+        if let retainingDeviceID, UUID(uuidString: retainingDeviceID) == nil { throw KeychainSecretStoreError.invalidData }
         let scoped = AppleAccountSession.storageNamespace(base: namespace, userID: userID)
         let directory = applicationSupport.appendingPathComponent(scoped, isDirectory: true)
         let groups = directory.appendingPathComponent("Groups", isDirectory: true)
@@ -30,6 +31,12 @@ struct AccountDataEraser {
         for url in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             where url.lastPathComponent != "Groups" {
             try FileManager.default.removeItem(at: url)
+        }
+        // Replacement setup reuses the same server registration slot. A failed
+        // best-effort revoke must not accumulate unreachable device registrations.
+        // No bearer, membership, principal, or signing key survives this cleanup.
+        if let retainingDeviceID {
+            try keychain.saveSecret(retainingDeviceID, service: scoped + ".InternetConnection", account: "device-id")
         }
         UserDefaults(suiteName: scoped)!.removePersistentDomain(forName: scoped)
     }

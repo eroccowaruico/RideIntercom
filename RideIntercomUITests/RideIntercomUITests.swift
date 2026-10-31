@@ -20,12 +20,19 @@ final class RideIntercomUITests: XCTestCase {
         if name.contains("InternetEnrollmentThrottle") {
             app.launchEnvironment["RIDEINTERCOM_INTERNET_ACCOUNT_FIXTURE"] = "throttled"
         }
+        if name.contains("AccountReplacement") {
+            app.launchEnvironment["RIDEINTERCOM_ACCOUNT_REPLACEMENT_FIXTURE"] = UUID().uuidString
+        }
         if name.contains("Adaptive") {
             app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
         app.launch()
         app.activate()
 
+        if name.contains("AccountReplacement") {
+            XCTAssertTrue(app.descendants(matching: .any)["accountDataResetScreen"].firstMatch.waitForExistence(timeout: 5))
+            return
+        }
         XCTAssertTrue(waitForVisibleRoot(in: app), "Expected the app to launch into a visible root screen")
         removeExistingTalkGroups()
 
@@ -123,6 +130,39 @@ final class RideIntercomUITests: XCTestCase {
         app.terminate(); app.launch(); app.activate()
         openSettingsTab()
         XCTAssertTrue(ownName.waitForExistence(timeout: 3)); XCTAssertEqual(ownName.value as? String, "Snow Cat")
+    }
+
+    @MainActor
+    func testAccountReplacementCanRemoveOldDataAndSetUpAgainWithoutAppleVerification() throws {
+        let reset = app.descendants(matching: .any)["accountDataResetScreen"].firstMatch
+        let remove = app.buttons["removePreviousAccountDataButton"]
+        XCTAssertTrue(reset.exists)
+        XCTAssertFalse(app.buttons["createGroupButton"].exists)
+        remove.tap()
+        let confirm = app.buttons["confirmAccountDataResetButton"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        let cancel = app.buttons["Cancel"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+        cancel.tap()
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(reset.exists)
+        app.terminate(); app.launch(); app.activate()
+        XCTAssertTrue(reset.waitForExistence(timeout: 5))
+        attachScreen("Previous Account Data Cleanup")
+        remove.tap()
+        confirm.tap()
+        let finish = app.buttons["finishAccountDeletionButton"]
+        XCTAssertTrue(finish.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["verifyAppleDeletionButton"].exists)
+        XCTAssertFalse(app.links["Open Apple Account"].exists)
+        attachScreen("Previous Data Removed New Account Kept")
+        finish.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["appleSignInScreen"].firstMatch.waitForExistence(timeout: 3))
+        app.terminate(); app.launch(); app.activate()
+        XCTAssertTrue(waitForVisibleRoot(in: app))
+        XCTAssertFalse(reset.exists)
+        createTalkGroupAndOpenCall()
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
     }
 
     @MainActor

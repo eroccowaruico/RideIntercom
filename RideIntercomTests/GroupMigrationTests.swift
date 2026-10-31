@@ -163,6 +163,7 @@ struct GroupMigrationTests {
 }
 
 final class DictionaryKeychain: KeychainSecretStoring {
+    var failWriteAccount: String?
     private(set) var readCount = 0
     private var values: [String: [String: String]] = [:]
     func accounts(service: String) -> [String] { Array(values[service, default: [:]].keys) }
@@ -171,7 +172,10 @@ final class DictionaryKeychain: KeychainSecretStoring {
         try saveSecret(value, service: service, account: account)
         return value
     }
-    func saveSecret(_ secret: String, service: String, account: String) throws { values[service, default: [:]][account] = secret }
+    func saveSecret(_ secret: String, service: String, account: String) throws {
+        if account == failWriteAccount { throw KeychainSecretStoreError.invalidData }
+        values[service, default: [:]][account] = secret
+    }
     func secret(service: String, account: String) throws -> String? { readCount += 1; return values[service]?[account] }
     func deleteSecret(service: String, account: String) throws { values[service]?[account] = nil }
 }

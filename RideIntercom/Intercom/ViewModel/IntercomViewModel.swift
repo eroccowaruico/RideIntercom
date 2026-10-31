@@ -18,9 +18,11 @@ final class IntercomViewModel {
     let accountUserID: String?
     let invitationAuthority: DirectInvitationAuthority
     let accountAccessID: UUID
-    var canStartCalls: Bool {
+    var hasCurrentAccountAccess: Bool {
         !accountSession.deletion.blocksSignIn && accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
     }
+    var requiresAccountDataReset = false
+    var canStartCalls: Bool { hasCurrentAccountAccess && !requiresAccountDataReset }
     static let pendingInviteMemberPrefix = GroupMember.pendingInvitePrefix
     nonisolated static let defaultSoundIsolationEnabled = true
     nonisolated static let defaultReceiveSoundIsolationEnabled = false
@@ -255,6 +257,7 @@ final class IntercomViewModel {
         self.callTicker = callTicker ?? RepeatingCallTicker()
         self.appSettingsStore = appSettingsStore
         self.internetSettingsStore = internetSettingsStore
+        self.requiresAccountDataReset = internetSettingsStore.requiresAccountDataReset
         self.localAccountPrincipal = try? internetSettingsStore.loadPrincipal(memberID: localMemberIdentity.memberID)
         if let saved = internetConfiguration {
             self.internetWorkerURL = saved.workerURL.absoluteString

@@ -22,6 +22,7 @@ enum GroupStorageIssue: Equatable {
 extension IntercomViewModel {
     var canEditSavedGroups: Bool { canStartCalls && groupStorageIssue == nil }
     var groupStorageNotice: String? {
+        if hasCurrentAccountAccess && requiresAccountDataReset { return "Remove the previous account data on this device to set up your account again." }
         if !canStartCalls { return "This sign-in has ended. Open your current account to continue." }
         if let groupStorageIssue { return groupStorageIssue.message }
         if groupKeyCleanupPending { return "Groups were saved. Unused group keys will be removed on the next reload." }

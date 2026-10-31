@@ -204,6 +204,115 @@ struct InternetAccountTests {
         #expect(throws: (any Error).self) { try restarted.identityTrust() }
     }
 
+    @Test(arguments: ["current", "signed-out", "manual"])
+    func recreatedAccountKeepsOldDeletionTargetAndCannotRestoreCalls(source: String) throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        try f.keychain.saveSecret(f.deviceID, service: f.namespace + ".InternetConnection", account: "device-id")
+        let oldIdentity = try f.identity()
+        try store.save(url: "https://account.test", token: f.credential.accessToken, identity: oldIdentity)
+        let configuration = try #require(try store.load())
+        var target = try #require(try store.deletionAccess())
+        target.requiresAppleVerification = true
+        if source == "signed-out" {
+            let retired = try #require(try store.retireAppleCredential())
+            try store.finishRevocation(retired)
+        } else if source == "manual" {
+            try store.save(url: "https://account.test", token: "manual-device-token")
+            #expect(try store.loadPrincipal(memberID: "member-fixture") == nil)
+        }
+        let before = f.keychain.values
+        let replacement = try f.identity(userID: String(repeating: "b", count: 64))
+        #expect(throws: (any Error).self) {
+            try store.save(url: "https://account.test", token: "replacement-device-token", identity: replacement)
+        }
+        #expect(f.keychain.values == before)
+        #expect(store.requiresAccountDataReset)
+        let restarted = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace,
+            developmentDefaults: ["workerURL": "https://fallback.test", "accessToken": "must-not-restore"])
+        #expect(restarted.requiresAccountDataReset)
+        #expect(!InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace + ".other").requiresAccountDataReset)
+        #expect(InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace, permitsServiceAccess: false).requiresAccountDataReset)
+        #expect(try restarted.load() == nil)
+        #expect(try restarted.loadIdentity(memberID: "member-fixture") == nil)
+        #expect(try restarted.loadPrincipal(memberID: "member-fixture") == nil)
+        #expect(try restarted.identityTrust() == nil)
+        #expect(try restarted.pendingRevocation() == nil)
+        #expect(try restarted.deletionAccess() == target)
+        #expect(try restarted.deviceSigningKey().rawRepresentation == f.signingKey.rawRepresentation)
+        f.keychain.failRead = true
+        #expect(restarted.requiresAccountDataReset)
+        #expect(try restarted.load() == nil)
+        #expect(throws: (any Error).self) { try restarted.deletionAccess() }
+        f.keychain.failRead = false
+        #expect(throws: (any Error).self) { try restarted.save(url: "https://another.test", token: "manual-bypass") }
+        #expect(throws: (any Error).self) {
+            try restarted.save(url: "https://account.test", token: f.credential.accessToken, identity: oldIdentity)
+        }
+        #expect(try restarted.retireAppleCredential() == nil)
+        try restarted.finishRevocation(configuration)
+        #expect(try restarted.deletionAccess() == target)
+        #expect(f.keychain.values == before)
+    }
+
+    @Test func manualSettingsPreserveVerifiedDeletionTargetAndArchiveFailurePreservesCurrent() throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        try f.keychain.saveSecret(f.deviceID, service: f.namespace + ".InternetConnection", account: "device-id")
+        try store.save(url: "https://account.test", token: f.credential.accessToken, identity: f.identity())
+        var target = try #require(try store.deletionAccess())
+        target.requiresAppleVerification = true
+        let before = f.keychain.values
+        f.keychain.failWriteAccount = "deletion-account"
+        #expect(throws: (any Error).self) { try store.save(url: "https://account.test", token: "manual-device-token") }
+        #expect(f.keychain.values == before)
+        f.keychain.failWriteAccount = nil
+        try store.save(url: "https://account.test", token: "manual-device-token")
+        #expect(try store.load()?.accessToken == "manual-device-token")
+        #expect(try store.loadPrincipal(memberID: "member-fixture") == nil)
+        #expect(try store.deletionAccess() == target)
+        // Repeated manual saves must not replace the last verified registration.
+        try store.save(url: "https://account.test", token: "another-manual-token")
+        #expect(try store.deletionAccess() == target)
+    }
+
+    @Test func signingOutAManualCredentialDoesNotOverwriteTheVerifiedDeletionTarget() throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        try f.keychain.saveSecret(f.deviceID, service: f.namespace + ".InternetConnection", account: "device-id")
+        try store.save(url: "https://account.test", token: f.credential.accessToken, identity: f.identity())
+        var target = try #require(try store.deletionAccess())
+        target.requiresAppleVerification = true
+        try store.save(url: "https://account.test", token: f.credential.accessToken)
+        let pending = try #require(try store.retireAppleCredential())
+        try store.finishRevocation(pending)
+        #expect(try store.load() == nil)
+        #expect(try store.deletionAccess() == target)
+    }
+
+    @Test func sameAccountRenewalAndDifferentServiceAreNotAnAccountReplacement() throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        try store.save(url: "https://account.test", token: f.credential.accessToken, identity: f.identity())
+        try store.save(url: "https://account.test", token: "renewed-token", identity: f.identity())
+        #expect(try store.load()?.accessToken == "renewed-token")
+        try store.save(url: "https://other.test", token: "different-service-token",
+            identity: f.identity(userID: String(repeating: "b", count: 64), origin: "https://other.test"))
+        #expect(try store.load()?.accessToken == "different-service-token")
+        #expect(!store.requiresAccountDataReset)
+    }
+
+    @Test func unreadablePreviousRegistrationCannotBeOverwrittenByNewIdentity() throws {
+        let f = InternetAccountTestFixture(); defer { f.remove() }
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: f.namespace)
+        let identity = try f.identity()
+        try f.keychain.saveSecret("corrupt", service: f.namespace + ".InternetConnection", account: "current")
+        #expect(throws: (any Error).self) {
+            try store.save(url: "https://account.test", token: f.credential.accessToken, identity: identity)
+        }
+        #expect(try f.keychain.secret(service: f.namespace + ".InternetConnection", account: "current") == "corrupt")
+    }
+
     @Test func differentAccountAndReplayedNativeCompletionNeverExchangeProof() async {
         let f = InternetAccountTestFixture(); defer { f.remove() }
         await f.authorization.prepare(url: "https://account.test")
@@ -321,6 +430,11 @@ private final class InternetAccountTestFixture {
             client: InternetAccountClient(session: URLSession(configuration: configuration)), currentUser: { [unowned self] in currentUser },
             save: { [unowned self] _, value, identity in if saveFails { throw URLError(.cannotWriteToFile) }; saved = value; savedIdentity = identity })
     }()
+    func identity(userID: String = String(repeating: "a", count: 64), origin: String = "https://account.test") throws -> VerifiedDeviceIdentity {
+        let certificate = try testIdentityCertificate(userID: userID, deviceID: deviceID,
+            deviceKey: IdentityEncoding.encode(signingKey.publicKey.x963Representation), origin: origin)
+        return try certificate.verify(origin: URL(string: origin)!, trustedIssuerKey: certificate.issuerKey)
+    }
     func remove() { UserDefaults(suiteName: namespace)?.removePersistentDomain(forName: namespace) }
 }
 
@@ -329,6 +443,7 @@ private final class InternetAccountTestKeychain: KeychainSecretStoring {
     var failDelete = false
     var failRead = false
     var failWrite = false
+    var failWriteAccount: String?
     func accounts(service: String) throws -> [String] { Array(values.keys) }
     func secret(service: String, account: String) throws -> String? {
         if failRead { throw KeychainSecretStoreError.invalidData }
@@ -340,7 +455,7 @@ private final class InternetAccountTestKeychain: KeychainSecretStoring {
         return value
     }
     func saveSecret(_ secret: String, service: String, account: String) throws {
-        if failWrite { throw KeychainSecretStoreError.invalidData }
+        if failWrite || failWriteAccount == account { throw KeychainSecretStoreError.invalidData }
         values[service + account] = secret
     }
     func deleteSecret(service: String, account: String) throws {

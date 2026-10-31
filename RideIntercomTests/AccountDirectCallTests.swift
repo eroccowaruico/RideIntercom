@@ -72,9 +72,11 @@ struct AccountDirectCallTests {
         let b2key = try b2.viewModel.internetSettingsStore.deviceSigningKey()
         let changed = try testIdentityCertificate(signer: f.issuer, userID: String(repeating: "c", count: 64),
             memberID: "b2", deviceKey: IdentityEncoding.encode(b2key.publicKey.x963Representation))
-        try b2.viewModel.internetSettingsStore.save(url: "https://account.test", token: "fixture-only",
-            identity: changed.verify(origin: URL(string: "https://account.test")!, trustedIssuerKey: changed.issuerKey))
-        try f.deliverProfile(from: b2, to: a)
+        let changedProfile = try testPeerProfile(a.viewModel, peerID: "b2", displayName: "Same name",
+            signer: DeviceIdentitySigner(memberID: "b2", key: b2key,
+                identity: changed.verify(origin: URL(string: "https://account.test")!, trustedIssuerKey: changed.issuerKey)))
+        a.viewModel.handleTransportEvent(.receivedApplicationData(peerID: "b2",
+            message: .init(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(changedProfile))))
         #expect(a.viewModel.peerProfiles["b2"]?.verified == nil)
         #expect(a.viewModel.groupStorageIssue == nil)
     }
@@ -199,6 +201,49 @@ struct AccountDirectCallTests {
         #expect(a.viewModel.groupErrorMessage?.contains("Verify your account") == true)
     }
 
+    @Test(arguments: ["current", "signed-out", "manual"]) func replacedPublicAccountStopsOldCallsAndKeepsDeletionTarget(source: String) throws {
+        let f = AccountCallFixture(); defer { f.disconnect() }
+        let a = try f.peer("a", account: "a"), b = try f.peer("b", account: "b")
+        try f.introduce(b, to: a)
+        let user = try #require(a.viewModel.savedRemoteUsers.first)
+        #expect(a.viewModel.selectUser(user.id))
+        a.viewModel.connectLocal()
+        #expect(a.viewModel.activeGroupID != nil)
+        let before = a.groupStore.snapshot
+        let store = a.viewModel.internetSettingsStore
+        if source == "signed-out" {
+            let retired = try #require(try store.retireAppleCredential())
+            try store.finishRevocation(retired)
+        } else if source == "manual" {
+            try a.viewModel.saveInternetConnection(url: "https://account.test", token: "manual-token")
+        }
+        let key = try store.deviceSigningKey()
+        let certificate = try testIdentityCertificate(signer: f.issuer, userID: String(repeating: "c", count: 64),
+            deviceID: store.accountDeviceID(), memberID: "a", deviceKey: IdentityEncoding.encode(key.publicKey.x963Representation))
+        let identity = try certificate.verify(origin: URL(string: "https://account.test")!, trustedIssuerKey: certificate.issuerKey)
+        #expect(throws: (any Error).self) {
+            try a.viewModel.saveInternetConnection(url: "https://account.test", token: "replacement-token", identity: identity)
+        }
+        #expect(!a.viewModel.canStartCalls)
+        #expect(a.viewModel.activeGroupID == nil)
+        #expect(a.viewModel.localAccountPrincipal == nil)
+        #expect(!a.viewModel.hasInternetCredentials)
+        #expect(try store.load() == nil)
+        #expect(try store.deletionAccess()?.userID == String(repeating: "a", count: 64))
+        #expect(try store.deletionAccess()?.requiresAppleVerification == true)
+        #expect(a.groupStore.snapshot == before)
+        #expect(!a.viewModel.selectUser(user.id))
+        a.viewModel.connectLocal()
+        #expect(a.viewModel.activeGroupID == nil)
+        let restarted = try f.restart(a)
+        #expect(!restarted.viewModel.canStartCalls)
+        #expect(restarted.viewModel.accountSession.userID != nil)
+        #expect(throws: (any Error).self) { try restarted.viewModel.makeInternetAccountAuthorization() }
+        #expect(throws: (any Error).self) {
+            try restarted.viewModel.saveInternetConnection(url: "https://another.test", token: "manual-token")
+        }
+    }
+
     @Test func schemaFiveUpgradePreservesSignedPendingReceiptAndCredential() throws {
         let f = AccountCallFixture(); defer { f.disconnect() }
         let a = try f.peer("a", account: "a"), b = try f.peer("b", account: "b")
@@ -238,7 +283,7 @@ struct AccountDirectCallTests {
         let store = InternetConnectionSettingsStore(keychain: DictionaryKeychain(), namespace: namespace)
         let key = try store.deviceSigningKey()
         let certificate = try testIdentityCertificate(signer: issuer, userID: String(repeating: account, count: 64),
-            memberID: memberID, deviceKey: IdentityEncoding.encode(key.publicKey.x963Representation), now: date)
+            deviceID: store.accountDeviceID(), memberID: memberID, deviceKey: IdentityEncoding.encode(key.publicKey.x963Representation), now: date)
         let identity = try certificate.verify(origin: URL(string: "https://account.test")!, trustedIssuerKey: certificate.issuerKey, now: date)
         try store.save(url: "https://account.test", token: "ri1.\(String(repeating: "d", count: 64)).\(identity.deviceID).\(String(repeating: "e", count: 64))", identity: identity)
         let credentials = InMemoryGroupCredentialStore()

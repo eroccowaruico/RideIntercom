@@ -7,7 +7,7 @@ import SessionManager
 extension IntercomViewModel {
     func connectLocal() {
         guard canStartCalls else {
-            groupErrorMessage = "Sign in with Apple to start a call."
+            groupErrorMessage = groupStorageNotice ?? "Sign in with Apple to start a call."
             return
         }
         guard let selectedGroup else { return }

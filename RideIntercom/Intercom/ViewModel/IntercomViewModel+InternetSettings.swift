@@ -47,7 +47,18 @@ extension IntercomViewModel {
     }
     func saveInternetConnection(url: String, token: String, identity: VerifiedDeviceIdentity? = nil) throws {
         guard canStartCalls else { throw InternetAccountClient.Failure.rejected }
-        try internetSettingsStore.save(url: url, token: token, identity: identity)
+        do { try internetSettingsStore.save(url: url, token: token, identity: identity) }
+        catch {
+            if internetSettingsStore.requiresAccountDataReset {
+                requiresAccountDataReset = true
+                internetCheckGeneration = UUID()
+                isCheckingInternet = false
+                disconnect()
+                localAccountPrincipal = nil
+                hasInternetCredentials = false
+            }
+            throw error
+        }
         localAccountPrincipal = try internetSettingsStore.loadPrincipal(memberID: localMemberIdentity.memberID)
         guard let configuration = try internetSettingsStore.load() else { throw InternetConnectionSettingsStore.ValidationError.missingToken }
         internetCheckGeneration = UUID()
@@ -57,6 +68,15 @@ extension IntercomViewModel {
         internetWorkerURL = configuration.workerURL.absoluteString
         hasInternetCredentials = true
         internetCheckMessage = "Device token saved. Service not checked."
+    }
+
+    func beginAccountDataReset() throws {
+        guard hasCurrentAccountAccess, requiresAccountDataReset,
+              internetSettingsStore.requiresAccountDataReset, let accountUserID else {
+            throw InternetAccountClient.Failure.rejected
+        }
+        try accountSession.deletion.beginLocalReset(userID: accountUserID, deviceID: internetSettingsStore.existingAccountDeviceID())
+        accountSession.signOut()
     }
 
     func checkInternetService(session: URLSession = .shared) async {

@@ -13,8 +13,12 @@ struct ContentView: View {
         Group {
             if account.deletion.blocksSignIn {
                 AccountDeletionProgressView(account: account)
-            } else if let viewModel, viewModel.canStartCalls {
-                SignedInContentView(viewModel: viewModel, selectedTab: $selectedTab)
+            } else if let viewModel, viewModel.hasCurrentAccountAccess {
+                if viewModel.requiresAccountDataReset {
+                    AccountDataResetView(viewModel: viewModel)
+                } else {
+                    SignedInContentView(viewModel: viewModel, selectedTab: $selectedTab)
+                }
             } else {
                 AppleSignInView(account: account, hasPendingInvite: pendingInviteURL != nil)
             }

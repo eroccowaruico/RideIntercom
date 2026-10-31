@@ -10,6 +10,8 @@ final class InternetConnectionSettingsStore {
     private let permitsServiceAccess: Bool
     private let defaults: UserDefaults
     private let deniedKey = "InternetAccount.requiresSignIn"
+    private let resetKey = "InternetAccount.requiresDataReset"
+    var requiresAccountDataReset: Bool { defaults.bool(forKey: resetKey) }
     init(keychain: KeychainSecretStoring = SystemKeychainSecretStore(), namespace: String = "RideIntercom",
          developmentDefaults: [String: String]? = nil, permitsServiceAccess: Bool = true) {
         self.keychain = keychain; self.service = namespace + ".InternetConnection"
@@ -37,7 +39,7 @@ final class InternetConnectionSettingsStore {
         let workerURL: URL; let accessToken: String; var identity: DeviceIdentityCertificate?
         var memberID: String?; var binding: AccountDeviceBinding?
     }
-    enum ValidationError: Error { case invalidURL, missingToken, disabledDuringLocalTests }
+    enum ValidationError: Error { case invalidURL, missingToken, disabledDuringLocalTests, accountReplaced }
     private func validated(url: String, token: String) throws -> Saved {
         guard let url = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)), url.scheme == "https", url.host != nil,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil, url.path.isEmpty || url.path == "/" else { throw ValidationError.invalidURL }
@@ -47,20 +49,35 @@ final class InternetConnectionSettingsStore {
     }
     func save(url: String, token: String, identity: VerifiedDeviceIdentity? = nil) throws {
         guard permitsServiceAccess else { throw ValidationError.disabledDuringLocalTests }
+        guard !requiresAccountDataReset else { throw ValidationError.accountReplaced }
         var saved = try validated(url: url, token: token)
         if let identity {
             guard let key = try storedDeviceSigningKey(), identity.issuer == IdentityEncoding.origin(saved.workerURL),
                   identity.deviceKey == IdentityEncoding.encode(key.publicKey.x963Representation) else { throw ValidationError.missingToken }
+            if let previous = try verifiedRegistration()?.saved.binding?.principal,
+               previous.issuer == identity.issuer, previous.userID != identity.userID {
+                // The authenticated service confirmed a new account generation.
+                // Preserve the old data and target until the user clears them.
+                defaults.set(true, forKey: resetKey)
+                defaults.set(true, forKey: deniedKey)
+                throw ValidationError.accountReplaced
+            }
             saved.identity = identity.envelope
             saved.memberID = identity.memberID
             saved.binding = AccountDeviceBinding(principal: .init(issuer: identity.issuer, userID: identity.userID), publicKey: identity.deviceKey)
+        }
+        if identity == nil, let current = try registration(account: "current"), current.saved.binding != nil {
+            try validateBinding(current.saved)
+            // A manual credential must not erase the last verified account or
+            // let a later Apple registration bypass generation comparison.
+            try keychain.saveSecret(current.raw, service: service, account: "deletion-account")
         }
         let data = try JSONEncoder().encode(saved)
         try keychain.saveSecret(String(decoding: data, as: UTF8.self), service: service, account: "current")
         defaults.set(false, forKey: deniedKey)
     }
     func load() throws -> RTC.CloudflareRealtimeConfiguration? {
-        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey) else { return nil }
+        guard permitsServiceAccess, !requiresAccountDataReset, !defaults.bool(forKey: deniedKey) else { return nil }
         let saved: Saved
         if let value = try keychain.secret(service: service, account: "current") {
             let decoded = try JSONDecoder().decode(Saved.self, from: Data(value.utf8))
@@ -86,7 +103,7 @@ final class InternetConnectionSettingsStore {
         return try P256.Signing.PrivateKey(rawRepresentation: bytes)
     }
     func loadIdentity(memberID: String) throws -> VerifiedDeviceIdentity? {
-        guard permitsServiceAccess, !defaults.bool(forKey: deniedKey),
+        guard permitsServiceAccess, !requiresAccountDataReset, !defaults.bool(forKey: deniedKey),
               let raw = try keychain.secret(service: service, account: "current") else { return nil }
         let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
         guard let envelope = saved.identity else { return nil }
@@ -129,38 +146,74 @@ final class InternetConnectionSettingsStore {
     /// Identity and issuer verification keys are not Internet credentials. A
     /// replacement current record takes precedence, including one without proof.
     private func retainedRegistration() throws -> Saved? {
-        guard permitsServiceAccess,
+        guard permitsServiceAccess, !requiresAccountDataReset,
               let raw = try keychain.secret(service: service, account: "current")
                 ?? keychain.secret(service: service, account: "deletion-account") else { return nil }
         return try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
     }
 
+    private func registration(account: String) throws -> (saved: Saved, raw: String)? {
+        guard let raw = try keychain.secret(service: service, account: account) else { return nil }
+        return (try JSONDecoder().decode(Saved.self, from: Data(raw.utf8)), raw)
+    }
+
+    private func validateBinding(_ saved: Saved) throws {
+        // Deletion recovery must still work if this device's signing key was
+        // lost. Calls validate that key separately in loadPrincipal/loadIdentity.
+        guard let binding = saved.binding, binding.principal.isValid,
+              binding.principal.issuer == IdentityEncoding.origin(saved.workerURL)
+        else { throw KeychainSecretStoreError.invalidData }
+    }
+
+    /// Current verified registration wins. A manual current record does not hide
+    /// the last verified registration retained for deletion and generation checks.
+    private func verifiedRegistration() throws -> (saved: Saved, archived: Bool)? {
+        for account in ["current", "deletion-account"] {
+            if let value = try registration(account: account), value.saved.binding != nil {
+                try validateBinding(value.saved)
+                return (value.saved, account != "current")
+            }
+        }
+        return nil
+    }
+
     func accountDeviceID() throws -> String {
         guard permitsServiceAccess else { throw ValidationError.disabledDuringLocalTests }
-        if let stored = try keychain.secret(service: service, account: "device-id") {
-            guard UUID(uuidString: stored) != nil else { throw KeychainSecretStoreError.invalidData }
-            return stored.lowercased()
-        }
+        if let stored = try existingAccountDeviceID() { return stored }
         let id = UUID().uuidString.lowercased()
         try keychain.saveSecret(id, service: service, account: "device-id")
         return id
+    }
+
+    func existingAccountDeviceID() throws -> String? {
+        guard permitsServiceAccess, let stored = try keychain.secret(service: service, account: "device-id") else { return nil }
+        guard UUID(uuidString: stored) != nil else { throw KeychainSecretStoreError.invalidData }
+        return stored.lowercased()
     }
 
     /// Never use a development fallback, manufacture a device ID, or mistake an
     /// unreadable saved credential for a local-only account during deletion.
     func deletionAccess() throws -> AccountDeletion.ServiceAccess? {
         guard permitsServiceAccess else { return nil }
-        let current = try keychain.secret(service: service, account: "current")
-        let raw: String
+        let verified = try verifiedRegistration()
+        let saved: Saved
         let requiresAppleVerification: Bool
-        if let current {
-            raw = current; requiresAppleVerification = defaults.bool(forKey: deniedKey)
-        } else if let retired = try keychain.secret(service: service, account: "deletion-account") {
-            raw = retired; requiresAppleVerification = true
-        } else { return nil }
-        let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
+        if let verified {
+            saved = verified.saved
+            requiresAppleVerification = requiresAccountDataReset || verified.archived || defaults.bool(forKey: deniedKey)
+        } else {
+            // Preserve the existing rejection of unverified ri1 credentials. A
+            // missing reset target must never turn into local-only deletion.
+            guard !requiresAccountDataReset else { throw KeychainSecretStoreError.invalidData }
+            guard let unverified = try registration(account: "current") ?? registration(account: "deletion-account") else { return nil }
+            saved = unverified.saved
+            requiresAppleVerification = defaults.bool(forKey: deniedKey)
+        }
         let value = try validated(url: saved.workerURL.absoluteString, token: saved.accessToken)
-        guard value.accessToken.hasPrefix("ri1.") else { return nil }
+        guard value.accessToken.hasPrefix("ri1.") else {
+            if requiresAccountDataReset { throw KeychainSecretStoreError.invalidData }
+            return nil
+        }
         let parts = value.accessToken.split(separator: ".").map(String.init)
         guard parts.count == 4, UUID(uuidString: parts[2]) != nil,
               let device = try keychain.secret(service: service, account: "device-id"), device.lowercased() == parts[2]
@@ -176,7 +229,7 @@ final class InternetConnectionSettingsStore {
         return try pendingRevocation()
     }
     func pendingRevocation() throws -> RTC.CloudflareRealtimeConfiguration? {
-        guard permitsServiceAccess, defaults.bool(forKey: deniedKey),
+        guard permitsServiceAccess, !requiresAccountDataReset, defaults.bool(forKey: deniedKey),
               let raw = try keychain.secret(service: service, account: "current") else { return nil }
         let saved = try JSONDecoder().decode(Saved.self, from: Data(raw.utf8))
         let value = try validated(url: saved.workerURL.absoluteString, token: saved.accessToken)
@@ -189,7 +242,11 @@ final class InternetConnectionSettingsStore {
         // Preserve the target before removing the callable credential. This entry
         // supplies offline identity and explicit account deletion, never access.
         // Deletion of this retired registration requires a fresh Apple proof.
-        try keychain.saveSecret(raw, service: service, account: "deletion-account")
+        // An unverified manual credential may also use ri1. Its sign-out must
+        // not replace a previously verified account retained for recovery.
+        if try verifiedRegistration()?.archived != true {
+            try keychain.saveSecret(raw, service: service, account: "deletion-account")
+        }
         try keychain.deleteSecret(service: service, account: "current")
     }
 }

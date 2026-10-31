@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Foundation
+import CryptoKit
 import RTC
 import Testing
 @testable import RideIntercom
@@ -226,6 +227,60 @@ struct AccountDeletionTests {
         try f.keychain.saveSecret("broken", service: f.name + ".AccountDeletion", account: "pending")
         let unreadable = f.session()
         #expect(unreadable.deletion.blocksSignIn && unreadable.userID == nil)
+    }
+
+    @Test func replacedAccountCleanupRetriesLocallyAndCreatesFreshKeysAfterRestart() async throws {
+        let f = DeletionFixture(); defer { f.remove() }
+        let namespace = f.scoped("owner")
+        let store = InternetConnectionSettingsStore(keychain: f.keychain, namespace: namespace)
+        let oldKey = try store.deviceSigningKey().rawRepresentation
+        let oldDeviceID = try store.accountDeviceID()
+        // The reset marker is account-scoped, like the normal sign-out marker.
+        UserDefaults(suiteName: namespace)!.set(true, forKey: "InternetAccount.requiresDataReset")
+        try f.keychain.saveSecret("old-invitation-key", service: namespace + ".DirectInvitations", account: "issuer")
+        let session = f.session(); f.signIn(session)
+        let vm = AppTestSupport.makeHarness(accountSession: session, internetSettingsStore: store).viewModel
+        #expect(vm.hasCurrentAccountAccess && !vm.canStartCalls)
+        let locked = FileGroupStore(directory: f.root.appendingPathComponent(namespace).appendingPathComponent("Groups"))
+        try locked.lock()
+        try locked.commit(GroupSnapshot(groups: IntercomSeedData.recentGroups.map { .init($0) },
+            users: [.init(displayName: "Old friend", memberIDs: ["old-friend"])]))
+        try vm.beginAccountDataReset()
+        #expect(session.userID == nil && session.deletion.isLocalReset)
+        #expect(!session.deletion.requiresManualAppleRemoval)
+        let client = f.client(status: 500)
+        await session.resumeDeletion(client: client)
+        #expect(!session.deletion.canFinish && store.requiresAccountDataReset)
+        #expect(DeletionHTTPStub.requests.isEmpty)
+        #expect(session.deletion.message?.contains("No Internet connection is needed") == true)
+        locked.unlock()
+        let restarted = f.session()
+        #expect(restarted.deletion.isLocalReset)
+        f.keychain.failWriteAccount = "device-id"
+        await restarted.resumeDeletion(client: client)
+        #expect(!restarted.deletion.canFinish && restarted.deletion.record?.localErased == false)
+        #expect(restarted.deletion.record?.retainedDeviceID == oldDeviceID)
+        #expect(DeletionHTTPStub.requests.isEmpty)
+        f.keychain.failWriteAccount = nil
+        restarted.deletion.reload()
+        await restarted.resumeDeletion(client: client)
+        #expect(restarted.deletion.canFinish && !restarted.deletion.requiresManualAppleRemoval)
+        #expect(DeletionHTTPStub.requests.isEmpty)
+        #expect(!store.requiresAccountDataReset)
+        #expect(f.keychain.accounts(service: namespace + ".DirectInvitations").isEmpty)
+        #expect(try store.deviceSigningKey().rawRepresentation != oldKey)
+        // Reuse the registration slot even if best-effort revoke of the new
+        // credential failed. All signing and group keys are still replaced.
+        #expect(try store.accountDeviceID() == oldDeviceID)
+        let erased = try #require(try locked.read())
+        #expect(erased.groups.isEmpty && erased.users.isEmpty)
+        try restarted.deletion.finish()
+        f.signIn(restarted)
+        let fresh = AppTestSupport.makeHarness(accountSession: restarted, groups: [], internetSettingsStore: store).viewModel
+        #expect(fresh.canStartCalls && fresh.savedUsers.isEmpty && fresh.groups.isEmpty)
+        #expect(!vm.canStartCalls)
+        #expect(throws: (any Error).self) { try vm.beginAccountDataReset() }
+        #expect(throws: (any Error).self) { try fresh.beginAccountDataReset() }
     }
 
     @Test func localDeletionEndsAccessAndCanResumeAfterStorageFailure() async throws {
