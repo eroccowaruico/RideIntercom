@@ -17,7 +17,21 @@ extension IntercomViewModel {
     }
 
     func synchronizePeerProfiles(members: [RTC.CallMemberState]) {
-        let peers = Set(authenticatedPeerIDs.sorted().prefix(IntercomGroup.maximumMemberCount - 1))
+        let representatives = currentRepresentativeProfiles
+        let continuing = Set(members.compactMap { member -> String? in
+            let id = member.peer.id.rawValue
+            guard let state = representatives[id], state.verified != nil,
+                  state.membershipID == member.membershipID else { return nil }
+            return id
+        })
+        // The roster counts people; proof candidates count devices. Leave room
+        // for two devices per remote person without evicting a valid representative.
+        let isRegularGroup = groups.first(where: { $0.id == activeGroupID })?.kind == .group
+        let candidateLimit = (IntercomGroup.maximumMemberCount - 1) * (isRegularGroup ? 2 : 1)
+        let peers = Set(authenticatedPeerIDs.sorted { left, right in
+            if continuing.contains(left) != continuing.contains(right) { return continuing.contains(left) }
+            return left < right
+        }.prefix(candidateLimit))
         var next: [String: PeerProfileState] = [:]
         for member in members where peers.contains(member.peer.id.rawValue) {
             let id = member.peer.id.rawValue
@@ -27,8 +41,34 @@ extension IntercomViewModel {
                 next[id] = PeerProfileState(membershipID: member.membershipID)
             }
         }
+        let departed = Set(peerProfiles.keys).subtracting(next.keys)
         peerProfiles = next
+        retryWaitingRepresentativeProfiles(afterDeparture: !departed.isEmpty)
     }
+
+    func retryWaitingRepresentativeProfiles(afterDeparture departed: Bool) {
+        guard departed, groups.first(where: { $0.id == activeGroupID })?.kind == .group else { return }
+        for peerID in peerProfiles.keys where peerProfiles[peerID]?.verified == nil {
+            peerProfiles[peerID]?.challenge = UUID()
+            peerProfiles[peerID]?.nextRequestAt = 0
+            peerProfiles[peerID]?.requestInterval = 1
+        }
+        sendPeerProfileChallenges()
+    }
+
+    /// Resolve every media/access participant against the same durable roster.
+    func representativeProfiles(in profiles: [String: PeerProfileState]) -> [String: PeerProfileState] {
+        guard let group = groups.first(where: { $0.id == activeGroupID }), group.kind == .group else { return profiles }
+        let members = Set(group.members.map(\.id))
+        return profiles.filter { id, state in
+            guard members.contains(id), let verified = state.verified else { return false }
+            guard let binding = group.accountDevices[id] else { return true }
+            return binding.publicKey == verified.identity.publicKey
+                && (verified.identity.principal == nil || verified.identity.principal == binding.principal)
+        }
+    }
+
+    var currentRepresentativeProfiles: [String: PeerProfileState] { representativeProfiles(in: peerProfiles) }
 
     static func admittedMemberships(in profiles: [String: PeerProfileState]) -> [RTC.PeerID: UUID] {
         profiles.reduce(into: [:]) { admitted, entry in
@@ -41,7 +81,7 @@ extension IntercomViewModel {
     var callAccessAdmittedMemberships: [RTC.PeerID: UUID] { admittedCallAccessMemberships(in: peerProfiles) }
 
     func admittedCallAccessMemberships(in profiles: [String: PeerProfileState]) -> [RTC.PeerID: UUID] {
-        let admitted = profiles.filter { !enforceCallAccess || (callAccessState.isEstablished && ($0.value.callAccess?.mediaReady == true || $0.value.callAccess?.isEstablished == true)) }
+        let admitted = representativeProfiles(in: profiles).filter { !enforceCallAccess || (callAccessState.isEstablished && ($0.value.callAccess?.mediaReady == true || $0.value.callAccess?.isEstablished == true)) }
         return canStartCalls ? Self.admittedMemberships(in: admitted) : [:]
     }
 
@@ -118,7 +158,9 @@ extension IntercomViewModel {
         }
         do {
             guard verified.identity.principal == nil || verified.identity.principal != localAccountPrincipal else { return }
-            guard try groupRepository.receiveProfile(verified, connectedMemberIDs: Set(authenticatedPeerIDs)) else { return }
+            let retaining = groups.first(where: { $0.id == groupID })?.kind == .group
+                ? Set(currentRepresentativeProfiles.keys).union([peerID]) : Set(authenticatedPeerIDs)
+            guard try groupRepository.receiveProfile(verified, connectedMemberIDs: retaining) else { return }
             refreshStoredAccountCall(groupID)
             state.verified = verified
             peerProfiles[peerID] = state

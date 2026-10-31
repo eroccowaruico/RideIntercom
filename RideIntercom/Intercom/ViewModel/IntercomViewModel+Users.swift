@@ -10,8 +10,10 @@ extension IntercomViewModel {
     }
 
     func availableUsers(for groupID: UUID?) -> [SavedUser] {
-        let members = Set(groups.first { $0.id == groupID }?.members.map(\.id) ?? [])
-        return savedRemoteUsers.filter { members.isDisjoint(with: $0.memberIDs) }
+        let group = groups.first { $0.id == groupID }
+        let members = Set(group?.members.map(\.id) ?? [])
+        let principals = Set(group?.accountDevices.values.map(\.principal) ?? [])
+        return savedRemoteUsers.filter { members.isDisjoint(with: $0.memberIDs) && ($0.principal.map { !principals.contains($0) } ?? true) }
     }
 
     func membersForSavedUsers(_ ids: Set<UUID>) -> [GroupMember]? {
@@ -20,7 +22,24 @@ extension IntercomViewModel {
             groupErrorMessage = "Some selected users are no longer available. Reload the user list and try again."
             return nil
         }
-        return users.flatMap { user in user.memberIDs.map { GroupMember(id: $0, displayName: user.displayName, localName: user.localName) } }
+        return users.flatMap { user in
+            let ids = user.principal == nil ? user.memberIDs : Array(user.memberIDs.sorted().prefix(1))
+            return ids.map { GroupMember(id: $0, displayName: user.displayName, localName: user.localName) }
+        }
+    }
+
+    func groupAccountDevices(for members: [GroupMember]) -> [String: AccountDeviceBinding] {
+        var result: [String: AccountDeviceBinding] = [:]
+        for member in members {
+            if member.id == localMemberIdentity.memberID, let principal = localAccountPrincipal,
+               let signer = try? internetSettingsStore.invitationSigner(memberID: member.id) {
+                result[member.id] = .init(principal: principal, publicKey: signer.publicKey)
+            } else if let user = savedRemoteUsers.first(where: { $0.memberIDs.contains(member.id) }),
+                      let principal = user.principal, let key = user.deviceKeys?[member.id] {
+                result[member.id] = .init(principal: principal, publicKey: key)
+            }
+        }
+        return result
     }
 
     @discardableResult
@@ -36,7 +55,8 @@ extension IntercomViewModel {
             groupErrorMessage = "An individual call has only two participants. Create a group to include more people."
             return false
         }
-        guard let members = membersForSavedUsers(ids), !members.isEmpty else { return false }
+        guard ids.isSubset(of: Set(availableUsers(for: groupID).map(\.id))),
+              let members = membersForSavedUsers(ids), !members.isEmpty else { return false }
         let combined = groups[index].members + members
         guard combined.count <= IntercomGroup.maximumMemberCount,
               Set(combined.map(\.id)).count == combined.count else {
@@ -45,6 +65,7 @@ extension IntercomViewModel {
         }
         var updated = groups
         updated[index].members = combined
+        updated[index].accountDevices.merge(groupAccountDevices(for: members)) { old, _ in old }
         guard commitGroups(updated) else { return false }
         if selectedGroup?.id == groupID { selectedGroup = groups[index] }
         return true

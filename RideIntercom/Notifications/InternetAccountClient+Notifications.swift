@@ -20,10 +20,9 @@ nonisolated struct CallNotificationGrant: Codable, Equatable, Sendable {
 }
 
 nonisolated struct CallNotificationReply: Codable, Equatable, Sendable {
-    enum Status: String, Codable, Sendable { case processing, accepted, noDestinations = "no_destinations", retryLater = "retry_later", rejected, cancelled }
     let requestID: UUID
     let expiresAt: Double // Server milliseconds since 1970, never a new local lifetime.
-    let status: Status
+    let status: CallNotificationStatus
     var senderUserID: String?
     func isLive(at now: Date) -> Bool {
         expiresAt.isFinite && expiresAt > now.timeIntervalSince1970 * 1000 && status != .cancelled

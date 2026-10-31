@@ -1,4 +1,5 @@
 import Foundation
+import RTC
 import Testing
 @testable import RideIntercom
 
@@ -63,7 +64,7 @@ struct StandardPresentationTests {
         #expect(AppTab.settings.available(in: .advanced) == .settings)
     }
 
-    @Test func simpleStatusSeparatesSelectionConnectionAndAudioReadiness() {
+    @Test func simpleStatusSeparatesSelectionConnectionAndAudioReadiness() throws {
         let h = AppTestSupport.makeHarness(); defer { h.viewModel.disconnect() }
         #expect(h.viewModel.standardCallStatus == .chooseDestination)
         let group = h.viewModel.groups[0]
@@ -71,9 +72,14 @@ struct StandardPresentationTests {
         #expect(h.viewModel.standardCallStatus == .ready)
         h.viewModel.startCall(to: .group(group.id), accountAccessID: h.viewModel.accountAccessID)
         #expect(h.viewModel.standardCallStatus == .connecting)
-        h.viewModel.authenticatedPeerIDs = ["peer"]
+        h.viewModel.authenticatedPeerIDs = ["member-108"]
         #expect(h.viewModel.standardCallStatus == .connecting)
         h.viewModel.isAudioReady = true
+        #expect(h.viewModel.standardCallStatus == .connecting)
+        h.callSession.authenticate(["member-108"])
+        let profile = try testPeerProfile(h.viewModel, peerID: "member-108", displayName: "Rider")
+        h.viewModel.receiveSharedDisplayName(peerID: "member-108", message:
+            .init(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(profile)))
         #expect(h.viewModel.standardCallStatus == .inCall)
         h.viewModel.isAudioPausedForDeviceChange = true
         #expect(h.viewModel.standardCallStatus == .audioPaused)

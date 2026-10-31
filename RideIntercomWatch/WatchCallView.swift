@@ -26,17 +26,43 @@ struct WatchCallView: View {
                     Button("Refresh") { Task { await client.perform(.refresh) } }
                         .disabled(!client.isReachable || client.isWaiting)
                 }
+                if let notification = client.snapshot?.notification {
+                    Section("Call Request") {
+                        Text(notificationTitle(notification.status))
+                        if notification.canCancel {
+                            Button("Cancel Call Request") {
+                                Task { await client.perform(.cancelCallRequest(notification.requestID)) }
+                            }.disabled(!client.isReachable || client.isWaiting)
+                        }
+                    }
+                }
                 if client.isReachable, let state = client.snapshot, !state.targets.isEmpty {
                     Section("Call on iPhone") {
                         ForEach(state.targets) { target in
-                            Button { Task { await client.perform(.start(target.id)) } } label: { Text(target.name) }
-                                .disabled(client.isWaiting)
+                            VStack(alignment: .leading) {
+                                Button { Task { await client.perform(.start(target.id)) } } label: { Text(target.name) }
+                                    .buttonStyle(.bordered)
+                                if target.canNotify {
+                                    Button("Send Call Request") { Task { await client.perform(.requestCall(target.id)) } }
+                                        .buttonStyle(.bordered)
+                                }
+                            }.disabled(client.isWaiting)
                         }
                     }
                 }
                 Section { Text("Audio plays on iPhone or its headphones.").font(.footnote) }
             }
             .navigationTitle("RideIntercom")
+        }
+    }
+    private func notificationTitle(_ status: CallNotificationStatus) -> LocalizedStringKey {
+        switch status {
+        case .accepted: "Notification accepted. Delivery is not confirmed."
+        case .processing: "The call request is being processed."
+        case .noDestinations: "This person has no notification destination available."
+        case .retryLater: "The call request could not be sent. Please try again later."
+        case .rejected: "The call request was not accepted."
+        case .cancelled: "Call request cancelled."
         }
     }
     private func stateTitle(_ state: WatchCallState) -> LocalizedStringKey {

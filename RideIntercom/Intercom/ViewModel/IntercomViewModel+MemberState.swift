@@ -112,34 +112,6 @@ extension IntercomViewModel {
         }
     }
 
-    func addDiscoveredMembersIfNeeded(peerIDs: [String]) {
-        var didChange = false
-        withActiveGroup { group in
-            guard group.kind == .group else { return }
-            for peerID in peerIDs {
-                guard IntercomGroup.isValidMemberID(peerID) else { continue }
-                guard !group.members.contains(where: { $0.id == peerID }) else { continue }
-
-                if let pendingInviteIndex = group.members.firstIndex(where: { isPendingInviteMemberID($0.id) }) {
-                    let reservedName = group.members[pendingInviteIndex].displayName
-                    group.members[pendingInviteIndex] = GroupMember(id: peerID, displayName: reservedName)
-                    didChange = true
-                    continue
-                }
-
-                if group.members.count >= IntercomGroup.maximumMemberCount {
-                    guard let departed = group.members.firstIndex(where: {
-                        $0.id != localMemberIdentity.memberID && !connectedPeerIDs.contains($0.id) && !authenticatedPeerIDs.contains($0.id)
-                    }) else { continue }
-                    group.members.remove(at: departed)
-                }
-                group.members.append(GroupMember(id: peerID, displayName: peerID))
-                didChange = true
-            }
-        }
-        if didChange { persistGroups() }
-    }
-
     func markMembers(_ state: PeerConnectionState) {
         withActiveGroup { group in
             group.members = group.members.map { member in

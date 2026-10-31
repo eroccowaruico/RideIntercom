@@ -190,6 +190,105 @@
           }
         }
       }
+    },
+    "Call Request": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出し"
+          }
+        }
+      }
+    },
+    "Call request cancelled.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを取り消しました。"
+          }
+        }
+      }
+    },
+    "Cancel Call Request": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを取消"
+          }
+        }
+      }
+    },
+    "Notification accepted. Delivery is not confirmed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知サービスが受け付けました。相手への到着は未確認です。"
+          }
+        }
+      }
+    },
+    "Send Call Request": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを送信"
+          }
+        }
+      }
+    },
+    "The call request could not be sent. Please try again later.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを送信できませんでした。しばらくしてからお試しください。"
+          }
+        }
+      }
+    },
+    "The call request is being processed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを処理しています。"
+          }
+        }
+      }
+    },
+    "The call request was not accepted.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しは受け付けられませんでした。"
+          }
+        }
+      }
+    },
+    "This person has no notification destination available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この相手には通知を受け取れる端末がありません。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

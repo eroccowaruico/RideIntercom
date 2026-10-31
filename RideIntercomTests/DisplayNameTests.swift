@@ -62,12 +62,13 @@ struct DisplayNameTests {
     }
 
     @Test func groupOnlyNamesStayInTheirGroupAndNeverBecomeContacts() throws {
-        let h = AppTestSupport.makeHarness(); let vm = h.viewModel
+        let h = AppTestSupport.makeHarness(groups: []); let vm = h.viewModel
+        #expect(vm.createTalkGroup())
         defer { vm.disconnect() }
         let group = try #require(vm.groups.first); vm.selectGroup(group); h.callSession.authenticate(["stranger"])
-        #expect(vm.renameGroupMember("stranger", in: group.id, displayName: "今日の仲間"))
         let profile = try testPeerProfile(vm, peerID: "stranger", displayName: "さくら")
         vm.receiveSharedDisplayName(peerID: "stranger", message: .init(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(profile)))
+        #expect(vm.renameGroupMember("stranger", in: group.id, displayName: "今日の仲間"))
         let member = try #require(vm.groups.first { $0.id == group.id }?.members.first { $0.id == "stranger" })
         #expect(member.displayName == "さくら" && member.resolvedDisplayName == "今日の仲間")
         #expect(vm.savedUsers.isEmpty)

@@ -71,7 +71,7 @@ extension IntercomViewModel {
     /// Merge durable membership without resetting live mute, audio or connection state.
     func refreshStoredAccountCall(_ groupID: UUID) {
         guard let index = groups.firstIndex(where: { $0.id == groupID }),
-              var stored = groupRepository.storedGroup(groupID), stored.accountPair != nil else { return }
+              var stored = groupRepository.storedGroup(groupID) else { return }
         let runtime = Dictionary(uniqueKeysWithValues: groups[index].members.map { ($0.id, $0) })
         stored.members = stored.members.map { member in
             var result = runtime[member.id] ?? member

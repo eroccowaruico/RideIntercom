@@ -40,7 +40,7 @@ extension IntercomViewModel {
     var canPrepareCallMedia: Bool {
         guard canStartCalls else { return false }
         guard enforceCallAccess else { return true }
-        let peers = peerProfiles.values.filter { $0.verified != nil && $0.membershipID != nil }
+        let peers = currentRepresentativeProfiles.values.filter { $0.verified != nil && $0.membershipID != nil }
         guard !peers.isEmpty else { return false }
         let now = callAccessNow().timeIntervalSince1970
         return callAccessState.isEstablished || hasLocalCallRight(at: now)
@@ -49,7 +49,7 @@ extension IntercomViewModel {
     }
 
     func callAccessPeersChanged() {
-        if !peerProfiles.values.contains(where: { $0.verified != nil && $0.membershipID != nil }) {
+        if !currentRepresentativeProfiles.values.contains(where: { $0.verified != nil && $0.membershipID != nil }) {
             callAccessState.endConversation()
         }
     }
@@ -62,7 +62,7 @@ extension IntercomViewModel {
         defer { isRefreshingCallAccess = false }
         callAccessPeersChanged()
         callAccessState.mergeStart(groupRepository.lastSponsoredStart(for: groupID), now: now)
-        let peers = peerProfiles.values.filter { $0.verified != nil && $0.membershipID != nil }
+        let peers = currentRepresentativeProfiles.values.filter { $0.verified != nil && $0.membershipID != nil }
         for peer in peers { callAccessState.mergeStart(peer.callAccess?.lastSponsoredStart, now: now) }
         if canPrepareCallMedia {
             if !isAudioPausedForDeviceChange, audioErrorMessage == nil || retryMedia { _ = startAudioPipelineIfNeeded() }
@@ -117,7 +117,7 @@ extension IntercomViewModel {
     func receiveCallAccess(peerID: String, message: ApplicationDataMessage, now suppliedNow: TimeInterval? = nil) {
         let now = suppliedNow ?? callAccessNow().timeIntervalSince1970
         guard enforceCallAccess, canStartCalls, message.namespace == SharedCallAccess.namespace, message.payload.count <= 8192,
-              authenticatedPeerIDs.contains(peerID), var state = peerProfiles[peerID], state.membershipID != nil, let verified = state.verified,
+              authenticatedPeerIDs.contains(peerID), var state = peerProfiles[peerID], state.membershipID != nil, let verified = currentRepresentativeProfiles[peerID]?.verified,
               let value = try? JSONDecoder().decode(SharedCallAccess.self, from: message.payload),
               value.groupID == activeGroupID, value.recipientMemberID == localMemberIdentity.memberID,
               value.challenge == state.challenge, value.revision > (state.callAccess?.revision ?? 0),

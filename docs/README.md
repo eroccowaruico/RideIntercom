@@ -150,8 +150,11 @@
 
 ### 検証と履歴
 
+[通常グループの代表端末検証](validation/history/通常グループの代表端末検証.md)は、本人単位の人数と保存、既存通話維持・端末切替のApp検証を扱う。
+
 | 文書 | 役割 / 表題 |
 |---|---|
+| [validation/history/グループの代表端末とWatch通知操作の統合.md](<validation/history/グループの代表端末とWatch通知操作の統合.md>) | 代表端末・Watch通知・統合App検証とCoreAudio受入の境界 |
 | [validation/history/Macメニューバーの通話操作.md](<validation/history/Macメニューバーの通話操作.md>) | 任意のMac表示・古い操作拒否・設定保持のローカル検証 |
 | [validation/history/低帯域codecの通信なし比較.md](<validation/history/低帯域codecの通信なし比較.md>) | 84条件のnative変換・従来品質・短い相槌と通信量の境界 |
 | [validation/history/外部通話操作と低帯域設定の統合.md](<validation/history/外部通話操作と低帯域設定の統合.md>) | 共通通話操作・低帯域候補・iPad/OS設定を合流した検証 |

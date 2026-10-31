@@ -3,6 +3,17 @@ import Foundation
 nonisolated struct WatchCallTarget: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String
+    var canNotify = false
+}
+
+nonisolated enum CallNotificationStatus: String, Codable, Sendable {
+    case processing, accepted, noDestinations = "no_destinations", retryLater = "retry_later", rejected, cancelled
+}
+
+nonisolated struct WatchCallNotification: Codable, Equatable, Sendable {
+    let requestID: UUID
+    let status: CallNotificationStatus
+    let canCancel: Bool
 }
 
 nonisolated enum WatchCallState: String, Codable, Sendable {
@@ -18,6 +29,7 @@ nonisolated struct WatchCallSnapshot: Codable, Equatable, Sendable {
     let hasCall: Bool
     let isMuted: Bool
     let state: WatchCallState
+    var notification: WatchCallNotification?
 }
 
 nonisolated enum WatchCallAction: Codable, Equatable, Sendable {
@@ -25,6 +37,8 @@ nonisolated enum WatchCallAction: Codable, Equatable, Sendable {
     case start(String)
     case end
     case setMuted(Bool)
+    case requestCall(String)
+    case cancelCallRequest(UUID)
 }
 
 nonisolated struct WatchControlRequest: Codable, Equatable, Sendable {

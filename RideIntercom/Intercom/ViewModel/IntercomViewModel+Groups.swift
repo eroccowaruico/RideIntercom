@@ -131,10 +131,14 @@ extension IntercomViewModel {
 
         var updated = groups
         updated[groupIndex].members.removeAll { $0.id == memberID }
+        updated[groupIndex].accountDevices.removeValue(forKey: memberID)
         guard commitGroups(updated) else { return }
         if activeGroupID == groupID {
             connectedPeerIDs.removeAll { $0 == memberID }
             authenticatedPeerIDs.removeAll { $0 == memberID }
+            peerProfiles.removeValue(forKey: memberID)
+            callSession.setAudioPolicy(currentCallAudioPolicy())
+            refreshCallAccess()
             remoteVoiceReceivedAt.removeValue(forKey: memberID)
             remoteVoicePeakWindows.removeValue(forKey: memberID)
             do { try audioPipeline.stopReceivePeer(memberID) }
@@ -157,12 +161,11 @@ extension IntercomViewModel {
             return false
         }
         let groupID = UUID()
+        let members = [GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)] + remoteMembers
         let newGroup = try? IntercomGroup(
             id: groupID,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            members: [
-                GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)
-            ] + remoteMembers
+            members: members, accountDevices: groupAccountDevices(for: members)
         )
 
         guard let newGroup else {
@@ -238,7 +241,7 @@ extension IntercomViewModel {
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
             let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             do {
-                try groupRepository.acceptInvitation(accepted, inviterName: name)
+                try groupRepository.acceptInvitation(accepted, inviterName: name, retainingMemberIDs: Set(currentRepresentativeProfiles.keys))
                 refreshStoredAccountCall(token.groupID)
                 refreshGroupStorageStatus()
             } catch { reportGroupStorageError(error); throw error }
@@ -251,15 +254,20 @@ extension IntercomViewModel {
             throw GroupInviteTokenError.activeGroupKeyChanged
         }
         var members = [GroupMember(id: localMemberIdentity.memberID, displayName: localMemberIdentity.displayName)]
-        if token.inviterMemberID != localMemberIdentity.memberID {
+        let ownOtherDevice = accepted.inviter.principal != nil && accepted.inviter.principal == localAccountPrincipal
+        if token.inviterMemberID != localMemberIdentity.memberID && !ownOtherDevice {
             let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
             members.append(GroupMember(id: token.inviterMemberID, displayName: name))
         }
         var devices: [String: AccountDeviceBinding] = [:]
-        if token.accountPair != nil, let local = localAccountPrincipal, let remote = accepted.inviter.principal {
-            let signer = try internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID)
-            devices[signer.memberID] = .init(principal: local, publicKey: signer.publicKey)
-            devices[token.inviterMemberID] = .init(principal: remote, publicKey: accepted.inviter.publicKey)
+        if token.accountPair != nil || kind == .group {
+            if let local = localAccountPrincipal {
+                let signer = try internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID)
+                devices[signer.memberID] = .init(principal: local, publicKey: signer.publicKey)
+            }
+            if let remote = accepted.inviter.principal, !ownOtherDevice {
+                devices[token.inviterMemberID] = .init(principal: remote, publicKey: accepted.inviter.publicKey)
+            }
         }
         let group = try IntercomGroup(
             id: token.groupID,
@@ -274,7 +282,7 @@ extension IntercomViewModel {
             updated.insert(group, at: 0)
         }
         do {
-            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitation: accepted)
+            try groupRepository.save(updated, credential: .init(groupID: token.groupID, secret: token.groupSecret), acceptedInvitation: accepted, inviterName: token.inviterDisplayName ?? "Inviter")
             refreshGroupStorageStatus()
         }
         catch {

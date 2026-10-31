@@ -59,7 +59,6 @@ extension IntercomViewModel {
                 ])
             )
             connectedPeerIDs = peerIDs
-            addDiscoveredMembersIfNeeded(peerIDs: peerIDs)
             removeDisconnectedAuthenticatedPeers(connectedPeerIDs: peerIDs)
             if authenticatedPeerIDs.isEmpty, isAudioReady { stopAudioPipeline() }
             refreshCallAccess()
@@ -82,7 +81,6 @@ extension IntercomViewModel {
             authenticatedPeerIDs = Array(authenticatedPeerIDSet).sorted()
             synchronizePeerProfiles(members: members)
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()
-            addDiscoveredMembersIfNeeded(peerIDs: authenticatedPeerIDs)
             connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
             markConnectedMembers(peerIDs: connectedPeerIDs)
             startActiveCallAfterAuthenticatedPeer()

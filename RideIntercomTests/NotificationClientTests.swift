@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import RTC
 import Testing
+import UserNotifications
 @testable import RideIntercom
 
 @MainActor @Suite(.serialized)
@@ -189,7 +190,9 @@ struct NotificationClientTests {
         let reply = CallNotificationReply(requestID: id, expiresAt: fixture.now.addingTimeInterval(120).timeIntervalSince1970 * 1000,
             status: .accepted, senderUserID: fixture.peer.userID)
         NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(reply), as: UTF8.self)
-        #expect(await owner.respondToCallNotification(.init(requestID: id, recipientID: fixture.local.userID)))
+        owner.notificationBridge.bind(to: owner)
+        #expect(await owner.notificationBridge.respond(to: .init(requestID: id, recipientID: fixture.local.userID),
+            actionIdentifier: UNNotificationDefaultActionIdentifier, categoryIdentifier: ""))
         #expect(h.callSession.connectedGroup?.kind == .direct && h.viewModel.activeGroupID != nil)
         #expect(owner.callPresentationID != nil)
     }
@@ -207,7 +210,9 @@ struct NotificationClientTests {
             status: .accepted, senderUserID: fixture.peer.userID)
         NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(reply), as: UTF8.self)
         let gate = ManualAsyncGate(); NotificationHTTPStub.delayGate = gate
-        let responding = Task { await owner.respondToCallNotification(.init(requestID: id, recipientID: fixture.local.userID)) }
+        owner.notificationBridge.bind(to: owner)
+        let responding = Task { await owner.notificationBridge.respond(to: .init(requestID: id, recipientID: fixture.local.userID),
+            actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST") }
         await gate.waitForEntry(); owner.viewModel = nil
         await gate.release()
         #expect(!(await responding.value))
@@ -518,6 +523,116 @@ struct NotificationClientTests {
         #expect(try fixture.store.notificationPermissions().isEmpty)
     }
 
+    @Test func iphoneResponseCategoryHasOneBackgroundActionWithoutRequiringUnlock() throws {
+        let category = NotificationSystem.callRequestCategory
+        #expect(category.identifier == "RIDEINTERCOM_CALL_REQUEST")
+        let action = try #require(category.actions.first)
+        #expect(category.actions.count == 1 && action.identifier == "RIDEINTERCOM_RESPOND_ON_IPHONE")
+        #expect(action.options.isEmpty)
+        #expect(action.title == String(localized: "Respond on iPhone"))
+    }
+
+    @Test func backgroundResponseUsesTheCommonValidatedTapAndRejectsUnknownDismissAndWrongCategory() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        fixture.store.notificationRegistrationEnabled = true
+        let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
+        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
+        owner.notificationBridge.bind(to: owner)
+        let grant = try testCallNotificationGrant(owner: fixture.local, allowedSender: fixture.peer)
+        NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(grant), as: UTF8.self)
+        #expect(await fixture.notifications.setIncomingAllowed(true, contactID: fixture.user.id))
+        let id = UUID(), tap = CallNotificationTap(requestID: id, recipientID: fixture.local.userID)
+        let before = NotificationHTTPStub.requests.count
+        for action in ["unrecognized", UNNotificationDismissActionIdentifier] {
+            #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: action, categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST")))
+        }
+        #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "other")))
+        #expect(NotificationHTTPStub.requests.count == before && h.callSession.connectedGroup == nil)
+        let reply = CallNotificationReply(requestID: id, expiresAt: fixture.now.addingTimeInterval(120).timeIntervalSince1970 * 1000,
+            status: .accepted, senderUserID: fixture.peer.userID)
+        NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(reply), as: UTF8.self)
+        #expect(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST"))
+        #expect(h.callSession.connectedGroup?.kind == .direct)
+        #expect(h.viewModel.createTalkGroup(name: "Another call"))
+        let groupID = try #require(h.viewModel.regularGroups.first?.id)
+        #expect(h.viewModel.startCall(to: .group(groupID), accountAccessID: h.viewModel.accountAccessID, allowSwitchingCall: true))
+        let current = h.viewModel.currentCallReference
+        #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST")))
+        #expect(h.viewModel.currentCallReference == current)
+    }
+
+    @Test func watchProjectsOnlySavedPeoplesPermissionAndRequestsWithoutStartingAudioThenCancelsOnlyCurrentRequest() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
+        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
+        #expect(owner.watchSnapshot().targets.first?.canNotify == false)
+        let grant = try testCallNotificationGrant(owner: fixture.peer, allowedSender: fixture.local)
+        try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 1,
+            grant: grant, signer: fixture.peerSigner), peerID: "friend")
+        let snapshot = owner.watchSnapshot(), target = try #require(snapshot.targets.first)
+        #expect(target.canNotify)
+        NotificationHTTPStub.echoCallStatus = .accepted
+        let sent = await owner.handleWatchRequest(.init(.requestCall(target.id), snapshot: snapshot))
+        let first = try #require(sent.snapshot.notification)
+        #expect(sent.problem == nil && first.status == .accepted && first.canCancel)
+        #expect(h.callSession.connectedGroup == nil && !sent.snapshot.hasCall)
+        #expect(!String(decoding: try JSONEncoder().encode(sent), as: UTF8.self).contains(grant.capability))
+        let second = await owner.handleWatchRequest(.init(.requestCall(target.id), snapshot: sent.snapshot))
+        let current = try #require(second.snapshot.notification)
+        #expect(first.requestID != current.requestID)
+        let count = NotificationHTTPStub.requests.count
+        #expect(await owner.handleWatchRequest(.init(.cancelCallRequest(first.requestID), snapshot: second.snapshot)).problem == .stale)
+        #expect(NotificationHTTPStub.requests.count == count)
+        let cancelled = await owner.handleWatchRequest(.init(.cancelCallRequest(current.requestID), snapshot: second.snapshot))
+        #expect(cancelled.problem == nil && cancelled.snapshot.notification == nil)
+        #expect(NotificationHTTPStub.requests.last?.httpMethod == "DELETE")
+    }
+
+    @Test func watchRejectsGroupsMissingRevokedAndExpiredNotificationTargetsBeforeSending() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
+        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
+        #expect(h.viewModel.createTalkGroup(name: "Existing group"))
+        let snapshot = owner.watchSnapshot(), person = try #require(snapshot.targets.first { $0.id.contains("|user|") })
+        let group = try #require(snapshot.targets.first { $0.id.contains("|group|") })
+        #expect(!group.canNotify)
+        #expect(await owner.handleWatchRequest(.init(.requestCall(group.id), snapshot: snapshot)).problem == .denied)
+        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot)).problem == .denied)
+        #expect(await owner.handleWatchRequest(.init(.requestCall("missing"), snapshot: snapshot)).problem == .missingDestination)
+        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot), now: snapshot.validUntil).problem == .stale)
+        try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 1,
+            grant: try testCallNotificationGrant(owner: fixture.peer, allowedSender: fixture.local), signer: fixture.peerSigner), peerID: "friend")
+        let permitted = owner.watchSnapshot()
+        #expect(permitted.targets.first { $0.id == person.id }?.canNotify == true)
+        try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 2,
+            grant: nil, signer: fixture.peerSigner), peerID: "friend")
+        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: permitted)).problem == .denied)
+        // Remove the saved destination through storage without scheduling an unrelated
+        // revocation Task beyond this fixture's lifetime.
+        try h.viewModel.groupRepository.removeUser(fixture.user.id)
+        h.viewModel.refreshGroupStorageStatus(); fixture.users = []
+        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot)).problem == .missingDestination)
+        #expect(NotificationHTTPStub.requests.isEmpty)
+    }
+
+    @Test func delayedWatchNotificationReplyCannotRestoreAnOldAccount() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
+        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
+        try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 1,
+            grant: try testCallNotificationGrant(owner: fixture.peer, allowedSender: fixture.local), signer: fixture.peerSigner), peerID: "friend")
+        let snapshot = owner.watchSnapshot(), target = try #require(snapshot.targets.first)
+        NotificationHTTPStub.echoCallStatus = .accepted
+        let gate = ManualAsyncGate(); NotificationHTTPStub.delayGate = gate
+        let task = Task { await owner.handleWatchRequest(.init(.requestCall(target.id), snapshot: snapshot)) }
+        await gate.waitForEntry(); fixture.current = false; owner.viewModel = nil
+        let cleanup = fixture.notifications.stop()
+        NotificationHTTPStub.delayGate = nil; await gate.release()
+        let reply = await task.value; await cleanup?.value
+        #expect(reply.problem == .noAccount && reply.snapshot.reference == nil && reply.snapshot.notification == nil)
+        #expect(fixture.notifications.outgoing == nil && h.callSession.connectedGroup == nil)
+    }
+
     private func authenticateNotificationPeer(_ h: AppTestSupport.Harness, fixture: NotificationModelFixture) throws {
         h.callSession.authenticate(["friend"])
         let profile = try testPeerProfile(h.viewModel, peerID: "friend", displayName: "Friend", signer: fixture.peerSigner)
@@ -535,7 +650,7 @@ struct NotificationClientTests {
     }
 
     private func makeClient() -> InternetAccountClient {
-        NotificationHTTPStub.requests = []; NotificationHTTPStub.status = 200; NotificationHTTPStub.delayGate = nil
+        NotificationHTTPStub.requests = []; NotificationHTTPStub.status = 200; NotificationHTTPStub.delayGate = nil; NotificationHTTPStub.echoCallStatus = nil
         let configuration = URLSessionConfiguration.ephemeral; configuration.protocolClasses = [NotificationHTTPStub.self]
         return InternetAccountClient(session: URLSession(configuration: configuration))
     }
@@ -546,6 +661,7 @@ private final class NotificationHTTPStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var response = "{}"
     nonisolated(unsafe) static var status = 200
     nonisolated(unsafe) static var delayGate: ManualAsyncGate?
+    nonisolated(unsafe) static var echoCallStatus: CallNotificationStatus?
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "notify.test" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -562,7 +678,14 @@ private final class NotificationHTTPStub: URLProtocol, @unchecked Sendable {
         }
         Self.requests.append(captured)
         let response = HTTPURLResponse(url: request.url!, statusCode: Self.status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
-        let data = Data(Self.response.utf8), gate = Self.delayGate
+        let data: Data
+        if let status = Self.echoCallStatus, captured.httpMethod == "POST", captured.url?.path == "/api/notifications/calls",
+           let body = captured.httpBody, let fields = try? JSONSerialization.jsonObject(with: body) as? [String: String],
+           let id = fields["requestID"] {
+            data = try! JSONSerialization.data(withJSONObject: ["requestID": id, "status": status.rawValue,
+                "expiresAt": Date().addingTimeInterval(120).timeIntervalSince1970 * 1000])
+        } else { data = Data(Self.response.utf8) }
+        let gate = Self.delayGate
         Task { @MainActor [self] in
             if let gate { await gate.wait() }
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

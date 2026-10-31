@@ -12,7 +12,12 @@ final class AppNotificationBridge: NSObject, UNUserNotificationCenterDelegate {
     private weak var owner: AppCallOwner?
     func bind(to owner: AppCallOwner) {
         self.owner = owner
-        if NotificationSystem.permitsSystemAccess { UNUserNotificationCenter.current().delegate = self }
+        if NotificationSystem.permitsSystemAccess {
+            UNUserNotificationCenter.current().delegate = self
+            #if os(iOS)
+            UNUserNotificationCenter.current().setNotificationCategories([NotificationSystem.callRequestCategory])
+            #endif
+        }
     }
     func receivedDeviceToken(_ token: Data) {
         guard let model = owner?.viewModel, model.hasCurrentAccountAccess, let topic = Bundle.main.bundleIdentifier else { return }
@@ -20,11 +25,17 @@ final class AppNotificationBridge: NSObject, UNUserNotificationCenterDelegate {
     }
     func registrationFailed() { owner?.viewModel?.notifications.registrationFailed() }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-              let tap = CallNotificationTap(payload: response.notification.request.content.userInfo) else { return }
-        await respond(to: tap)
+        guard let tap = CallNotificationTap(payload: response.notification.request.content.userInfo) else { return }
+        _ = await respond(to: tap, actionIdentifier: response.actionIdentifier,
+                          categoryIdentifier: response.notification.request.content.categoryIdentifier)
     }
-    private func respond(to tap: CallNotificationTap) async { _ = await owner?.respondToCallNotification(tap) }
+    @discardableResult
+    func respond(to tap: CallNotificationTap, actionIdentifier: String, categoryIdentifier: String) async -> Bool {
+        guard actionIdentifier == UNNotificationDefaultActionIdentifier
+                || (actionIdentifier == NotificationSystem.respondOnPhoneActionIdentifier
+                    && categoryIdentifier == NotificationSystem.callRequestCategoryIdentifier) else { return false }
+        return await owner?.respondToCallNotification(tap) ?? false
+    }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         guard let tap = CallNotificationTap(payload: notification.request.content.userInfo) else { return [] }

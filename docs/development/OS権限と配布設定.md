@@ -13,6 +13,7 @@
 | Widgetの選択用共有 | AppとWidgetに同じApp Group。Widgetは資格を持たず、Appが投影を書きextensionは読む | 両App IDへのgroup割当と両profileのgroup許可。署名済みの実App/extension間で共有できること |
 | 通知 | AppだけPush entitlement。通常のalert/soundと利用者tapを使用。背景remote-notificationを要求しない | Push capability、APNs環境、server topic、provider鍵、利用者の通知許可を一致させる |
 | Watch | iPhone依存の単一Watch App、対応bundle ID、専用AppIcon。音声やPushの権限は持たない | Watch App ID/profile、iPhoneとの実ペアリングとWCSession手渡し。Watch音声は未実装 |
+| CarPlay Widget | タッチ車のWidgetボタン操作を対象とする。現状の前面起動必須Intentとdisfavored指定は背景操作の実装で見直す | Widgetのボタン操作に専用CarPlayアプリ・CallKit・communication entitlementを前提にしない。非タッチ車では操作不可。[実行条件と不採用判断](../backlog/機能拡張の実装前整理.md#carplay-widgetのボタン操作とcallkit不採用)を適用する |
 | 状態表示 | iPhone/iPadの任意Live Activity、Mac Widgetを実装。対応端末のDynamic Islandとロック画面を使用 | OSによる表示・消去・ロック解除・手渡しを受入。Mac自身からのLive Activityは提供しない。iPhone由来のMac表示とMac native上部表示を混同しない |
 | 購入 | 公開`StoreProductCatalog.production`は未設定。商品未設定時の商用条件非適用を維持 | 商品・価格・契約・Family Sharing・審査・販売許可。ローカルStoreKit fixtureは販売設定ではない |
 

@@ -227,9 +227,13 @@ struct GroupLifecycleTests {
             h.viewModel.markPlayedAudioFrame(peerID: "member-108")
         }
         #expect(h.groupStore.saveCount == count)
-        h.viewModel.addDiscoveredMembersIfNeeded(peerIDs: ["new-rider"])
+        h.callSession.authenticate(["new-rider"])
+        #expect(h.groupStore.saveCount == count)
+        let profile = try testPeerProfile(h.viewModel, peerID: "new-rider", displayName: "New rider")
+        let message = ApplicationDataMessage(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(profile))
+        h.viewModel.handleTransportEvent(.receivedApplicationData(peerID: "new-rider", message: message))
         #expect(h.groupStore.saveCount == count + 1)
-        h.viewModel.addDiscoveredMembersIfNeeded(peerIDs: ["new-rider"])
+        h.viewModel.handleTransportEvent(.receivedApplicationData(peerID: "new-rider", message: message))
         #expect(h.groupStore.saveCount == count + 1)
     }
 
@@ -273,15 +277,18 @@ struct GroupLifecycleTests {
         #expect(h.viewModel.groups.isEmpty)
     }
 
-    @Test func fullGroupReplacesDepartedRiderForNewAuthenticatedMember() throws {
+    @Test func fullGroupDoesNotEvictUnrelatedRiderForNewAuthenticatedMember() throws {
         let group = try IntercomGroup(name: "Eight", members: (0..<8).map { .init(id: "rider-\($0)", displayName: "Rider") }, accessSecret: "fixture")
         let h = AppTestSupport.makeHarness(groups: [group])
         h.viewModel.selectGroup(group)
         h.viewModel.connectedPeerIDs = (2..<8).map { "rider-\($0)" } + ["replacement"]
-        h.viewModel.addDiscoveredMembersIfNeeded(peerIDs: ["replacement"])
+        h.callSession.authenticate(["replacement"])
+        let profile = try testPeerProfile(h.viewModel, peerID: "replacement", displayName: "Replacement")
+        h.viewModel.handleTransportEvent(.receivedApplicationData(peerID: "replacement", message:
+            .init(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(profile))))
         #expect(h.viewModel.groups[0].members.count == 8)
-        #expect(h.viewModel.groups[0].members.contains { $0.id == "replacement" })
-        #expect(!h.viewModel.groups[0].members.contains { $0.id == "rider-1" })
+        #expect(!h.viewModel.groups[0].members.contains { $0.id == "replacement" })
+        #expect(h.viewModel.groups[0].members.contains { $0.id == "rider-1" })
     }
 
 }

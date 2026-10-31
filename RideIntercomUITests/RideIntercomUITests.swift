@@ -105,7 +105,7 @@ final class RideIntercomUITests: XCTestCase {
     func testPersonalAndReceivedNamesCanBeEditedAndRestored() throws {
         openSettingsTab()
         let ownName = app.textFields["localDisplayNameField"]
-        XCTAssertTrue(ownName.waitForExistence(timeout: 3))
+        revealSettingsControl(ownName)
         ownName.tap()
         ownName.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (ownName.value as? String ?? "").count) + "Snow Cat")
         app.buttons["saveLocalDisplayNameButton"].tap()
@@ -131,7 +131,8 @@ final class RideIntercomUITests: XCTestCase {
         app.buttons["closeSavedUsersButton"].tap()
         app.terminate(); app.launch(); app.activate()
         openSettingsTab()
-        XCTAssertTrue(ownName.waitForExistence(timeout: 3)); XCTAssertEqual(ownName.value as? String, "Snow Cat")
+        revealSettingsControl(ownName)
+        XCTAssertEqual(ownName.value as? String, "Snow Cat")
     }
 
     @MainActor
@@ -431,7 +432,7 @@ final class RideIntercomUITests: XCTestCase {
         // halfway through changing settings. Do not erase application data.
         openSettingsTab()
         let localRoute = app.switches["Local Network"].firstMatch
-        XCTAssertTrue(localRoute.waitForExistence(timeout: 3))
+        revealSettingsControl(localRoute)
         if localRoute.value as? String == "0" { localRoute.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         let internetRoute = app.switches["Internet"].firstMatch
         if internetRoute.value as? String == "1" { internetRoute.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
@@ -474,8 +475,9 @@ final class RideIntercomUITests: XCTestCase {
         checkInternetSettingsRejectUnsecuredURL()
         openGroupsTab()
         openSettingsTab()
-        XCTAssertTrue(app.buttons["configureInternetConnection"].exists)
+        revealSettingsControl(app.buttons["configureInternetConnection"])
         let internet = app.switches["Internet"].firstMatch
+        revealSettingsControl(internet)
         if internet.value as? String == "0" { internet.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         let local = app.switches["Local Network"].firstMatch
         let original = local.value as? String
@@ -489,7 +491,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Native audio — meter unavailable"].exists)
         attachScreen("Internet Shared Audio Controls")
         openSettingsTab()
-        for _ in 0..<8 where !local.isHittable { app.swipeDown() }
+        revealSettingsControl(local)
         if original == "1" { local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         XCTAssertEqual(local.value as? String, original)
     }
@@ -509,7 +511,7 @@ final class RideIntercomUITests: XCTestCase {
         attachScreen("Diagnostics Large Text Dark")
         openSettingsTab()
         let configure = app.buttons["configureInternetConnection"]
-        for _ in 0..<6 where !configure.isHittable { app.swipeUp() }
+        revealSettingsControl(configure)
         configure.tap()
         XCTAssertTrue(app.textFields["internetWorkerURL"].waitForExistence(timeout: 3))
         #if os(iOS)
@@ -523,7 +525,7 @@ final class RideIntercomUITests: XCTestCase {
         let save = app.buttons["saveInternetConnection"]
         let form = app.collectionViews.containing(.textField, identifier: "internetWorkerURL").firstMatch
         XCTAssertTrue(form.exists)
-        for _ in 0..<4 where save.frame.maxY > app.frame.maxY - 20 { form.swipeUp() }
+        for _ in 0..<20 where !save.exists || save.frame.maxY > app.frame.maxY - 20 { form.swipeUp() }
         XCTAssertTrue(save.exists)
         attachScreen("Internet Settings Landscape Large Text")
         XCTAssertLessThanOrEqual(save.frame.maxY, app.frame.maxY - 20)
@@ -538,7 +540,7 @@ final class RideIntercomUITests: XCTestCase {
     private func openInternetSettings() {
         openSettingsTab()
         let configure = app.buttons["configureInternetConnection"]
-        for _ in 0..<6 where !configure.isHittable { app.swipeUp() }
+        revealSettingsControl(configure)
         XCTAssertTrue(configure.isHittable)
         configure.tap()
     }
@@ -562,7 +564,8 @@ final class RideIntercomUITests: XCTestCase {
         attachScreen("Settings before edits")
         let local = app.switches["Local Network"].firstMatch
         let internet = app.switches["Internet"].firstMatch
-        XCTAssertTrue(local.waitForExistence(timeout: 3))
+        revealSettingsControl(local)
+        revealSettingsControl(internet)
         if internet.value as? String == "0" { internet.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         let original = local.value as? String
         local.switches.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
@@ -597,11 +600,7 @@ final class RideIntercomUITests: XCTestCase {
 
     private func revealTransmitIsolationToggle() -> XCUIElement {
         let toggle = app.switches["Transmit Voice Isolation Effect"].firstMatch
-        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
-        for _ in 0..<6 {
-            if toggle.exists && toggle.isHittable { break }
-            scroll.swipeUp()
-        }
+        revealSettingsControl(toggle)
         return toggle
     }
 
@@ -754,6 +753,7 @@ final class RideIntercomUITests: XCTestCase {
 
         openSettingsTab()
         XCTAssertTrue(app.descendants(matching: .any)["settingsScrollView"].firstMatch.waitForExistence(timeout: 3))
+        revealSettingsPanelIfNeeded(identifier: "audioSessionPanel")
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.waitForExistence(timeout: 3))
         revealSettingsPanelIfNeeded(identifier: "transmitCodecPanel")
         XCTAssertTrue(app.descendants(matching: .any)["transmitCodecPanel"].firstMatch.waitForExistence(timeout: 3))
@@ -792,10 +792,10 @@ final class RideIntercomUITests: XCTestCase {
     private func checkSettingsShowsConfigPanelsWithoutDiagnosticsRows() throws {
         openSettingsTab()
 
+        revealSettingsPanelIfNeeded(identifier: "audioSessionPanel")
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.waitForExistence(timeout: 3))
         let explanation = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "mode uses")).firstMatch
-        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
-        for _ in 0..<5 where !explanation.isHittable { scroll.swipeUp() }
+        revealSettingsControl(explanation, fullyVisible: false)
         XCTAssertTrue(explanation.exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioSessionProfileStatus"].firstMatch.exists)
         revealSettingsPanelIfNeeded(identifier: "audioIOPanel")
@@ -918,11 +918,28 @@ final class RideIntercomUITests: XCTestCase {
         guard scroll.waitForExistence(timeout: 5) else {
             XCTFail("Settings tab did not open"); return
         }
-        for _ in 0..<6 {
-            let toggle = app.switches["Local Network"].firstMatch
-            if toggle.exists && toggle.isHittable { break }
-            scroll.swipeDown()
+    }
+
+    /// Settings is a lazy Form. Navigate to the requested row rather than assuming
+    /// every target is near Local Network, or a fixed number of screens from the top.
+    private func revealSettingsControl(_ target: XCUIElement, fullyVisible: Bool = true,
+                                       file: StaticString = #filePath, line: UInt = #line) {
+        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5), file: file, line: line)
+        let top = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
+        var searchedFromTop = false
+        for _ in 0..<40 {
+            let viewport = scroll.frame.intersection(app.frame).insetBy(dx: 0, dy: 4)
+            if target.exists && !target.frame.isEmpty
+                && (fullyVisible ? target.isHittable && viewport.contains(target.frame) : viewport.intersects(target.frame)) { return }
+            if top.exists && top.isHittable { searchedFromTop = true }
+            let hasFrame = target.exists && !target.frame.isEmpty
+            let down = hasFrame ? target.frame.midY < viewport.midY : !searchedFromTop
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.3 : 0.7))
+            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.7 : 0.3))
+            start.press(forDuration: 0.05, thenDragTo: end)
         }
+        XCTFail("Settings control did not become reachable: \(target.debugDescription)", file: file, line: line)
     }
 
     private func revealDiagnosticOverview() {
@@ -934,35 +951,13 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func revealAudioCheckControlsIfNeeded() {
-        let audioCheckButton = audioCheckButtonElement()
-        let audioCheckPanel = app.descendants(matching: .any)["audioCheckPanel"].firstMatch
-        if audioCheckButton.exists && audioCheckPanel.exists {
-            return
-        }
-
-        let settingsView = app.descendants(matching: .any)["settingsScrollView"].firstMatch
-        for _ in 0..<5 {
-            if audioCheckButton.exists && audioCheckPanel.exists {
-                return
-            }
-            settingsView.swipeUp()
-        }
+        revealSettingsControl(audioCheckButtonElement())
     }
 
     private func revealSettingsPanelIfNeeded(identifier: String) {
         openSettingsTab()
-        let targetPanel = app.descendants(matching: .any)[identifier].firstMatch
-        if targetPanel.exists {
-            return
-        }
-
-        let settingsView = app.descendants(matching: .any)["settingsScrollView"].firstMatch
-        for _ in 0..<6 {
-            if targetPanel.exists {
-                return
-            }
-            settingsView.swipeUp()
-        }
+        let panel = app.descendants(matching: .any)[identifier].firstMatch
+        revealSettingsControl(panel, fullyVisible: false)
     }
 
     private func audioCheckButtonElement() -> XCUIElement {

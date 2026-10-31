@@ -23,7 +23,7 @@ final class GroupRepository {
         do {
             var current = try store.read() ?? migrate(localMemberID: localMemberID)
             _ = try validateIdentity(current, localMemberID: localMemberID)
-            if current.version < 7 {
+            if current.version < 8 {
                 current = current.upgraded()
                 try store.commit(current)
                 guard try store.read() == current else { throw GroupStorageError.verificationFailed }
@@ -74,9 +74,9 @@ final class GroupRepository {
     }
 
     func save(_ groups: [IntercomGroup]) throws { try update(groups, credential: nil) }
-    func save(_ groups: [IntercomGroup], credential: GroupAccessCredential, acceptedInvitation: AcceptedDirectInvitation? = nil) throws {
+    func save(_ groups: [IntercomGroup], credential: GroupAccessCredential, acceptedInvitation: AcceptedDirectInvitation? = nil, inviterName: String? = nil) throws {
         try update(groups, credential: credential) { next in
-            if let receipt = acceptedInvitation { try self.storeAcceptedInvitation(receipt, in: &next) }
+            if let receipt = acceptedInvitation { try self.storeAcceptedInvitation(receipt, inviterName: inviterName, in: &next) }
         }
     }
     func delete(_ id: UUID, remaining: [IntercomGroup]) throws { try update(remaining, credential: nil) }
@@ -119,7 +119,8 @@ final class GroupRepository {
               let index = snapshot.groups.firstIndex(where: { $0.id == groupID }),
               let member = snapshot.groups[index].members.firstIndex(where: { $0.id == memberID }),
               localName.map(IntercomGroup.isValidName) ?? true else { throw GroupStorageError.invalidUpdate }
-        if let user = snapshot.users.first(where: { $0.memberIDs.contains(memberID) }) {
+        if let user = snapshot.users.first(where: { $0.memberIDs.contains(memberID)
+            || ($0.principal != nil && $0.principal == snapshot.groups[index].accountDevices[memberID]?.principal) }) {
             if let localName { try renameUser(user.id, displayName: localName) } else { try resetUserName(user.id) }
             return
         }
@@ -144,6 +145,11 @@ final class GroupRepository {
         }
         if groups[index].accountPair != nil {
             guard bindAccountDevice(profile.identity, name: name, to: &groups[index], retaining: connectedMemberIDs) else { return false }
+        } else if groups[index].kind == .group {
+            guard bindGroupRepresentative(profile.identity, name: name, to: &groups[index], retaining: connectedMemberIDs) else { return false }
+            if let principal = profile.identity.principal, let user = users.firstIndex(where: { $0.principal == principal }) {
+                users[user].displayName = name
+            }
         } else {
             guard let member = groups[index].members.firstIndex(where: { $0.id == memberID }) else { return false }
             groups[index].members[member].displayName = name
@@ -180,6 +186,43 @@ final class GroupRepository {
         return true
     }
 
+    /// One durable slot per verified person. A valid current representative is
+    /// retained; a new device must answer this connection's challenge after it leaves.
+    private func bindGroupRepresentative(_ identity: VerifiedDeviceProof, name: String,
+                                        to group: inout IntercomGroup, retaining connected: Set<String>) -> Bool {
+        let memberID = identity.memberID
+        if let known = group.accountDevices[memberID] {
+            guard known.publicKey == identity.publicKey,
+                  identity.principal == nil || identity.principal == known.principal else { return false }
+        }
+        if let principal = identity.principal {
+            if let old = group.accountDevices.first(where: { $0.value.principal == principal && $0.key != memberID }) {
+                guard old.key != localMemberID, !connected.contains(old.key),
+                      group.members.contains(where: { $0.id == old.key }) else { return false }
+                group.members.removeAll { $0.id == memberID }
+                guard let index = group.members.firstIndex(where: { $0.id == old.key }) else { return false }
+                let localName = group.members[index].localName
+                group.members[index] = .init(id: memberID, displayName: name, localName: localName)
+                group.accountDevices.removeValue(forKey: old.key)
+            }
+            group.accountDevices[memberID] = .init(principal: principal, publicKey: identity.publicKey)
+        }
+        if let index = group.members.firstIndex(where: { $0.id == memberID }) {
+            group.members[index].displayName = name
+        } else {
+            // Group authentication alone cannot evict an unrelated saved rider.
+            guard connected.contains(memberID) else { return false }
+            if let slot = group.members.firstIndex(where: { $0.id.hasPrefix(GroupMember.pendingInvitePrefix) }) {
+                let localName = group.members[slot].localName
+                group.members[slot] = .init(id: memberID, displayName: name, localName: localName)
+            } else {
+                guard group.members.count < IntercomGroup.maximumMemberCount else { return false }
+                group.members.append(.init(id: memberID, displayName: name))
+            }
+        }
+        return true
+    }
+
     func storedGroup(_ groupID: UUID) -> IntercomGroup? {
         snapshot?.groups.first { $0.id == groupID }.flatMap { try? $0.group() }
     }
@@ -189,14 +232,14 @@ final class GroupRepository {
         try update(snapshot.groups.map { try $0.group() }, credential: nil, users: snapshot.users.filter { $0.id != id })
     }
 
-    func acceptInvitation(_ accepted: AcceptedDirectInvitation, inviterName: String) throws {
+    func acceptInvitation(_ accepted: AcceptedDirectInvitation, inviterName: String, retainingMemberIDs: Set<String> = []) throws {
         guard let snapshot else { throw GroupStorageError.invalidUpdate }
         try update(snapshot.groups.map { try $0.group() }, credential: nil) { next in
-            try self.storeAcceptedInvitation(accepted, inviterName: inviterName, in: &next)
+            try self.storeAcceptedInvitation(accepted, inviterName: inviterName, retainingMemberIDs: retainingMemberIDs, in: &next)
         }
     }
 
-    private func storeAcceptedInvitation(_ accepted: AcceptedDirectInvitation, inviterName: String? = nil, in next: inout GroupSnapshot) throws {
+    private func storeAcceptedInvitation(_ accepted: AcceptedDirectInvitation, inviterName: String? = nil, retainingMemberIDs: Set<String> = [], in next: inout GroupSnapshot) throws {
         let receipt = accepted.receipt
         guard receipt.isValid, receipt.kind == .accepted, receipt.invitation != nil, receipt.proof != nil,
               receipt.inviteeMemberID == localMemberID,
@@ -210,9 +253,23 @@ final class GroupRepository {
             try Self.remember(.init(id: receipt.inviterMemberID, displayName: name), identity: accepted.inviter, in: &next)
             next.groups[index].receivedInvitationIDs.append(receipt.id)
         }
-        if next.groups[index].accountPair != nil {
+        if next.groups[index].accountPair != nil || next.groups[index].kind == .group {
             var group = try next.groups[index].group()
-            guard bindAccountDevice(accepted.inviter, name: name, to: &group, retaining: Set(group.members.map(\.id))) else { throw GroupStorageError.identityConflict }
+            let localPrincipal = localMemberID.flatMap { group.accountDevices[$0]?.principal }
+            if group.kind == .group {
+                if accepted.inviter.principal == nil || accepted.inviter.principal != localPrincipal {
+                    let retainsActiveRepresentative = group.accountDevices.contains { memberID, binding in
+                        memberID != accepted.inviter.memberID && binding.principal == accepted.inviter.principal
+                            && retainingMemberIDs.contains(memberID)
+                    }
+                    if !retainsActiveRepresentative {
+                        let retained = retainingMemberIDs.union([accepted.inviter.memberID])
+                        guard bindGroupRepresentative(accepted.inviter, name: name, to: &group, retaining: retained) else { throw GroupStorageError.identityConflict }
+                    }
+                }
+            } else {
+                guard bindAccountDevice(accepted.inviter, name: name, to: &group, retaining: Set(group.members.map(\.id))) else { throw GroupStorageError.identityConflict }
+            }
             next.groups[index].members = GroupSnapshot.Record(group).members
             next.groups[index].accountDevices = group.accountDevices
         }

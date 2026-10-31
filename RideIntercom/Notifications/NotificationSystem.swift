@@ -9,6 +9,13 @@ import UIKit
 /// The only authorization/APNs boundary. Unit and local automation never prompt.
 @MainActor
 enum NotificationSystem {
+    static let callRequestCategoryIdentifier = "RIDEINTERCOM_CALL_REQUEST"
+    static let respondOnPhoneActionIdentifier = "RIDEINTERCOM_RESPOND_ON_IPHONE"
+    static var callRequestCategory: UNNotificationCategory {
+        let action = UNNotificationAction(identifier: respondOnPhoneActionIdentifier,
+            title: String(localized: "Respond on iPhone"), options: [])
+        return UNNotificationCategory(identifier: callRequestCategoryIdentifier, actions: [action], intentIdentifiers: [], options: [])
+    }
     static var permitsSystemAccess: Bool {
         let environment = ProcessInfo.processInfo.environment
         return environment["RIDEINTERCOM_LOCAL_TESTING"] != "1" && environment["XCTestConfigurationFilePath"] == nil && environment["XCTestBundlePath"] == nil

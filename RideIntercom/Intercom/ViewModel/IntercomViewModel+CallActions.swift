@@ -42,7 +42,7 @@ extension IntercomViewModel {
     /// and the local media pipeline must both be ready.
     func recordEstablishedCall() {
         guard canStartCalls, isAudioReady, !enforceCallAccess || callAccessState.isEstablished,
-              authenticatedPeerIDs.contains(where: { peerProfiles[$0]?.verified != nil }),
+              authenticatedPeerIDs.contains(where: { currentRepresentativeProfiles[$0]?.verified != nil }),
               let group = groups.first(where: { $0.id == activeGroupID }) else { return }
         let destination: CallDestination?
         if group.kind == .group {

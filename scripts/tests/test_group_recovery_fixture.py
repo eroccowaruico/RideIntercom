@@ -25,11 +25,27 @@ class GroupRecoveryFixtureTests(unittest.TestCase):
         self.assertEqual((directory / 'groups.json').read_bytes(), CORRUPT)
         with self.assertRaises(ValueError):
             verify(directory)
-        (directory / 'groups.json').write_text(json.dumps({'version': 4, 'groups': [], 'users': []}))
+        (directory / 'groups.json').write_text(json.dumps({'version': 8, 'groups': [], 'users': []}))
         with self.assertRaises(ValueError):
             verify(directory)
         (directory / 'groups-corrupt-fixture.json').write_bytes(CORRUPT)
         verify(directory)
+
+    def test_stale_future_or_nonempty_recovery_is_rejected(self):
+        directory = group_directory(self.container, self.root, self.namespace)
+        prepare(directory)
+        (directory / 'groups-corrupt-fixture.json').write_bytes(CORRUPT)
+        for manifest in [
+            {'version': 4, 'groups': [], 'users': []},
+            {'version': 7, 'groups': [], 'users': []},
+            {'version': 9, 'groups': [], 'users': []},
+            {'version': 8, 'groups': [{}], 'users': []},
+            {'version': 8, 'groups': [], 'users': None},
+        ]:
+            with self.subTest(manifest=manifest):
+                (directory / 'groups.json').write_text(json.dumps(manifest))
+                with self.assertRaises(ValueError):
+                    verify(directory)
 
     def test_foreign_device_non_app_container_and_normal_namespace_are_rejected(self):
         for container, root, namespace in [
@@ -69,7 +85,7 @@ class GroupRecoveryFixtureTests(unittest.TestCase):
         directory = group_directory(container, root, self.namespace)
         prepare(directory)
         (directory / 'groups-corrupt-fixture.json').write_bytes(CORRUPT)
-        (directory / 'groups.json').write_text(json.dumps({'version': 4, 'groups': [], 'users': []}))
+        (directory / 'groups.json').write_text(json.dumps({'version': 8, 'groups': [], 'users': []}))
         relocated = container.with_name(str(uuid4()))
         container.rename(relocated)
         out = Path(self.temporary.name) / '20261021-1234'

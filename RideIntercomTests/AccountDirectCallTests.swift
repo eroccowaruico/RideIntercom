@@ -250,9 +250,10 @@ struct AccountDirectCallTests {
         try f.introduce(b, to: a)
         var old = a.groupStore.snapshot
         old.version = 5
+        for index in old.groups.indices { old.groups[index].accountDevices = [:] }
         let receipt = try #require(old.groups.first?.pendingInvitation)
         let upgraded = try GroupSnapshot.decode(old.encoded()).upgraded()
-        #expect(upgraded.version == 7)
+        #expect(upgraded.version == 8)
         #expect(upgraded.groups.first?.pendingInvitation == receipt)
         #expect(upgraded.groups.first?.credentialReference == old.groups.first?.credentialReference)
         #expect(upgraded.users == old.users)

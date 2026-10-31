@@ -1,4 +1,21 @@
 # 検証状況と証跡
+## Watchからの呼出しとiPhoneでの通知応答
+
+2026-10-31、`6c8ea8c8527285c42825971e72923ce66b1a4877`から隔離したApp工程で、Watchの保存ユーザーへの用途別通知可否投影・明示呼出し・現在requestIDだけの取消と、iOSの固定category／「iPhoneで応答」背景actionを共通通知検証へ接続した。[現行契約](../spec/App/Watch操作.md)に通常tapとの違いとiPhone音声の範囲を記載した。
+
+| ローカル検証 | 結果 |
+|---|---|
+| 関連App単体 | Watch・通知・AppCallOwner経由のCallActions／AppIntentsの6 suite、63件成功。失敗・skip・runtime warningなし。`.validation/watch-notifications-final/macos.xcresult` |
+| 追加契約 | 5テストで背景actionのoptions・未知/dismiss/別category拒否・別通話維持、Watch呼出しが音声を始めないこと、旧取消ID・group・許可取消・削除・期限・旧ログインの拒否を確認。default tapと遅延背景actionも既存試験へ接続 |
+| SDK build | generic iOS Simulator向けAppとgeneric watchOS Simulator向けWatchが成功。Watch targetの既知のAppIntents未使用metadata省略warningを保持。Simulatorを起動せず、実OS許可・実APNs・実マイクを使っていない |
+| 翻訳・入力・資源 | App追加1key／Watch追加9keyのcompiled英日、既存catalog不変、386 source/configurationとserver 26入力の前後一致、所有Mac host残存なしを確認。project-owned build番号以外は不変 |
+
+最初は未実装APIのcompile REDを確認した。その後の新規試験は、保存相手の削除Taskがunowned fixtureより長く残って1回クラッシュしたため証跡を保持し、試験だけを保存先削除と同期的な投影更新へ修正した。active call中のreloadが拒否される期待の誤りも試験側で修正した。製品側へ寿命回避のqueue・新しい状態層を追加していない。
+
+server/packageを変更・再試験せず、対応する固定APNs categoryは独立server工程から取り込む。実Watch転送・背景actionのiPhoneへの実配送・ロック／終了状態・iPhone音声成立は[未確認事項](未確認事項.md#iphone依存watchの実機操作と音声)に残す。Watch自身の音声は未実装で、通常通知の受付を配送成功や通話成立の証明としていない。
+
+
+[通常グループの代表端末検証](history/通常グループの代表端末検証.md)に、本人単位の保存・待機/交換・共通参加者判定とApp回帰の証跡を記録する。複数実端末の同時切替は別受入。
 
 ## Mac WebRTCのプライバシー情報の配置
 

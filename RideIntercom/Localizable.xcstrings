@@ -4080,6 +4080,17 @@
           }
         }
       }
+    },
+    "Respond on iPhone": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneで応答"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

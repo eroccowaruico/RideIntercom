@@ -5,11 +5,11 @@
 | 項目 | 現在の実装 |
 |---|---|
 | 通話の所有者 | iPhone本体の`AppCallOwner`と既存`IntercomViewModel`。Watchにアカウント・利用権・RTC・保存ユーザーの別台帳を作らない |
-| Watchの操作 | 保存済みユーザーまたは通常groupの開始、現在通話の終了、iPhone側マイクの明示ミュート／解除、現在状態の更新 |
+| Watchの操作 | 保存済みユーザーまたは通常groupの開始、現在通話の終了、iPhone側マイクの明示ミュート／解除、現在状態の更新。用途別許可がある保存ユーザーへの明示呼出し通知と、現在の呼出しの取消 |
 | 通話先 | 既存`callTargets`を再利用。groupで会っただけの参加者と内部1対1groupを独立した宛先にしない。名前は本人名／端末側の別名をそのまま表示し、翻訳keyにしない |
 | 音声 | iPhoneまたはiPhoneへ接続したヘッドホンから入出力する。Watchのマイク・スピーカーでの通話は未実装 |
 | 到達不能 | 操作をqueueへ積まず、未接続を表示する。接続復帰時に現在状態を取得し、古い開始・マイクONを自動実行しない |
-| 着信 | 呼出し通知の送信、Watchでの着信応答、背景からの自動通話開始はこの操作基盤に含まない |
+| 着信 | iPhone宛APNsの標準転送を利用する。通知内の「iPhoneで応答」はiPhoneの既存通知検証と通話開始へ渡す。Watch上の通常tapはWatch Appを開くだけで、通知到着では通話を開始しない |
 
 新しいwatchOS targetはiPhone依存の単一Appとし、最低OSは26.4。iPhone/macOSの最低OSは引き上げない。`WKApplication=true`、`WKCompanionAppBundleIdentifier=com.yowamushi-inc.RideIntercom.RideIntercom`、`WKRunsIndependentlyOfCompanionApp=false`。この制御機能のためにマイク、APNs、CarPlayのentitlementや外部登録を追加しない。
 
@@ -26,6 +26,11 @@
 | `WatchPhoneBridge` | iPhoneで1つ保持しWCSessionをactivate。Observationで状態変更を検出し、`updateApplicationContext`へ最新snapshotだけ渡す。周期pollingを設けない |
 | `WatchConnectivityClient` | activatedかつ到達可能なWCSessionの`sendMessageData`だけで要求する。activation／到達性変更／Watch前面復帰時に更新。接続切断で表示を外し、古い非同期応答を採用しない |
 | `WatchControlClient` | 応答待ちに重複タップをqueueへ追加しない。古い応答が新しいcontextを上書きしない。送信受付だけで接続済み・マイクONと表示しない |
+| 呼出し先と結果 | `canNotify`は現在の保存ユーザーの用途別許可から投影し、通常groupには付けない。iPhoneで要求時にSavedUserを再解決し、既存`notifications.send`へ渡す。既存outgoingのrequestID・固定status・取消可否だけを表示し、acceptedを配送・応答・通話成立と表示しない。古いrequestIDによる新しい呼出しの取消を拒否する |
+
+通知応答の固定categoryは`RIDEINTERCOM_CALL_REQUEST`、actionは`RIDEINTERCOM_RESPOND_ON_IPHONE`。iOSで`UNNotificationAction`のoptionsを空として登録し、Watchへ転送された通知の背景actionを元の通知先であるiPhoneで処理する。Appの通知bridgeから[共通の通知検証](通知仕様.md)へ渡し、受信ON・recipient・120秒期限・取消・保存関係・ログイン世代・別通話の維持を再利用する。未知action・dismiss・別categoryのactionを通話開始へ渡さない。Watch側に通知資格、APNs token、応答待ちqueue、再送・pollingを追加しない。
+
+この配送先の区別は[Appleのaction規則](https://developer.apple.com/documentation/watchos-apps/adding-actions-to-notifications-on-watchos)による。通常tapがWatch Appを開く動作は[標準通知の表示仕様](https://developer.apple.com/documentation/watchos-apps/presenting-notifications-on-apple-watch)と分ける。「iPhoneで応答」の登録はWatch自身の音声やOS背景起動の実機成立を保証しない。
 
 snapshotの現在通話は閲覧中groupと分ける。表示状態は未ログイン、待機、接続待ち、通話中、音声一時停止、音声利用不能を区別し、現在のiPhone状態から導く。失敗は古い操作・宛先消失・現在アカウントなし・操作不可・到達不能に分け、必要時はiPhoneを開くよう案内する。英語と日本語の標準SwiftUI表示を用意する。
 
@@ -35,4 +40,4 @@ snapshotの現在通話は閲覧中groupと分ける。表示状態は未ログ�
 
 [WCSession](https://developer.apple.com/documentation/watchconnectivity/wcsession)の背景転送は即時ではないため、開始・マイクONを`transferUserInfo`へ退避しない。[sendMessage](https://developer.apple.com/documentation/watchconnectivity/wcsession/sendmessage(_:replyhandler:errorhandler:))によるWatchからiPhoneの背景起動と、マイクの利用・長時間継続は別条件として確認する。
 
-Watch音声の媒体経路と長時間の電池消費は未実装・未受入。既存WebRTC binaryはwatchOS sliceを持たず、SessionManagerにもwatchOS音声sessionの工程が必要。[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)が定めるCallKit通話等の通信条件を確認し、WatchConnectivityの操作配送を連続音声の代用にしない。CarPlay専用画面・entitlementも本工程の実装ではない。
+Watch音声の媒体経路と長時間の電池消費は未実装・未受入。既存WebRTC binaryはwatchOS sliceを持たず、SessionManagerにもwatchOS音声sessionの工程が必要。[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)が定める音声配信・CallKit通話等の通信条件を確認する。ただし本製品は電話型通話にしないため、CallKitを音声実装の前提にせず、採用しない条件で成立する経路を評価する。WatchConnectivityの操作配送を連続音声の代用にしない。CarPlay専用画面・entitlementも本工程の実装ではない。

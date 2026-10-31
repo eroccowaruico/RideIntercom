@@ -53,7 +53,7 @@ final class WatchPhoneBridge: NSObject, WCSessionDelegate {
         Task { @MainActor [weak self] in
             guard let self, let owner, messageData.count <= 32_768,
                   let request = try? JSONDecoder().decode(WatchControlRequest.self, from: messageData),
-                  let data = try? JSONEncoder().encode(owner.handleWatchRequest(request)) else {
+                  let data = try? JSONEncoder().encode(await owner.handleWatchRequest(request)) else {
                 response.send(Data()); return
             }
             response.send(data)

@@ -221,8 +221,15 @@ struct IntercomGroup: Identifiable, Equatable {
                       && DeviceIdentityProof.isValidPublicKey(binding.publicKey)
                   }) else { throw IntercomGroupError.invalidIdentity }
         } else {
-            guard accountDevices.isEmpty else { throw IntercomGroupError.invalidIdentity }
+            let memberIDs = Set(members.map(\.id))
+            guard Set(accountDevices.keys).isSubset(of: memberIDs),
+                  Set(accountDevices.values.map(\.principal)).count == accountDevices.count,
+                  accountDevices.allSatisfy({ id, binding in
+                      !id.hasPrefix(GroupMember.pendingInvitePrefix) && binding.principal.isValid
+                          && DeviceIdentityProof.isValidPublicKey(binding.publicKey)
+                  }) else { throw IntercomGroupError.invalidIdentity }
             if kind == .direct {
+                guard accountDevices.isEmpty else { throw IntercomGroupError.invalidIdentity }
                 guard members.count == 2, !members.contains(where: { $0.id.hasPrefix(GroupMember.pendingInvitePrefix) }),
                       id == Self.directCallID(memberIDs: members.map(\.id)) else { throw IntercomGroupError.invalidIdentity }
             }
