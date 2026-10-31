@@ -25,6 +25,11 @@ simple = { limit = 30, period = 60 }
 name = "APPLE_ENROLLMENT_GLOBAL_LIMIT"
 namespace_id = "1002"
 simple = { limit = 300, period = 60 }
+# Shared across rooms and status for one authenticated account (or trial owner).
+[[ratelimits]]
+name = "CALL_API_LIMIT"
+namespace_id = "1005"
+simple = { limit = 600, period = 60 }
 
 [[durable_objects.bindings]]
 name = "SIGNALING_ROOM"
@@ -80,6 +85,10 @@ simple = { limit = 30, period = 60 }
 name = "APPLE_ENROLLMENT_GLOBAL_LIMIT"
 namespace_id = "1004"
 simple = { limit = 300, period = 60 }
+[[previews.ratelimits]]
+name = "CALL_API_LIMIT"
+namespace_id = "1006"
+simple = { limit = 600, period = 60 }
 
 [[previews.durable_objects.bindings]]
 name = "SIGNALING_ROOM"

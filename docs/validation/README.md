@@ -1,5 +1,7 @@
 # 検証状況と証跡
 
+[公開通話APIの頻度制限](history/公開通話APIの頻度制限.md)で、認証済みaccount単位のrooms/status制限とcleanupの維持を確認した。Worker全78件・型検査・dry-runが成功し、実egress／請求監視／配置後の効果は別に残す。
+
 [検証プロセスの終了と回収](history/検証プロセスの終了と回収.md)で、別process groupの所有子孫回収を確認した。Python 105件・Node 4件成功。音声packageのCoreAudio待ち解消とは区別する。
 
 ## Watchからの呼出しとiPhoneでの通知応答

@@ -162,6 +162,7 @@
 | [validation/history/OS設定と埋込productの監査.md](<validation/history/OS設定と埋込productの監査.md>) | 設定不足・署名入力・埋込productの読取監査とbuild検証 |
 | [validation/history/Widget表示と共通採番のローカル検証.md](<validation/history/Widget表示と共通採番のローカル検証.md>) | Widget表示・古い操作・3product共通採番の検証 |
 | [validation/history/検証プロセスの終了と回収.md](<validation/history/検証プロセスの終了と回収.md>) | timeout・中断時の所有子孫回収と結果保持 |
+| [validation/history/公開通話APIの頻度制限.md](<validation/history/公開通話APIの頻度制限.md>) | 通話APIの近似頻度制限・cleanup維持・ローカル回帰 |
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
 | [validation/history/通知Appの接続と認可の検証.md](<validation/history/通知Appの接続と認可の検証.md>) | 通知HTTP・端末内同意・取消・ログイン世代・共通通話操作のローカル検証 |
 | [validation/history/通知とMacメニューの統合.md](<validation/history/通知とMacメニューの統合.md>) | 通知・Mac表示・容量回復・iPhone/iPad操作と配布生成物の統合検証 |

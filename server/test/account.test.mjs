@@ -824,3 +824,26 @@ test('account deletion collects a join already waiting for the SFU response', { 
         assert.equal((await call(runtime, `/api/rooms/${room}/join`, { participantId: 'fresh-peer', offer }, fresh.accessToken)).status, 200);
     } finally { release(); delete provider.onEstablish; await runtime.dispose(); }
 });
+
+
+test('API quota is shared by verified devices while other accounts, revocation and deletion remain independent', async () => {
+    const runtime = await makeRuntime(options, { appleKeys: [publicKey], apiLimit: 2 });
+    try {
+        const one = await (await signIn(runtime, await challenge(runtime))).json();
+        const two = await (await signIn(runtime, await challenge(runtime))).json();
+        const other = await (await signIn(runtime, await challenge(runtime), { sub: 'api-other-user' })).json();
+        assert.equal((await call(runtime, '/api/status', undefined, one.accessToken, 'GET')).status, 200);
+        assert.equal((await call(runtime, '/api/status', undefined, two.accessToken, 'GET')).status, 200);
+        const denied = await call(runtime, '/api/status', undefined, two.accessToken, 'GET');
+        assert.equal(denied.status, 429);
+        assert.equal((await denied.json()).code, 'api_rate_limited');
+        assert.equal((await call(runtime, '/api/status', undefined, other.accessToken, 'GET')).status, 200);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, two.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, '/api/status', undefined, two.accessToken, 'GET')).status, 401);
+        assert.equal((await call(runtime, '/api/notifications/device', undefined, one.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, '/api/notifications/grants', undefined, one.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, '/api/auth/account', undefined, one.accessToken, 'DELETE')).status, 200);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, one.accessToken, 'GET')).status, 401);
+        assert.equal((await call(runtime, '/api/auth/session', undefined, other.accessToken, 'GET')).status, 200);
+    } finally { await runtime.dispose(); }
+});

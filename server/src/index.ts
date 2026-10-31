@@ -32,11 +32,34 @@ export default {
         const headers = new Headers(request.headers)
         headers.delete('Authorization'); headers.set('X-Owner', owner)
         headers.delete('X-User'); if (device) headers.set('X-User', device.accountID)
-        if (url.pathname === '/api/status' && request.method === 'GET') {
-            return env.USAGE_GUARD.get(env.USAGE_GUARD.idFromName('global')).fetch(new Request('https://internal/status'))
-        }
+        const isStatus = url.pathname === '/api/status' && request.method === 'GET'
         const match = url.pathname.match(/^\/api\/rooms\/([a-f0-9]{64})\/(ice\/[a-zA-Z0-9_-]{1,80}|join|sessions\/[^/]+(?:\/(?:pull|publish|renew|signal))?)$/)
+        if (!isStatus && !match) return json({ error: 'Invalid route or room capability' }, 400)
+        // Only the actual cleanup routes are exempt, never arbitrary DELETEs.
+        // Authentication above and room ownership checks below remain mandatory.
+        const cleanup = request.method === 'DELETE' && match !== null
+            && /^(?:ice\/[a-zA-Z0-9_-]{1,80}|sessions\/[^/]+)$/.test(match[2])
+        if (!cleanup) {
+            const limited = await limitCallAPI(env, device ? `account:${device.accountID}` : `owner:${owner}`)
+            if (limited) return limited
+        }
+        if (isStatus) return env.USAGE_GUARD.get(env.USAGE_GUARD.idFromName('global')).fetch(new Request('https://internal/status'))
         if (!match) return json({ error: 'Invalid route or room capability' }, 400)
         return env.SIGNALING_ROOM.get(env.SIGNALING_ROOM.idFromName(match[1])).fetch(new Request(request, { headers }))
     }
+}
+
+// Approximate per-location abuse protection, not a billing or media-byte cap.
+async function limitCallAPI(env: Env, key: string): Promise<Response | null> {
+    try {
+        if (env.CALL_API_LIMIT && (await env.CALL_API_LIMIT.limit({ key })).success) return null
+        if (env.CALL_API_LIMIT) {
+            const response = json({ code: 'api_rate_limited', error: 'Too many call service requests. Retry after 60 seconds.' }, 429)
+            response.headers.set('Retry-After', '60')
+            return response
+        }
+    } catch { /* An unavailable limiter must not silently admit new work. */ }
+    const response = json({ code: 'api_rate_limit_unavailable', error: 'Call service request limit is unavailable. Retry after 60 seconds.' }, 503)
+    response.headers.set('Retry-After', '60')
+    return response
 }

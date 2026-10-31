@@ -8,14 +8,14 @@ export const hash = createHash('sha256').update(token).digest('hex');
 export const room = 'a'.repeat(64);
 export const offer = { type: 'offer', sdp: 'v=0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=mid:0\r\na=sctp-port:5000\r\n' };
 export const provider = { requests: [], serial: 0, upstreamFails: false, upstreamGone: false };
-export async function makeRuntime(overrides = {}, { storageDirectory, appleKeys = [], clockOffsetMs = 0, fixedNowMs, enrollmentLimits = true, appleAuthorization, apns } = {}) {
+export async function makeRuntime(overrides = {}, { storageDirectory, appleKeys = [], clockOffsetMs = 0, fixedNowMs, enrollmentLimits = true, apiLimit = 600, appleAuthorization, apns } = {}) {
     const source = clockOffsetMs || fixedNowMs !== undefined ? { script: `const systemNow = Date.now; Date.now = () => ${fixedNowMs === undefined ? `systemNow() + ${Number(clockOffsetMs)}` : Number(fixedNowMs)};\n` + await readFile('dist/index.js', 'utf8') }
         : { scriptPath: 'dist/index.js' };
     const instance = new Miniflare({ durableObjectsPersist: storageDirectory,
-        ratelimits: enrollmentLimits ? {
+        ratelimits: { ...(enrollmentLimits ? {
             APPLE_ENROLLMENT_IP_LIMIT: { namespace_id: '1001', simple: { limit: 30, period: 60 } },
             APPLE_ENROLLMENT_GLOBAL_LIMIT: { namespace_id: '1002', simple: { limit: 300, period: 60 } }
-        } : {},
+        } : {}), ...(apiLimit === false ? {} : { CALL_API_LIMIT: { namespace_id: '1005', simple: { limit: apiLimit, period: 60 } } }) },
         modules: true, ...source, compatibilityDate: '2024-11-01',
         durableObjects: { SIGNALING_ROOM: { className: 'SignalingRoom', useSQLite: true }, USAGE_GUARD: { className: 'UsageGuard', useSQLite: true },
             NOTIFICATION_INDEX: { className: 'NotificationIndex', useSQLite: true },

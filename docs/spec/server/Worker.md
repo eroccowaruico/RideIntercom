@@ -157,6 +157,25 @@ Appleとのコード交換・取消の契約は[Token validation](https://develo
 
 公開招待URLは維持。中継用wire contractは変更し、全参加者を同じ版へ更新する。これはWebRTC SFU用のWorker APIであり、旧 `/api/sessions`・部屋全体のoffer/ICE中継は廃止する。
 
+### 通話APIの頻度制限
+
+登録入口とは別の`CALL_API_LIMIT`で、認証後・Room／UsageGuardへの転送前に過剰な通話API要求を抑える。参加者秒の予約や所有者確認は引き続き既存のDOが行う。
+
+| 項目 | 契約 |
+|---|---|
+| 対象 | `GET /api/status`と有効な`/api/rooms/{groupHash}/...`のHTTP要求を合算。WebSocketの接続要求を含む。接続後のmessage上限は既存のWS制限が担当 |
+| 単位と上限 | Apple確認済み資格は同じ内部account IDで600回/60秒を共有。端末・部屋・公開IDの変更で枠を分割しない。試用registryは同じownerに割り当てた資格で共有。他のaccount／ownerとは分離 |
+| cleanup | `DELETE R/sessions/{id}`と`DELETE R/ice/{participantId}`は新しい頻度枠を消費しない。認証・session所有者確認を省略せず、他のpathへのDELETEは例外にしない。alarmによる回収もこの枠の対象外 |
+| 認証・通知の独立 | `/api/auth/*`と`/api/notifications/*`はそれぞれ既存の制限を使用する。通話API枠が尽きてもサインアウト・アカウント削除・通知宛先／許可／呼出しの取消を妨げない。Local通話にも適用しない |
+| 頻度超過 | HTTP 429、`code: api_rate_limited`、`Retry-After: 60`、`Cache-Control: no-store`。新しいRoom／UsageGuard転送やSFU／TURN呼出しより前に拒否 |
+| 制限機能の障害 | binding不在・例外はHTTP 503、`code: api_rate_limit_unavailable`と同じ待機headerで新しい処理を拒否。上記cleanupはbindingなしでも可能。既存のサービス停止・SFU設定不足の判定は別で維持 |
+| 保存・ログ | bindingのkey以外にaccount別の回数台帳を追加しない。Bearer・内部ID・room capabilityを応答やログに含めない |
+| 設定 | Production namespace `1005`、Preview `1006`。上限は両環境とも600回/60秒で、登録用namespaceとは分ける |
+
+現在のRTCは参加時にICE・join・publish・WebSocket接続を各1回要求し、参加者差分をまとめてpullする。最大8人でも相手は7人で、通常のleaseは600秒、更新開始は300秒後。WebSocket再接続は1秒から最大10秒へ待機を広げ、pullの接続切断再試行は最大2回である。statusは明示確認であり定期pollingしない。この頻度に余裕を持たせて600回/60秒とし、同一ownerに8人分の開始・全相手購読・更新・status 120回を集めた160要求が通るローカル回帰を置く。人数枠や既存の開始回数制限を変更するものではない。
+
+[CloudflareのRate Limiting API](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)はlocation単位の近似制限で、厳密な全世界上限やmedia転送量・請求額の上限ではない。実egress・請求監視・停止運用は[未実装課題](../../backlog/未実装課題.md)に残す。RTCの429処理は既存のエラー処理のままで、今回のserver工程では自動待機・再試行を追加していない。
+
 ### 表示名を保存しない境界
 
 RTCはjoinへ表示名を送らず、Workerは参加者の表示名を保存・配信しない。余分な`displayName`を受け取ってもmemberへコピーしない。participant ID・owner・SFU session ID・期限・channel・購読関係は接続認可と回収のため保持する。表示名は端末側のグループ情報と、グループ鍵で認証・暗号化されたpresenceで扱う。Workerのpeer一覧ではIDだけを名前の代替値に使い、グループの復号後に相手の表示名を取得する。
