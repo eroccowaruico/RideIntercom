@@ -40,3 +40,19 @@ StoreKitTestをimportするとSDK内部の旧型参照に関するdeprecated警�
 | DerivedData再利用 | 既定を`/private/tmp/RideIntercom-StoreKit`に固定。既定path・明示pathの両方で既存exclusive_runのlock競合時に実行を拒否し、出力作成・build・cleanupを開始しないことを確認（`lock-probe.json`） |
 
 Appleの[StoreKit 2紹介](https://developer.apple.com/videos/play/wwdc2021/10114/)で、同じ商品に本人購入とFamily Sharingの複数状態があり得ること、および配列を評価する必要を確認した。独自の購入台帳、端末間ロック、定期サーバー照会は追加していない。
+
+## 配布由来の表示と再確認の接続
+
+同日、一般向けUIを統合した`4a4e97b6882111f6501cf1c16421dd08f104f20f`へ配布作業worktreeをfast-forwardし、配布差分と自動build番号を含む未コミット6ファイルのSHA一致を確認してからStoreAccessSectionを接続した。
+
+| 対象 | 条件と結果 |
+|---|---|
+| 専用回帰 | `.validation/distribution-ui-final`。29件成功（配布11件、既存unit 15件、実StoreKit 3件）。失敗・skip・runtime warningなし。test・所有host cleanup・summary・acceptance・source/fixture/config不変の全stage成功 |
+| UI関連unit | 配布状態、購入状態、StandardPresentation、StandardMessageLocalizationの28件成功。画面の新しいfixtureやUI専用の状態層は追加していない |
+| 表示 | originがtestDistributionの場合だけ「テスト配布で利用可能」とし、利用権の見出しへ変更。購入由来の期限・設定済み商品の購入復元は保持 |
+| 再確認 | 判定不能からrefreshだけで再取得し、商品未設定でも購入read・sync・updates観測を増やさず利用可能へ戻ることをunitで確認。実行中は既存handleからbusyを導出 |
+| 製品版・購入なし | 商品設定済みでverified productionかつ購入取引なしの場合はnotPurchased。unknownを経てproductionへ戻っても購入者相当にならないことをunitで確認 |
+| 日本語 | 新しい6キーが実App bundleへ含まれること、既存の全翻訳値を保持することを確認（`localization.json`）。画面専用fixtureは追加していない |
+| 残る受入 | 実TestFlight・App Store版、実機・圏外・配布切替は未確認。注入した配布状態のunit成功を、実配布環境の識別成功とは扱わない |
+
+同時refresh/restoreは既存処理へまとめる契約を仕様へ記録した。新しいqueue・lock・サーバー台帳は追加していない。標準の再実行scriptへ配布unitを対象追加した1行はroot側の変更と一致させ、配布patchからは除外した。

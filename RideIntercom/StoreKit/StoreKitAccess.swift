@@ -13,41 +13,60 @@ protocol StoreKitAccessSource: AnyObject {
 final class StoreKitAccess {
     let catalog: StoreProductCatalog
     private(set) var snapshot: StoreEntitlementSnapshot?
+    private(set) var distributionAccess: StoreDistributionAccess = .disabled
     private(set) var isRefreshing = false
     private(set) var message: String?
     private(set) var lastRefreshFailed = false
+    var isCheckingAccess: Bool { isRefreshing || cancelDistributionRead != nil }
     @ObservationIgnored private let isCurrentUser: @MainActor () -> Bool
     @ObservationIgnored private let source: any StoreKitAccessSource
+    @ObservationIgnored private let distributionReader: (@MainActor () async throws -> StoreDistributionAccess)?
     @ObservationIgnored private let readTimeout: Duration
     @ObservationIgnored private var observationTask: Task<Void, Never>?
     @ObservationIgnored private var cancelRead: (() -> Void)?
+    // Observe the existing handle so distribution-only checks update the UI.
+    private var cancelDistributionRead: (() -> Void)?
+    @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var pendingRefresh = false
 
     init(catalog: StoreProductCatalog? = nil, source: (any StoreKitAccessSource)? = nil,
-         isCurrentUser: (@MainActor () -> Bool)? = nil, readTimeout: Duration = .seconds(15)) {
+         isCurrentUser: (@MainActor () -> Bool)? = nil, readTimeout: Duration = .seconds(15),
+         distributionReader: (@MainActor () async throws -> StoreDistributionAccess)? = nil) {
         self.catalog = catalog ?? .production
         self.source = source ?? SystemStoreKitAccessSource()
         self.isCurrentUser = isCurrentUser ?? { true }
         self.readTimeout = readTimeout
+        if let distributionReader { self.distributionReader = distributionReader }
+        else if StoreDistributionAccess.automaticCheckEnabled {
+            self.distributionReader = { try await StoreDistributionAccess.readForCurrentProcess() }
+        } else { self.distributionReader = nil }
+        self.distributionAccess = self.distributionReader == nil ? .disabled : .unknown
     }
     deinit { observationTask?.cancel() }
 
     func evaluation(at now: Date) -> StoreAccessEvaluation {
-        guard catalog.isConfigured else { return .init(status: .unconfigured) }
         guard isCurrentUser() else { return .init(status: .unknown) }
+        if distributionAccess == .testDistribution { return .init(status: .active, origin: .testDistribution) }
         let evaluation = snapshot?.evaluate(at: now) ?? .init(status: .unknown)
-        if lastRefreshFailed && evaluation.status != .active { return .init(status: .unknown) }
+        if catalog.isConfigured, evaluation.status == .active { return evaluation }
+        if distributionAccess == .unknown { return .init(status: .unknown) }
+        guard catalog.isConfigured else { return .init(status: .unconfigured) }
+        if lastRefreshFailed { return .init(status: .unknown) }
         return evaluation
     }
 
     func start() async {
-        guard catalog.isConfigured, isCurrentUser(), observationTask == nil else { return }
-        let changes = source.updates(catalog: catalog)
-        observationTask = Task { [weak self] in
-            for await _ in changes {
-                guard !Task.isCancelled else { return }
-                await self?.refresh()
+        guard isCurrentUser(), !hasStarted else { return }
+        hasStarted = true
+        if catalog.isConfigured {
+            let changes = source.updates(catalog: catalog)
+            observationTask = Task { [weak self] in
+                for await _ in changes {
+                    guard !Task.isCancelled else { return }
+                    // Purchase updates do not require another distribution check.
+                    await self?.load(restore: false)
+                }
             }
         }
         await refresh()
@@ -55,6 +74,10 @@ final class StoreKitAccess {
 
     func stop() {
         generation += 1
+        hasStarted = false
+        cancelDistributionRead?()
+        cancelDistributionRead = nil
+        distributionAccess = distributionReader == nil ? .disabled : .unknown
         observationTask?.cancel()
         observationTask = nil
         cancelRead?()
@@ -66,9 +89,36 @@ final class StoreKitAccess {
         lastRefreshFailed = false
     }
 
-    func refresh() async { await load(restore: false) }
+    func refresh() async {
+        let expectedGeneration = generation
+        async let distribution: Void = refreshDistribution(generation: expectedGeneration)
+        await load(restore: false)
+        await distribution
+    }
     /// AppStore.sync is used only by this explicit user action.
-    func restore() async { await load(restore: true) }
+    func restore() async {
+        let expectedGeneration = generation
+        await load(restore: true)
+        await refreshDistribution(generation: expectedGeneration)
+    }
+
+    private func refreshDistribution(generation expectedGeneration: Int) async {
+        guard let distributionReader, generation == expectedGeneration, isCurrentUser(),
+              !Task.isCancelled, cancelDistributionRead == nil else { return }
+        let attempt = StoreKitReadAttempt<StoreDistributionAccess>()
+        cancelDistributionRead = attempt.cancel
+        defer { if generation == expectedGeneration { cancelDistributionRead = nil } }
+        do {
+            let value = try await attempt.run(timeout: readTimeout, body: distributionReader)
+            guard generation == expectedGeneration, isCurrentUser(), !Task.isCancelled else { return }
+            distributionAccess = value
+        } catch {
+            guard generation == expectedGeneration, isCurrentUser(), !Task.isCancelled else { return }
+            // An offline refresh may keep this process's previously verified
+            // benefit. Nothing is persisted across a new app installation.
+            if distributionAccess != .testDistribution { distributionAccess = .unknown }
+        }
+    }
 
     private func load(restore: Bool) async {
         guard catalog.isConfigured, isCurrentUser() else { return }

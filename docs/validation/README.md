@@ -1,5 +1,19 @@
 # 検証状況と証跡
 
+## 配布利用権と外部操作の英日対応（2026-10-31）
+
+購入とは別の配布由来の権利を追加し、取得失敗から再確認できるようにした。現在ログインへ適用し、独自の購入台帳・端末間lock・永続paidフラグは追加しない。ショートカットの操作名・種類・応答・エラーとSiriフレーズを英日対応にし、本人名・呼び名を翻訳しない。
+
+| 検証 | 結果 |
+|---|---|
+| App統合 | macOS・iOS各335件成功、失敗・skip・runtime warningなし。`.validation/distribution-intents-final-macos`・`distribution-intents-final-ios` |
+| 日本語Settings | iOS UI1件で利用権表示、商品未設定の案内、復元を提供しない状態、Users/Groupsの移動を確認 |
+| StoreKit | 配布単体と既存の実StoreKitを合わせ29件成功。`.validation/distribution-ui-final`。商品設定済み/購入なし/production、配布確認のtimeoutと再試行、購入権利保持、stop/再開と旧結果破棄を含む。詳細は[StoreKit検証履歴](history/StoreKit端末利用権のローカル検証.md) |
+| 外部操作の翻訳 | 追加4テスト、metadata内の3操作、compiled日本語16項目/3フレーズ、applicationNameとtargetのplaceholderを確認。分離worktreeの`.validation/intent-localization-final`。翻訳keyと同じ名前・記号を含む名前も保持 |
+| ソース・資源 | 統合前後の入力一致、StoreKit関連入力の先行29件との一致、所有Mac host回収と既存Simulatorのshutdownを確認。集約は`.validation/distribution-intents-delivery` |
+
+package・Worker・音声E2Eは変更・再実行していない。実TestFlight・App Store・Siri発話/OS起動の確認は残る。商品販売・無料配布コード・グループ操作や通話の課金条件はこの変更で有効化していない。
+
 ## 一般画面・直近通話・ショートカットの統合（2026-10-31）
 
 Standardの英日画面、Advancedとの同一状態の共有、認証と音声準備の成立後だけ保存する直近宛先、App所有の同じ通話モデルを使うApp Intentsを統合した。閲覧だけでは別通話へ切り替えず、削除済み宛先と古いログインの外部操作を拒否する。

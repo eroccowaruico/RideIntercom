@@ -48,6 +48,7 @@ def run(output, derived):
         '-derivedDataPath', str(derived), '-resultBundlePath', str(bundle),
         '-only-testing:RideIntercomTests/StoreEntitlementTests',
         '-only-testing:RideIntercomTests/StoreKitAccessTests',
+        '-only-testing:RideIntercomTests/StoreDistributionAccessTests',
         '-only-testing:RideIntercomTests/LocalStoreKitTests',
         'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION RIDEINTERCOM_STOREKIT_TESTING',
         'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.StoreKit.' + runner.out.name,

@@ -2780,6 +2780,232 @@
           }
         }
       }
+    },
+    "Start a call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を開始"
+          }
+        }
+      }
+    },
+    "Resume recent call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近の通話を再開"
+          }
+        }
+      }
+    },
+    "End current call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在の通話を終了"
+          }
+        }
+      }
+    },
+    "Connect to a saved user or group in RideIntercom.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomに保存したユーザーやグループへ接続します。"
+          }
+        }
+      }
+    },
+    "Call destination": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話先"
+          }
+        }
+      }
+    },
+    "Start a call with ${target}": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${target}と通話を開始"
+          }
+        }
+      }
+    },
+    "Connection started. The other person must also join the call.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続を開始しました。相手も通話に参加する必要があります。"
+          }
+        }
+      }
+    },
+    "There is no current call to end.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終了する通話はありません。"
+          }
+        }
+      }
+    },
+    "Call ended.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を終了しました。"
+          }
+        }
+      }
+    },
+    "This saved call destination is no longer available. Choose it again in RideIntercom.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この通話先は利用できなくなりました。RideIntercomでもう一度選んでください。"
+          }
+        }
+      }
+    },
+    "The call could not be started.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を開始できませんでした。"
+          }
+        }
+      }
+    },
+    "No recent call is available. Choose a saved user or group in RideIntercom.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近の通話はありません。RideIntercomで保存済みのユーザーかグループを選んでください。"
+          }
+        }
+      }
+    },
+    "Sign in with Apple in RideIntercom first.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先にRideIntercomでAppleにサインインしてください。"
+          }
+        }
+      }
+    },
+    "User": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザー"
+          }
+        }
+      }
+    },
+    "Group": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ"
+          }
+        }
+      }
+    },
+    "Remove the previous account data on this device to set up your account again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の以前のアカウントデータを削除して、アカウントを設定し直してください。"
+          }
+        }
+      }
+    },
+    "Access": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権"
+          }
+        }
+      }
+    },
+    "Access Status": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権の状態"
+          }
+        }
+      }
+    },
+    "Available with Test Distribution": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テスト配布で利用可能"
+          }
+        }
+      }
+    },
+    "Check Access": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権を確認"
+          }
+        }
+      }
+    },
+    "Checking Access": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用権を確認中"
+          }
+        }
+      }
+    },
+    "Test distribution access does not require a purchase.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テスト配布の利用に購入は必要ありません。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

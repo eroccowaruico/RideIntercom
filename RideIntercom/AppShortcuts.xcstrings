@@ -1,0 +1,36 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "End my call in ${applicationName}": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${applicationName}で通話を終了"
+          }
+        }
+      }
+    },
+    "Resume my call in ${applicationName}": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${applicationName}で最近の通話を再開"
+          }
+        }
+      }
+    },
+    "Start a call with ${applicationName}": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "${applicationName}で通話を開始"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

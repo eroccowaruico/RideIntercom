@@ -6,9 +6,9 @@
 
 ## 表示切替と共通設定
 
-App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・購入状態・本人の表示名・Internet接続・音声入出力・簡単な録音再生チェックを表示する。録音チェックの接続状態やmeterはAdvancedに限る。通信経路・Audio Session・送信codec・VAD・Reset All SettingsはMore Audio and Connection Settings（`moreSettingsLink`）から同じ設定操作へ進む。Advancedへ戻るPickerは設定の先頭に常設する。
+App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・利用権の状態・本人の表示名・Internet接続・音声入出力・簡単な録音再生チェックを表示する。録音チェックの接続状態やmeterはAdvancedに限る。通信経路・Audio Session・送信codec・VAD・Reset All SettingsはMore Audio and Connection Settings（`moreSettingsLink`）から同じ設定操作へ進む。Advancedへ戻るPickerは設定の先頭に常設する。
 
-StandardのInternet接続はInternet is set up / Internet is not set upとService Addressを表示し、Appleによる接続操作を案内する。手動のDevice access token入力・保存はAdvancedだけに表示する。AdvancedはWorker URLを含め従来の項目・識別子・保存操作とDiagnosticsを維持する。両表示で同じ設定保存先と音声処理を使う。未設定商品の購入状態はNot Available Yetで、Restore Purchasesを表示しない。
+StandardのInternet接続はInternet is set up / Internet is not set upとService Addressを表示し、Appleによる接続操作を案内する。手動のDevice access token入力・保存はAdvancedだけに表示する。AdvancedはWorker URLを含め従来の項目・識別子・保存操作とDiagnosticsを維持する。両表示で同じ設定保存先と音声処理を使う。商品未設定でも配布環境を独立に確認し、テスト配布で利用可能か、判定不能ならCheck Accessを表示する。配布の権利がない場合はNot Available Yetとし、商品未設定のRestore Purchasesは表示しない。
 
 
 Settings はアカウントのサインアウトと削除、通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
@@ -35,13 +35,14 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 | Save Name | `saveLocalDisplayNameButton` | 前後空白を除き保存。通話を維持して参加者へ更新を送る |
 | 保存済み | `localDisplayNameSaved` | 保存成功を表示。再編集すると表示を消す |
 
-## 購入状態と復元
+## 利用権の状態と復元
 
 | 項目 | ID | 操作・状態 |
 |---|---|---|
-| Purchases | `storeAccessSection` | 同じログインモデルのStoreKit状態を表示。公開商品未設定ではNot Available Yetと案内する |
-| Purchase Status | `purchaseStatus` | 未取得・有効・期限切れ・取消を区別。有効時はAvailable Untilも表示し、期限で端末内評価を更新 |
-| Restore Purchases | `restorePurchases` | 商品設定済みの場合だけ表示。明示操作でApp Storeから復元し、復元中は重複操作を抑止。購入日の期限は延ばさない |
+| Access | `storeAccessSection` | 同じログインモデルの購入・配布由来の利用権を表示。商品未設定でも配布環境を独立に確認する |
+| Access Status | `purchaseStatus` | 未取得・有効・期限切れ・取消を区別。購入有効時はAvailable Untilも表示し、期限で端末内評価を更新。testDistributionでは「テスト配布で利用可能」と表示して購入と区別し、架空の期限は付けない |
+| Check Access | `checkAccess` | 判定不能時に表示し、商品未設定でも再確認できる。購入復元のsyncは呼ばない。処理中は確認中と表示して無効化 |
+| Restore Purchases | `restorePurchases` | 商品設定済みの場合だけ表示。明示操作でApp Storeから復元し、購入または配布の確認中は無効化して重複操作を抑止。購入日の期限は延ばさない |
 
 購入履歴の正本・失敗時の扱い・ユーザー切替は[利用権仕様](../利用権仕様.md)を参照する。ログイン画面からの復元や、独自サーバーの購入登録待ちは設けない。
 

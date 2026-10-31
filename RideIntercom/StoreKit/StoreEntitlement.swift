@@ -50,8 +50,10 @@ nonisolated struct StoreEntitlement: Equatable, Sendable {
 
 nonisolated struct StoreAccessEvaluation: Equatable, Sendable {
     nonisolated enum Status: Sendable { case unconfigured, unknown, notPurchased, active, expired, revoked }
+    nonisolated enum Origin: Sendable { case purchase, testDistribution }
     let status: Status
     var activeUntil: Date? = nil
+    var origin: Origin? = nil
 }
 
 nonisolated struct StoreEntitlementSnapshot: Equatable, Sendable {
@@ -74,7 +76,7 @@ nonisolated struct StoreEntitlementSnapshot: Equatable, Sendable {
 
     func evaluate(at now: Date) -> StoreAccessEvaluation {
         if let end = entitlements.filter({ $0.isActive(at: now) }).compactMap(\.effectiveExpirationDate).max() {
-            return .init(status: .active, activeUntil: end)
+            return .init(status: .active, activeUntil: end, origin: .purchase)
         }
         if hasUnverifiedTransactions { return .init(status: .unknown) }
         if entitlements.isEmpty { return .init(status: .notPurchased) }

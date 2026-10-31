@@ -4,11 +4,12 @@ import Foundation
 nonisolated struct CallTargetEntity: AppEntity {
     let id: String
     let name: String
-    let kind: String
+    let kind: LocalizedStringResource
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Call destination"
     static let defaultQuery = CallTargetQuery()
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(name)", subtitle: "\(kind)")
+        // Names are values, never localization keys.
+        DisplayRepresentation(title: "\(name)", subtitle: kind)
     }
 }
 
@@ -44,9 +45,10 @@ extension AppCallOwner {
     }
 }
 
-nonisolated enum CallIntentError: LocalizedError {
+nonisolated enum CallIntentError: LocalizedError, CustomLocalizedStringResourceConvertible {
     case unavailable(String)
-    var errorDescription: String? {
-        switch self { case .unavailable(let message): message }
+    var localizedStringResource: LocalizedStringResource {
+        switch self { case .unavailable(let message): LocalizedStringResource(stringLiteral: message) }
     }
+    var errorDescription: String? { String(localized: localizedStringResource) }
 }
