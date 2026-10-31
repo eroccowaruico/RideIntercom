@@ -45,7 +45,7 @@ struct RideIntercomApp: App {
         let _ = configureOpenWindowBridge()
 
         WindowGroup(id: SingleWindowPolicy.mainWindowID) {
-            ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
+            ContentView(owner: callOwner)
                 .environment(\.callLiveActivityPresenter, callOwner.liveActivities)
                 .onChange(of: scenePhase, initial: true) { _, phase in callOwner.systemSurfaceIsForeground = phase == .active }
                 .onAppear {
@@ -64,7 +64,7 @@ struct RideIntercomApp: App {
         .menuBarExtraStyle(.menu)
         #else
         WindowGroup {
-            ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
+            ContentView(owner: callOwner)
                 .environment(\.callLiveActivityPresenter, callOwner.liveActivities)
                 .onChange(of: scenePhase, initial: true) { _, phase in callOwner.systemSurfaceIsForeground = phase == .active }
         }

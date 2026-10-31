@@ -22,6 +22,12 @@ server/packageを変更・再試験せず、対応する固定APNs categoryは�
 
 [通常グループの代表端末検証](history/通常グループの代表端末検証.md)に、本人単位の保存・待機/交換・共通参加者判定とApp回帰の証跡を記録する。複数実端末の同時切替は別受入。
 
+## CarPlayのWidget背景操作
+
+OS 27以降の小サイズWidgetを通常の背景App Intentから既存App所有者へ接続し、現在通話の終了・明示muteを追加した。最低OS 26.4と従来の前面導線は維持する。[局所検証](history/CarPlay Widget背景操作のローカル検証.md)にMac専用Intent契約を含む32件、generic iOS/Watch build、英日幅描画と入力一致を記録する。iOS 27のOS経由実行、実車・ロック・マイク開始・長時間の背景継続は未受入。CallKit、PTT、Widget側の音声engineを追加していない。
+
+[背景ログインと保存の統合](history/CarPlay Widget背景操作のローカル検証.md#背景ログインと保存の統合)で、Mac 474件、iPhoneの単体460＋通常UI20件、破損復旧1件、iPad英日2件、Mac/iOSのRelease buildを確認した。396入力の前後一致と専用namespace・所有資源の回収を確認し、既知のSDK metadata省略メッセージと初期host隔離漏れの境界も記録する。Watchの追加要求はWatch自身の音声と押下中だけの送話であり、現在のiPhone音声の遠隔操作をその完成とは扱わない。
+
 ## Mac WebRTCのプライバシー情報の配置
 
 [独立artifact工程](history/WebRTCマニフェスト配置の修正.md)で配置と検証処理を修正し、script 23件、ローカルRTC 92件、native WebRTC 4件が成功した。既存manifest・全Mach-O・dSYM・iOS署名の内容を保持し、更新ZIPを使ったMac AppのRelease buildでも標準Resourcesへの同梱を確認した。実Worker試験は対象外、署名済みArchiveとApple側の受理は未確認である。

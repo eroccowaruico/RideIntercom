@@ -28,7 +28,7 @@ final class AppleAccountSession {
     private var cachedUserID: String?
     private var requestState: String?
     private var generation = UUID()
-    private var refreshing = false
+    private var refreshTask: (generation: UUID, task: Task<Void, Never>)?
     private var needsCredentialRemoval = false
     private static let requiresSignInKey = "AppleAccount.requiresSignIn"
 
@@ -66,15 +66,23 @@ final class AppleAccountSession {
 
     private func load() {
         if deletion.storageUnavailable {
+            invalidateCachedAccess()
             storageUnavailable = true
             message = deletion.message
             return
         }
-        guard !deletion.blocksSignIn, !defaults.bool(forKey: Self.requiresSignInKey) else { return }
+        guard !deletion.blocksSignIn, !defaults.bool(forKey: Self.requiresSignInKey) else {
+            invalidateCachedAccess()
+            // The deletion record is readable again. A persisted sign-out is
+            // not a storage failure and must leave native sign-in available.
+            storageUnavailable = false
+            return
+        }
         do {
             let saved = try keychain.secret(service: service, account: "current")
             if let saved, !Self.validIdentifier(saved) { throw KeychainSecretStoreError.invalidData }
             if userID != saved {
+                generation = UUID()
                 accessID = UUID()
                 if userID != nil { onAccessRevoked?() }
             }
@@ -87,37 +95,65 @@ final class AppleAccountSession {
         }
     }
 
-    func reload() async {
+    private func invalidateCachedAccess() {
+        guard userID != nil || cachedUserID != nil else { return }
+        accessID = UUID()
+        generation = UUID()
+        userID = nil
+        cachedUserID = nil
+        requestState = nil
+        onAccessRevoked?()
+    }
+
+    /// Synchronous disk retry lets an action establish its account generation
+    /// before it awaits native credential verification.
+    func reloadSavedSignIn() {
         guard !isSigningIn else { return }
-        if deletion.storageUnavailable { deletion.reload() }
+        deletion.reload()
         if needsCredentialRemoval { signOut(); return }
         message = nil
         load()
+    }
+
+    func reload() async {
+        reloadSavedSignIn()
         await refresh()
     }
 
     func refresh() async {
-        guard !deletion.blocksSignIn, !refreshing, !isSigningIn, !storageUnavailable, let cachedUserID else { return }
-        refreshing = true
-        let expectedGeneration = generation
-        defer { refreshing = false }
-        do {
-            let state = try await credentialState(cachedUserID)
-            guard expectedGeneration == generation else { return }
-            switch state {
-            case .authorized:
-                userID = cachedUserID
-                message = nil
-            case .revoked, .notFound, .transferred:
-                revoke()
-            }
-        } catch {
-            guard expectedGeneration == generation else { return }
-            // A previously completed native login remains usable offline.
-            // A negative credential state above always removes this permission.
-            userID = cachedUserID
-            message = "Apple sign-in could not be checked. Your saved sign-in remains available."
+        if let current = refreshTask, current.generation == generation {
+            await current.task.value
+            return
         }
+        guard !deletion.blocksSignIn, !isSigningIn, !storageUnavailable, let cachedUserID else { return }
+        let expectedGeneration = generation
+        let task = Task { [weak self] in
+            guard let self else { return }
+            let result: Result<AppleCredentialState, Error>
+            do { result = .success(try await self.credentialState(cachedUserID)) }
+            catch { result = .failure(error) }
+            guard expectedGeneration == self.generation else { return }
+            // Another process/session may have persisted sign-out or deletion
+            // while the native check was suspended. Re-read before granting access.
+            self.reloadSavedSignIn()
+            guard expectedGeneration == self.generation, !self.storageUnavailable,
+                  !self.deletion.blocksSignIn, self.cachedUserID == cachedUserID else { return }
+            switch result {
+            case .success(.authorized):
+                self.userID = cachedUserID
+                self.message = nil
+            case .success(.revoked), .success(.notFound), .success(.transferred):
+                self.revoke()
+            case .failure:
+                // Completed native login remains usable offline. A negative
+                // credential state above always removes this permission.
+                self.userID = cachedUserID
+                self.message = "Apple sign-in could not be checked. Your saved sign-in remains available."
+            }
+        }
+        refreshTask = (expectedGeneration, task)
+        await task.value
+        if refreshTask?.generation == expectedGeneration { refreshTask = nil }
     }
 
     func prepare(_ request: ASAuthorizationAppleIDRequest) {

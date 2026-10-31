@@ -1,12 +1,11 @@
 import SwiftUI
 import RTC
-import AuthenticationServices
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
-    let account: AppleAccountSession
-    @Binding var viewModel: IntercomViewModel?
-    var callPresentationID: UUID? = nil
+    @Bindable var owner: AppCallOwner
+    private var account: AppleAccountSession { owner.account }
+    private var viewModel: IntercomViewModel? { owner.viewModel }
     @State private var pendingInviteURL: URL?
     @State private var selectedTab: AppTab = .call
 
@@ -24,30 +23,12 @@ struct ContentView: View {
                 AppleSignInView(account: account, hasPendingInvite: pendingInviteURL != nil)
             }
         }
-        .onChange(of: callPresentationID) { _, _ in selectedTab = .call }
-        .task { await account.refresh() }
+        .onChange(of: owner.callPresentationID) { _, _ in selectedTab = .call }
+        .task { await owner.refreshAccountForForeground() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task {
-                    await account.refresh()
-                    async let purchases: Void = viewModel?.storeAccess.refresh() ?? ()
-                    async let notifications: Void = viewModel?.notifications.refresh() ?? ()
-                    _ = await (purchases, notifications)
-                }
-            }
+            if phase == .active { Task { await owner.refreshAccountForForeground() } }
         }
-        .onReceive(NotificationCenter.default.publisher(for: ASAuthorizationAppleIDProvider.credentialRevokedNotification)) { _ in
-            account.revoke()
-        }
-        .onChange(of: account.accessID, initial: true) { _, _ in
-            // Every window shares one call owner. Opening another scene must
-            // neither reconnect nor leave another account's media running.
-            guard viewModel?.accountAccessID != account.accessID else { return }
-            let previous = viewModel?.accountUserID
-            viewModel?.stopCallAccessObservation()
-            viewModel?.storeAccess.stop()
-            viewModel?.disconnect()
-            viewModel = IntercomViewModel.makeForCurrentProcess(accountSession: account)
+        .onChange(of: owner.viewModel?.accountAccessID) { previous, _ in
             if previous != nil { pendingInviteURL = nil }
             if let viewModel, let pendingInviteURL {
                 openInvitation(pendingInviteURL, in: viewModel)
@@ -74,5 +55,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(account: .makeForCurrentProcess(), viewModel: .constant(nil))
+    ContentView(owner: AppCallOwner(account: .makeForCurrentProcess(), viewModel: nil))
 }

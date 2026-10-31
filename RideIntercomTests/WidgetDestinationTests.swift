@@ -116,4 +116,44 @@ struct WidgetDestinationTests {
         #expect(WidgetDestinationStore(fileURL: file).read().isEmpty)
         #expect(FileManager.default.fileExists(atPath: file.path))
     }
+
+    @Test func callProjectionCarriesCurrentReferenceAndExplicitMuteAndClearsAtSignOut() async throws {
+        let file = try temporaryFile(); defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let store = WidgetDestinationStore(fileURL: file), account = AccountFixture(); defer { account.remove() }; account.signIn()
+        let h = AppTestSupport.makeHarness(accountSession: account.session), vm = h.viewModel; defer { vm.disconnect() }
+        let owner = AppCallOwner(account: account.session, viewModel: vm, widgetDestinationStore: store)
+        let selected = try #require(owner.callTargets.first)
+        try owner.startWidgetCall(id: selected.entity.id)
+        await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall != nil }
+        let call = try #require(store.readSnapshot()?.currentCall)
+        #expect(call.reference == owner.currentLivePresentation?.reference)
+        #expect(call.status == vm.callStatus(for: vm.activeGroupID))
+        #expect(owner.setCallSurfaceMuted(true, reference: call.reference))
+        await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall?.isMuted == true }
+        #expect(store.readSnapshot()?.currentCall?.reference == call.reference)
+        let json = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        let projected = try #require(json["currentCall"] as? [String: Any])
+        #expect(Set(projected.keys) == ["reference", "status", "isMuted"])
+        account.session.signOut()
+        await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall == nil && store.read().isEmpty }
+        #expect(store.readSnapshot()?.currentCall == nil)
+        #expect(store.readSnapshot()?.recentDestinationID == nil)
+    }
+
+    @Test func recentProjectionUsesOnlyCurrentTargetsAndOldSnapshotRemainsReadable() async throws {
+        let file = try temporaryFile(); defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let store = WidgetDestinationStore(fileURL: file)
+        let group = IntercomSeedData.recentGroups[0]
+        let h = AppTestSupport.makeHarness(appSettingsStore: InMemoryAppSettingsStore(settings: .init(recentCallDestination: .group(group.id))))
+        let vm = h.viewModel; defer { vm.disconnect() }
+        let owner = AppCallOwner(account: vm.accountSession, viewModel: vm, widgetDestinationStore: store)
+        #expect(store.readSnapshot()?.recentDestinationID == owner.callTargets.first { $0.destination == .group(group.id) }?.entity.id)
+        vm.deleteGroup(group.id)
+        await AppTestSupport.waitUntil { store.readSnapshot()?.recentDestinationID == nil }
+        let oldFormat = #"{"version":1,"destinations":[]}"#
+        try Data(oldFormat.utf8).write(to: file)
+        #expect(store.readSnapshot()?.destinations == [])
+        #expect(store.readSnapshot()?.currentCall == nil)
+        #expect(store.readSnapshot()?.recentDestinationID == nil)
+    }
 }

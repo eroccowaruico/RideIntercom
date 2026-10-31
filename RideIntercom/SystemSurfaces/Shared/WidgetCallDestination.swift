@@ -13,9 +13,11 @@ nonisolated struct WidgetCallDestination: AppEntity, Codable, Hashable, Sendable
     }
 }
 
-nonisolated struct WidgetDestinationSnapshot: Codable {
+nonisolated struct WidgetDestinationSnapshot: Codable, Equatable {
     var version = 1
     let destinations: [WidgetCallDestination]
+    var recentDestinationID: String? = nil
+    var currentCall: CallLivePresentation? = nil
 }
 
 /// Read-only in the extension. The app owns the writer and all call authorization.
@@ -31,14 +33,17 @@ nonisolated struct WidgetDestinationStore: Sendable {
         #endif
     }
     func read() -> [WidgetCallDestination] {
+        readSnapshot()?.destinations ?? []
+    }
+    func readSnapshot() -> WidgetDestinationSnapshot? {
         guard let fileURL,
               let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
               size <= 1_048_576,
               let data = try? Data(contentsOf: fileURL),
               let snapshot = try? JSONDecoder().decode(WidgetDestinationSnapshot.self, from: data),
               snapshot.version == 1,
-              Set(snapshot.destinations.map(\.id)).count == snapshot.destinations.count else { return [] }
-        return snapshot.destinations
+              Set(snapshot.destinations.map(\.id)).count == snapshot.destinations.count else { return nil }
+        return snapshot
     }
     /// Never use a stale configuration's embedded name or ID as a fallback.
     func current(_ configured: WidgetCallDestination?) -> WidgetCallDestination? {

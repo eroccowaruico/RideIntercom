@@ -31,7 +31,7 @@ nonisolated struct CallSurfaceReference: Codable, Hashable, Sendable {
     }
 }
 
-nonisolated struct CallLivePresentation: Equatable, Sendable {
+nonisolated struct CallLivePresentation: Codable, Equatable, Sendable {
     let reference: CallSurfaceReference
     var status: StandardCallStatus
     var isMuted: Bool

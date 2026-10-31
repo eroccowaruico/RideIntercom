@@ -2,8 +2,10 @@ import AppIntents
 import Foundation
 
 @MainActor protocol CallSurfaceActions: AnyObject, Sendable {
+    func prepareForBackgroundCallAction() async throws
     func startWidgetCall(id: String) throws
     func performCallSurfaceAction(_ action: CallSurfaceAction, reference: CallSurfaceReference?) throws
+    func setCallSurfaceMuted(_ muted: Bool, reference: CallSurfaceReference) -> Bool
 }
 
 nonisolated enum CallSurfaceAction: String, AppEnum {
