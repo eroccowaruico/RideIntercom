@@ -155,6 +155,7 @@
 | [validation/history/Macメニューバーの通話操作.md](<validation/history/Macメニューバーの通話操作.md>) | 任意のMac表示・古い操作拒否・設定保持のローカル検証 |
 | [validation/history/低帯域codecの通信なし比較.md](<validation/history/低帯域codecの通信なし比較.md>) | 84条件のnative変換・従来品質・短い相槌と通信量の境界 |
 | [validation/history/外部通話操作と低帯域設定の統合.md](<validation/history/外部通話操作と低帯域設定の統合.md>) | 共通通話操作・低帯域候補・iPad/OS設定を合流した検証 |
+| [validation/history/WebRTCマニフェスト配置の修正.md](<validation/history/WebRTCマニフェスト配置の修正.md>) | Mac用SDKリソースの配置修正・全payload保持・RTC単独検証 |
 | [validation/history/OS設定と埋込productの監査.md](<validation/history/OS設定と埋込productの監査.md>) | 設定不足・署名入力・埋込productの読取監査とbuild検証 |
 | [validation/history/Widget表示と共通採番のローカル検証.md](<validation/history/Widget表示と共通採番のローカル検証.md>) | Widget表示・古い操作・3product共通採番の検証 |
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |

@@ -1,5 +1,9 @@
 # 検証状況と証跡
 
+## Mac WebRTCのプライバシー情報の配置
+
+[独立artifact工程](history/WebRTCマニフェスト配置の修正.md)で配置と検証処理を修正し、script 23件、ローカルRTC 92件、native WebRTC 4件が成功した。既存manifest・全Mach-O・dSYM・iOS署名の内容を保持し、更新ZIPを使ったMac AppのRelease buildでも標準Resourcesへの同梱を確認した。実Worker試験は対象外、署名済みArchiveとApple側の受理は未確認である。
+
 ## 通知とMacメニューの統合（2026-10-31）
 
 通知と任意のMacメニューバーを、Widget・Watchを含む同じApp所有者へ統合した。サービス資格消失時の通知OFF、取消完了行の回収とrevision維持、現在の直接相手とログインへの再認可を含む。[統合検証](history/通知とMacメニューの統合.md)に最終工程の結果、初回失敗とテスト側修正、入力同一性の境界を記録する。実OS・APNs・署名profileの受入は下記の局所試験と同様に別管理する。

@@ -70,6 +70,6 @@ profile更新後の端末受入は、Appleログイン、OSのマイク／ロー
 
 根拠：Appleの[ローカルネットワーク](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)、[Mac App Group](https://developer.apple.com/documentation/xcode/accessing-app-group-containers)、[APNs登録](https://developer.apple.com/documentation/usernotifications/registering-your-app-with-apns)、[APNs環境](https://developer.apple.com/documentation/bundleresources/entitlements/aps-environment)、[アイコンasset](https://developer.apple.com/documentation/xcode/configuring-your-app-icon)。
 
-## 現在のMac配布前提の不足
+## MacのSDKプライバシーリソース
 
-管理WebRTC artifactにprivacy manifestの二重配置が見つかっている。標準の`WebRTC.framework/Resources/PrivacyInfo.xcprivacy`へ到達できないため、[package/artifact側の修正課題](../backlog/未実装課題.md#mac用webrtcのprivacy-manifest配置)を先に解消する。App側の宣言や今回のgeneric build成功でこの不足を解消したとは扱わない。
+管理WebRTC artifactの二重配置は[独立artifact工程](../validation/history/WebRTCマニフェスト配置の修正.md)で修正した。App buildでも標準の`WebRTC.framework/Resources/PrivacyInfo.xcprivacy`への同梱と元のmanifest内容を確認済み。更新時は[WebRTC組み立て・検証手順](BuildWebRTC/WebRTCビルドスクリプト.md#sdkプライバシーマニフェストの配置)を適用し、配布前には署名済み最終artifactとArchiveのprivacy reportを別に受け入れる。

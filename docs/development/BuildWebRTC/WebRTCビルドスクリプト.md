@@ -203,6 +203,18 @@ iOS実機sliceは `enable_dsyms=true` でビルドする。生成された `WebR
 
 検証スクリプトはiOS実機dSYMの宣言・DWARFファイル・binaryとのUUID/architecture一致を必須とする。別sliceのファイルや空の代用品では通らない。AppのArchiveでも `dSYMs/WebRTC.framework.dSYM` が存在し、App内のWebRTC.frameworkとUUIDが一致することを確認する。再ビルド前のArchiveには新しいdSYMを流用せず、新Archiveを配布する。
 
+## SDKプライバシーマニフェストの配置
+
+| 対象 | 配置と扱い |
+|---|---|
+| iOS device / Simulator | `WebRTC.framework/PrivacyInfo.xcprivacy`を通常ファイルとして必須にする |
+| macOS | `Versions/A/Resources/PrivacyInfo.xcprivacy`を必須にし、framework直下の`Resources`から同じ場所へ到達することを確認する |
+| 組み立て時 | 既知のGN出力`Versions/A/Versions/A/Resources/PrivacyInfo.xcprivacy`だけを組み立て先で移動する。全sliceを先に検査し、既に正しい配置なら変更しない。元checkout・個別build出力・manifestのbytes・Mach-O・dSYMは変更しない |
+| 自動修復しない状態 | manifest重複、欠損、壊れたplist、既知fieldの型違い、外部・循環・壊れたsymlink、resource sealを持つMac frameworkはエラーにする。未知の配置を推測して修復しない |
+| 検証・取り込み | `verify-webrtc-xcframework.sh`が`webrtc_privacy.py`で配置を検査する。importは同じ検査に成功してからZIPとmetadataを更新し、失敗時はインストール済みartifactを保持する。verify/import自身は修復しない |
+
+plist検査はリソースの形式確認であり、Appleの理由コード審査や最終Archiveのprivacy reportの代わりにはならない。Macの既知誤配置修正は再コンパイル・再署名を伴わず、元の署名状態を保持する。[修正と検証の記録](../../validation/history/WebRTCマニフェスト配置の修正.md)を参照する。
+
 ## 成果物検証
 
 build後、binary targetへ差し替える前に必ず検証する。

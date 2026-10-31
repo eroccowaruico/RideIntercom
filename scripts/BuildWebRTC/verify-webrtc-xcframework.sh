@@ -13,6 +13,9 @@ if [[ ! -d "${XCFRAMEWORK_PATH}" ]]; then
   exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "${SCRIPT_DIR}/webrtc_privacy.py" "${XCFRAMEWORK_PATH}"
+
 # Validate the manifest and the actual binaries, not just any folders found.
 python3 - "${XCFRAMEWORK_PATH}" <<'PYTHON'
 import pathlib, plistlib, re, subprocess, sys
@@ -117,4 +120,4 @@ if [[ "${missing_count}" -ne 0 ]]; then
   exit 1
 fi
 
-echo "WebRTC.xcframework slice, dSYM UUID, camera exclusion, and header verification passed: ${XCFRAMEWORK_PATH}"
+echo "WebRTC.xcframework privacy resource, slice, dSYM UUID, camera exclusion, and header verification passed: ${XCFRAMEWORK_PATH}"

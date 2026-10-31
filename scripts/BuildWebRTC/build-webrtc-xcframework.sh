@@ -216,6 +216,9 @@ fi
 # The regenerated umbrella header and binary are checked independently below.
 find "${XCFRAMEWORK_DIR}" -type f \( -name 'RTCCameraVideoCapturer.h' -o -name 'RTCCameraPreviewView.h' -o -name 'AVCaptureSession+DevicePosition.h' \) -delete
 
+# Some upstream GN versions append Versions/A twice for the Mac privacy resource.
+# Normalize only our assembly copy; never alter the vendor checkout or Mach-O.
+python3 "${SCRIPT_DIR}/webrtc_privacy.py" "${XCFRAMEWORK_DIR}" --repair-known-macos-location
 "${REPOSITORY_ROOT}/scripts/BuildWebRTC/verify-webrtc-xcframework.sh" "${XCFRAMEWORK_DIR}"
 
 cd "${OUTPUT_DIR}"
