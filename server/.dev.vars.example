@@ -3,3 +3,11 @@
 CLOUDFLARE_SFU_APP_ID=""
 CLOUDFLARE_SFU_APP_SECRET=""
 CLIENT_TOKENS_JSON="{}"
+
+# Optional notification delivery secrets. Leave empty for local/default-disabled use.
+# Never use operational APNs keys in automated tests; the tests create ephemeral fixtures.
+APNS_PRIVATE_KEY=""
+APNS_KEY_ID=""
+APNS_TEAM_ID=""
+# NOTIFICATIONS_ENABLED, APNS_TOPIC and APNS_ENVIRONMENT are non-secret wrangler vars.
+# DEVICE_IDENTITY_SIGNING_KEY is the existing native identity signing secret.

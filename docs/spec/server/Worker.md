@@ -42,6 +42,8 @@ sequenceDiagram
     end
 ```
 
+通知宛先・用途別capability・短期呼出しは[通知API](通知.md)を参照する。通知停止・設定不足は既存の認証・通話APIと独立する。
+
 ## HTTP / WebSocket 契約
 
 `R = /api/rooms/{groupHash}`。groupHashは64桁hexの秘密capabilityで、招待secretからRTCが導出する。guessableなgroup IDだけで部屋に入れない。通話APIは端末Bearer必須。`/health`と下記のApple登録開始・交換はBearer不要。ClientにSFU App ID/Secretを返さない。

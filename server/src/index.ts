@@ -2,6 +2,8 @@ import { SignalingRoom } from './SignalingRoom'
 import { UsageGuard } from './UsageGuard'
 import { Env, json } from './types'
 import { accountRequest, authenticateDevice } from './AppleAccount'
+import { notificationRequest } from './Notifications'
+export { NotificationIndex } from './NotificationIndex'
 export { SignalingRoom, UsageGuard }
 export { AppleAuthAttempt, UserAccount } from './AppleAccount'
 
@@ -9,6 +11,7 @@ export default {
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url)
         if (url.pathname === '/health' && request.method === 'GET') return json({ service: 'RideIntercom SFU', protocol: 1 })
+        if (url.pathname.startsWith('/api/notifications/')) return notificationRequest(request, env)
         if (url.pathname.startsWith('/api/auth/')) return accountRequest(request, env)
         // Every billable operation is behind a per-device credential. No shared application secret in clients.
         const authorization = request.headers.get('Authorization') ?? ''

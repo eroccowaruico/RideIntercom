@@ -128,6 +128,7 @@
 | 文書 | 役割 / 表題 |
 |---|---|
 | [spec/server/Worker.md](<spec/server/Worker.md>) | Cloudflare Worker / SFU 仕様 |
+| [spec/server/通知.md](<spec/server/通知.md>) | 通知宛先と呼出しAPI・保存範囲・未受入境界 |
 
 ### 開発手順と過去計画
 

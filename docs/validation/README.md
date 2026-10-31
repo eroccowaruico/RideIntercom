@@ -1,5 +1,11 @@
 # 検証状況と証跡
 
+## 通知server基盤のローカル検証
+
+2026-10-31、7152748を基準とした独立server工程で、通知追加15件を含むWorker全74件、TypeScript、文書参照検査が成功した。失敗・skip・cancelledなし。`.validation/notification-route-expiry-final/`に最終ログとserver入力26ファイルのSHA-256のbefore/afterを保存し、一致を確認した。UUID大小文字による重複配送とprovider JWT毎回生成、古い端末による公開ID索引の期限短縮も負例を先に再現し修正した。token所有索引は期限延長の対象にせず最新所有者・世代を維持する。外部宛先はMiniflare outbound adapterで代替し、実APNsへの送信・配置・実鍵生成はしていない。App/packageの変更・試験はこの工程に含めず、通知機能全体の完了ではない。APIは[通知仕様](../spec/server/通知.md)、残りの受入は[未確認事項](未確認事項.md#通知serverの実配送とapp接続)を参照する。
+
+その後、購入・通話権利を統合した`fbaaeaac`へ同じserver入力を取り込み、Worker全74件と型検査を再度成功させた。集約は`.validation/notification-server-delivery`、server26入力の前後一致とApp入力が`fbaaeaac`から不変であることを確認。集計helperの初回はNodeのspec reporterをTAP形式と誤認したため、成功済みのtestログを正しく解析し直した。test自体を失敗から成功へ書き換えず、初回集計ログも保持している。
+
 ## 購入・復元と通話利用権の統合（2026-10-31）
 
 Apple標準の購入画面と提供後の取引完了を追加し、現在ログインの権利をグループ作成・追加・招待と通話開始へ接続した。未購入者の制御接続を許し、認証と双方の媒体準備が成立してから24時間を記録する。公開商品は空のまま試用を維持し、購入台帳・端末間lock・常時購入照会は追加していない。

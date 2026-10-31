@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers'
 import { errors, jwtVerify } from 'jose'
 import { Env, json, readJSON } from './types'
 import { certifyDevice } from './DeviceIdentity'
+import { AccountNotifications, type NotificationAuth, type NotificationDevice, type NotificationCall, type DeliveryStatus } from './AccountNotifications'
 
 import { appleKeys, appleDeletionToken, revokeAppleAuthorization } from './AppleAuthorization'
 const devicePattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
@@ -66,12 +67,30 @@ export class AppleAuthAttempt extends DurableObject<Env> {
 }
 
 export class UserAccount extends DurableObject<Env> {
+    private readonly notifications = new AccountNotifications(this.ctx.storage)
+    notificationAuthorized(auth: NotificationAuth) { return this.notifications.authorized(auth) }
+    notificationRegister(auth: NotificationAuth, value: NotificationDevice) { return this.notifications.register(auth, value) }
+    notificationRemoveDevice(auth: NotificationAuth) { return this.notifications.removeDevice(auth) }
+    notificationActivateGrant(auth: NotificationAuth, hash: string) { return this.notifications.activateGrant(auth, hash) }
+    notificationRevokeGrant(auth: NotificationAuth, hash?: string) { return this.notifications.revokeGrant(auth, hash) }
+    notificationGrantActive(userID: string, hash: string) { return this.notifications.grantActive(userID, hash) }
+    notificationMutationBudget(auth: NotificationAuth) { return this.notifications.takeMutationBudget(auth) }
+    notificationSendBudget(auth: NotificationAuth) { return this.notifications.takeSendBudget(auth) }
+    async notificationBegin(value: NotificationCall) { const result = this.notifications.begin(value); await this.scheduleExpiry(); return result }
+    notificationCandidates(userID: string, requestID: string) { return this.notifications.candidates(userID, requestID) }
+    notificationDeliveryCurrent(userID: string, requestID: string, deviceID: string, registrationID: string) { return this.notifications.deliveryCurrent(userID, requestID, deviceID, registrationID) }
+    notificationFinish(userID: string, requestID: string, status: DeliveryStatus) { this.notifications.finish(userID, requestID, status) }
+    notificationInvalidToken(userID: string, deviceID: string, registrationID: string) { this.notifications.invalidToken(userID, deviceID, registrationID) }
+    notificationGet(userID: string, requestID: string) { return this.notifications.get(userID, requestID) }
+    notificationCancel(userID: string, requestID: string, senderID: string) { return this.notifications.cancel(userID, requestID, senderID) }
+
     async register(deviceID: string, tokenHash: string, issuedAt: number): Promise<DeviceIdentity | 'stale-proof' | 'deletion-pending' | null> {
         this.prune()
         const deletion = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
         if (deletion?.appleToken || deletion?.rooms?.length || this.ctx.storage.kv.get('deletionPreparation')) return 'deletion-pending'
         if (deletion && (!Number.isFinite(issuedAt) || issuedAt <= deletion.deletedAt)) return 'stale-proof'
         if (!this.ctx.storage.kv.get(`device:${deviceID}`) && [...this.ctx.storage.kv.list({ prefix: 'device:' })].length >= 8) return null
+        const previousNotification = this.notifications.device(deviceID)
         const expiresAt = Date.now() + 30 * 86400000
         // Public identity is stable across device expiry/sign-out, and retired only
         // by account deletion. Never derive it from the private DO locator.
@@ -80,7 +99,9 @@ export class UserAccount extends DurableObject<Env> {
         this.ctx.storage.transactionSync(() => {
             this.ctx.storage.kv.put('userID', userID)
             this.ctx.storage.kv.put(`device:${deviceID}`, { tokenHash, expiresAt })
+            this.notifications.invalidateDevice(deviceID)
         })
+        if (previousNotification) await this.removeNotificationIndex(previousNotification, userID)
         await this.scheduleExpiry()
         return { userID, deviceID, expiresAt }
     }
@@ -107,8 +128,12 @@ export class UserAccount extends DurableObject<Env> {
     }
 
     async revoke(deviceID: string, tokenHash: string): Promise<boolean> {
-        if (!this.authenticate(deviceID, tokenHash)) return false
+        const identity = this.authenticate(deviceID, tokenHash)
+        if (!identity) return false
+        const previousNotification = this.notifications.device(deviceID)
         this.ctx.storage.kv.delete(`device:${deviceID}`)
+        this.notifications.invalidateDevice(deviceID)
+        if (previousNotification) await this.removeNotificationIndex(previousNotification, identity.userID)
         await this.scheduleExpiry()
         return true
     }
@@ -165,19 +190,32 @@ export class UserAccount extends DurableObject<Env> {
             const userID = this.ctx.storage.kv.get<string>('userID')
             if (expectedUserID === undefined ? !this.authenticate(deviceID, tokenHash) : userID && userID !== expectedUserID) return null
             const now = Date.now()
+            const notificationDevices = this.notifications.devices()
             const rooms = [...this.ctx.storage.kv.list<string>({ prefix: 'room:' })].filter(([, owner]) => owner === userID).map(([key]) => key.slice('room:'.length))
             this.ctx.storage.transactionSync(() => {
                 this.ctx.storage.kv.delete('userID')
+                this.notifications.invalidateAll()
                 for (const prefix of ['device:', 'room:']) for (const [key] of this.ctx.storage.kv.list({ prefix })) this.ctx.storage.kv.delete(key)
                 // The token is held only for deletion retries, never routine login.
                 this.ctx.storage.kv.put('deletion', { userID: userID ?? expectedUserID, deviceID, tokenHash, deletedAt: now, expiresAt: now + 86400000,
                     ...(appleToken ? { appleToken, attempts: 0, retryAt: now } : {}),
                     ...(rooms.length ? { rooms, mediaAttempts: 0, mediaRetryAt: now } : {}) })
             })
+            // Authority was removed synchronously above. Index cleanup cannot restore it.
+            if (userID) {
+                await Promise.all(notificationDevices.map(value => this.removeNotificationIndex(value, userID)))
+                try { await this.env.NOTIFICATION_INDEX.get(this.env.NOTIFICATION_INDEX.idFromName('user:' + userID)).remove(this.ctx.id.toString(), userID) }
+                catch { /* An unreachable index expires; account checks already reject its old route. */ }
+            }
         }
         await Promise.all([this.retryAppleRevocation(), this.retryMediaCleanup()])
         await this.scheduleExpiry()
         return this.deletionResult(deviceID, tokenHash)
+    }
+
+    private async removeNotificationIndex(value: NotificationDevice, userID: string) {
+        try { await this.env.NOTIFICATION_INDEX.get(this.env.NOTIFICATION_INDEX.idFromName(value.tokenIndex)).remove(this.ctx.id.toString(), userID, value.registrationID) }
+        catch { /* Bounded by the expired/revoked device; deletion must not depend on notification availability. */ }
     }
 
     private async retryMediaCleanup() {
@@ -227,6 +265,7 @@ export class UserAccount extends DurableObject<Env> {
     }
 
     private prune() {
+        this.notifications.prune()
         const preparation = this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')
         if (preparation && preparation.expiresAt <= Date.now()) this.ctx.storage.kv.delete('deletionPreparation')
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
@@ -240,7 +279,7 @@ export class UserAccount extends DurableObject<Env> {
         const receipt = this.ctx.storage.kv.get<DeletionReceipt>('deletion')
         const preparation = this.ctx.storage.kv.get<DeletionPreparation>('deletionPreparation')
         const pending = !!receipt?.appleToken || !!receipt?.rooms?.length
-        const deadlines = [...devices.map(device => device.expiresAt), ...(preparation ? [preparation.expiresAt] : []),
+        const deadlines = [...this.notifications.deadlines(), ...devices.map(device => device.expiresAt), ...(preparation ? [preparation.expiresAt] : []),
             ...(receipt?.appleToken && receipt.retryAt !== undefined && (receipt.attempts ?? 0) <= retryDelays.length ? [receipt.retryAt] : []),
             ...(receipt?.rooms?.length && receipt.mediaRetryAt !== undefined && (receipt.mediaAttempts ?? 0) <= retryDelays.length ? [receipt.mediaRetryAt] : []),
             ...(receipt && !pending ? [receipt.expiresAt] : [])]
@@ -256,6 +295,14 @@ function deviceCredential(token: string, env: Env) {
         || !objectPattern.test(secret ?? '') || extra !== undefined) return null
     try { return { account: env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromString(accountID)), accountID, deviceID, secret } }
     catch { return null }
+}
+
+export async function notificationAuth(token: string, env: Env): Promise<NotificationAuth | null> {
+    const credential = deviceCredential(token, env)
+    if (!credential) return null
+    const tokenHash = await digest(credential.secret)
+    const identity = await credential.account.authenticate(credential.deviceID, tokenHash)
+    return identity ? { accountID: credential.accountID, userID: identity.userID, deviceID: identity.deviceID, tokenHash } : null
 }
 
 export async function authenticateDevice(token: string, env: Env): Promise<(DeviceIdentity & { accountID: string }) | null> {

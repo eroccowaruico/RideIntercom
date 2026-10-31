@@ -7,6 +7,9 @@ APPLE_AUTH_ENABLED = "false"
 APPLE_CLIENT_ID = "com.yowamushi-inc.RideIntercom.RideIntercom"
 SERVICE_ENABLED = "false"
 TURN_ENABLED = "false"
+NOTIFICATIONS_ENABLED = "false"
+APNS_TOPIC = ""
+APNS_ENVIRONMENT = "sandbox"
 MAX_ROOM_PARTICIPANTS = "8"
 MAX_ACTIVE_SESSIONS = "32"
 MONTHLY_PARTICIPANT_SECONDS = "1000000"
@@ -36,6 +39,10 @@ class_name = "AppleAuthAttempt"
 name = "USER_ACCOUNT"
 class_name = "UserAccount"
 
+[[durable_objects.bindings]]
+name = "NOTIFICATION_INDEX"
+class_name = "NotificationIndex"
+
 # Fresh, never-deployed development namespace: SQLite is available on Workers Free.
 [[migrations]]
 tag = "v1"
@@ -45,6 +52,11 @@ new_sqlite_classes = ["SignalingRoom", "UsageGuard"]
 tag = "v2"
 new_sqlite_classes = ["AppleAuthAttempt", "UserAccount"]
 
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["NotificationIndex"]
+
+
 # Previews inherit the SFU values and device registry from Previews Base.
 # Ordinary variables and env bindings must be declared separately from production.
 [previews.vars]
@@ -52,6 +64,9 @@ APPLE_AUTH_ENABLED = "false"
 APPLE_CLIENT_ID = "com.yowamushi-inc.RideIntercom.RideIntercom"
 SERVICE_ENABLED = "true"
 TURN_ENABLED = "false"
+NOTIFICATIONS_ENABLED = "false"
+APNS_TOPIC = ""
+APNS_ENVIRONMENT = "sandbox"
 MAX_ROOM_PARTICIPANTS = "8"
 MAX_ACTIVE_SESSIONS = "32"
 MONTHLY_PARTICIPANT_SECONDS = "1000000"
@@ -78,3 +93,7 @@ class_name = "AppleAuthAttempt"
 [[previews.durable_objects.bindings]]
 name = "USER_ACCOUNT"
 class_name = "UserAccount"
+
+[[previews.durable_objects.bindings]]
+name = "NOTIFICATION_INDEX"
+class_name = "NotificationIndex"
