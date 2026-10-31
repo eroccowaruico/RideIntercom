@@ -1,5 +1,7 @@
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 import AppIntents
 import Foundation
@@ -13,6 +15,8 @@ struct RideIntercomApp: App {
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     @NSApplicationDelegateAdaptor(RideIntercomApplicationDelegate.self) private var appDelegate
+    #else
+    @UIApplicationDelegateAdaptor(RideIntercomApplicationDelegate.self) private var appDelegate
     #endif
 
     init() {
@@ -20,6 +24,8 @@ struct RideIntercomApp: App {
         let account = AppleAccountSession.makeForCurrentProcess()
         let owner = AppCallOwner(account: account, viewModel: IntercomViewModel.makeForCurrentProcess(accountSession: account))
         _callOwner = State(initialValue: owner)
+        owner.notificationBridge.bind(to: owner)
+        appDelegate.notificationBridge = owner.notificationBridge
         #if os(iOS)
         owner.watchBridge = WatchPhoneBridge(owner: owner)
         owner.watchBridge?.activate()
@@ -38,7 +44,7 @@ struct RideIntercomApp: App {
         #if os(macOS)
         let _ = configureOpenWindowBridge()
 
-        return WindowGroup(id: SingleWindowPolicy.mainWindowID) {
+        WindowGroup(id: SingleWindowPolicy.mainWindowID) {
             ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
                 .environment(\.callLiveActivityPresenter, callOwner.liveActivities)
                 .onChange(of: scenePhase, initial: true) { _, phase in callOwner.systemSurfaceIsForeground = phase == .active }
@@ -51,8 +57,13 @@ struct RideIntercomApp: App {
                 EmptyView()
             }
         }
+        MenuBarExtra("RideIntercom", systemImage: callOwner.currentLivePresentation?.isMuted == true ? "mic.slash" : "phone", isInserted: Binding(
+            get: { callOwner.isMenuBarInserted }, set: { callOwner.viewModel?.setMenuBarEnabled($0) })) {
+            MenuBarCallView(owner: callOwner)
+        }
+        .menuBarExtraStyle(.menu)
         #else
-        return WindowGroup {
+        WindowGroup {
             ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
                 .environment(\.callLiveActivityPresenter, callOwner.liveActivities)
                 .onChange(of: scenePhase, initial: true) { _, phase in callOwner.systemSurfaceIsForeground = phase == .active }

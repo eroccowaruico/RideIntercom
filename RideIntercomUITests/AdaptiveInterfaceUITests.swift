@@ -55,12 +55,15 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         assertVisible(end)
         let mute = app.switches["standardMuteToggle"].firstMatch
         assertVisible(mute)
-        if (mute.value as? String) != "1" {
-            // SwiftUI exposes the full row as a switch. Target the native trailing
-            // control with a point inset, independent of the iPad row width.
-            mute.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-                .withOffset(CGVector(dx: -30, dy: 0)).tap()
-        }
+        // The identified SwiftUI row contains the native switch. Use that control
+        // rather than inferring its center from the row's translated layout.
+        let nativeMute = mute.switches.firstMatch
+        XCTAssertTrue(nativeMute.waitForExistence(timeout: 3), mute.debugDescription)
+        let hierarchy = XCTAttachment(string: mute.debugDescription)
+        hierarchy.name = "Mute row and native control"; hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        if (nativeMute.value as? String) != "1" { nativeMute.tap() }
+        XCTAssertEqual(nativeMute.value as? String, "1", mute.debugDescription)
         let mutedText = japanese ? "マイクはミュート中です" : "Microphone muted"
         let status = app.staticTexts["standardMicrophoneStatus"]
         assertVisible(status)

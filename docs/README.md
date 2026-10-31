@@ -102,7 +102,8 @@
 | [spec/App/UI/画面・状態遷移.md](<spec/App/UI/画面・状態遷移.md>) | RideIntercom 画面・状態遷移 |
 | [spec/App/UI/画面項目定義.md](<spec/App/UI/画面項目定義.md>) | RideIntercom 画面項目定義 |
 | [spec/App/Watch操作.md](<spec/App/Watch操作.md>) | iPhone依存Watchの操作と状態・音声の未実装境界 |
-| [spec/App/システム表示と通話操作.md](<spec/App/システム表示と通話操作.md>) | Widget・Control・任意のLive Activityと共通通話操作 |
+| [spec/App/通知仕様.md](<spec/App/通知仕様.md>) | 通常通知の許可・直接相手のgrant・tapから共通通話操作への接続 |
+| [spec/App/システム表示と通話操作.md](<spec/App/システム表示と通話操作.md>) | Widget・Control・任意のLive Activity・Macメニューと共通通話操作 |
 | [spec/App/利用権仕様.md](<spec/App/利用権仕様.md>) | StoreKitの読取・期限・復元・ログイン寿命 |
 | [spec/App/配布環境の利用権仕様.md](<spec/App/配布環境の利用権仕様.md>) | 配布環境の利用権仕様 |
 | [spec/App/ログ仕様.md](<spec/App/ログ仕様.md>) | RideIntercom App ログ仕様 |
@@ -151,11 +152,14 @@
 
 | 文書 | 役割 / 表題 |
 |---|---|
+| [validation/history/Macメニューバーの通話操作.md](<validation/history/Macメニューバーの通話操作.md>) | 任意のMac表示・古い操作拒否・設定保持のローカル検証 |
 | [validation/history/低帯域codecの通信なし比較.md](<validation/history/低帯域codecの通信なし比較.md>) | 84条件のnative変換・従来品質・短い相槌と通信量の境界 |
 | [validation/history/外部通話操作と低帯域設定の統合.md](<validation/history/外部通話操作と低帯域設定の統合.md>) | 共通通話操作・低帯域候補・iPad/OS設定を合流した検証 |
 | [validation/history/OS設定と埋込productの監査.md](<validation/history/OS設定と埋込productの監査.md>) | 設定不足・署名入力・埋込productの読取監査とbuild検証 |
 | [validation/history/Widget表示と共通採番のローカル検証.md](<validation/history/Widget表示と共通採番のローカル検証.md>) | Widget表示・古い操作・3product共通採番の検証 |
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
+| [validation/history/通知Appの接続と認可の検証.md](<validation/history/通知Appの接続と認可の検証.md>) | 通知HTTP・端末内同意・取消・ログイン世代・共通通話操作のローカル検証 |
+| [validation/history/通知とMacメニューの統合.md](<validation/history/通知とMacメニューの統合.md>) | 通知・Mac表示・容量回復・iPhone/iPad操作と配布生成物の統合検証 |
 | [validation/history/StoreKit端末利用権のローカル検証.md](<validation/history/StoreKit端末利用権のローカル検証.md>) | StoreKitの署名・期限・返金・復元の局所検証 |
 | [validation/history/音声境界の共通化と再点検.md](<validation/history/音声境界の共通化と再点検.md>) | 音声・RTC境界の共通化と二巡の再点検 |
 | [validation/history/近距離オフライン通信.md](<validation/history/近距離オフライン通信.md>) | AP・セルラー不在とLocal優先の調査・検証 |

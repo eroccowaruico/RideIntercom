@@ -8,6 +8,7 @@ final class AppCallOwner: CallSurfaceActions {
     let liveActivities: CallLiveActivityPresenter
     var systemSurfaceIsForeground = false
     let account: AppleAccountSession
+    let notificationBridge = AppNotificationBridge()
     var viewModel: IntercomViewModel?
     var callPresentationID: UUID?
     #if os(iOS)

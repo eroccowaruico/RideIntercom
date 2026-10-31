@@ -2,6 +2,14 @@ import Foundation
 import Observation
 
 extension AppCallOwner {
+    var isMenuBarInserted: Bool { viewModel?.canStartCalls == true && viewModel?.menuBarEnabled == true }
+
+    @discardableResult
+    func setCallSurfaceMuted(_ muted: Bool, reference: CallSurfaceReference) -> Bool {
+        viewModel?.setCallMuted(muted, for: .init(accountAccessID: reference.accountAccessID,
+            connectionGeneration: reference.connectionGeneration, groupID: reference.groupID)) == true
+    }
+
     var currentLivePresentation: CallLivePresentation? {
         guard let vm = viewModel, vm.canStartCalls, vm.hasAnyActiveGroupConnection,
               let groupID = vm.activeGroupID else { return nil }
@@ -41,6 +49,12 @@ extension AppCallOwner {
 }
 
 extension IntercomViewModel {
+    func setMenuBarEnabled(_ enabled: Bool) {
+        guard canStartCalls else { return }
+        menuBarEnabled = enabled
+        saveAppSettings()
+    }
+
     func setLiveActivityEnabled(_ enabled: Bool) {
         guard canStartCalls else { return }
         liveActivityEnabled = enabled

@@ -92,7 +92,7 @@ nonisolated struct InternetAccountClient: Sendable {
     }
     private struct Empty: Decodable, Sendable {}
     private struct Rejection: Decodable { let code: String? }
-    private func send<T: Decodable & Sendable>(origin: URL, path: String, method: String = "POST", body: [String: String]? = nil, token: String? = nil) async throws -> T {
+    func send<T: Decodable & Sendable>(origin: URL, path: String, method: String = "POST", body: [String: String]? = nil, token: String? = nil) async throws -> T {
         var request = URLRequest(url: origin.appendingPathComponent(path), timeoutInterval: 10)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

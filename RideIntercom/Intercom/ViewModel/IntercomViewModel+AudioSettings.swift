@@ -416,6 +416,7 @@ extension IntercomViewModel {
             opusBitRate: opusBitRate,
             enabledRTCTransportRoutes: enabledRTCTransportRoutes
         )
+        settings.menuBarEnabled = menuBarEnabled
         settings.liveActivityEnabled = liveActivityEnabled
         settings.interfaceMode = interfaceMode
         appSettingsStore.save(settings)

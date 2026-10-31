@@ -112,6 +112,7 @@ struct SavedUserNameView: View {
                 }
                 .accessibilityIdentifier("resetUserNameButton")
                 Text("Your name for this person stays on this device. Use Shared Name removes your edit and follows their name updates.").font(.footnote)
+                CallNotificationContactSection(viewModel: viewModel, userID: user.id)
                 if let message = viewModel.groupErrorMessage { Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger) }
             }
             .navigationTitle("Edit User")

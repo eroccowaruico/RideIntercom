@@ -3562,6 +3562,524 @@
           }
         }
       }
+    },
+    "Show call status in the menu bar": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show call status in the menu bar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メニューバーに通話状態を表示"
+          }
+        }
+      }
+    },
+    "Show this Mac’s call status and controls without names. Hiding the menu bar item does not end your call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show this Mac’s call status and controls without names. Hiding the menu bar item does not end your call."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このMacの通話状態と操作を名前なしで表示します。メニューバーの表示を隠しても通話は終了しません。"
+          }
+        }
+      }
+    },
+    "No active call": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No active call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話していません"
+          }
+        }
+      }
+    },
+    "Open RideIntercom": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open RideIntercom"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomを開く"
+          }
+        }
+      }
+    },
+    "Connecting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続中"
+          }
+        }
+      }
+    },
+    "Audio paused": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio paused"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声は一時停止中"
+          }
+        }
+      }
+    },
+    "Audio unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio unavailable"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を利用できません"
+          }
+        }
+      }
+    },
+    "Mute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mute"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミュート"
+          }
+        }
+      }
+    },
+    "Unmute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unmute"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミュートを解除"
+          }
+        }
+      }
+    },
+    "Muted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muted"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミュート中"
+          }
+        }
+      }
+    },
+    "Unmuted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unmuted"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミュート解除中"
+          }
+        }
+      }
+    },
+    "Call Notifications": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の通知"
+          }
+        }
+      }
+    },
+    "Notifications are ready on this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末で通知を受け取れます。"
+          }
+        }
+      }
+    },
+    "Notifications are not ready on this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の通知はまだ利用できません。"
+          }
+        }
+      }
+    },
+    "Check Notifications": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知を確認"
+          }
+        }
+      }
+    },
+    "Enable Notifications": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知を有効にする"
+          }
+        }
+      }
+    },
+    "Disable Notifications": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知を無効にする"
+          }
+        }
+      }
+    },
+    "Set up Internet calling to use notifications.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知を利用するにはInternet通話を設定してください。"
+          }
+        }
+      }
+    },
+    "Allow Call Requests": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを許可"
+          }
+        }
+      }
+    },
+    "Send Call Request": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを送信"
+          }
+        }
+      }
+    },
+    "Cancel Call Request": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを取り消す"
+          }
+        }
+      }
+    },
+    "Notification permissions could not be read. Your saved data has been preserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知の許可を読み取れませんでした。保存済みの情報は保持しています。"
+          }
+        }
+      }
+    },
+    "Notifications are off in system settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム設定で通知が無効になっています。"
+          }
+        }
+      }
+    },
+    "Notification permission could not be checked. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知の許可を確認できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Notifications are disabled here. Server removal is pending; retry when online.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の通知を無効にしました。サーバー側の解除は通信できるときに再試行してください。"
+          }
+        }
+      }
+    },
+    "Notifications are enabled on this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の通知を有効にしました。"
+          }
+        }
+      }
+    },
+    "Notifications could not be registered. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知を登録できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Notification permission could not be updated. Please try again when online.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知の許可を更新できませんでした。通信できるときにもう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Notification accepted. Delivery is not confirmed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知サービスが受け付けました。相手への到着は未確認です。"
+          }
+        }
+      }
+    },
+    "The call request is being processed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを処理しています。"
+          }
+        }
+      }
+    },
+    "This person has no notification destination available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この相手には通知を受け取れる端末がありません。"
+          }
+        }
+      }
+    },
+    "The call request could not be sent. Please try again later.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを送信できませんでした。しばらくしてからお試しください。"
+          }
+        }
+      }
+    },
+    "The call request was not accepted.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しは受け付けられませんでした。"
+          }
+        }
+      }
+    },
+    "Call request cancelled.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを取り消しました。"
+          }
+        }
+      }
+    },
+    "The call request could not be cancelled. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出しを取り消せませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "This call request is no longer available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この通話の呼び出しは、もう利用できません。"
+          }
+        }
+      }
+    },
+    "CALL_REQUEST_TITLE": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call Request"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の呼び出し"
+          }
+        }
+      }
+    },
+    "CALL_REQUEST_BODY": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open RideIntercom to respond to a call request."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomを開いて通話の呼び出しに応答してください。"
+          }
+        }
+      }
+    },
+    "Call notification permission saved. It is shared when you connect one to one with this person.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話の通知の許可を保存しました。この相手と1対1で接続すると共有されます。"
+          }
+        }
+      }
+    },
+    "Allow this saved person to send call requests. Permission is shared when you connect one to one. Receiving also needs notifications enabled on this device. A request does not start a call automatically.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この相手からの通話の呼び出しを許可します。1対1で接続すると許可を共有します。受信にはこの端末の通知も有効にしてください。通知だけで通話は始まりません。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

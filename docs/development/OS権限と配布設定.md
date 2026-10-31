@@ -66,7 +66,7 @@ plutil -extract RideIntercomAPNsEnvironment raw /path/to/RideIntercom.app/Info.p
 
 macOSではWidgetが`Contents/PlugIns`、Infoが`Contents/Info.plist`にある。AppとWidgetのentitlementに同じApp Groupがあり、AppだけにAppleログイン・APNs・音声権限があること、APNsのdevelopment/productionがApp Infoと対応することを確かめる。WatchはiOS Appの`Watch/RideIntercomWatch.app`に埋め込まれ、App・Widget・Watchの`CFBundleVersion`が一致し、Watchの`Assets.car`と`CFBundleIcons`にAppIconがあることを確認する。macOS AppにはWatchを埋め込まない。raw profile、証明書、device token、鍵を検証記録へ貼らない。
 
-profile更新後の端末受入は、Appleログイン、OSのマイク／ローカルネットワーク／通知許可、App Group候補表示、削除・サインアウト後の古いWidget操作拒否、実APNs受信と取消、Watch操作、ロック中継続の順で個別に記録する。Mac nativeの任意MenuBarExtra等は別の実装工程であり、この設定監査で実装済みにはしない。
+profile更新後の端末受入は、Appleログイン、OSのマイク／ローカルネットワーク／通知許可、App Group候補表示、削除・サインアウト後の古いWidget操作拒否、実APNs受信と取消、Watch操作、ロック中継続の順で個別に記録する。Mac nativeの任意MenuBarExtraは後続のApp工程で[実装](../spec/App/システム表示と通話操作.md#macメニューバー)した。実メニュー・VoiceOverの受入は別に記録する。
 
 根拠：Appleの[ローカルネットワーク](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)、[Mac App Group](https://developer.apple.com/documentation/xcode/accessing-app-group-containers)、[APNs登録](https://developer.apple.com/documentation/usernotifications/registering-your-app-with-apns)、[APNs環境](https://developer.apple.com/documentation/bundleresources/entitlements/aps-environment)、[アイコンasset](https://developer.apple.com/documentation/xcode/configuring-your-app-icon)。
 

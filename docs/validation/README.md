@@ -1,5 +1,17 @@
 # 検証状況と証跡
 
+## 通知とMacメニューの統合（2026-10-31）
+
+通知と任意のMacメニューバーを、Widget・Watchを含む同じApp所有者へ統合した。サービス資格消失時の通知OFF、取消完了行の回収とrevision維持、現在の直接相手とログインへの再認可を含む。[統合検証](history/通知とMacメニューの統合.md)に最終工程の結果、初回失敗とテスト側修正、入力同一性の境界を記録する。実OS・APNs・署名profileの受入は下記の局所試験と同様に別管理する。
+
+## 通常通知のApp接続（2026-10-31）
+
+OS許可・端末登録/取消、直接相手への用途別同意、内部1対1接続での資格交換、通知tapから共通通話操作への接続を実装した。通知到着だけでは通話を始めない。前面ではOFF・ログイン終了・別recipient宛を表示せず、通常groupに個人用capabilityを流さない。
+
+隔離App工程の`.validation/notification-final`で、通知30件を含む関連96件、generic iOS build、英日追加29key、330入力不変と所有host回収が成功した。失敗・skip・runtime warningなし。実OS通知・APNs鍵設定・配送・cold launch等は未確認のまま残す。[検証履歴](history/通知Appの接続と認可の検証.md)と[受入条件](未確認事項.md#通常通知の受入)を参照する。
+
+[Macメニューバーの局所検証](history/Macメニューバーの通話操作.md)に、任意表示・共通操作・保存境界の証跡を記録する。OS実操作の受入は別管理。
+
 ## 通知server基盤のローカル検証
 
 2026-10-31、7152748を基準とした独立server工程で、通知追加15件を含むWorker全74件、TypeScript、文書参照検査が成功した。失敗・skip・cancelledなし。`.validation/notification-route-expiry-final/`に最終ログとserver入力26ファイルのSHA-256のbefore/afterを保存し、一致を確認した。UUID大小文字による重複配送とprovider JWT毎回生成、古い端末による公開ID索引の期限短縮も負例を先に再現し修正した。token所有索引は期限延長の対象にせず最新所有者・世代を維持する。外部宛先はMiniflare outbound adapterで代替し、実APNsへの送信・配置・実鍵生成はしていない。App/packageの変更・試験はこの工程に含めず、通知機能全体の完了ではない。APIは[通知仕様](../spec/server/通知.md)、残りの受入は[未確認事項](未確認事項.md#通知serverの実配送とapp接続)を参照する。

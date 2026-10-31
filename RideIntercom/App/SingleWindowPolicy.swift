@@ -45,6 +45,7 @@ enum SingleWindowPolicy {
 @MainActor
 final class RideIntercomApplicationDelegate: NSObject, NSApplicationDelegate {
     var openMainWindow: (() -> Void)?
+    var notificationBridge: AppNotificationBridge?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         SingleWindowPolicy.openMainWindowWhenNeeded(using: openMainWindow)

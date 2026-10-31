@@ -18,6 +18,7 @@ final class IntercomViewModel {
     let accountUserID: String?
     let invitationAuthority: DirectInvitationAuthority
     let accountAccessID: UUID
+    var menuBarEnabled = false
     var liveActivityEnabled = false
     let enforceCallAccess: Bool
     @ObservationIgnored let callAccessNow: @MainActor () -> Date
@@ -27,6 +28,8 @@ final class IntercomViewModel {
     @ObservationIgnored var isRefreshingCallAccess = false
     @ObservationIgnored var lastCallAccessSaveAttempt: TimeInterval?
     let storeAccess: StoreKitAccess
+    @ObservationIgnored lazy var notifications = CallNotifications(store: internetSettingsStore, memberID: localMemberIdentity.memberID,
+        isCurrentUser: { [weak self] in self?.canStartCalls == true }, contacts: { [weak self] in self?.savedRemoteUsers ?? [] })
     var hasCurrentAccountAccess: Bool {
         !accountSession.deletion.blocksSignIn && accountUserID != nil && accountSession.userID == accountUserID && accountSession.accessID == accountAccessID
     }
@@ -248,6 +251,7 @@ final class IntercomViewModel {
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()
+        self.menuBarEnabled = appSettings.menuBarEnabled
         self.liveActivityEnabled = appSettings.liveActivityEnabled
         self.interfaceMode = appSettings.interfaceMode
         let repository = groupRepository

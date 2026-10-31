@@ -8,6 +8,7 @@ enum InterfaceMode: String, CaseIterable, Identifiable {
 }
 
 struct AppSettings: Equatable {
+    var menuBarEnabled = false
     var liveActivityEnabled = false
     var interfaceMode: InterfaceMode = .standard
     var recentCallDestination: CallDestination?
@@ -48,6 +49,7 @@ protocol AppSettingsStoring: AnyObject {
 
 final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     private let defaults: UserDefaults
+    private let menuBarKey = "RideIntercom.settings.menuBarEnabled"
     private let liveActivityKey = "RideIntercom.settings.liveActivityEnabled"
     private let interfaceModeKey = "RideIntercom.settings.interfaceMode"
     private let recentCallDestinationKey = "RideIntercom.history.recentCallDestination"
@@ -82,12 +84,14 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
             ),
             enabledRTCTransportRoutes: loadEnabledRTCTransportRoutes()
         )
+        settings.menuBarEnabled = defaults.bool(forKey: menuBarKey)
         settings.liveActivityEnabled = defaults.bool(forKey: liveActivityKey)
         settings.interfaceMode = defaults.string(forKey: interfaceModeKey).flatMap(InterfaceMode.init(rawValue:)) ?? .standard
         return settings
     }
 
     func save(_ settings: AppSettings) {
+        defaults.set(settings.menuBarEnabled, forKey: menuBarKey)
         defaults.set(settings.liveActivityEnabled, forKey: liveActivityKey)
         defaults.set(settings.interfaceMode.rawValue, forKey: interfaceModeKey)
         defaults.set(settings.recentCallDestination.flatMap { try? JSONEncoder().encode($0) }, forKey: recentCallDestinationKey)

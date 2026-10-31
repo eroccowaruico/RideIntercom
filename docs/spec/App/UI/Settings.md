@@ -49,6 +49,16 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 
 購入履歴の正本・失敗時の扱い・ユーザー切替は[利用権仕様](../利用権仕様.md)を参照する。ログイン画面からの復元や、独自サーバーの購入登録待ちは設けない。
 
+## 通話の通知
+
+| 項目 | ID | 操作・状態 |
+|---|---|---|
+| Enable Notifications | `enableCallNotifications` | native Internet登録済みの本人がOSのalert/sound許可を明示的に求める。実配送を確認済みとは表示しない |
+| Check Notifications | `checkCallNotifications` | 保存の再読取、現在のOS許可と宛先登録、OFFの取消pendingを再確認。許可シートを自動で出さない |
+| Disable Notifications | `disableCallNotifications` | この端末を即時OFFにし、宛先を取消。登録資格が読めなくても操作できる。失敗してもtapと前面表示を拒否し、取消を再試行できる |
+
+Standard/Advancedで同じモデルを使用する。SavedUserの編集には相手ごとのAllow Call Requests、Send Call Request、Cancel Call Requestを置く。許可は相手と1対1で接続すると共有する。group内だけの相手や自分の別端末を候補へ昇格させず、通知の受付を通話成立と表示しない。詳細は[通知仕様](../通知仕様.md)を参照する。
+
 ## Communication
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 異常系の考え方 |
@@ -189,8 +199,9 @@ Internetログインの再試行案内は、待ち時間を数値のままString
 
 | 項目 | ID | 操作・表示 |
 |---|---|---|
-| Call status display | なし | iOSのStandard/Advanced共通section。名前なしのロック画面・Dynamic Island表示を説明 |
+| Call status display | なし | Standard/Advanced共通section。iOSは名前なしのロック画面・Dynamic Island表示、macOSはこのMacのメニューバー表示を説明 |
 | Show call status outside the app | `liveActivityToggle` | 初期OFF。ON/OFFを即時保存。OFF・表示消去は通話を終了しない |
-| 表示失敗 | なし | 通話継続とOFF→ONによる再試行を案内 |
+| Show call status in the menu bar | `menuBarToggle` | macOSのみ。初期OFF。ON/OFFを即時保存。OFFで通話を終了しない |
+| 表示失敗 | なし | iOSのLive Activity要求失敗時、通話継続とOFF→ONによる再試行を案内 |
 
-表示と対象照合は[システム表示と通話操作](../システム表示と通話操作.md)を正とする。macOSにはこの設定を表示しない。
+表示と対象照合は[システム表示と通話操作](../システム表示と通話操作.md)を正とする。各OSで利用できる表示用の1スイッチだけを示す。

@@ -249,4 +249,55 @@ final class InternetConnectionSettingsStore {
         }
         try keychain.deleteSecret(service: service, account: "current")
     }
+
+    var notificationRegistrationEnabled: Bool {
+        get { defaults.bool(forKey: "CallNotifications.enabled") }
+        set { defaults.set(newValue, forKey: "CallNotifications.enabled") }
+    }
+    var notificationRemovalPending: Bool {
+        get { defaults.bool(forKey: "CallNotifications.removalPending") }
+        set { defaults.set(newValue, forKey: "CallNotifications.removalPending") }
+    }
+    private func notificationIssuedRevision() throws -> UInt64 {
+        guard let raw = defaults.object(forKey: "CallNotifications.issuedRevision") else { return 0 }
+        guard let text = raw as? String, let value = UInt64(text), String(value) == text,
+              value < UInt64.max else { throw KeychainSecretStoreError.invalidData }
+        return value
+    }
+    func retainNotificationRevision(atLeast revision: UInt64) throws {
+        guard revision < UInt64.max else { throw KeychainSecretStoreError.invalidData }
+        let value = max(try notificationIssuedRevision(), revision)
+        defaults.set(String(value), forKey: "CallNotifications.issuedRevision")
+    }
+    func nextNotificationRevision(after revision: UInt64) throws -> UInt64 {
+        let previous = max(try notificationIssuedRevision(), revision)
+        guard previous < UInt64.max - 1 else { throw KeychainSecretStoreError.invalidData }
+        let next = previous + 1
+        defaults.set(String(next), forKey: "CallNotifications.issuedRevision")
+        return next
+    }
+    func notificationAccess(memberID: String) throws -> CallNotificationServiceAccess? {
+        guard let configuration = try load(), let principal = try loadPrincipal(memberID: memberID),
+              principal.issuer == IdentityEncoding.origin(configuration.workerURL),
+              let deviceID = try existingAccountDeviceID() else { return nil }
+        let parts = configuration.accessToken.split(separator: ".").map(String.init)
+        guard parts.count == 4, parts[0] == "ri1", parts[2] == deviceID else { return nil }
+        return .init(origin: configuration.workerURL, accessToken: configuration.accessToken, principal: principal)
+    }
+    func notificationPermissions() throws -> [CallNotificationPermission] {
+        guard permitsServiceAccess, let raw = try keychain.secret(service: service, account: "notification-permissions") else { return [] }
+        let records = try JSONDecoder().decode([CallNotificationPermission].self, from: Data(raw.utf8))
+        guard records.count <= 256, Set(records.map(\.contactID)).count == records.count,
+              Set(records.map { $0.owner.issuer + "|" + $0.owner.userID + "|" + $0.peer.userID }).count == records.count,
+              records.allSatisfy(\.isValid) else { throw KeychainSecretStoreError.invalidData }
+        return records
+    }
+    func saveNotificationPermissions(_ records: [CallNotificationPermission]) throws {
+        guard permitsServiceAccess, records.count <= 256, Set(records.map(\.contactID)).count == records.count,
+              Set(records.map { $0.owner.issuer + "|" + $0.owner.userID + "|" + $0.peer.userID }).count == records.count,
+              records.allSatisfy(\.isValid) else { throw KeychainSecretStoreError.invalidData }
+        let data = try JSONEncoder().encode(records)
+        try keychain.saveSecret(String(decoding: data, as: UTF8.self), service: service, account: "notification-permissions")
+    }
+
 }

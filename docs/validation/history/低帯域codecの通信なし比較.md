@@ -1,5 +1,7 @@
 # 低帯域codecの通信なし比較
 
+証跡内のprobe manifestは`Package.swift.evidence`として元bytesを保持し、`source-evidence-paths.json`で元名とhashへ対応付ける。XcodeのRepository表示が証跡コピーを別packageとして探索することを避けるためで、再実行時はリポジトリ外へコピーして元名へ戻す。測定時の入力hashは変更しない。
+
 2026-10-31、`de94ebef`と同じCodec・AudioCore sourceを使い、AVAudioEngine・実マイク・スピーカーを起動せず、AVAudioConverterによる周波数変換と公開StreamingCodecEncoder／Decoderを往復した。App・packageの既定値と品質判定を変更しない評価である。
 
 ## 比較条件

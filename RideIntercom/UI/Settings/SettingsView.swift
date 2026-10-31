@@ -11,10 +11,9 @@ struct SettingsView: View {
             InterfaceModeSection(viewModel: viewModel)
             AccountSettingsPanel(viewModel: viewModel)
             StoreAccessSection(access: viewModel.storeAccess)
+            CallNotificationSettingsSection(notifications: viewModel.notifications)
             LocalDisplayNameSection(viewModel: viewModel)
-            #if os(iOS)
             CallStatusDisplaySection(viewModel: viewModel)
-            #endif
             if viewModel.interfaceMode == .advanced {
                 CommunicationPanel(viewModel: viewModel)
                 InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)

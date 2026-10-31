@@ -30,7 +30,9 @@ struct ContentView: View {
             if phase == .active {
                 Task {
                     await account.refresh()
-                    await viewModel?.storeAccess.refresh()
+                    async let purchases: Void = viewModel?.storeAccess.refresh() ?? ()
+                    async let notifications: Void = viewModel?.notifications.refresh() ?? ()
+                    _ = await (purchases, notifications)
                 }
             }
         }

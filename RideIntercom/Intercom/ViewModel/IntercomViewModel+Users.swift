@@ -53,9 +53,13 @@ extension IntercomViewModel {
     @discardableResult
     func removeSavedUser(_ id: UUID) -> Bool {
         guard canEditSavedGroups else { groupErrorMessage = groupStorageNotice; return false }
-        do { try groupRepository.removeUser(id) }
+        do {
+            try notifications.suppressContact(id)
+            try groupRepository.removeUser(id)
+        }
         catch { reportGroupStorageError(error); return false }
         refreshGroupStorageStatus()
+        Task { await notifications.retryRevocations() }
         groupErrorMessage = nil
         return true
     }

@@ -32,6 +32,7 @@ struct SignedInContentView: View {
             }.accessibilityIdentifier("settingsTab")
         }
         .task { await viewModel.storeAccess.start() }
+        .task { await viewModel.notifications.refresh() }
         .onChange(of: viewModel.interfaceMode) { _, mode in selectedTab = selectedTab.available(in: mode) }
         .onAppear { selectedTab = selectedTab.available(in: viewModel.interfaceMode) }
     }

@@ -104,6 +104,10 @@ extension IntercomViewModel {
             receiveSharedDisplayName(peerID: peerID, message: message)
             receiveInvitationReceipt(peerID: peerID, message: message)
             receiveCallAccess(peerID: peerID, message: message)
+            receiveNotificationPermission(peerID: peerID, message: message)
+            if [PeerProfileChallenge.namespace, SharedDisplayName.namespace, DirectInvitationReceipt.namespace].contains(message.namespace) {
+                sendNotificationPermissions()
+            }
         case .disconnected:
             networkDiagnostics = nil
             callTicker.stop()

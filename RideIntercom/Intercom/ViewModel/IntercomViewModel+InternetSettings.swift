@@ -19,6 +19,7 @@ extension IntercomViewModel {
             })
     }
     func endAccountAccess() {
+        notifications.stop()
         stopCallAccessObservation()
         storeAccess.stop()
         disconnect()
@@ -70,6 +71,7 @@ extension IntercomViewModel {
         internetWorkerURL = configuration.workerURL.absoluteString
         hasInternetCredentials = true
         internetCheckMessage = "Device token saved. Service not checked."
+        Task { await notifications.refresh() }
     }
 
     func beginAccountDataReset() throws {
