@@ -276,8 +276,7 @@ struct TransmitCodecPanel: View {
                         get: { viewModel.opusBitRate },
                         set: { viewModel.setOpusBitRate($0) }
                     ),
-                    range: Codec.OpusOptions.allowedBitRateRange,
-                    step: 2_000,
+                    choices: viewModel.availableOpusBitRates,
                     accessibilityIdentifier: "opusBitRateStepper"
                 )
             }
@@ -285,6 +284,10 @@ struct TransmitCodecPanel: View {
             Label("Transmit Codec", systemImage: "antenna.radiowaves.left.and.right")
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
+                if viewModel.preferredTransmitCodec == .opus {
+                    Text("Opus 24 and 32 kbps are lower-quality options. The default remains 48 kbps. Encoding bitrate is not total network usage.")
+                        .accessibilityIdentifier("opusLowBandwidthExplanation")
+                }
                 Text("AAC-ELD choices depend on the sample rate. Unsupported values are adjusted to the nearest quality-preserving choice.")
                 if viewModel.preferredTransmitCodec == .mpeg4AACELD,
                    viewModel.availableAACBitRates.contains(where: { AppAudioCodecBridge.isLowBandwidthAACBitRate($0, format: viewModel.rtcAudioFormatPreset.audioFormat) }) {
@@ -299,24 +302,26 @@ struct TransmitCodecPanel: View {
 }
 
 private struct BitRateStepper: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var value: Int
-    let range: ClosedRange<Int>
-    let step: Int
+    let choices: [Int]
     let accessibilityIdentifier: String
 
     var body: some View {
-        Stepper(
-            value: Binding(
-                get: { value },
-                set: { value = min(range.upperBound, max(range.lowerBound, $0)) }
-            ),
-            in: range,
-            step: step
-        ) {
-            LabeledContent(title, value: "\(value / 1_000) kbps")
+        let increment: (() -> Void)? = choices.first(where: { $0 > value }).map { next in { value = next } }
+        let decrement: (() -> Void)? = choices.last(where: { $0 < value }).map { previous in { value = previous } }
+        Stepper(onIncrement: increment, onDecrement: decrement) {
+            LabeledContent(title) {
+                if value < 48_000 {
+                    Text("\(value / 1_000) kbps (Lower Quality)")
+                } else {
+                    Text("\(value / 1_000) kbps")
+                }
+            }
         }
-        .accessibilityValue("\(value / 1_000) kilobits per second")
+        .accessibilityValue(value < 48_000
+            ? Text("\(value / 1_000) kbps (Lower Quality)")
+            : Text("\(value / 1_000) kbps"))
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 }

@@ -1,6 +1,113 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Opus 24 and 32 kbps are lower-quality options. The default remains 48 kbps. Encoding bitrate is not total network usage.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opusの24・32kbpsは音質低下を許容する選択肢です。既定は48kbpsのままです。符号化ビットレートは通信量全体を表しません。"
+          }
+        }
+      }
+    },
+    "Set microphone mute": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set microphone mute"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクのミュートを設定"
+          }
+        }
+      }
+    },
+    "Should the microphone be muted?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Should the microphone be muted?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクをミュートしますか？"
+          }
+        }
+      }
+    },
+    "Set microphone mute to ${muted}": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set microphone mute to ${muted}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクのミュートを${muted}に設定"
+          }
+        }
+      }
+    },
+    "Microphone muted.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone muted."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクをミュートしました。"
+          }
+        }
+      }
+    },
+    "Microphone unmuted.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone unmuted."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクのミュートを解除しました。"
+          }
+        }
+      }
+    },
+    "The microphone could not be changed. Open RideIntercom and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone could not be changed. Open RideIntercom and try again."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクの状態を変更できませんでした。RideIntercomを開いて、もう一度お試しください。"
+          }
+        }
+      }
+    },
     "Call controls": {
       "localizations": {
         "en": {

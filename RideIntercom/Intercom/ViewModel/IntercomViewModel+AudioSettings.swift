@@ -156,8 +156,12 @@ extension IntercomViewModel {
             "codec": "\(AudioCodecIdentifier.mpeg4AACELD.rawValue)", "bitRate": "\(normalized)"])
     }
 
+    var availableOpusBitRates: [Int] {
+        AppAudioCodecBridge.availableOpusBitRates(format: rtcAudioFormatPreset.audioFormat)
+    }
+
     func setOpusBitRate(_ bitRate: Int) {
-        let normalized = Codec.OpusOptions(bitRate: bitRate).bitRate
+        let normalized = AppAudioCodecBridge.normalizedOpusBitRate(bitRate, format: rtcAudioFormatPreset.audioFormat)
         guard opusBitRate != normalized else { return }
         opusBitRate = normalized
         applyEncodingSettings(event: "settings.codec.bitrate_changed", metadata: [
@@ -168,7 +172,7 @@ extension IntercomViewModel {
         guard rtcAudioFormatPreset != preset else { return }
         rtcAudioFormatPreset = preset
         aacELDv2BitRate = AppAudioCodecBridge.normalizedAACBitRate(aacELDv2BitRate, format: preset.audioFormat)
-        opusBitRate = Codec.OpusOptions(bitRate: opusBitRate).bitRate
+        opusBitRate = AppAudioCodecBridge.normalizedOpusBitRate(opusBitRate, format: preset.audioFormat)
         applyEncodingSettings(event: "settings.rtc_audio_format.changed", metadata: [
             "preset": "\(preset.rawValue)", "sampleRate": "\(Int(preset.audioFormat.sampleRate))"])
     }

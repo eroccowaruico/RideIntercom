@@ -136,14 +136,14 @@ struct SettingsTests {
         #expect(saved.opusBitRate == 128_000)
     }
 
-    @Test func legacyOpusBitrateMigratesWithoutChangingAACOrFormat() {
+    @Test func savedOpusManualBitrateRestoresWithoutChangingAACOrFormat() {
         let suiteName = "RideIntercomTests.legacy-opus.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.set(32_000, forKey: "RideIntercom.settings.opusBitRate")
         let store = UserDefaultsAppSettingsStore(defaults: defaults)
         let harness = AppTestSupport.makeHarness(appSettingsStore: store)
-        #expect(harness.viewModel.opusBitRate == 48_000)
+        #expect(harness.viewModel.opusBitRate == 32_000)
         #expect(harness.viewModel.aacELDv2BitRate == 48_000)
         for format in RTCAudioFormatPreset.allCases {
             harness.viewModel.setRTCAudioFormatPreset(format)

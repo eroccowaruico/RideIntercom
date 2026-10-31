@@ -59,6 +59,28 @@ struct EndCurrentCallIntent: AppIntent {
     }
 }
 
+struct SetCallMutedIntent: AppIntent {
+    static let title: LocalizedStringResource = "Set microphone mute"
+    static let supportedModes: IntentModes = .foreground(.immediate)
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+    @Parameter(title: "Mute", requestValueDialog: "Should the microphone be muted?") var muted: Bool
+    @AppDependency var owner: AppCallOwner
+    static var parameterSummary: some ParameterSummary { Summary("Set microphone mute to \(\.$muted)") }
+    init() {}
+    init(muted: Bool) { self.muted = muted }
+
+    @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
+        let vm = try owner.callModel()
+        let reference = vm.currentCallReference
+        guard vm.setCallMuted(muted, for: reference) else {
+            throw CallIntentError.unavailable(vm.groupStorageNotice ?? "The microphone could not be changed. Open RideIntercom and try again.")
+        }
+        owner.callPresentationID = UUID()
+        if muted { return .result(dialog: "Microphone muted.") }
+        return .result(dialog: "Microphone unmuted.")
+    }
+}
+
 nonisolated struct RideIntercomShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: StartSavedCallIntent(), phrases: ["Start a call with \(.applicationName)"],
@@ -67,5 +89,7 @@ nonisolated struct RideIntercomShortcuts: AppShortcutsProvider {
                     shortTitle: "Resume recent call", systemImageName: "arrow.clockwise")
         AppShortcut(intent: EndCurrentCallIntent(), phrases: ["End my call in \(.applicationName)"],
                     shortTitle: "End current call", systemImageName: "phone.down")
+        AppShortcut(intent: SetCallMutedIntent(), phrases: ["Set microphone mute in \(.applicationName)"],
+                    shortTitle: "Set microphone mute", systemImageName: "mic.slash")
     }
 }

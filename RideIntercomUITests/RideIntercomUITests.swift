@@ -400,6 +400,42 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testOpusManualLowBandwidthChoicesSurviveFormatAndCodecChanges() {
+        openSettingsTab()
+        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        let codec = app.segmentedControls.containing(.button, identifier: "PCM 16-bit").firstMatch
+        for _ in 0..<8 where !codec.buttons["Opus"].isHittable { scroll.swipeUp() }
+        codec.buttons["Opus"].tap()
+        let format = app.segmentedControls.containing(.button, identifier: "48 kHz").firstMatch
+        let bitrate = app.steppers["opusBitRateStepper"].firstMatch
+        revealSettingsControl(bitrate)
+        XCTAssertTrue(bitrate.waitForExistence(timeout: 3))
+        func expectRate(_ rate: Int, lowQuality: Bool) {
+            let value = bitrate.value as? String ?? ""
+            XCTAssertTrue(value.contains("\(rate) kbps"), value)
+            XCTAssertEqual(value.contains("Lower Quality"), lowQuality)
+        }
+        for sampleRate in ["48 kHz", "24 kHz", "16 kHz"] {
+            format.buttons[sampleRate].tap()
+            for _ in 0..<53 where !(bitrate.value as? String ?? "").contains("24 kbps") {
+                bitrate.buttons["opusBitRateStepper-Decrement"].tap()
+            }
+            expectRate(24, lowQuality: true)
+            bitrate.buttons["opusBitRateStepper-Decrement"].tap()
+            expectRate(24, lowQuality: true)
+            bitrate.buttons["opusBitRateStepper-Increment"].tap()
+            expectRate(32, lowQuality: true)
+            codec.buttons["PCM 16-bit"].tap(); codec.buttons["Opus"].tap()
+            expectRate(32, lowQuality: true)
+            bitrate.buttons["opusBitRateStepper-Increment"].tap()
+            expectRate(48, lowQuality: false)
+            XCTAssertTrue(app.staticTexts["opusLowBandwidthExplanation"].exists)
+            attachScreen("Opus manual choices \(sampleRate)")
+        }
+        format.buttons["48 kHz"].tap()
+    }
+
+    @MainActor
     func testCorruptGroupStoreRecovery() throws {
         // validate.py supplies corrupt bytes only after the ordinary UI suite,
         // inside its own Simulator and build-specific storage namespace.

@@ -113,14 +113,14 @@ enum AppAudioCodecBridge {
         format.channelCount == 1 && ((format.sampleRate == 48000 && bitRate == 32000)
             || (format.sampleRate == 24000 && bitRate == 16000))
     }
-    private static var aacBitRateChoices: [String: [Int]] = [:]
+    private static var encodingBitRateChoices: [String: [Int]] = [:]
     static func availableAACBitRates(format: AudioFormat) -> [Int] {
-        let key = "\(format.sampleRate)/\(format.channelCount)"
-        if let cached = aacBitRateChoices[key] { return cached }
+        let key = "aac/\(format.sampleRate)/\(format.channelCount)"
+        if let cached = encodingBitRateChoices[key] { return cached }
         let choices = CodecSupport.availableEncodingBitRates(codec: .mpeg4AACELD, format: format)
             .filter { Codec.AACELDv2Options.allowedBitRateRange.contains($0)
                 && ($0 >= minimumAACBitRate(format: format) || isLowBandwidthAACBitRate($0, format: format)) }
-        aacBitRateChoices[key] = choices
+        encodingBitRateChoices[key] = choices
         return choices
     }
 
@@ -131,6 +131,33 @@ enum AppAudioCodecBridge {
         // Invalid/obsolete values must not implicitly select reduced quality.
         return choices.filter { $0 >= minimumAACBitRate(format: format) }
             .min { abs($0 - clamped) < abs($1 - clamped) } ?? clamped
+    }
+
+    static func availableOpusBitRates(format: AudioFormat) -> [Int] {
+        let key = "opus/\(format.sampleRate)/\(format.channelCount)"
+        if let cached = encodingBitRateChoices[key] { return cached }
+        let native = CodecSupport.availableEncodingBitRates(codec: .opus, format: format)
+        let manual = [24_000, 32_000].filter { rate in
+            guard native.contains(rate) else { return false }
+            let report = runtimeReport(for: .opus, format: format,
+                options: AppAudioCodecOptions(opusBitRate: rate))
+            return report.activeConfiguration.codec == .opus
+                && report.activeConfiguration.activeBitRate == rate
+        }
+        // Retain the existing 2kbps controls above the quality default. Native
+        // advertised values are not exhaustive (48kbps itself may be absent).
+        let choices = manual + Array(stride(from: 48_000,
+            through: Codec.OpusOptions.allowedBitRateRange.upperBound, by: 2_000))
+        encodingBitRateChoices[key] = choices
+        return choices
+    }
+
+    static func normalizedOpusBitRate(_ requested: Int, format: AudioFormat) -> Int {
+        if requested < 48_000 {
+            // A malformed value must not silently opt into lower quality.
+            return availableOpusBitRates(format: format).contains(requested) ? requested : 48_000
+        }
+        return Codec.OpusOptions(bitRate: requested).bitRate
     }
 
     enum DecodingError: Error { case unsupportedCodec, invalidFormat }

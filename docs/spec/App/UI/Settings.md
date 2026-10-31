@@ -115,7 +115,8 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | サンプルレート項目名 | `transmitCodecPanel` | `rtcAudioSampleRateLabel` | `Sample Rate` | 固定文字列 | 常時 | segmented Pickerの上に明示 | kHzとkbpsを区別する |
 | AAC-ELD bitrate | `transmitCodecPanel` | `aacELDBitRatePicker` | `AAC-ELD Bitrate` | `Int`。sample rate別のOS対応値。従来の品質範囲と、48kHz・32kbps／24kHz・16kbpsの手動低帯域候補。既定48kbps | `preferredTransmitCodec == .mpeg4AACELD` | `Picker(.menu)`、kbps表示。該当候補だけ`Lower Quality`／`音質低下`を付ける。footerで周波数依存と、非対応値は従来の品質範囲から最も近い値へ補正することを説明 | codecだけの切替ではAAC候補を変更しない。Sectionはaccessibility containerとし子の識別子を維持 |
 | 低帯域候補の説明 | `transmitCodecPanel` | `aacLowBandwidthExplanation` | 英日説明文 | 48kHz・32kbps／24kHz・16kbpsは音質低下を伴い、既定を変更しない。符号化bitrateと総通信量は別 | AAC選択中で、現在の周波数にnative対応の低帯域候補がある | 標準Section footer内のText | 品質推奨・実通信量や電池の効果を確定した表示にしない |
-| Opus bitrate | `transmitCodecPanel` | `opusBitRateStepper` | `Opus Bitrate` | `Int`。全sample rateで48〜128kbps。既定48kbps | `preferredTransmitCodec == .opus` | `Stepper`、kbps 表示 | Codec package の正規化後の値を表示 |
+| Opus bitrate | `transmitCodecPanel` | `opusBitRateStepper` | `Opus Bitrate` | `Int`。OS対応の24／32kbpsと従来48〜128kbps。既定48kbps | `preferredTransmitCodec == .opus` | `Stepper`、24／32には`Lower Quality`／`音質低下`を付け、48以上は2kbps刻み | Appの手動候補選択後の値を表示 |
+| Opus低帯域候補の説明 | `transmitCodecPanel` | `opusLowBandwidthExplanation` | 英日説明文 | 24／32kbpsは音質低下を伴う選択肢。既定48を維持し符号化量と全通信量を区別 | `preferredTransmitCodec == .opus` | Section footer | 推奨下限の変更ではない |
 
 | RTC Audio選択 | `transmitCodecPanel` | `rtcAudioFormatPicker` | `Sample Rate` | `.mono48k` / `.mono24k` / `.mono16k`、既定48kHz mono | 常時 | segmented Picker | 稼働中は共通音声pipelineを再構築。hardware sample rateとは別 |
 

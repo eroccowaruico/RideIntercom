@@ -164,6 +164,8 @@
 | [validation/history/検証プロセスの終了と回収.md](<validation/history/検証プロセスの終了と回収.md>) | timeout・中断時の所有子孫回収と結果保持 |
 | [validation/history/公開通話APIの頻度制限.md](<validation/history/公開通話APIの頻度制限.md>) | 通話APIの近似頻度制限・cleanup維持・ローカル回帰 |
 | [validation/history/CarPlay Widget背景操作のローカル検証.md](<validation/history/CarPlay Widget背景操作のローカル検証.md>) | Widget背景Intent・停止操作・名前なし投影の局所検証 |
+| [validation/history/ショートカットの明示ミュート検証.md](<validation/history/ショートカットの明示ミュート検証.md>) | 必須BoolによるSiri／Shortcutsの明示mute・実行条件・翻訳の局所検証 |
+| [validation/history/低帯域Opusと明示ミュートの統合.md](<validation/history/低帯域Opusと明示ミュートの統合.md>) | Opus手動候補とSiri操作のApp統合・入力一致・実受入との境界 |
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
 | [validation/history/通知Appの接続と認可の検証.md](<validation/history/通知Appの接続と認可の検証.md>) | 通知HTTP・端末内同意・取消・ログイン世代・共通通話操作のローカル検証 |
 | [validation/history/通知とMacメニューの統合.md](<validation/history/通知とMacメニューの統合.md>) | 通知・Mac表示・容量回復・iPhone/iPad操作と配布生成物の統合検証 |

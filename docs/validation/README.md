@@ -768,3 +768,13 @@ Appleログイン、課金判定、ID宛て通知、1対1の内部グループ�
 ## 外部通話操作と低帯域設定のApp統合
 
 [統合記録](history/外部通話操作と低帯域設定の統合.md)に最終ソースのApp・UI・設定検証と、実署名／実機／通知／Mac artifactの残件を区別して記録する。
+
+## Opus手動低帯域設定のApp接続
+
+[低帯域比較記録](history/低帯域codecの通信なし比較.md#opus手動候補のapp接続)に24／32kbpsの保存・復元・通話中適用、Mac App453試験、generic iOS／Widget／Watch build、英日生成resourceの確認を記録した。この先行工程ではUI操作とiOS native変換を未確認としていた。後続の統合工程でUI操作と、Appが解決したconfigurationから試験内で作るiOS native converterを確認した。稼働中Appの送信encoder計測、実機の聞き取り・実通信量は別受入として残す。
+
+後続の[統合検証](history/低帯域Opusと明示ミュートの統合.md)では、CarPlayの実装へOpus手動候補とSiriの明示ミュートを合流し、専用保存領域を起動前に確認して検証した。個別工程の結果、統合後の成功、UI試験自体の修正前の失敗を区別して保持する。
+
+## ショートカットの明示ミュート
+
+既存の前面実行・端末認証を維持し、必須Boolのmute設定を同じApp所有者と共通操作へ接続した。[局所検証](history/ショートカットの明示ミュート検証.md)に、実行前の専用namespace確認、Mac関連21件、generic iOS/Widget build、英日resourceとmetadataの証跡を記録する。Siri発話・OSの値の質問・実機・音声は別受入であり、CallKitや背景マイク開始を追加していない。
