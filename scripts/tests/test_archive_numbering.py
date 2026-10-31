@@ -37,9 +37,14 @@ class ArchiveNumberingTests(unittest.TestCase):
 
     def run_phase(self, action='build', name='one'):
         output = self.root / name / 'Info.plist'
+        reservation = self.root / 'reservations' / (name + '.plist')
+        result = subprocess.run([sys.executable, str(SCRIPT)], env=dict(self.env, ACTION=action,
+            RIDEINTERCOM_RESERVE_BUILD_NUMBER='YES', SCRIPT_OUTPUT_FILE_0=str(reservation)), capture_output=True, text=True)
+        if result.returncode:
+            return result, output
         result = subprocess.run([sys.executable, str(SCRIPT)],
-                                env=dict(self.env, ACTION=action, SCRIPT_OUTPUT_FILE_0=str(output)),
-                                capture_output=True, text=True)
+            env=dict(self.env, ACTION=action, RIDEINTERCOM_BUILD_NUMBER_FROM=str(reservation), SCRIPT_OUTPUT_FILE_0=str(output)),
+            capture_output=True, text=True)
         return result, output
 
     def value(self):
@@ -126,7 +131,7 @@ class ArchiveNumberingTests(unittest.TestCase):
         self.env['INFOPLIST_KEY_ITSAppUsesNonExemptEncryption'] = 'maybe'
         result, output = self.run_phase('install')
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.value(), 7)
+        self.assertEqual(self.value(), 8)
 
     def test_metadata_types_and_existing_content_survive(self):
         result, output = self.run_phase()
@@ -192,3 +197,56 @@ class ArchiveNumberingTests(unittest.TestCase):
             self.assertEqual(info['CFBundleVersion'], str(number))
             self.assertEqual(self.value(), number)
             self.assertEqual(info['CFBundleShortVersionString'], '1.0.0')
+
+    def test_consumers_adopt_same_reservation_without_rewinding_parallel_counter(self):
+        outputs = []
+        for name in ['first', 'second']:
+            reservation = self.root / name / 'number.plist'
+            result = subprocess.run([sys.executable, str(SCRIPT)], env=dict(self.env,
+                RIDEINTERCOM_RESERVE_BUILD_NUMBER='YES', SCRIPT_OUTPUT_FILE_0=str(reservation)), capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            outputs.append(reservation)
+        self.assertEqual(self.value(), 9)
+        for name in ['Widget', 'Watch', 'App']:
+            output = self.root / name / 'Info.plist'
+            result = subprocess.run([sys.executable, str(SCRIPT)], env=dict(self.env,
+                RIDEINTERCOM_BUILD_NUMBER_FROM=str(outputs[0]), SCRIPT_OUTPUT_FILE_0=str(output)), capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(plistlib.loads(output.read_bytes())['CFBundleVersion'], '8')
+            self.assertEqual(self.value(), 9)
+
+    def test_missing_invalid_or_future_reservation_fails_without_counter_change(self):
+        reservation = self.root / 'number.plist'
+        for data in [None, b'bad plist', plistlib.dumps({'CFBundleVersion': 'nope'}), plistlib.dumps({'CFBundleVersion': '8'})]:
+            if data is not None:
+                reservation.write_bytes(data)
+            output = self.root / 'consumer.plist'
+            result = subprocess.run([sys.executable, str(SCRIPT)], env=dict(self.env,
+                RIDEINTERCOM_BUILD_NUMBER_FROM=str(reservation), SCRIPT_OUTPUT_FILE_0=str(output)), capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(output.exists())
+            self.assertEqual(self.value(), 7)
+
+    def test_extension_input_does_not_copy_app_credentials_or_privacy_keys(self):
+        self.install_development_credentials(); self.env['CONFIGURATION'] = 'Debug'
+        source = self.root / 'RideIntercomWidgets/Info.plist'; source.parent.mkdir()
+        source.write_bytes(plistlib.dumps({'NSExtension': {'NSExtensionPointIdentifier': 'com.apple.widgetkit-extension'}}))
+        self.env['RIDEINTERCOM_INFO_SOURCE'] = 'RideIntercomWidgets/Info.plist'
+        result, output = self.run_phase(name='widget')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        info = plistlib.loads(output.read_bytes())
+        self.assertIn('NSExtension', info)
+        for key in ['DevelopmentInternetConnection', 'NSMicrophoneUsageDescription', 'NSLocalNetworkUsageDescription', 'UIApplicationSceneManifest']:
+            self.assertNotIn(key, info)
+
+    def test_failed_widget_attempt_consumes_reservation_and_next_build_reserves_again(self):
+        reservation = self.root / 'number.plist'
+        env = dict(self.env, RIDEINTERCOM_RESERVE_BUILD_NUMBER='YES', SCRIPT_OUTPUT_FILE_0=str(reservation))
+        result = subprocess.run([sys.executable, str(SCRIPT)], env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # The dependent widget build fails after preparation; no app consumer runs.
+        self.assertEqual(self.value(), 8)
+        result = subprocess.run([sys.executable, str(SCRIPT)], env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(plistlib.loads(reservation.read_bytes())['CFBundleVersion'], '9')
+        self.assertEqual(self.value(), 9)

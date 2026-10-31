@@ -15,6 +15,26 @@ from scripts.audio_e2e import measurements, duplex_latencies, run_pair
 
 
 class AudioE2ELifecycleTests(unittest.TestCase):
+    def test_source_gate_includes_new_surface_code_and_signing_configuration(self):
+        from scripts.audio_e2e import source_manifest
+        names = ['RideIntercomWatch/WatchApp.swift', 'RideIntercomWidgets/Widget.swift',
+                 'RideIntercomWidgets/Widget.entitlements', 'Config/Test.xcconfig',
+                 'RideIntercom.xctestplan', 'RideIntercomWatch/Assets.xcassets/AppIcon.appiconset/Icon.png',
+                 'RideIntercom/ja.lproj/InfoPlist.strings', 'RideIntercom/PrivacyInfo.xcprivacy',
+                 'RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.zip']
+        for name in names:
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('fixture')
+        def output(command, **kwargs):
+            return ('\0'.join(names) + '\0').encode() if command[1] == 'ls-files' else 'fixture-head\n'
+        with patch('scripts.audio_e2e.ROOT', self.root), patch('scripts.audio_e2e.subprocess.check_output', side_effect=output):
+            before = source_manifest()
+            self.assertEqual(set(before['files']), set(names))
+            (self.root / names[2]).write_text('changed app group')
+            after = source_manifest()
+            self.assertFalse(fingerprints_match(before['files'], after['files']))
+
     def test_source_gate_allows_only_forward_generated_build_numbers(self):
         project = self.root / 'project.pbxproj'
         def capture(number, setting='Release'):

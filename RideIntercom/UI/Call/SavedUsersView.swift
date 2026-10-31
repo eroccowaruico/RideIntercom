@@ -82,7 +82,9 @@ struct SavedUsersView: View {
                 SavedUserNameView(viewModel: viewModel, user: user)
             }
         }
+        #if os(macOS)
         .frame(minWidth: 300, idealWidth: 480, minHeight: 360)
+        #endif
     }
 }
 
@@ -124,6 +126,8 @@ struct SavedUserNameView: View {
                 }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 300, idealWidth: 480, minHeight: 280)
+        #endif
     }
 }

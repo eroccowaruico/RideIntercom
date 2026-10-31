@@ -227,7 +227,7 @@ extension CallAccessTests {
         let future = SharedCallAccess(groupID: try #require(vm.activeGroupID), recipientMemberID: vm.localMemberIdentity.memberID,
             challenge: peer.challenge, revision: 1000, activeUntil: nil,
             mediaReady: true, isEstablished: false, lastSponsoredStart: f.sourceA.now.timeIntervalSince1970 + 1)
-        for signer in [try testIdentitySigner("bob"), try testIdentitySigner("impostor")] {
+        for signer in [testIdentitySigner("bob"), testIdentitySigner("impostor")] {
             let bytes = try JSONEncoder().encode(future.signed(by: signer))
             vm.handleTransportEvent(.receivedApplicationData(peerID: "bob", message: .init(namespace: SharedCallAccess.namespace, payload: bytes)))
         }

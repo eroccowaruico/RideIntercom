@@ -12,6 +12,9 @@ struct SettingsView: View {
             AccountSettingsPanel(viewModel: viewModel)
             StoreAccessSection(access: viewModel.storeAccess)
             LocalDisplayNameSection(viewModel: viewModel)
+            #if os(iOS)
+            CallStatusDisplaySection(viewModel: viewModel)
+            #endif
             if viewModel.interfaceMode == .advanced {
                 CommunicationPanel(viewModel: viewModel)
                 InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
@@ -256,7 +259,11 @@ struct TransmitCodecPanel: View {
                         set: { viewModel.setAACELDv2BitRate($0) }
                     )) {
                     ForEach(viewModel.availableAACBitRates, id: \.self) { bitRate in
-                        Text("\(bitRate / 1_000) kbps").tag(bitRate)
+                        if AppAudioCodecBridge.isLowBandwidthAACBitRate(bitRate, format: viewModel.rtcAudioFormatPreset.audioFormat) {
+                            Text("\(bitRate / 1_000) kbps (Lower Quality)").tag(bitRate)
+                        } else {
+                            Text("\(bitRate / 1_000) kbps").tag(bitRate)
+                        }
                     }
                 }
                 .pickerStyle(.menu)
@@ -278,7 +285,14 @@ struct TransmitCodecPanel: View {
         } header: {
             Label("Transmit Codec", systemImage: "antenna.radiowaves.left.and.right")
         } footer: {
-            Text("AAC-ELD bitrate choices depend on the sample rate. Changing the sample rate adjusts an unsupported bitrate to the nearest supported value.")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("AAC-ELD choices depend on the sample rate. Unsupported values are adjusted to the nearest quality-preserving choice.")
+                if viewModel.preferredTransmitCodec == .mpeg4AACELD,
+                   viewModel.availableAACBitRates.contains(where: { AppAudioCodecBridge.isLowBandwidthAACBitRate($0, format: viewModel.rtcAudioFormatPreset.audioFormat) }) {
+                    Text("48 kHz / 32 kbps and 24 kHz / 16 kbps are lower-quality options. They do not change the default. Encoding bitrate is not total network usage.")
+                        .accessibilityIdentifier("aacLowBandwidthExplanation")
+                }
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("transmitCodecPanel")

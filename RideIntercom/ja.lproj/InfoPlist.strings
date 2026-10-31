@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "通話相手にあなたの声を届けるため、マイクを使用します。";
+"NSLocalNetworkUsageDescription" = "同じグループにいる近くの人を見つけて接続するため、ローカルネットワークを使用します。";

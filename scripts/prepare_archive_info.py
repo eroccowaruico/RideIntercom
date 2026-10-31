@@ -38,7 +38,8 @@ def info_contents(source, env):
     info = plistlib.loads(source.read_bytes())
     # Never carry a development credential from a previous source or configuration.
     info.pop('DevelopmentInternetConnection', None)
-    development = development_internet_defaults(env)
+    is_main_app = env.get("RIDEINTERCOM_INFO_SOURCE", "RideIntercom/Info.plist") == "RideIntercom/Info.plist"
+    development = development_internet_defaults(env) if is_main_app else None
     if development:
         info['DevelopmentInternetConnection'] = development
     for key, setting in {
@@ -51,6 +52,8 @@ def info_contents(source, env):
     }.items():
         info[key] = env[setting]
     info['CFBundleInfoDictionaryVersion'] = '6.0'
+    if not is_main_app:
+        return info
     for key in ['CFBundleDisplayName', 'LSApplicationCategoryType',
                 'NSLocalNetworkUsageDescription', 'NSMicrophoneUsageDescription']:
         value = env.get('INFOPLIST_KEY_' + key)
@@ -85,7 +88,8 @@ def prepare(env):
     project = root / 'RideIntercom.xcodeproj'
     project_file = project / 'project.pbxproj'
     output = Path(env['SCRIPT_OUTPUT_FILE_0'])
-    info = info_contents(root / 'RideIntercom/Info.plist', env)
+    reserves = env.get('RIDEINTERCOM_RESERVE_BUILD_NUMBER') == 'YES'
+    info = {} if reserves else info_contents(root / env.get('RIDEINTERCOM_INFO_SOURCE', 'RideIntercom/Info.plist'), env)
     # Lock the stable directory inode: no persistent lock/state file is needed,
     # and replacing project.pbxproj atomically does not invalidate the lock.
     directory = os.open(project, os.O_RDONLY)
@@ -98,7 +102,7 @@ def prepare(env):
             raise ValueError('Xcode CURRENT_PROJECT_VERSION must be one shared positive decimal value')
         number = int(values[0])
         # Run/Build/Test and Archive share one counter; indexing alone does not build an app.
-        if env['ACTION'] in ('build', 'install'):
+        if reserves and env['ACTION'] in ('build', 'install'):
             number += 1
             updated = re.sub(pattern, lambda m: f'{m[1]}{number}{m[3]}', original)
             pending = project / '.build-number.tmp'
@@ -113,13 +117,21 @@ def prepare(env):
                 os.replace(pending, project_file)
             finally:
                 pending.unlink(missing_ok=True)
+        if not reserves:
+            # A single always-running aggregate dependency reserves this build's
+            # number. Product targets consume its DerivedData output without
+            # changing the project or consulting cached Xcode build settings.
+            reserved = plistlib.loads(Path(env['RIDEINTERCOM_BUILD_NUMBER_FROM']).read_bytes()).get('CFBundleVersion')
+            if not isinstance(reserved, str) or not re.fullmatch(r'[1-9][0-9]*', reserved) or int(reserved) > number:
+                raise ValueError('Invalid build reservation; build the metadata dependency first')
+            number = int(reserved)
         info['CFBundleVersion'] = str(number)
     finally:
         os.close(directory)
     # Each build has its own DerivedSources; a parallel Archive cannot change this number.
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(plistlib.dumps(info, sort_keys=False))
-    print(f'RideIntercom {env["ACTION"]}: version {info["CFBundleShortVersionString"]}, build {number}')
+    print(f'RideIntercom {env["ACTION"]}: {"reserved" if reserves else "prepared"} build {number}')
 
 
 if __name__ == '__main__':

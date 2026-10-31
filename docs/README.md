@@ -101,6 +101,8 @@
 | [spec/App/UI/共通項目.md](<spec/App/UI/共通項目.md>) | RideIntercom UI 共通項目 |
 | [spec/App/UI/画面・状態遷移.md](<spec/App/UI/画面・状態遷移.md>) | RideIntercom 画面・状態遷移 |
 | [spec/App/UI/画面項目定義.md](<spec/App/UI/画面項目定義.md>) | RideIntercom 画面項目定義 |
+| [spec/App/Watch操作.md](<spec/App/Watch操作.md>) | iPhone依存Watchの操作と状態・音声の未実装境界 |
+| [spec/App/システム表示と通話操作.md](<spec/App/システム表示と通話操作.md>) | Widget・Control・任意のLive Activityと共通通話操作 |
 | [spec/App/利用権仕様.md](<spec/App/利用権仕様.md>) | StoreKitの読取・期限・復元・ログイン寿命 |
 | [spec/App/配布環境の利用権仕様.md](<spec/App/配布環境の利用権仕様.md>) | 配布環境の利用権仕様 |
 | [spec/App/ログ仕様.md](<spec/App/ログ仕様.md>) | RideIntercom App ログ仕様 |
@@ -142,12 +144,17 @@
 | [development/history/旧音声入出力と画面改修計画.md](<development/history/旧音声入出力と画面改修計画.md>) | 旧音声入出力と画面改修計画 |
 | [development/音声E2Eテスト.md](<development/音声E2Eテスト.md>) | MacとiPhone Simulatorの双方向発話、設定マトリクス、資源の再利用 |
 | [development/自動検証.md](<development/自動検証.md>) | ビルド・起動と自動検証 |
+| [development/OS権限と配布設定.md](<development/OS権限と配布設定.md>) | OS権限・profile・App Group・APNs・商品設定の境界と受入 |
 | [development/開発環境.md](<development/開発環境.md>) | Xcode / VS Codeの開発環境 |
 
 ### 検証と履歴
 
 | 文書 | 役割 / 表題 |
 |---|---|
+| [validation/history/低帯域codecの通信なし比較.md](<validation/history/低帯域codecの通信なし比較.md>) | 84条件のnative変換・従来品質・短い相槌と通信量の境界 |
+| [validation/history/外部通話操作と低帯域設定の統合.md](<validation/history/外部通話操作と低帯域設定の統合.md>) | 共通通話操作・低帯域候補・iPad/OS設定を合流した検証 |
+| [validation/history/OS設定と埋込productの監査.md](<validation/history/OS設定と埋込productの監査.md>) | 設定不足・署名入力・埋込productの読取監査とbuild検証 |
+| [validation/history/Widget表示と共通採番のローカル検証.md](<validation/history/Widget表示と共通採番のローカル検証.md>) | Widget表示・古い操作・3product共通採番の検証 |
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
 | [validation/history/StoreKit端末利用権のローカル検証.md](<validation/history/StoreKit端末利用権のローカル検証.md>) | StoreKitの署名・期限・返金・復元の局所検証 |
 | [validation/history/音声境界の共通化と再点検.md](<validation/history/音声境界の共通化と再点検.md>) | 音声・RTC境界の共通化と二巡の再点検 |

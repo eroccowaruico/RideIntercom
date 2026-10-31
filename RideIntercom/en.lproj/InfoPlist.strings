@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "RideIntercom uses the microphone so people in your call can hear your voice.";
+"NSLocalNetworkUsageDescription" = "RideIntercom uses the local network to find and connect nearby people in your group.";

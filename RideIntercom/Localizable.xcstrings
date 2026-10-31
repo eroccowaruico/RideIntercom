@@ -1397,6 +1397,12 @@
             "state": "translated",
             "value": "マイクはオンです"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone on"
+          }
         }
       }
     },
@@ -1971,6 +1977,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "最近の通話を再開"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume recent call"
           }
         }
       }
@@ -3089,6 +3101,464 @@
           "stringUnit": {
             "state": "translated",
             "value": "以前のアカウントが削除され、新しいアカウントが登録されています。この端末には以前のアカウントのデータが残っています。"
+          }
+        }
+      }
+    },
+    "Call action": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call action"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話操作"
+          }
+        }
+      }
+    },
+    "Choose a call": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話先を選ぶ"
+          }
+        }
+      }
+    },
+    "End displayed call": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End displayed call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示中の通話を終了"
+          }
+        }
+      }
+    },
+    "Open call controls": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open call controls"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話操作を開く"
+          }
+        }
+      }
+    },
+    "Displayed call reference": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Displayed call reference"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示中の通話の識別情報"
+          }
+        }
+      }
+    },
+    "Call shortcuts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call shortcuts"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話ショートカット"
+          }
+        }
+      }
+    },
+    "Open RideIntercom or resume your recent call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open RideIntercom or resume your recent call."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomを開くか、直近の通話を再開します。"
+          }
+        }
+      }
+    },
+    "Open the call screen in RideIntercom.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the call screen in RideIntercom."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomの通話画面を開きます。"
+          }
+        }
+      }
+    },
+    "Open RideIntercom and connect to your recent call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open RideIntercom and connect to your recent call."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomを開いて、直近の通話先に接続します。"
+          }
+        }
+      }
+    },
+    "Microphone off": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone off"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクはオフ"
+          }
+        }
+      }
+    },
+    "RideIntercom call": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercom call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercomの通話"
+          }
+        }
+      }
+    },
+    "Show call status outside the app": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show call status outside the app"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリの外に通話状態を表示"
+          }
+        }
+      }
+    },
+    "Call status display": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call status display"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話状態の表示"
+          }
+        }
+      }
+    },
+    "Show call status on the Lock Screen and Dynamic Island without names. Turning this off or dismissing the display does not end your call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show call status on the Lock Screen and Dynamic Island without names. Turning this off or dismissing the display does not end your call."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前を表示せず、ロック画面とDynamic Islandに通話状態を表示します。この設定をオフにしたり表示を閉じたりしても、通話は終了しません。"
+          }
+        }
+      }
+    },
+    "Call status could not be displayed. Your call can continue. Turn the display off and on to retry.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call status could not be displayed. Your call can continue. Turn the display off and on to retry."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話状態を表示できませんでした。通話は続けられます。再試行するには表示を一度オフにしてからオンにしてください。"
+          }
+        }
+      }
+    },
+    "The displayed call has ended or changed. Open RideIntercom to check your current call.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The displayed call has ended or changed. Open RideIntercom to check your current call."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示していた通話は終了したか、別の通話に変わりました。RideIntercomを開いて現在の通話を確認してください。"
+          }
+        }
+      }
+    },
+    "%lld kbps (Lower Quality)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kbps（音質低下）"
+          }
+        }
+      }
+    },
+    "AAC-ELD choices depend on the sample rate. Unsupported values are adjusted to the nearest quality-preserving choice.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AAC-ELDの選択肢はサンプルレートによって変わります。非対応の値は、音質を保つ選択肢の中で最も近い値へ補正します。"
+          }
+        }
+      }
+    },
+    "48 kHz / 32 kbps and 24 kHz / 16 kbps are lower-quality options. They do not change the default. Encoding bitrate is not total network usage.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "48 kHz・32 kbpsと24 kHz・16 kbpsは、音質低下を伴う選択肢です。既定値は変わりません。符号化ビットレートは通信全体の使用量ではありません。"
+          }
+        }
+      }
+    },
+    "Start selected call": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start selected call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した通話を開始"
+          }
+        }
+      }
+    },
+    "Selected destination": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected destination"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した通話先"
+          }
+        }
+      }
+    },
+    "Select a call destination": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a call destination"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話先を選択"
+          }
+        }
+      }
+    },
+    "Choose a saved user or group for this widget.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a saved user or group for this widget."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このWidgetで使う保存済みユーザーまたはグループを選びます。"
+          }
+        }
+      }
+    },
+    "Start call": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を開始"
+          }
+        }
+      }
+    },
+    "Choose a saved user or group in the widget settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a saved user or group in the widget settings."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widgetの設定で保存済みユーザーまたはグループを選んでください。"
+          }
+        }
+      }
+    },
+    "Selected call": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected call"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指定した通話先"
+          }
+        }
+      }
+    },
+    "Start a call with a saved user or group you choose.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a call with a saved user or group you choose."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した保存済みユーザーまたはグループとの通話を開始します。"
+          }
+        }
+      }
+    },
+    "This call destination is no longer available. Choose a saved user or group in RideIntercom.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This call destination is no longer available. Choose a saved user or group in RideIntercom."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この通話先は利用できません。RideIntercomで保存済みユーザーまたはグループを選んでください。"
           }
         }
       }

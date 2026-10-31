@@ -108,19 +108,29 @@ enum AppAudioCodecBridge {
     static func minimumAACBitRate(format: AudioFormat) -> Int {
         format.sampleRate == 24000 ? 32000 : 48000
     }
+    // Explicit manual candidates, not a change to the quality floor or defaults.
+    static func isLowBandwidthAACBitRate(_ bitRate: Int, format: AudioFormat) -> Bool {
+        format.channelCount == 1 && ((format.sampleRate == 48000 && bitRate == 32000)
+            || (format.sampleRate == 24000 && bitRate == 16000))
+    }
     private static var aacBitRateChoices: [String: [Int]] = [:]
     static func availableAACBitRates(format: AudioFormat) -> [Int] {
         let key = "\(format.sampleRate)/\(format.channelCount)"
         if let cached = aacBitRateChoices[key] { return cached }
         let choices = CodecSupport.availableEncodingBitRates(codec: .mpeg4AACELD, format: format)
-            .filter { Codec.AACELDv2Options.allowedBitRateRange.contains($0) && $0 >= minimumAACBitRate(format: format) }
+            .filter { Codec.AACELDv2Options.allowedBitRateRange.contains($0)
+                && ($0 >= minimumAACBitRate(format: format) || isLowBandwidthAACBitRate($0, format: format)) }
         aacBitRateChoices[key] = choices
         return choices
     }
 
     static func normalizedAACBitRate(_ requested: Int, format: AudioFormat) -> Int {
         let clamped = Codec.AACELDv2Options(bitRate: requested).bitRate
-        return availableAACBitRates(format: format).min { abs($0 - clamped) < abs($1 - clamped) } ?? clamped
+        let choices = availableAACBitRates(format: format)
+        if choices.contains(requested) { return requested }
+        // Invalid/obsolete values must not implicitly select reduced quality.
+        return choices.filter { $0 >= minimumAACBitRate(format: format) }
+            .min { abs($0 - clamped) < abs($1 - clamped) } ?? clamped
     }
 
     enum DecodingError: Error { case unsupportedCodec, invalidFormat }

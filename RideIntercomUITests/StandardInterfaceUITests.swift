@@ -25,6 +25,16 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["standardMicrophoneStatus"].label, "Microphone muted")
         tab("Settings", id: "settingsTab")
         assertPurchasesUnavailable("Not Available Yet")
+        #if os(iOS)
+        let liveActivity = app.switches["liveActivityToggle"].firstMatch
+        for _ in 0..<6 where !liveActivity.isHittable { app.swipeUp() }
+        XCTAssertTrue(liveActivity.waitForExistence(timeout: 3))
+        XCTAssertEqual(liveActivity.value as? String, "0")
+        liveActivity.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(liveActivity.value as? String, "1")
+        liveActivity.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(liveActivity.value as? String, "0")
+        #endif
         selectLayout("Advanced")
         XCTAssertTrue(app.tabBars.buttons["Diagnostics"].exists || app.buttons["diagnosticsTab"].exists)
         tab("Call", id: "callTab")

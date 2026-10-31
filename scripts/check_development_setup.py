@@ -98,4 +98,5 @@ if __name__ == '__main__':
         print(error, file=sys.stderr)
     if errors:
         sys.exit(1)
+    subprocess.run([sys.executable, str(Path(__file__).with_name('check_platform_configuration.py'))], check=True)
     print('Xcode / VS Code development setup: OK')

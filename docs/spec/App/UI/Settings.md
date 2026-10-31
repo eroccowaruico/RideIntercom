@@ -103,7 +103,8 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | 送信コーデック選択 | `transmitCodecPanel` | `transmitCodecPicker` | `Codec` | `preferredTransmitCodec`。既定は `AAC-ELD` | 常時 | `Picker(.segmented)`。`PCM 16-bit`、`AAC-ELD`、`Opus` | ユーザーが要求する codec |
 | コーデック項目名 | `transmitCodecPanel` | `transmitCodecLabel` | `Codec` | 固定文字列 | 常時 | segmented Pickerの上に明示 | サンプルレート選択と区別する |
 | サンプルレート項目名 | `transmitCodecPanel` | `rtcAudioSampleRateLabel` | `Sample Rate` | 固定文字列 | 常時 | segmented Pickerの上に明示 | kHzとkbpsを区別する |
-| AAC-ELD bitrate | `transmitCodecPanel` | `aacELDBitRatePicker` | `AAC-ELD Bitrate` | `Int`。sample rate別のOS対応値と品質下限を満たす選択肢。既定48kbps | `preferredTransmitCodec == .mpeg4AACELD` | `Picker(.menu)`、kbps 表示。Section footerにサンプルレートによって候補が変わり、非対応値は最も近い対応値へ補正されることを説明 | codecだけの切替ではAAC候補を変更しない。Sectionはaccessibility containerとし子の識別子を維持 |
+| AAC-ELD bitrate | `transmitCodecPanel` | `aacELDBitRatePicker` | `AAC-ELD Bitrate` | `Int`。sample rate別のOS対応値。従来の品質範囲と、48kHz・32kbps／24kHz・16kbpsの手動低帯域候補。既定48kbps | `preferredTransmitCodec == .mpeg4AACELD` | `Picker(.menu)`、kbps表示。該当候補だけ`Lower Quality`／`音質低下`を付ける。footerで周波数依存と、非対応値は従来の品質範囲から最も近い値へ補正することを説明 | codecだけの切替ではAAC候補を変更しない。Sectionはaccessibility containerとし子の識別子を維持 |
+| 低帯域候補の説明 | `transmitCodecPanel` | `aacLowBandwidthExplanation` | 英日説明文 | 48kHz・32kbps／24kHz・16kbpsは音質低下を伴い、既定を変更しない。符号化bitrateと総通信量は別 | AAC選択中で、現在の周波数にnative対応の低帯域候補がある | 標準Section footer内のText | 品質推奨・実通信量や電池の効果を確定した表示にしない |
 | Opus bitrate | `transmitCodecPanel` | `opusBitRateStepper` | `Opus Bitrate` | `Int`。全sample rateで48〜128kbps。既定48kbps | `preferredTransmitCodec == .opus` | `Stepper`、kbps 表示 | Codec package の正規化後の値を表示 |
 
 | RTC Audio選択 | `transmitCodecPanel` | `rtcAudioFormatPicker` | `Sample Rate` | `.mono48k` / `.mono24k` / `.mono16k`、既定48kHz mono | 常時 | segmented Picker | 稼働中は共通音声pipelineを再構築。hardware sample rateとは別 |
@@ -183,3 +184,13 @@ Apple認証の登録入口はserver側で有効化されている必要があり
 ## 利用者向け案内の言語
 
 Internetログインの再試行案内は、待ち時間を数値のままString Catalogへ補間し、英語の1 second / 複数secondsと日本語の秒表示を切り替える。1・60・3,600秒でも同じ待機値を保持し、翻訳のために再試行制限やアカウント状態を変えない。招待、名前入力、音声復旧のApp定型メッセージも日本語を用意する。ユーザー名・グループ名は補間時に保持し、OSや接続先が返した任意の自由文は独自翻訳しない。Advancedの診断文言の全訳は対象外。
+
+## 通話状態の表示
+
+| 項目 | ID | 操作・表示 |
+|---|---|---|
+| Call status display | なし | iOSのStandard/Advanced共通section。名前なしのロック画面・Dynamic Island表示を説明 |
+| Show call status outside the app | `liveActivityToggle` | 初期OFF。ON/OFFを即時保存。OFF・表示消去は通話を終了しない |
+| 表示失敗 | なし | 通話継続とOFF→ONによる再試行を案内 |
+
+表示と対象照合は[システム表示と通話操作](../システム表示と通話操作.md)を正とする。macOSにはこの設定を表示しない。

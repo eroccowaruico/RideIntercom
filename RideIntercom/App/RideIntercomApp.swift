@@ -8,6 +8,7 @@ import SwiftUI
 
 @main
 struct RideIntercomApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var callOwner: AppCallOwner
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
@@ -19,7 +20,12 @@ struct RideIntercomApp: App {
         let account = AppleAccountSession.makeForCurrentProcess()
         let owner = AppCallOwner(account: account, viewModel: IntercomViewModel.makeForCurrentProcess(accountSession: account))
         _callOwner = State(initialValue: owner)
+        #if os(iOS)
+        owner.watchBridge = WatchPhoneBridge(owner: owner)
+        owner.watchBridge?.activate()
+        #endif
         AppDependencyManager.shared.add(dependency: owner)
+        AppDependencyManager.shared.add(dependency: owner as any CallSurfaceActions)
         AppLoggers.app.info(
             "app.lifecycle.started",
             metadata: .event("app.lifecycle.started", [
@@ -34,6 +40,8 @@ struct RideIntercomApp: App {
 
         return WindowGroup(id: SingleWindowPolicy.mainWindowID) {
             ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
+                .environment(\.callLiveActivityPresenter, callOwner.liveActivities)
+                .onChange(of: scenePhase, initial: true) { _, phase in callOwner.systemSurfaceIsForeground = phase == .active }
                 .onAppear {
                     SingleWindowPolicy.enforce()
                 }
@@ -46,6 +54,8 @@ struct RideIntercomApp: App {
         #else
         return WindowGroup {
             ContentView(account: callOwner.account, viewModel: $callOwner.viewModel, callPresentationID: callOwner.callPresentationID)
+                .environment(\.callLiveActivityPresenter, callOwner.liveActivities)
+                .onChange(of: scenePhase, initial: true) { _, phase in callOwner.systemSurfaceIsForeground = phase == .active }
         }
         #endif
     }

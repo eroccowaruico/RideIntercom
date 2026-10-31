@@ -18,6 +18,7 @@ final class IntercomViewModel {
     let accountUserID: String?
     let invitationAuthority: DirectInvitationAuthority
     let accountAccessID: UUID
+    var liveActivityEnabled = false
     let enforceCallAccess: Bool
     @ObservationIgnored let callAccessNow: @MainActor () -> Date
     @ObservationIgnored let callAccessEvaluation: (@MainActor (Date) -> StoreAccessEvaluation)?
@@ -247,6 +248,7 @@ final class IntercomViewModel {
         let internetSettingsStore = internetSettingsStore ?? InternetConnectionSettingsStore()
         let localMemberIdentity = localMemberIdentityStore.loadOrCreate()
         let appSettings = appSettingsStore.load()
+        self.liveActivityEnabled = appSettings.liveActivityEnabled
         self.interfaceMode = appSettings.interfaceMode
         let repository = groupRepository
         self.groupRepository = repository

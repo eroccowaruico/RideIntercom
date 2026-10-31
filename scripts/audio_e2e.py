@@ -25,7 +25,7 @@ def source_manifest():
     files = {}
     for name in sorted(set(names)):
         path = ROOT / name
-        if name and path.suffix in {'.swift', '.py', '.pbxproj', '.xcscheme', '.wav', '.metadata', '.json', '.plist', '.resolved', '.xcstrings', '.storekit'}:
+        if name and path.suffix in {'.swift', '.py', '.pbxproj', '.xcscheme', '.wav', '.metadata', '.json', '.plist', '.resolved', '.xcstrings', '.storekit', '.entitlements', '.xcconfig', '.xctestplan', '.png', '.strings', '.stringsdict', '.xcprivacy', '.zip'}:
             files[name] = file_fingerprint(path)
     return dict(head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), files=files)
 

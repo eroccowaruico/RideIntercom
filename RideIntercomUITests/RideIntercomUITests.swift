@@ -374,7 +374,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["rtcAudioSampleRateLabel"].exists)
         codec.buttons["AAC-ELD"].tap()
         let format = app.segmentedControls.containing(.button, identifier: "48 kHz").firstMatch
-        for (sampleRate, rates) in [("48 kHz", [48, 64, 80, 96, 112, 128]), ("24 kHz", [32, 48, 64]), ("16 kHz", [48])] {
+        for (sampleRate, rates) in [("48 kHz", [32, 48, 64, 80, 96, 112, 128]), ("24 kHz", [16, 32, 48, 64]), ("16 kHz", [48])] {
             format.buttons[sampleRate].tap()
             for otherCodec in ["PCM 16-bit", "Opus", "PCM 16-bit"] {
                 codec.buttons[otherCodec].tap()
@@ -383,11 +383,16 @@ final class RideIntercomUITests: XCTestCase {
                 XCTAssertTrue(bitrate.waitForExistence(timeout: 3))
                 bitrate.tap()
                 attachScreen("AAC menu \(sampleRate) after \(otherCodec)")
-                for rate in [32, 48, 64, 80, 96, 112, 128] {
-                    XCTAssertEqual(app.buttons["\(rate) kbps"].firstMatch.exists, rates.contains(rate), "\(sampleRate): \(rate) kbps after \(otherCodec)")
+                func label(_ rate: Int) -> String {
+                    let lowerQuality = (sampleRate == "48 kHz" && rate == 32) || (sampleRate == "24 kHz" && rate == 16)
+                    return "\(rate) kbps" + (lowerQuality ? " (Lower Quality)" : "")
                 }
-                app.buttons["\(rates.last!) kbps"].firstMatch.tap()
-                XCTAssertTrue(bitrate.label.contains("\(rates.last!) kbps") || (bitrate.value as? String)?.contains("\(rates.last!) kbps") == true)
+                for rate in [16, 32, 48, 64, 80, 96, 112, 128] {
+                    XCTAssertEqual(app.buttons[label(rate)].firstMatch.exists, rates.contains(rate), "\(sampleRate): \(rate) kbps after \(otherCodec)")
+                }
+                let selectedRate = rates.first!
+                app.buttons[label(selectedRate)].firstMatch.tap()
+                XCTAssertTrue(bitrate.label.contains(label(selectedRate)) || (bitrate.value as? String)?.contains(label(selectedRate)) == true)
             }
         }
         format.buttons["48 kHz"].tap()

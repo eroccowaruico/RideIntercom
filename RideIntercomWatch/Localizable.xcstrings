@@ -1,0 +1,196 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Connect to your iPhone to control a call.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneに接続して通話を操作してください。"
+          }
+        }
+      }
+    },
+    "Unmute iPhone microphone": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneのマイクをオン"
+          }
+        }
+      }
+    },
+    "Mute iPhone microphone": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneのマイクをミュート"
+          }
+        }
+      }
+    },
+    "End Call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話を終了"
+          }
+        }
+      }
+    },
+    "Updating…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新中…"
+          }
+        }
+      }
+    },
+    "Refresh": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新"
+          }
+        }
+      }
+    },
+    "Call on iPhone": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneで通話"
+          }
+        }
+      }
+    },
+    "Audio plays on iPhone or its headphones.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声はiPhoneまたは接続したヘッドホンから流れます。"
+          }
+        }
+      }
+    },
+    "Open RideIntercom on iPhone and sign in.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneでRideIntercomを開いてログインしてください。"
+          }
+        }
+      }
+    },
+    "Choose a call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話先を選択"
+          }
+        }
+      }
+    },
+    "Connecting — waiting for others": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続中 — 相手の参加を待っています"
+          }
+        }
+      }
+    },
+    "In a call": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話中"
+          }
+        }
+      }
+    },
+    "Audio paused — check your audio device": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を一時停止中 — 音声機器を確認してください"
+          }
+        }
+      }
+    },
+    "Audio unavailable — check your settings": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声を利用できません — 設定を確認してください"
+          }
+        }
+      }
+    },
+    "Could not reach iPhone. Try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneに接続できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "The call changed. Check the current call and try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通話が変わりました。現在の通話を確認して、もう一度操作してください。"
+          }
+        }
+      }
+    },
+    "This saved call destination is no longer available.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この保存済みの通話先は利用できなくなりました。"
+          }
+        }
+      }
+    },
+    "Open RideIntercom on iPhone to continue.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhoneでRideIntercomを開いて続けてください。"
+          }
+        }
+      }
+    },
+    "RideIntercom": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RideIntercom"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

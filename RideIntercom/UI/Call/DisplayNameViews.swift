@@ -57,6 +57,8 @@ struct GroupMemberNameView: View {
                 }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 300, idealWidth: 480, minHeight: 300)
+        #endif
     }
 }

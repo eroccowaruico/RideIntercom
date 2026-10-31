@@ -702,3 +702,19 @@ Appleログイン、課金判定、ID宛て通知、1対1の内部グループ�
 | 証跡 | `/tmp/rideintercom-camera-red.log`、`/tmp/rideintercom-camera-free-rebuild.log`、`/tmp/rideintercom-camera-free-import.log`、`/tmp/rideintercom-camera-script-tests.log`、`/tmp/rideintercom-camera-free-app-tests.log`、`/tmp/rideintercom-camera-free-archive.log`、`/tmp/rideintercom-camera-free-export.log`、`/tmp/rideintercom-camera-free-upload.log`。一時領域のため永続保存ではない |
 | 検証境界 | 最初のsandbox内実行はXcode cacheへの書き込み・既存テストのprocess確認が拒否され、必要なアクセスを許可して再実行。AppIntents未使用によるmetadata抽出省略warningは残る。実機通話品質・Apple側の処理完了はローカル成功から判断しない |
 | App Store Connect | 2026-10-22 00:04 JSTに`Upload succeeded`・`EXPORT SUCCEEDED`を確認。Version 1.0 / Build 2は`Uploaded package is processing`。アップロード成功であり、Apple側の処理完了・審査承認を意味しない |
+
+## Widget・通話状態表示・共通採番
+
+[ローカル検証記録](history/Widget表示と共通採番のローカル検証.md)にmacOS343件、採番18件、App／Widget／Watchのgeneric buildと連続増分の結果を保存した。OS経由の操作・ロック解除・実表示は[未確認事項](未確認事項.md)へ分離する。
+
+## 低帯域codecの通信なし評価
+
+[比較記録](history/低帯域codecの通信なし比較.md)に84条件とnative変換失敗16条件を保存した。現行品質基準を保ち、実通信・実機の聞き取り・電力とは分けて扱う。
+
+## OS設定・埋込productの監査
+
+[監査記録](history/OS設定と埋込productの監査.md)に設定14件、iOS Debug／Mac Releaseのgeneric build、インストール済みprofileの不足を記録した。portal未照会と実OS受入を区別し、外部で必要な設定は[手順](../development/OS権限と配布設定.md)へまとめた。
+
+## 外部通話操作と低帯域設定のApp統合
+
+[統合記録](history/外部通話操作と低帯域設定の統合.md)に最終ソースのApp・UI・設定検証と、実署名／実機／通知／Mac artifactの残件を区別して記録する。
