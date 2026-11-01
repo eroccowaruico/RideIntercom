@@ -140,3 +140,15 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 この実行ではnative capture／rendererが`applied`、入力48kHz mono・出力48kHz stereo・engine稼働を確認した。次のAudioDevice媒体endpoint取得で約5秒待った後`stopped`となり、iPhoneの録音要求には到達していない。入力配送handlerの設置前でマイクgateも閉じているため、このApp実行のinputFrames 0をDのnative入力成功へ混ぜない。native mixerの220,500 framesは全て無音であり、相手音声・録音内容の再生成功ではない。失敗表示とWatch終了状態、source 362ファイル一致、入出力・音量復元、所有ペア停止を確認した。媒体開始と5秒全量往復は未完として継続する。
 
 部分App単位の回帰では、Watch連携4テスト（引数別5ケース）と通常Phoneの有限5秒録音・再開始1テストが成功した。旧Watchテストの直接録音処理呼出しでは期待が失敗するREDを保持し、合成入力を実device renderer→暗号化媒体・AAC→Phoneの送信処理へ通すfixtureに修正した。成功・失敗・遅いactivationの取消、二重再生拒否、停止後のPhone録音・再生復帰とミュート設定の保持を確認する。短い合成入力の契約試験であり、Watch実Appの5秒全量往復の代替ではない。証跡は`.validation/watch-app-contract-green-20261102/`と`watch-app-phone-finite-final-20261102/`。Phone単独テストの最初のfilterが選択0件だった結果を保持し、正しいfilterの1件成功と区別する。失敗・skip・検出runtime warnings 0、362ファイル一致、最終production Swiftがnative実行時と同一であること、所有Simulator停止、一時runner5本回収を確認した。
+
+
+## Watch媒体endpointの登録通知待ち
+
+2026-11-02、公開APIを増やさずRTCとAudioDeviceのprivate分岐に一時DEBUGログを置き、実Watch AppのPIDを絞って観測した。listenerは`ready`となり、登録`add`／`remove`・`waiting`／`failed`はなく、約5秒後に`prepare timeout`→`endpointUnavailable`→停止となった。明示取消が先行した失敗ではない。source 362ファイル一致・条件復元を確認し、一時ログは撤去した。証跡は`.validation/watch-endpoint-private-log-20261102/`。
+
+| 比較 | 観測結果 | 証跡 |
+|---|---|---|
+| 同じ診断binaryを標準dns-sdから観測 | 別名positive controlの追加・削除を各4件（interface別）観測し、観測器の動作を確認。baselineのdevice広告0、新規device候補0。Watchは同じready→5秒timeout。binary UUID／hashを照合し、保存した診断patchとの対応を記録 | `.validation/watch-endpoint-browser-20261102/` |
+| 登録domainだけを明示`local.`へ変更 | 現sourceで両Appをbuild。control追加・削除各4、新規device候補0、登録addなし、ready→timeoutのまま。改善の証拠がなく、domain指定と一時ログを撤去 | `.validation/watch-endpoint-explicit-domain-20261102/` |
+
+広告名・IP・鍵・PCMは比較結果へ保存せず、役割に合う広告の件数と時刻で観測する。登録通知を受けず、同時にhost browserでも広告を見なかったことまでは確定するが、OS内部の登録状態や実Watch固有の制限を断定しない。Phone録音要求前の停止であり、音声往復は未成立である。両比較で所有processの終了、Simulatorの音声設定・音量の復元と停止、一時runner回収を確認した。次は同App内の最小NWListener単独対照で、独自wrapper／parameter条件の外側でも同症状かを確認する。
