@@ -1,5 +1,7 @@
 # 検証状況と証跡
 
+[Apple Watch実機への導入とXcode起動](history/AppleWatch実機への導入とXcode起動.md)に、Watch Ultra 2の開発署名・導入・画面起動と、Xcodeの端末準備待機、iPhoneロックによる未確認の境界を記録する。
+
 [Watch音声のApp接続とデバイス分離](history/Watch音声のApp接続とデバイス分離.md)に、ローカル媒体往復・Mac全体の基準検証と、音声デバイスへの分離／Watch Simulatorの後続工程を記録する。
 
 [Xcode標準設定への復帰と一時領域の整理](history/Xcode標準設定への復帰と一時領域の整理.md)に、標準DerivedDataでのMac526件／iOS単体512件とRelease検証構成の成功、設定UIの実行時警告・StoreKit週券fixtureの同期課題、/tmpの照合後削除を記録する。
