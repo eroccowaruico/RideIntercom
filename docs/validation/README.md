@@ -700,7 +700,7 @@ Appleログイン、課金判定、ID宛て通知、1対1の内部グループ�
 
 ## 再実行
 
-[自動検証](../development/自動検証.md)を入口とする。`scripts/validate.sh`は実行ごとのenvironment / logs / results.tsv / xcresultを保持し、一部の失敗を全体成功にしない。`/private/tmp`内の過去証跡は永続保存ではない。
+[自動検証](../development/自動検証.md)を入口とする。`scripts/validate.sh`は実行ごとのenvironment / logs / results.tsv / xcresultを保持し、全体成功は必要な検証全体の成功を揃えて判定する。`/private/tmp`内の過去証跡は永続保存ではない。
 
 ## Xcode参照修復の確認（2026-10-21）
 

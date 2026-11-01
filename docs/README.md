@@ -26,16 +26,16 @@
 
 | 配置 | 正本にする情報 | 他の文書との関係 |
 |---|---|---|
-| requirements | 製品・packageの目的、背景、統一して求める方針 | Howは最小限。実装詳細・状態表・課題表を混ぜない |
+| requirements | 製品・packageの目的、背景、統一して求める方針 | Howは最小限。実装詳細・状態はspec/validation、課題はbacklogへ置く |
 | backlog | 未実装課題・未採用候補・実装前の設計案 | 実装時は仕様へ反映し、確認待ちは検証へ引き継ぐ |
 | policies | 開発方針、文書作成規約、共通ログ記録規約 | 製品が提供する機能とは別の制約。ツール入口はこの正本を参照 |
-| manual | 現在の画面操作、効果、反映、保存、切り分け | 内部API値はspecを参照。未実装操作を案内しない |
+| manual | 現在の画面操作、効果、反映、保存、切り分け | 内部API値はspecを参照。実装・検証済みの操作を案内する |
 | spec/App | UI、状態、group/transport、音声composition、ログ | Appの責務単位で実装と対応 |
 | spec/App/Configuration | 利用者設定とAppがpackageへ渡す固定・導出値 | BindingsはApp採用値。package自体の既定・許容範囲とは区別 |
-| spec/packages | package単独の型・API・責務・platform差・report | App設定をpackageの普遍的契約へ持ち込まない |
+| spec/packages | package単独の型・API・責務・platform差・report | Appの採用設定はApp仕様、packageの普遍的契約はpackage仕様へ置く |
 | spec/server | WorkerのAPI・資格・利用枠・費用条件 | マニュアルと開発手順から参照 |
-| development | エディタ、build、検証、WebRTC更新、試用手順、費用仮定。historyは過去計画 | 現行の手順と、再実行しない旧計画を分離 |
-| validation | 未確認事項、試験範囲、受け入れ結果。historyに過去の記録 | 当時のテスト数を現行HEADの実績と扱わない |
+| development | エディタ、build、検証、WebRTC更新、試用手順、費用仮定。historyは過去計画 | 現行の手順と、履歴として参照する旧計画を分離 |
+| validation | 未確認事項、試験範囲、受け入れ結果。historyに過去の記録 | テスト実績は対象のソースと条件に紐づける |
 | design | UIの共通デザイン・アイコン規則 | App/UIが適用先を定義 |
 
 ## 保守するとき
