@@ -232,6 +232,16 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 
 証跡は`.validation/watch-audio-lan-after-auth-20261102/manifest.json`と`.validation/watch-audio-lan-prepared20-20261102/manifest.json`。各実行の362入力とbinary対応、patch・再現用runnerを保持し、一時6ソースをHEADへ完全復元した。両端の入出力固定・音量を復元し、所有AppとSimulatorを停止、一時runnerの実行用コピーを撤去した。Build番号は392→394→396へ進んだ。LAN診断経路・録音開始順・20秒期限はいずれも製品へ採用していない。
 
+## 接続情報だけを分離したWatch実入力のPhone録音
+
+2026-11-02、接続情報のWC返信待ちを音声媒体から分離する対照を1回実行した。既存の型付きrequest／replyを専用一時ファイルで両Appへ渡し、実interface・portと新しいsession鍵を使う。録音状態の通知・再生要求は既存WCのまま、音声はWatchの実マイク→暗号化媒体→Phoneの既存TX処理・録音へ流す。製品の開始経路やLAN fallbackを採用したものではない。
+
+ファイル受渡し、Watchの48kHz native入出力、媒体認証、Phone録音開始まで成立した。Watchの途中観測では入力1,536 samples中1,518が非zero。Phoneは48kHzで187,680 frames、3.91秒分を受け付けた後に録音失敗となり、その直前の入力dropは0だった。5秒録音完了・Watch再生・native出力波形には到達していない。Phoneの非zero集計は録音完了時にだけ行うため、未完了時の0を無音の証拠にしない。
+
+Phoneの開始API受付からWatchがRecording状態を受け取るまで約2.706秒、Phone失敗まで約6.618秒、Watchの状態受取から失敗まで約3.912秒だった。コードではPhoneの録音状態設定・入力配送開始直後から`recordDuration + 1秒`を待ち、初回sampleを起点にしていない。状態配送待ちが録音期限を消費する説明と整合するが、Phoneがrecordingになった瞬間と最初のsampleの時刻は保存しておらず、この実行だけで原因を完全に確定しない。遅い初回入力で録音不足になる条件を回帰テストで再現し、無入力・途中停止の有限期限を保った修正へ進む。
+
+証跡は`.validation/watch-audio-file-bootstrap-20261102/manifest.json`。35秒の上限で終了し、App自身の最終結果・Watch cleanup段階は未観測として外部終了と区別した。実行前後363入力とbinary対応を照合し、一時6ソースを`bbe2e625`へ完全復元、先行するマイク意図修正を維持した。秘密を含む専用一時入出力4ファイルを削除し、両端の音声設定・音量を復元、所有ペアを停止、実行用runnerとcacheを撤去した。再現用runner・patchは証跡へ保持し、Build番号は398→400へ進んだ。
+
 ## iPadの5秒録音と送信処理の回帰
 
 2026-11-02、Watchの返信境界の読取確認と並行し、既存のiPad録音チェック回帰を実行した。所有専用iPadはOS 26.4で現最低27.0を満たさなかったため、所有記録・停止状態とValidation名前空間だけの保存を確認して退役し、同じ用途のiPad Pro 13-inch (M5)／iPadOS 27.2を1台作成した。一般・所有不明のSimulatorは変更していない。
