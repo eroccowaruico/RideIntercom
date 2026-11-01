@@ -583,6 +583,30 @@ private final class FakeOutputStreamBackend: AudioOutputStreamBackend {
     #expect(!engine.isRunning)
 }
 
+@Test func explicitDuplexPreparationOpensBothNodesBeforeStarting() throws {
+    let engine = ObservedDuplexEngine()
+    try AudioDuplexIO.prepare(engine: engine)
+    #expect(engine.nodeRequests == ["output", "input"])
+    try AudioDuplexIO.prepare(engine: engine)
+    #expect(engine.nodeRequests == ["output", "input", "output", "input"])
+    #expect(!engine.isRunning)
+}
+
+@Test func duplexPreparationRejectsRunningEngine() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 512)
+    try engine.start()
+    defer { engine.stop() }
+    #expect(throws: AudioStreamError.self) { try AudioDuplexIO.prepare(engine: engine) }
+}
+
+private final class ObservedDuplexEngine: AVAudioEngine, @unchecked Sendable {
+    var nodeRequests: [String] = []
+    override var inputNode: AVAudioInputNode { nodeRequests.append("input"); return super.inputNode }
+    override var outputNode: AVAudioOutputNode { nodeRequests.append("output"); return super.outputNode }
+}
+
 private final class ObservedInputEngine: AVAudioEngine, @unchecked Sendable {
     var inputNodeRequests = 0
     override var inputNode: AVAudioInputNode {

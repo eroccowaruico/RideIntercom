@@ -116,3 +116,16 @@ Simulatorのnative入力確認では、Macの既定入力が48kHz、既定出力
 証跡は`.validation/watch-native-input-pin-20261102/`の`observations.json`・`acceptance.json`・`source-correspondence.json`・`audio-pin-state.json`。診断sourceは`99111066`と同所の`diagnostic-source.patch`で再構成でき、`diagnostic-source-basis.json`に対応を残した。実行前後の362ファイルの指紋一致、入出力・音量の復元、Macの既定機器が不変であること、所有ペアの停止を確認した。入力形式の0Hz問題は固定条件で変化したが、出力とclockの開始原因は未確定であり、Simulator固有の不可能性やAPI変更の必要性を断定しない。
 
 次の切り分けでは、稼働中のgraphへ出力nodeを初めて取得する影響と、再生データがない状態を区別する。インストール済みWatchSimulator SDKの`AVAudioEngine.h`は、出力nodeを初アクセス時に生成することと、watchOSではidle時のhardware自動停止が常に有効であることを説明している。今回のprobeは出力PCMを予約していないため、engine停止だけをnative入力APIの利用不能の証拠にしない。必要な比較を限定し、一時probeは役目を終えた時点で撤去する。
+
+
+## Watch共有engineの入出力を開始前に準備する比較
+
+2026-11-02、同じ所有Simulator・48kHz機器固定・session設定・AVAudioRecorder事前録音なしで、共有engineの開始条件を比較した。先の入力先行では後から取得した出力が0Hzだった。出力先行に変えた比較では出力48kHz／2chとengine開始は成立したが、後から開始する入力が0Hz／2chとなりcallbackは0だった。証跡は`.validation/watch-native-output-first-executed-20261102/`。起動順の単純な反転では解消しない。
+
+出力node・player graph・2秒の有限無音bufferを入力開始前に用意した比較では、入力190 callbacks・97,280 frames、出力48kHz／2chが成立した（`.validation/watch-native-output-demand-corrected-20261102/`）。ただし、この組合せだけでは無音bufferの必要性を判断できない。先行したbuild失敗は`.validation/watch-native-output-demand-20261102/`に保持し、native実行の結果に含めない。
+
+最後の比較では手動graphとPCM予約を除き、session活性化後・engine開始前に出力nodeと入力nodeの両方を取得してから、元のcapture→renderer順で開始した。入力48kHz mono・出力48kHz stereo、190 callbacks・97,280 frames・非zero 96,183 samples、入力時刻の幅2.016秒を確認した。engineとplayerの時計も動作し、両stream・engine・sessionの停止に成功した。この条件では事前録音・無音buffer・手動player接続は不要だった。native両I/Oを開始前に準備する条件を製品側へ適用する。
+
+最終比較の証跡は`.validation/watch-native-both-nodes-prepared-20261102/`。各比較にsource差分と基準commitを保存し、実行前後362ファイルの一致、Simulatorの入出力・音量の完全復元、Macの既定機器不変、所有ペアの停止を確認した。成立したのはWatchのnative入力と出力時計の開始であり、出力波形・iPhoneでの5秒録音・Watchへの全量再生・会話成立は引き続き別に検証する。
+
+SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。停止中の両node準備だけを行い、単方向backendの生成・開始は変更しない。空実装でnode取得の期待が失敗するREDを確認後、既存を含む68テストが成功した。証跡は`.validation/session-duplex-prepare-20261102/`。このpackage単位はApp差分から独立しており、Watch Appへの接続は次の工程で行う。

@@ -6,6 +6,18 @@ import Foundation
 #endif
 
 #if canImport(AVFAudio)
+/// Explicitly prepare both native I/O nodes before starting a shared duplex
+/// engine. This does not start the engine, connect nodes or configure a session.
+public enum AudioDuplexIO {
+    public static func prepare(engine: AVAudioEngine) throws {
+        guard !engine.isRunning else {
+            throw AudioStreamError.engineOperationFailed("Duplex I/O must be prepared before starting the engine")
+        }
+        _ = engine.outputNode
+        _ = engine.inputNode
+    }
+}
+
 public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     private let engine: AVAudioEngine
     private let bus: AVAudioNodeBus
