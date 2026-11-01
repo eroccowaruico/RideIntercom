@@ -212,6 +212,18 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 各試行でビルド番号を除く362ファイルの対応と診断patchを保持し、比較後に6ファイルすべてをHEADへ完全復元した。両Simulatorの48kHz入出力固定・音量を完全復元し、両App終了、所有ペア停止、runner撤去を確認した。観測・AppログにIP・鍵・PCMを保存せず、製品のLAN必須化や通常経路の変更は採用していない。
 
 
+## Phoneの録音開始順と接続準備期限の対照
+
+2026-11-02、Phoneが媒体認証前に録音を開始する条件を分離した。診断用のlistenerとbackendを準備してWC返信を要求し、既存の媒体認証成立後にだけ録音を始める一時変更を1回実行した。Watchは返信を受けてからnative音声を開始する。新しいACKや製品の通信方式は追加していない。
+
+この対照では693 byteの返信がWatchへ届き、reply callbackとMainActor反映を各1件観測した。ただしPhoneの返信送信要求から約8.101秒かかり、Phoneの5秒の準備期限による解放から約3.085秒後だった。Watchの48kHz native開始は観測したが、相手listenerは既に終了しており、媒体認証・Phone録音は開始しなかった。35秒の実行上限で終了し、App内の最終結果・Watch cleanup段階は未観測、外部からの終了と資源復元は確認した。返信の到着1回だけで、Phone音声処理が不達の原因だったとは判断しない。
+
+続いて、同じ診断のPhone準備期限だけを5秒から20秒に変更し、他の5ソースのhash一致を確認して1回実行した。Phoneは再び693 byteの返信送信要求まで到達したが、Watchのreply／error callback・MainActor反映は12秒間すべて0だった。Watch native開始前にtimeoutし、Watch cleanup段階を観測した。終了時点ではPhoneの20秒期限に達していないため、その期限による自動解放は未観測として外部cleanupと分ける。
+
+短い準備期限と遅い返信の競合は観測できたが、準備期限を揃えるだけでは返信配送は安定しなかった。同条件の追加試行を停止する。音声の5秒全量・波形・codec末尾は未測定であり、マイクやcodecの失敗、Simulatorの非対応とは結論しない。
+
+証跡は`.validation/watch-audio-lan-after-auth-20261102/manifest.json`と`.validation/watch-audio-lan-prepared20-20261102/manifest.json`。各実行の362入力とbinary対応、patch・再現用runnerを保持し、一時6ソースをHEADへ完全復元した。両端の入出力固定・音量を復元し、所有AppとSimulatorを停止、一時runnerの実行用コピーを撤去した。Build番号は392→394→396へ進んだ。LAN診断経路・録音開始順・20秒期限はいずれも製品へ採用していない。
+
 ## iPadの5秒録音と送信処理の回帰
 
 2026-11-02、Watchの返信境界の読取確認と並行し、既存のiPad録音チェック回帰を実行した。所有専用iPadはOS 26.4で現最低27.0を満たさなかったため、所有記録・停止状態とValidation名前空間だけの保存を確認して退役し、同じ用途のiPad Pro 13-inch (M5)／iPadOS 27.2を1台作成した。一般・所有不明のSimulatorは変更していない。
