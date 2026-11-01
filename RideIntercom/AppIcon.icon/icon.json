@@ -1,43 +1,95 @@
 {
-  "fill": {
-    "solid": "srgb:0.05490,0.10980,0.21176,1.00000"
-  },
-  "groups": [
+  "fill-specializations" : [
     {
-      "name": "道とシュプール",
-      "layers": [
-        {
-          "name": "道とシュプール",
-          "image-name": "Road.svg",
-          "glass": true,
-          "position-specializations": [
-            { "idiom": "watchOS", "value": { "scale": 0.92, "translation-in-points": [0, 0] } }
-          ]
-        }
-      ],
-      "shadow": { "kind": "neutral", "opacity": 0.3 },
-      "specular": true,
-      "translucency": { "enabled": true, "value": 0.2 }
+      "value" : {
+        "automatic-gradient" : "display-p3:0.09074,0.14661,0.27984,1.00000"
+      }
     },
     {
-      "name": "音声波形",
-      "layers": [
+      "appearance" : "dark",
+      "value" : {
+        "automatic-gradient" : "display-p3:0.05581,0.09016,0.17210,1.00000"
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
         {
-          "name": "音声波形",
-          "image-name": "Waveform.svg",
-          "glass": true,
-          "position-specializations": [
-            { "idiom": "watchOS", "value": { "scale": 0.92, "translation-in-points": [0, 0] } }
+          "blend-mode" : "normal",
+          "fill" : {
+            "automatic-gradient" : "display-p3:0.00000,0.66880,1.00000,1.00000"
+          },
+          "glass" : true,
+          "image-name" : "Road.svg",
+          "name" : "道とシュプール",
+          "opacity" : 0.4,
+          "position-specializations" : [
+            {
+              "idiom" : "watchOS",
+              "value" : {
+                "scale" : 0.92,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            }
           ]
         }
       ],
-      "shadow": { "kind": "neutral", "opacity": 0.3 },
-      "specular": true,
-      "translucency": { "enabled": true, "value": 0.2 }
+      "name" : "道とシュプール",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.3
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    },
+    {
+      "layers" : [
+        {
+          "blend-mode" : "lighten",
+          "fill" : {
+            "automatic-gradient" : "display-p3:0.00000,0.96783,0.85290,1.00000"
+          },
+          "glass" : true,
+          "image-name" : "Waveform.svg",
+          "name" : "音声波形",
+          "opacity" : 0.8,
+          "position-specializations" : [
+            {
+              "idiom" : "watchOS",
+              "value" : {
+                "scale" : 0.92,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "name" : "音声波形",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.3
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
     }
   ],
-  "supported-platforms": {
-    "circles": ["watchOS"],
-    "squares": "shared"
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
   }
 }
