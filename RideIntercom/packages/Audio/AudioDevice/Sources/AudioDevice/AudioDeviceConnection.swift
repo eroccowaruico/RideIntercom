@@ -92,8 +92,12 @@ public final class AudioDeviceConnection: AudioInputStreamBackend, AudioOutputSt
     }
 
     @discardableResult public func connect(to endpoint: RTCAudioDeviceEndpoint) -> Bool {
-        let link = lock.withLock { !stopped && prepared ? transport : nil }
-        return link?.connect(to: endpoint) ?? false
+        guard let link = lock.withLock({ !stopped ? transport : nil }), link.connect(to: endpoint) else { return false }
+        return lock.withLock {
+            guard !stopped, transport === link else { return false }
+            prepared = true
+            return true
+        }
     }
 
     /// Closing discards all partially encoded speech. Path recovery never

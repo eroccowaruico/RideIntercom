@@ -95,6 +95,13 @@ struct AudioDeviceConnectionTests {
         #expect(throws: AudioDeviceError.stopped) { try a.startRendering(configuration: .init()) }
     }
 
+    @Test func rejectedEndpointDoesNotPrepareTheBackend() throws {
+        let (phone, watch) = try pair(); defer { phone.stop(); watch.stop() }
+        #expect(!watch.connect(to: .init(name: "invalid", type: "_invalid._udp", domain: "local.")))
+        #expect(throws: (any Error).self) { try watch.startCapture(configuration: .init(), onFrame: { _ in }) }
+        #expect(throws: (any Error).self) { try watch.startRendering(configuration: .init()) }
+    }
+
     @Test func nativeEncryptedPairUsesTheExistingPCMBackendsInBothDirections() async throws {
         let (a, b) = try pair(); defer { a.stop(); b.stop() }
         try await connect(a, b)
@@ -118,6 +125,38 @@ struct AudioDeviceConnectionTests {
         #expect(first.frames.flatMap(\.samples).contains { abs($0) > 0.01 })
         #expect(second.frames.flatMap(\.samples).contains { abs($0) > 0.01 })
         _ = outputA.stop(); _ = outputB.stop()
+    }
+
+    @Test func oneAdvertisedEndpointAllowsReceiveBeforeWatchMicrophoneOpensAndRestarts() async throws {
+        for _ in 0..<2 {
+            let (phone, watch) = try pair()
+            defer { phone.stop(); watch.stop() }
+            let endpoint = try await phone.prepare()
+            try #require(watch.connect(to: endpoint))
+            let phoneFrames = ReceivedFrames(), watchFrames = ReceivedFrames()
+            _ = try phone.startCapture(configuration: .init(), onFrame: { phoneFrames.append($0) })
+            _ = try watch.startCapture(configuration: .init(), onFrame: { watchFrames.append($0) })
+            let phoneOutput = AudioOutputStreamRenderer(backend: phone)
+            let watchOutput = AudioOutputStreamRenderer(backend: watch)
+            try #require(phoneOutput.start().result == .applied && watchOutput.start().result == .applied)
+            try #require(await waitUntil { phone.isSendReady && watch.isSendReady })
+            #expect(!watch.isSendingAllowed)
+            phone.setSendingAllowed(true)
+            try send(phoneOutput, format: .init())
+            try #require(await waitUntil { watchFrames.frames.flatMap(\.samples).contains { abs($0) > 0.01 } })
+            #expect(phoneFrames.frames.isEmpty, "Watch microphone remains closed while receiving")
+            watch.setSendingAllowed(true)
+            try send(watchOutput, format: .init())
+            try #require(await waitUntil { phoneFrames.frames.flatMap(\.samples).contains { abs($0) > 0.01 } })
+            watch.setSendingAllowed(false)
+            let sent = watch.statistics?.sentMediaDatagrams
+            try send(watchOutput, format: .init(), offset: 100)
+            #expect(watch.statistics?.sentMediaDatagrams == sent)
+            _ = phoneOutput.stop(); _ = watchOutput.stop()
+            phone.stop(); watch.stop()
+            #expect(!phone.isSendReady && !watch.isSendReady && !watch.isSendingAllowed)
+            #expect(!watch.connect(to: endpoint), "Stopped credentials cannot reconnect")
+        }
     }
     @Test func aSharedEngineClockDoesNotImplyPhysicalDeviceRendering() async throws {
         let engine = AVAudioEngine()

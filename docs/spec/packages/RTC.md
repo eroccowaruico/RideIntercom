@@ -243,21 +243,21 @@ UDPは確立済みflowの無線経路を自動移行しないため、`betterPat
 
 ## 1組の音声機器との暗号化媒体
 
-`RTCAudioDeviceLink`は、通話を所有する端末と遠隔音声入出力機器の1組に限る媒体APIである。`CallSession`、GroupRelay参加者、group credential、RTCNativeWebRTCを作らない。配送は既存`LocalDatagramTransport`を共有し、音声用のTCP、再送、常設制御接続、周期polling、復旧台帳を追加しない。
+`RTCAudioDeviceLink`は、通話を所有する端末と遠隔音声入出力機器の1組に限る媒体APIである。`CallSession`、GroupRelay参加者、group credential、RTCNativeWebRTCを作らない。配送は音声機器専用の単一UDP双方向flowを用い、groupの`LocalDatagramTransport`は変更しない。音声用のTCP、音声再送、常設制御接続、周期polling、復旧台帳を追加しない。
 
 | API・境界 | 契約 |
 |---|---|
 | 初期化 | 新しいUUIDの`sessionID`、32 byteの一時乱数鍵、`.controller`または`.device`を指定する。鍵は呼出側の認証済みcompanion経路だけで交換し、group鍵・account資格を転用しない |
 | endpoint | 実際に登録されたBonjour name／type／domainだけをCodableで公開する。PeerID・groupHash・秘密を公開しない。`onEndpointChange`で登録・除去を通知し、全件browserは作らない |
-| start・connect | startの重複はlistener・sequenceを初期化しない。connectは当該sessionの反対側の固定UDP serviceだけを受け付ける。両端のendpoint交換は呼出側の責務 |
-| 暗号化 | GroupRelayと同じAES.GCMを使う。sessionと方向でHKDF鍵を分離し、専用namespaceを追加認証する。session・方向・単調sequence・音声packetを暗号化／認証する。方向反射・別鍵・旧session・改竄を拒否する |
-| replayと順序 | 完全な認証・packet検証に成功してから受信sequenceを進める。既に渡した音声より古いsequence・重複を即時破棄し、並べ替え待ちbufferや先頭待ちを追加しない |
+| start・connect | startは受信listenerを広告し、重複はlistener・sequenceを初期化しない。connectは当該sessionの反対側の固定UDP serviceだけを受け付け、自己listener未開始でも開始できる。両端が広告・接続する既存利用も維持し、両接続が競合した場合は認証済みdevice発flowを優先する。endpoint交換は呼出側の責務。有効flowがあるとき候補の認証完了前に旧flowを破棄しない |
+| 暗号化 | GroupRelayと同じAES.GCMを使う。sessionと方向でHKDF鍵を分離し、専用namespaceを追加認証する。session・方向・単調sequence・音声packetおよびhello／ackを暗号化／認証する。方向反射・別鍵・旧session・改竄を拒否する。controlのwire形式追加により同じ対応版同士が必要で、旧実装とのhandshake互換は保証しない |
+| replayと順序 | 完全な認証・packet検証と対象flowへの受入に成功してから受信sequenceを進める。既に渡した音声より古いsequence・重複を即時破棄し、並べ替え待ちbufferや先頭待ちを追加しない |
 | 共通packet上限 | 空payloadを許さず8192 byte以下。sample rateは有限の8–48kHz、channelは1–2、capturedAtは有限。sampleCountは未指定または1–96,000 frame×channel、bitRateは未指定または0–1,536,000。codec parserは複製しない。空payload／明示0 sampleの制御・DTX表現はなく、無音時はpacketを送らない |
 | send | 即時UDP送信を受け付けたときだけtrue。配送・受信・再生成功を意味しない。送信資源未準備・inFlight上限・不正packetでは破棄する。APIがqueue待ちで100ms以上遅れた音声も送らない |
 | 受信 | 認証済packetを配送queue上のcallbackへ直接渡し、package内で音声待ちqueueを追加しない。callbackは短く処理し、後段で待機する場合は既存の有限・鮮度付き受信経路を使う |
-| isSendReady | native UDP送信資源の準備だけを表す。相手への到達、双方向音声、再生や相手の生存を証明しない。`onSendAvailabilityChange`はnative state／viability／送信失敗で変化を通知する |
-| lastReceivedAt・statistics | 完全に認証・検証した最後の音声受信を端末内systemUptimeで返す。未受信／停止後はnil。受信なしを相手消失と断定しない。statisticsのdatagram数はnative配送層での観測であり、認証済受信数やnetwork lossとは区別する |
-| 経路切替 | nativeの置換・backoff・有限inFlightを共有し、同一sessionの通常path更新では鍵・sequenceを維持する。制御経路の再bootstrapへ依存せず、捨てた音声は再送しない。切替前pathからの未受信packetすべてを識別拒否する保証は設けない |
+| isSendReady | native UDP flow上で認証済みhello／ackが成立した状態を表す。継続的な相手の生存、双方向音声や再生を証明しない。`onSendAvailabilityChange`は状態変化を通知する |
+| lastReceivedAt・statistics | 完全に認証・検証して採用した最後の音声受信を端末内systemUptimeで返す。未受信／停止後はnil。hello／ackを音声callback・最終音声時刻・媒体datagram数に含めない。受信なしを相手消失と断定しない。送信受理は配送やnetwork lossの証明ではない |
+| 経路切替 | 有限回・期限付きのhello／ackによりflowを確立し、未認証候補は既存flowを追放しない。接続試行は5秒、helloは最大10回／0.4秒間隔、native障害後の再dialは最大5回とする。送話gateが閉じていてもhandshakeと受話は可能。nativeの置換・有限inFlightにより、同一sessionの通常path更新では鍵・sequenceを維持する。制御経路の再bootstrapへ依存せず、捨てた音声は再送しない。切替前pathからの未受信packetすべてを識別拒否する保証は設けない |
 | 停止と所有 | stopは暗号状態を先に破棄してnative資源を閉じ、古いcallbackを拒否する。同instanceの再startはエラー。終話・account／音声機器切替では新しいsession／鍵を作る。配送queue上からのsend・stopはreentrantに実行し、同queueへの同期待ちを重ねない |
 
 RTC targetのwatchOS最低版は26.4。Multipeer専用のCFNetwork初期化は同frameworkを持つOSに限定する。これはWatchでgroup通話やWebRTC binaryを利用する宣言ではない。Watchの低層通信と音声sessionの実機条件は[未確認事項](../../validation/未確認事項.md)に従い、SDK compileや端末内UDP試験を実Watchの無線・背景成立と扱わない。

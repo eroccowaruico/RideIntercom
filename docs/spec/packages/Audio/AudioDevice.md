@@ -8,7 +8,7 @@
 | 依存 | AudioCore、Codec、RTC、SessionManager |
 | 対象 | iOS・macOS・watchOS 27以降 |
 | 差し替え境界 | `AudioDeviceConnection`が既存の`AudioInputStreamBackend`と`AudioOutputStreamBackend`へ直接適合する。別のadapter・registryは設けない |
-| 準備 | `prepare()`でendpointを取得し、認証された操作経路で交換後に`connect(to:)`する。準備待ちは5秒以内。同期のcapture／render開始に非同期通信の準備を隠さない |
+| 準備 | listener側は`prepare()`でendpointを取得し、認証された操作経路で相手へ渡す。相手は自己広告せず`connect(to:)`でき、受付成功後にcapture／renderを開始できる。従来の両側`prepare()`後の接続も維持する。endpointの準備待ちは5秒以内で、接続受付は相手への到達や音声再生を意味しない |
 | 時計 | engineを開始・停止せず、周期render timerも作らない。呼出し側の既存`renderingEngine`を共有できるが、`rendersToHardware`はfalseでありローカル再生を意味しない |
 | 入力 | 受信PCMの元の形式をcaptureへ渡す。固定の周波数・channel countへ暗黙変換しない |
 | 出力 | 呼出し側が指定した形式でAAC-ELDを構築する。必要なPCM形式変換はSessionManagerのrendererが担当する。非対応の形式・bitrateは開始失敗とし、別codecへ自動置換しない |

@@ -172,3 +172,14 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 証跡は`.validation/watch-hostport-flow-20261102/`。source362ファイル一致、IP値を観測JSON・Appログへ保存していないこと、一時2sourceのHEAD完全復元、runner回収、両App終了・所有Simulator停止を確認した。音声設定は変更していない。同条件でUDP通信自体は成立し、Bonjour指定の接続準備停止とは差が出たが、根本原因を特定したものではない。LAN対照はAPなし近距離・製品fallback・暗号化音声・録音会話の成立を示さない。
 
 実証した単一flowの双方向配送を、既存の認証・暗号化・replay防止と配送上限を保つ音声device packageへ接続する。製品のBonjour既定・APなし近距離要求は維持し、IP交換を製品fallbackとして採用する判断とは分ける。App追従とnative5秒録音・全量再生は引き続き未完である。
+
+
+## 音声機器packageの片側広告と双方向配送
+
+2026-11-02、RTCの音声機器専用transportを単一UDP flowの双方向配送へ変更した。listener側だけが広告し、相手は自己広告せず接続できる。有限の認証済みhello／ackで返送先を確立するため、Watchの送話gateを開く前にもPhoneから受話できる。音声再送・常設keepalive・無音packetは追加せず、group用Local transportは変更していない。AudioDeviceは接続受付後に既存capture／rendererを開始でき、従来の両側prepare経路も維持する。
+
+変更前の未広告接続失敗を確認後、実UDPとnative AACを用いて先行受話・双方向配送・送話gate・停止／新sessionでの再開始を検証した。二巡の点検で、接続候補の障害が正常な旧flowまで止める問題、交換した未認証候補の停止漏れ、古い復旧予約による再接続阻害をそれぞれ失敗再現後に修正した。未認証候補の排除、受入前のreplay状態不消費、両側接続の競合と待機期限後の継続、旧flowを維持する経路切替も確認した。
+
+最終sourceでRTC 113テスト・Native WebRTC 4テスト・AudioDevice 11テストが成功した。WorkerPairの実サービス1テストはskipで未検証。途中のgroup接続待ち失敗は限定再実行と後続全回帰で成功したが、原因は未確定として保持する。初回AudioDevice実行のsandbox／native AAC環境失敗も保持し、製品コードへ環境回避は入れていない。証跡は`.validation/audio-device-duplex-20261102/`。
+
+これは端末内package経路の成立であり、Watch実AppからのBonjour接続、Watchマイク→iPhoneでの5秒録音→Watchの全量再生、APなし無線や実機受入は未完である。Appの接続方法はこのpackage単位の確定後に変更し、LAN対照の成功を製品通信条件の変更理由にはしない。

@@ -41,6 +41,27 @@ struct AudioDeviceCipherTests {
         for _ in 0..<1025 { #expect(receiver.open(try sender.seal(packet(3))) != nil) }
         #expect(receiver.open(held) == nil)
     }
+    @Test func controlUsesDirectionalAuthenticationAndSharedReplayProtection() throws {
+        var device = try AudioDeviceCipher(sessionID: session, key: key, role: .device)
+        var phone = try AudioDeviceCipher(sessionID: session, key: key, role: .controller)
+        var wrong = try AudioDeviceCipher(sessionID: session, key: Data(repeating: 8, count: 32), role: .controller)
+        var reflected = try AudioDeviceCipher(sessionID: session, key: key, role: .device)
+        var old = try AudioDeviceCipher(sessionID: UUID(), key: key, role: .controller)
+        let hello = try device.sealControl(.hello)
+        #expect(wrong.openMessage(hello) == nil)
+        #expect(reflected.openMessage(hello) == nil)
+        #expect(old.openMessage(hello) == nil)
+        // A valid message on an ineligible flow must not consume its sequence.
+        #expect(phone.openMessage(hello, accepting: { _ in false }) == nil)
+        guard case .hello = phone.openMessage(hello) else { Issue.record("Valid hello rejected"); return }
+        #expect(phone.openMessage(hello) == nil)
+        let packet = try device.seal(packet())
+        #expect(phone.open(packet) != nil)
+        #expect(phone.openMessage(hello) == nil)
+        let ack = try phone.sealControl(.ack)
+        guard case .ack = device.openMessage(ack) else { Issue.record("Valid acknowledgement rejected"); return }
+        #expect(device.openMessage(ack) == nil)
+    }
     @Test func invalidKeyAndOversizedOrInvalidPacketAreRejected() throws {
         #expect(throws: RTCAudioDeviceLinkError.invalidKey) {
             _ = try AudioDeviceCipher(sessionID: session, key: Data(), role: .controller)
@@ -125,8 +146,8 @@ struct AudioDeviceLinkTests {
         }
         return predicate()
     }
-    func native(_ link: RTCAudioDeviceLink) throws -> LocalDatagramTransport {
-        try #require(Mirror(reflecting: link).children.first { $0.label == "transport" }?.value as? LocalDatagramTransport)
+    func native(_ link: RTCAudioDeviceLink) throws -> AudioDeviceDuplexFlow {
+        try #require(Mirror(reflecting: link).children.first { $0.label == "transport" }?.value as? AudioDeviceDuplexFlow)
     }
     func pair(onPhone: @escaping @Sendable (RTCAudioPacket) -> Void,
               onDevice: @escaping @Sendable (RTCAudioPacket) -> Void,
@@ -142,6 +163,23 @@ struct AudioDeviceLinkTests {
         #expect(device.connect(to: try #require(phone.endpoint)))
         #expect(await eventually { phone.isSendReady && device.isSendReady })
     }
+    @Test func deviceConnectsWithoutAdvertisingAndReceivesBeforeSendingAudio() async throws {
+        let deviceAudio = DeviceRecording(), phoneAudio = DeviceRecording()
+        let (phone, device) = try pair(onPhone: { phoneAudio.append($0) }, onDevice: { deviceAudio.append($0) })
+        defer { phone.stop(); device.stop() }
+        try phone.start()
+        try #require(await eventually { phone.endpoint != nil })
+        try #require(device.connect(to: try #require(phone.endpoint)), "The device must connect without starting a listener")
+        try #require(await eventually { phone.isSendReady && device.isSendReady })
+        #expect(device.endpoint == nil)
+        #expect(phone.lastReceivedAt == nil && device.lastReceivedAt == nil)
+        #expect(phone.statistics.sentMediaDatagrams == 0 && device.statistics.sentMediaDatagrams == 0)
+        #expect(phone.send(packet(7)))
+        try #require(await eventually { deviceAudio.packets.count == 1 })
+        #expect(deviceAudio.packets == [packet(7)])
+        #expect(phoneAudio.packets.isEmpty)
+    }
+
     @Test func bonjourPairDeliversBothWaysWithoutAnAudioBacklog() async throws {
         let a = DeviceRecording(), b = DeviceRecording()
         let (phone, device) = try pair(onPhone: { a.append($0) }, onDevice: { b.append($0) })
@@ -169,6 +207,76 @@ struct AudioDeviceLinkTests {
         #expect(!phone.send(packet(3)))
         #expect(throws: RTCAudioDeviceLinkError.stopped) { try phone.start() }
     }
+    @Test func unauthenticatedCandidateCannotDisplaceTheActiveFlow() async throws {
+        let phoneAudio = DeviceRecording(), deviceAudio = DeviceRecording()
+        let (phone, device) = try pair(onPhone: { phoneAudio.append($0) }, onDevice: { deviceAudio.append($0) })
+        defer { phone.stop(); device.stop() }
+        try await connect(phone, device)
+        let endpoint = try #require(phone.endpoint)
+        let rogue = NWConnection(to: .service(name: endpoint.name, type: endpoint.type,
+                                              domain: endpoint.domain, interface: nil), using: .udp)
+        defer { rogue.cancel() }
+        rogue.start(queue: DispatchQueue(label: "rtc.test.rogue"))
+        try #require(await eventually { if case .ready = rogue.state { return true }; return false })
+        var wrong = try AudioDeviceCipher(sessionID: UUID(), key: Data(repeating: 8, count: 32), role: .device)
+        rogue.send(content: try wrong.sealControl(.hello), completion: .contentProcessed { _ in })
+        try await Task.sleep(for: .milliseconds(250))
+        #expect(phone.isSendReady && device.isSendReady)
+        #expect(phone.send(packet(10)) && device.send(packet(11)))
+        try #require(await eventually { phoneAudio.packets.count == 1 && deviceAudio.packets.count == 1 })
+        #expect(phoneAudio.packets == [packet(11)] && deviceAudio.packets == [packet(10)])
+    }
+
+    @Test func unreachableReplacementKeepsTheAuthenticatedIncomingFlow() async throws {
+        let deviceAudio = DeviceRecording(), failures = DeviceRecording()
+        let session = UUID(), key = Data(repeating: 11, count: 32)
+        let phone = try RTCAudioDeviceLink(sessionID: session, key: key, role: .controller, onReceive: { _ in })
+        let device = try RTCAudioDeviceLink(sessionID: session, key: key, role: .device,
+            onReceive: { deviceAudio.append($0) }, onFailure: { _ in failures.action(true) })
+        defer { phone.stop(); device.stop() }
+        try phone.start(); try device.start()
+        try #require(await eventually { phone.endpoint != nil && device.endpoint != nil })
+        try #require(phone.connect(to: try #require(device.endpoint)))
+        try #require(await eventually { phone.isSendReady && device.isSendReady })
+        let actual = try #require(phone.endpoint)
+        let missing = RTCAudioDeviceEndpoint(name: String(actual.name.dropLast(12)) + "000000000000",
+                                              type: actual.type, domain: actual.domain)
+        try #require(device.connect(to: missing))
+        #expect(phone.send(packet(8)))
+        try #require(await eventually { deviceAudio.packets.count == 1 })
+        try await Task.sleep(for: .seconds(6))
+        #expect(phone.isSendReady && device.isSendReady && failures.results.isEmpty)
+        #expect(phone.send(packet(9)))
+        try #require(await eventually { deviceAudio.packets.count == 2 })
+        #expect(deviceAudio.packets == [packet(8), packet(9)])
+    }
+
+    @Test func simultaneousLegacyConnectRetainsAuthenticatedFlowAfterLoserTimeout() async throws {
+        let phoneAudio = DeviceRecording(), deviceAudio = DeviceRecording()
+        let (phone, device) = try pair(onPhone: { phoneAudio.append($0) }, onDevice: { deviceAudio.append($0) })
+        defer { phone.stop(); device.stop() }
+        try await connect(phone, device)
+        try await Task.sleep(for: .seconds(5))
+        #expect(phone.isSendReady && device.isSendReady)
+        #expect(phone.send(packet(4)) && device.send(packet(5)))
+        try #require(await eventually { phoneAudio.packets.count == 1 && deviceAudio.packets.count == 1 })
+        #expect(phoneAudio.packets == [packet(5)] && deviceAudio.packets == [packet(4)])
+    }
+
+    @Test func controllerCanConnectWithoutStartingItsOwnListener() async throws {
+        let phoneAudio = DeviceRecording(), deviceAudio = DeviceRecording()
+        let (phone, device) = try pair(onPhone: { phoneAudio.append($0) }, onDevice: { deviceAudio.append($0) })
+        defer { phone.stop(); device.stop() }
+        try device.start()
+        try #require(await eventually { device.endpoint != nil })
+        try #require(phone.connect(to: try #require(device.endpoint)))
+        try #require(await eventually { phone.isSendReady && device.isSendReady })
+        #expect(phone.endpoint == nil)
+        #expect(device.send(packet(6)))
+        try #require(await eventually { phoneAudio.packets.count == 1 })
+        #expect(phoneAudio.packets == [packet(6)])
+    }
+
     @Test func receiveCallbackCanSendAndStopOnTheDatagramQueue() async throws {
         let slot = DeviceLinkSlot(), result = DeviceRecording()
         let (phone, device) = try pair(onPhone: { _ in }, onDevice: { packet in
@@ -186,46 +294,99 @@ struct AudioDeviceLinkTests {
         #expect(await eventually { result.results.count == 2 })
         #expect(result.results == [true, true])
     }
-    @Test func pathRecoveryPreservesThePairWithoutRekeyingOrOldCallbackEffects() async throws {
-        let recording = DeviceRecording(), availability = DeviceRecording()
-        let (phone, device) = try pair(onPhone: { _ in }, onDevice: { recording.append($0) }, onAvailability: { availability.action($0) })
+    @Test func nonviableReplacementCannotSuspendTheAuthenticatedOldFlow() async throws {
+        let received = DeviceRecording()
+        let (phone, device) = try pair(onPhone: { _ in }, onDevice: { received.append($0) })
         defer { phone.stop(); device.stop() }
         try await connect(phone, device)
-        let transport = try native(phone)
-        func connection() throws -> NWConnection {
-            try transport.synchronized {
-                let outgoing = try #require(Mirror(reflecting: transport).children.first { $0.label == "outgoing" }?.value as? [String: NWConnection])
-                return try #require(outgoing.values.first)
-            }
+        let flow = try native(device)
+        let candidate = try flow.synchronized { () throws -> NWConnection in
+            let old = try #require(flow.outgoing)
+            let better = try #require(old.betterPathUpdateHandler)
+            better(true)
+            let candidate = try #require(flow.outgoing)
+            #expect(candidate !== old && flow.active === old)
+            let viability = try #require(candidate.viabilityUpdateHandler)
+            viability(false)
+            #expect(device.isSendReady, "A nonviable candidate cannot suspend the old authenticated flow")
+            #expect(phone.send(packet(13)))
+            return candidate
         }
+        #expect(await eventually { if case .cancelled = candidate.state { return true }; return false },
+            "An abandoned unauthenticated candidate must be cancelled")
+        try #require(await eventually { received.packets.contains(packet(13)) })
+    }
+
+    @Test func explicitReconnectDoesNotLeaveAnObsoleteRecoveryReservation() async throws {
+        let (phone, device) = try pair(onPhone: { _ in }, onDevice: { _ in })
+        defer { phone.stop(); device.stop() }
+        try phone.start()
+        try #require(await eventually { phone.endpoint != nil })
+        let endpoint = try #require(phone.endpoint)
+        try #require(device.connect(to: endpoint))
+        try #require(await eventually { phone.isSendReady && device.isSendReady })
+        let flow = try native(device)
+        try flow.synchronized {
+            let current = try #require(flow.outgoing)
+            let handler = try #require(current.stateUpdateHandler)
+            handler(.failed(.posix(.ENETDOWN)))
+        }
+        #expect(!device.isSendReady)
+        try #require(device.connect(to: endpoint))
+        try #require(await eventually { device.isSendReady })
+        try await Task.sleep(for: .milliseconds(1200))
+        try flow.synchronized {
+            let current = try #require(flow.outgoing)
+            let handler = try #require(current.stateUpdateHandler)
+            handler(.failed(.posix(.ENETDOWN)))
+        }
+        #expect(!device.isSendReady)
+        try #require(await eventually { device.isSendReady },
+            "A stale scheduled recovery must not block a later recovery")
+    }
+
+    @Test func pathRecoveryPreservesThePairWithoutRekeyingOrOldCallbackEffects() async throws {
+        let recording = DeviceRecording(), inbound = DeviceRecording(), availability = DeviceRecording()
+        let session = UUID(), key = Data(repeating: 11, count: 32)
+        let phone = try RTCAudioDeviceLink(sessionID: session, key: key, role: .controller,
+            onReceive: { recording.append($0) })
+        let device = try RTCAudioDeviceLink(sessionID: session, key: key, role: .device,
+            onReceive: { inbound.append($0) }, onSendAvailabilityChange: { availability.action($0) })
+        defer { phone.stop(); device.stop() }
+        try await connect(phone, device)
+        let transport = try native(device)
+        func connection() throws -> NWConnection { try transport.synchronized { try #require(transport.outgoing) } }
         let old = try connection(), better = try #require(old.betterPathUpdateHandler)
         let viability = try #require(old.viabilityUpdateHandler)
-        #expect(phone.send(packet(1)))
+        #expect(device.send(packet(1)))
         #expect(await eventually { recording.packets.count == 1 })
-        transport.synchronized { better(true); better(true) }
-        #expect(await eventually { (try? connection()) !== old && phone.isSendReady })
+        transport.synchronized {
+            better(true); better(true)
+            #expect(transport.active === old, "The prior outgoing flow remains the authenticated receiver")
+            #expect(phone.send(packet(12)), "The peer can send while the old flow is retained")
+        }
+        #expect(await eventually { inbound.packets.contains(packet(12)) })
+        #expect(device.isSendReady, "A viable old flow stays available while its replacement authenticates")
+        #expect(await eventually { transport.synchronized { transport.outgoing.map { $0 !== old && transport.active === $0 } ?? false } && device.isSendReady })
         transport.synchronized { viability(false); better(true) }
-        #expect(phone.isSendReady)
-        #expect(phone.send(packet(2)))
+        #expect(device.isSendReady)
+        #expect(device.send(packet(2)))
         #expect(await eventually { recording.packets.count == 2 })
         #expect(recording.packets == [packet(1), packet(2)])
         let current = try connection(), failed = try #require(current.stateUpdateHandler)
         transport.synchronized { failed(.failed(.posix(.ENETDOWN))) }
-        #expect(!phone.isSendReady)
+        #expect(!device.isSendReady)
         #expect(availability.results.contains(true) && availability.results.contains(false))
-        for _ in 0..<10 { #expect(!phone.send(packet(99))) }
-        try await Task.sleep(for: .milliseconds(2100))
-        #expect(!phone.send(packet(98)))
-        #expect(await eventually { phone.isSendReady })
-        #expect(phone.send(packet(3)))
+        for _ in 0..<10 { #expect(!device.send(packet(99))) }
+        #expect(await eventually { device.isSendReady })
+        #expect(device.send(packet(3)))
         #expect(await eventually { recording.packets.count == 3 })
         #expect(recording.packets == [packet(1), packet(2), packet(3)])
-        phone.stop()
+        device.stop()
         let callbacksAfterStop = availability.results
         transport.synchronized { viability(true); better(true) }
         #expect(availability.results == callbacksAfterStop)
-
-        #expect(!phone.isSendReady && !phone.send(packet(3)))
+        #expect(!device.isSendReady && !device.send(packet(3)))
     }
     @Test func queueContendedSpeechExpiresInsteadOfSendingLate() async throws {
         let result = DeviceRecording()
