@@ -400,6 +400,29 @@ struct AudioPipelineTests {
         #expect(!(harness.viewModel.callTicker as! NoOpCallTicker).isRunning)
     }
 
+    @Test func audioCheckRetainsTheWholeFiveSecondRecordingForPlayback() async {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        vm.startAudioCheck(recordDuration: .seconds(30))
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        defer { vm.cancelAudioCheck() }
+        for index in 0..<250 {
+            let value: Float = index < 80 ? 0.1 : (index < 170 ? 0.2 : 0.3)
+            vm.processAudioCheckInput(level: value, frame: PCMFrame(sequenceNumber: UInt64(index),
+                format: .intercomMixer, capturedAt: Double(index) * 0.02,
+                samples: Array(repeating: value, count: 960)))
+        }
+        vm.finishAudioCheckRecording(playbackDuration: .seconds(5))
+        await AppTestSupport.waitUntil(timeout: .seconds(5)) {
+            h.outputBackend.scheduledFrames.flatMap(\.samples).filter { abs($0) > 0.04 }.count >= 230_000
+        }
+        let samples = h.outputBackend.scheduledFrames.flatMap(\.samples)
+        #expect(samples.filter { abs($0) > 0.04 }.count >= 230_000,
+            "A five-second recording must not be truncated to the live 100 ms queue")
+        for value: Float in [0.1, 0.2, 0.3] {
+            #expect(samples.contains { abs($0 - value) < 0.01 }, "Playback retains beginning, middle and ending")
+        }
+    }
+
     @Test func audioCheckIsCancelledBeforeCallStartsAndCannotStopCallLater() async {
         let harness = AppTestSupport.makeHarness()
         harness.viewModel.startAudioCheck(recordDuration: .milliseconds(80), playbackDuration: .milliseconds(50))

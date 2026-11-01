@@ -175,11 +175,16 @@ Apple認証の登録入口はserver側で有効化されている必要があり
 |---|---|
 | Local / 停止中 | packageのcodec、VAD、effect、volumeを設定可能 |
 | Internet / 混在 | Localと同じCodec / VAD / effects / device設定を使う。Internet OFFでも近くの参加者が中継できることと電池・通信量を説明 |
-| Audio Check | 通話接続中・接続開始中は開始不可。録音/再生中は `stopAudioCheckButton` で停止可能 |
+| Audio Check | 通話接続中・接続開始中は開始不可。録音/再生中は `stopAudioCheckButton` で停止可能。Settingsからの開始はこの端末の入力・出力を使用し、選択した機器とミュート設定を尊重する。Watch所有中は通常開始を拒否する |
 | 通話への移行 | Connect開始時にAudio Checkを停止。古い完了処理は通話を停止しない |
 | 資格保存 | ViewModelが入力検証・Keychain保存・切断・RTC設定適用を担当。Viewは入力と表示だけ |
 | 資格保存失敗 | 現在の通話・保存済み設定を維持 |
 | 設定確認 | `internetConfigurationStatus` は保存の有無。認証成功とは区別し、DiagnosticsのCheck Internet Serviceへ誘導 |
+
+
+Audio Checkは録音入力元・再生先・ミュート設定を常時表示する。準備前は選択値、録音・再生中はAudio Sessionが確定した実機器名を表示し、実行中の入力・出力選択は変更できない。Watchが音声を所有する場合はWatchマイク・Watchスピーカーと明示し、Stop後の明示的な開始を案内する。
+
+開始時のcategory/route確定と録音中の実機器切替を区別する。準備完了時の実snapshotを基準とし、古い遅着snapshotで次のチェックを中断しない。録音・再生中の実機器切替・切断・割り込み・Media Services resetは停止し、再実行を案内する。録音再生sourceのqueueは録音長に応じて最大5秒に限定し、通常通話のlive queueは変更しない。
 
 ## Account
 

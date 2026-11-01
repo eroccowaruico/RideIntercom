@@ -6,6 +6,94 @@ import Testing
 
 @MainActor
 struct AudioActivationTests {
+    @Test func audioCheckInitialRouteResolutionDoesNotCancelPreparation() async {
+        let h = AppTestSupport.makeHarness(groups: []), gate = ManualAsyncGate()
+        let vm = h.viewModel
+        h.audioSessionBackend.activationGate = gate
+        vm.startAudioCheck()
+        await gate.waitForEntry()
+        var resolved = h.audioSessionBackend.current
+        resolved.currentInput = resolved.availableInputs[1]
+        h.audioSessionBackend.current = resolved
+        vm.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(reason: .routeChanged(.categoryChanged), snapshot: resolved)))
+        #expect(vm.audioCheckPhase == .preparing && vm.audioCheckOwnsAudioPipeline)
+        await gate.release()
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording || vm.audioCheckPhase == .idle }
+        #expect(vm.audioCheckPhase == .recording)
+        vm.cancelAudioCheck()
+    }
+
+    @Test func audioCheckUsesActualStartedRouteBeforeDelayedSetupNotification() async {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        let backend = h.audioSessionBackend
+        var resolved = backend.current
+        resolved.currentInput = resolved.availableInputs[1]
+        resolved.isActive = true
+        h.inputBackend.onStart = { [weak backend] in backend?.current = resolved }
+        vm.startAudioCheck()
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        vm.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(reason: .routeChanged(.routeConfigurationChanged), snapshot: backend.current)))
+        #expect(vm.audioCheckPhase == .recording && vm.audioCheckOwnsAudioPipeline)
+        vm.cancelAudioCheck()
+    }
+
+    @Test func staleRouteAfterStopCannotCancelTheNextAudioCheck() async {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel, backend = h.audioSessionBackend
+        var old = backend.current
+        old.currentInput = old.availableInputs[1]
+        var current = backend.current
+        current.currentOutput = .builtInSpeaker
+        current.isActive = true
+        h.inputBackend.onStart = { [weak backend] in backend?.current = current }
+        vm.startAudioCheck()
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        vm.cancelAudioCheck()
+        vm.startAudioCheck()
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        vm.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(reason: .routeChanged(.categoryChanged), snapshot: old)))
+        #expect(vm.audioCheckPhase == .recording)
+        #expect(vm.audioSessionSnapshot.currentInput.id == backend.current.currentInput.id)
+        #expect(vm.audioSessionSnapshot.currentOutput.id == backend.current.currentOutput.id)
+        vm.cancelAudioCheck()
+    }
+
+    @Test func ordinaryAudioCheckCannotStartThroughAWatchOwnedRoute() {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        vm.selectWatchAudioRoute()
+        #expect(!vm.canStartAudioCheck)
+        vm.startAudioCheck()
+        #expect(vm.audioCheckPhase == .idle && !vm.audioCheckOwnsAudioPipeline)
+        #expect(h.inputBackend.startCount == 0 && h.outputBackend.startCount == 0)
+        #expect(vm.isUsingWatchAudio, "A normal start cannot silently replace another route owner")
+        vm.disconnect()
+    }
+
+    @Test func actualPortSwitchDuringRecordingStillStopsAudioCheck() async {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        vm.startAudioCheck()
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        var changed = h.audioSessionBackend.current
+        changed.currentInput = changed.availableInputs[1]
+        h.audioSessionBackend.current = changed
+        vm.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(reason: .defaultInputChanged, snapshot: changed)))
+        #expect(vm.audioCheckPhase == .idle && !vm.audioCheckOwnsAudioPipeline)
+    }
+
+    @Test func configurationReportCannotHideActualPortSwitchDuringRecording() async throws {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        vm.startAudioCheck()
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        var changed = h.audioSessionBackend.current
+        changed.currentInput = changed.availableInputs[1]
+        h.audioSessionBackend.current = changed
+        var report = try #require(vm.lastAudioSessionConfigurationReport)
+        report.snapshot = changed
+        vm.handleAudioSessionRuntimeEvent(.configuration(report))
+        vm.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(reason: .defaultInputChanged, snapshot: changed)))
+        #expect(vm.audioCheckPhase == .idle && !vm.audioCheckOwnsAudioPipeline)
+        vm.cancelAudioCheck()
+    }
+
     @Test func callWaitsForActivationBeforeOpeningMedia() async {
         let h = AppTestSupport.makeHarness(), gate = ManualAsyncGate()
         h.audioSessionBackend.activationGate = gate

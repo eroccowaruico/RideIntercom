@@ -79,6 +79,7 @@ final class FakeInputStreamBackend: SessionManager.AudioInputStreamBackend {
     private(set) var voiceProcessingConfigurations: [SessionManager.AudioInputVoiceProcessingConfiguration] = []
     private var onFrame: ((PCMFrame) -> Void)?
     var startError: Error?
+    var onStart: (() -> Void)?
 
     func startCapture(
         configuration: SessionManager.AudioInputStreamConfiguration,
@@ -86,6 +87,7 @@ final class FakeInputStreamBackend: SessionManager.AudioInputStreamBackend {
     ) throws -> AudioFormat {
         startCount += 1
         if let startError { throw startError }
+        onStart?()
         self.onFrame = onFrame
         return configuration.preferredFormat
     }

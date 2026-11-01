@@ -212,6 +212,7 @@ struct AudioIOPanel: View {
                     ports: viewModel.availableOutputPorts,
                     accessibilityIdentifier: "audioCheckOutputPicker"
                 )
+                .disabled(viewModel.audioCheckPhase.isInProgress)
             }
 
             if viewModel.availableInputPorts.count > 1 {
@@ -224,6 +225,7 @@ struct AudioIOPanel: View {
                     ports: viewModel.availableInputPorts,
                     accessibilityIdentifier: "audioCheckInputPicker"
                 )
+                .disabled(viewModel.audioCheckPhase.isInProgress)
             }
 
             if viewModel.supportsSoundIsolation {
@@ -404,6 +406,20 @@ struct AudioCheckPanel: View {
                 .lineLimit(nil)
                 .accessibilityIdentifier("audioCheckStatusLabel")
 
+            LabeledContent("Recording Input") {
+                Text(viewModel.isUsingWatchAudio ? "Watch Microphone" : "This Device: \(viewModel.audioCheckInputPortName)")
+            }
+            .accessibilityIdentifier("audioCheckInputSource")
+            LabeledContent("Playback Output") {
+                Text(viewModel.isUsingWatchAudio ? "Watch Speaker" : "This Device: \(viewModel.audioCheckOutputPortName)")
+            }
+            .accessibilityIdentifier("audioCheckOutputDestination")
+            if viewModel.isUsingWatchAudio {
+                Text("Watch is using audio. Stop it before starting a check on this device.")
+            } else {
+                Text(viewModel.isMuted ? "Microphone mute: On" : "Microphone mute: Off")
+                    .accessibilityIdentifier("audioCheckMuteState")
+            }
             if viewModel.audioCheckPhase.isInProgress {
                 Button("Stop Audio Check") { viewModel.cancelAudioCheck() }
                     .accessibilityIdentifier("stopAudioCheckButton")

@@ -6,6 +6,8 @@ import SessionManager
 extension IntercomViewModel {
     var canStartAudioCheck: Bool {
         canStartCalls && !hasAnyActiveGroupConnection && !isAudioReady && audioStartTask == nil && !audioCheckPhase.isInProgress
+            && !isUsingWatchAudio && audioInputCapture === nativeAudioInputCapture
+            && audioOutputRenderer === nativeAudioOutputRenderer
     }
 
     func startAudioCheck(recordDuration: Duration = .seconds(5), playbackDuration: Duration = .seconds(5)) {
@@ -38,6 +40,9 @@ extension IntercomViewModel {
                 self.audioCheckStatusMessage = self.audioErrorMessage ?? "Audio setup failed"
                 self.stopAudioCheckOwnedPipeline()
                 return
+            }
+            if let actual = try? self.audioSessionManager.snapshot() {
+                self.applyAudioSessionSnapshot(actual)
             }
             self.audioCheckPhase = .recording
             self.audioCheckStatusMessage = "Recording microphone for 5 seconds"
@@ -77,7 +82,9 @@ extension IntercomViewModel {
         do {
             try audioPipeline.rebuild(configuration: AppAudioPipelineConfiguration(
                 outputHardwareFormat: lastOutputStreamOperationReport?.snapshot.actualHardwareFormat ?? .intercomHardwarePreferred,
-                transmitSoundIsolationEnabled: false
+                transmitSoundIsolationEnabled: false,
+                // This source contains a finite recording, not live packets.
+                receiveMaximumBufferedDuration: min(5, max(0.1, recordedFrames.reduce(0) { $0 + Double($1.frameCount) / $1.format.sampleRate }))
             ), peerIDs: ["audio-check"])
             for frame in recordedFrames { try audioPipeline.processPlaybackFrame(frame) }
         } catch {
