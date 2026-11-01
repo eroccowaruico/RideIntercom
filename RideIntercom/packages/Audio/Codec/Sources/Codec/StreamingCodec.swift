@@ -32,6 +32,7 @@ public final class StreamingCodecEncoder {
     private var capturedStart: TimeInterval?
     private var inputEnd: TimeInterval?
     private var emittedFrames = 0
+    private var lastSequenceNumber: UInt64 = 0
     private var primingFrames = 0
     private var packetizationTiming: CodecPacketizationTiming
     private let suppressesSilence: Bool
@@ -135,6 +136,7 @@ public final class StreamingCodecEncoder {
                 silentDuration += Double(frame.frameCount) / frame.format.sampleRate
             } else { silentDuration = 0 }
         }
+        lastSequenceNumber = frame.sequenceNumber
         var inputFrame = frame
         if let end = inputEnd, abs(frame.capturedAt - end) > 2 / frame.format.sampleRate {
             converter?.reset()
@@ -166,26 +168,68 @@ public final class StreamingCodecEncoder {
         guard status != .error else {
             throw CodecError.conversionFailed(configuration.codec, error?.localizedDescription ?? "Streaming encode failed")
         }
-        guard output.packetCount > 0 else { return nil }
+        return try makePacket(output, sequenceNumber: frame.sequenceNumber, validThrough: nil)
+    }
+
+    /// Ends a finite stream. Repeated calls return no packets; a later encode
+    /// starts a fresh stream with independent native history and identity.
+    public func finish() throws -> [EncodedCodecFrame] {
+        guard let start = capturedStart, let end = inputEnd else { return [] }
+        defer {
+            converter?.reset()
+            capturedStart = nil
+            inputEnd = nil
+            emittedFrames = 0
+            primingFrames = 0
+            silentDuration = 0
+            streamID = UUID()
+            packetizationTiming = .init(nativeFrames: Int(nativePacketFrames))
+        }
+        guard let converter else { return [] }
+        let validThrough = Int(((end - start) * configuration.format.sampleRate).rounded())
+        var packets: [EncodedCodecFrame] = []
+        while true {
+            let output = AVAudioCompressedBuffer(format: compressedFormat, packetCapacity: 8,
+                maximumPacketSize: max(1, converter.maximumOutputPacketSize))
+            var error: NSError?
+            let status = converter.convert(to: output, error: &error) { _, state in
+                state.pointee = .endOfStream
+                return nil
+            }
+            guard status != .error else {
+                throw CodecError.conversionFailed(configuration.codec, error?.localizedDescription ?? "Streaming finish failed")
+            }
+            if let packet = try makePacket(output, sequenceNumber: lastSequenceNumber &+ UInt64(packets.count) &+ 1, validThrough: validThrough) {
+                packets.append(packet)
+            }
+            if status == .endOfStream || output.packetCount == 0 { break }
+        }
+        return packets
+    }
+
+    private func makePacket(_ output: AVAudioCompressedBuffer, sequenceNumber: UInt64,
+                            validThrough: Int?) throws -> EncodedCodecFrame? {
+        guard output.packetCount > 0, let converter, let start = capturedStart else { return nil }
         let packetDescriptions = AudioConverterBridge.packetDescriptions(from: output)
         let count = packetDescriptions.reduce(0) {
             $0 + ($1.variableFramesInPacket > 0
                 ? Int((Double($1.variableFramesInPacket) * nativeToPCMRate).rounded()) : Int(nativePacketFrames))
         }
-        let timestamp = capturedStart! + Double(emittedFrames) / frame.format.sampleRate
+        let timestamp = start + Double(emittedFrames) / configuration.format.sampleRate
+        let valid = min(count, max(0, (validThrough ?? (emittedFrames + count)) - emittedFrames))
         emittedFrames += count
         let primed = min(count, primingFrames)
         primingFrames -= primed
         let envelope = CompressedPayloadEnvelope(streamID: streamID, codec: configuration.codec,
-            sourceSampleCount: count * frame.format.channelCount, sourceFrameCount: UInt32(count),
+            sourceSampleCount: count * configuration.format.channelCount, sourceFrameCount: UInt32(count),
             maximumPacketSize: output.maximumPacketSize, packetCount: output.packetCount,
             packetDescriptions: packetDescriptions, magicCookie: converter.magicCookie,
             primingFrameCount: UInt32(primed),
             packetizationJitterFrames: packetizationTiming.jitterFrames > 0 ? UInt32(packetizationTiming.jitterFrames) : nil,
             data: Data(bytes: output.data, count: Int(output.byteLength)))
-        return EncodedCodecFrame(sequenceNumber: frame.sequenceNumber, codec: configuration.codec,
-            format: frame.format, capturedAt: timestamp + Double(primed) / frame.format.sampleRate,
-            sampleCount: (count - primed) * frame.format.channelCount,
+        return EncodedCodecFrame(sequenceNumber: sequenceNumber, codec: configuration.codec,
+            format: configuration.format, capturedAt: timestamp + Double(primed) / configuration.format.sampleRate,
+            sampleCount: max(0, valid - primed) * configuration.format.channelCount,
             bitRate: configuration.activeBitRate, payload: try envelope.encoded())
     }
 }
@@ -221,7 +265,8 @@ public final class StreamingCodecDecoder {
         packetizationJitterDuration = Double(envelope.packetizationJitterFrames ?? 0) / frame.format.sampleRate
         guard let identity = envelope.streamID else { return try CodecDecoder().decode(frame) }
         guard envelope.primingFrameCount <= envelope.sourceFrameCount,
-              frame.sampleCount == envelope.sourceSampleCount - Int(envelope.primingFrameCount) * frame.format.channelCount,
+              frame.sampleCount >= 0, frame.sampleCount % frame.format.channelCount == 0,
+              frame.sampleCount <= envelope.sourceSampleCount - Int(envelope.primingFrameCount) * frame.format.channelCount,
               envelope.sourceSampleCount == Int(envelope.sourceFrameCount) * frame.format.channelCount else {
             throw CodecError.malformedPayload(frame.codec)
         }
@@ -271,7 +316,7 @@ public final class StreamingCodecDecoder {
         let primed = min(Int(output.frameLength), max(0, Int(envelope.primingFrameCount) - skipped))
         return finish(PCMFrame(sequenceNumber: frame.sequenceNumber, format: frame.format,
             capturedAt: frame.capturedAt + Double(max(0, skipped - Int(envelope.primingFrameCount))) / frame.format.sampleRate,
-            samples: Array(samples.dropFirst(primed * frame.format.channelCount))), streamChanged: changed)
+            samples: Array(samples.dropFirst(primed * frame.format.channelCount).prefix(frame.sampleCount))), streamChanged: changed)
     }
 
     private func finish(_ frame: PCMFrame, streamChanged: Bool) -> PCMFrame {

@@ -279,6 +279,7 @@ streamのnative packet frame数はencoder初期化時に一度取得する。AAC
 | API / 条件 | 契約 |
 |---|---|
 | StreamingCodecEncoder | 送信stream専有のnative変換器を保持。各入力でEOS/resetせず、historyと部分packetを維持する。入力は最大1秒 |
+| finish() | 有限streamの末尾をnative EOSで送り切り、残packetを返す。末尾のpaddingはsampleCountから復号時に除去し、元の音声時間を維持する。入力前・二度目のfinishは空配列。次のencodeは新しいstream identityと独立したnative履歴で開始する。通常streamのencodeにはEOSを追加しない |
 | suppressesSilence | 既定false。trueでは完全な0の入力が100ms続くまでnative末尾を送り、その後は符号化とpacket生成を休止する。音量閾値による小声の除去はしない。次の非無音入力を同じ呼出しで処理し、省略した時刻の不連続によりstream identityとnative履歴を更新する。各packetにcookieを保持し、信頼あり通信への依存を追加しない |
 | Opus | native frameは5msのCELT-only。10ms入力の2frameを同じ送信packetに格納し、送信回数を増やさず、既定48kbpsで短時間の波形乱れを抑える。24／32kbpsは音質低下を許容する手動候補。制約付き可変bitrateで短い変化へbitを配分し、選択したbitrateをstreamの目標として維持する。既定20msのpacket完成待ちを減らす |
 | AAC-ELD | ELD v1 monoのnative変換。480sample/frame（48/24/16kHzで10/20/30ms）。long-term average bitrateで発話過渡音と無音へのbit配分を行う |
@@ -297,7 +298,7 @@ AAC-ELD v2の識別子は既存payloadの明示判定用に保持する。v2非�
 
 compressed envelopeはFoundation JSONのCodableを維持し、内部CodingKeysを短縮する。packet descriptionはFoundationの3要素配列（offset、variable frame count、byte count）とし、余分な要素も拒否する。stream UUID・各packetのcookie・frame数・priming情報を毎回保持し、再送や信頼ありの別経路で状態を同期しない。独自binary parserは追加しない。サイズ・allocation・offsetの検証は維持する。旧key形式は受理しないため、通信相手は同じRTC v2形式へ更新する。
 
-Streamingの外側EncodedCodecFrameのsampleCountとcapturedAtは、内部primingを除いた実音声を表す。native packet数・buffer容量を表すenvelope内のsourceFrameCountとは区別する。復号後にもprimingを足し直さず、実音声時刻を保持する。
+Streamingの外側EncodedCodecFrameのsampleCountとcapturedAtは、内部primingと有限stream末尾のpaddingを除いた実音声を表す。native packet数・buffer容量を表すenvelope内のsourceFrameCountとは区別する。復号後にもprimingを足し直さず、実音声時刻を保持する。
 
 Opusの公開範囲は24〜128kbpsとし、初期化・Codable読み込み・property変更の各入口で共通に正規化する。24kbpsは今回検証して提供する製品上の下限であり、OSの技術下限ではない。24／32kbpsは帯域節約のため波形誤差の増加を許容する手動候補で、既定・品質推奨の48kbpsを置き換えない。既定48kbpsでは、16bit量子化を含む12位相×3振幅×2入力の72条件で、2ms窓の波形誤差上限0.006を維持する。低帯域専用試験は16／24／48kHzの実native bitrate・復号・短い音声の連続性・符号化payload削減を確認し、この波形基準を緩めない。OSの対応値とAppの選択肢はそれぞれ別の契約とする。[比較と検証記録](../../../validation/history/低帯域codecの通信なし比較.md)を参照。
 
