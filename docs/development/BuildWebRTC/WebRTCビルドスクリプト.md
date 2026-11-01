@@ -17,6 +17,7 @@ WebRTC本体とChromium依存ソースは巨大なため、RideIntercom reposito
 | `scripts/BuildWebRTC/build-webrtc-xcframework.sh` | 指定されたbranch、platform、deployment targetでビルドする | 上位スクリプトが内部で使う。branchやplatformを固定したい場合に使う |
 | `scripts/BuildWebRTC/verify-webrtc-xcframework.sh` | Info.plist、実バイナリのarchitecture、必須platform、iOS実機dSYMのUUID、public headersを検証する | 上位スクリプトが内部で使う。成果物だけを検証したい場合に使う |
 | `scripts/BuildWebRTC/import-webrtc-xcframework.sh` | 検証済みzipをRTC package配下のbinary target入力へ取り込む | 上位スクリプトが内部で使う。既存zipだけを取り込み直す場合に使う |
+| `scripts/BuildWebRTC/import_webrtc_artifact.py` | 同一filesystemでzipとmetadataを準備・検証し、directory単位で採用する | import shellから内部呼び出し。利用者の追加操作は不要 |
 | `scripts/BuildWebRTC/clean-webrtc-build-resources.sh` | WebRTC build output、SwiftPM artifact、source checkoutを削除する | build後の容量整理に使う |
 
 ## 前提
@@ -48,7 +49,7 @@ scripts/BuildWebRTC/update-webrtc-binary.sh
 | 隔離取り込み | 一時directoryへRTC packageをコピーし、候補zipを取り込む | repository内の採用済みzipとmetadataは維持 |
 | SwiftPM検証 | 一時packageで `RTCNativeWebRTC` をビルドする | 失敗時は旧成果物を維持 |
 | テスト | 一時packageで `RTC` testsを実行する | 失敗時は旧成果物を維持 |
-| 採用 | 検証した候補zipをrepositoryへコピーしSHA-256と日時を記録する | 一時directoryは終了時に削除 |
+| 採用 | 採用先と同じfilesystemの隣接一時directoryへコピーし、そのコピーを検証する。SHA-256・日時を含むmetadataと一緒にdirectory単位で交換する | コピー・検証・metadata作成・交換の失敗では採用済みpairを維持。正常終了時は所有する一時pairだけを回収 |
 
 通常の更新でsource checkoutや`out`全体を削除しない。tracked source変更があるcheckoutでは停止する。手動の `ASSEMBLE_ONLY` は残すが、更新処理の自動fallbackには使わない。異なるbranchの古い成果物を新branchとして採用することを避ける。
 
@@ -129,6 +130,20 @@ scripts/BuildWebRTC/import-webrtc-xcframework.sh
 |---|---|
 | binary target zip | `RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.zip` |
 | metadata | `RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.metadata` |
+
+### 取り込みの中断と復帰
+
+| 条件 | 動作 |
+|---|---|
+| 既存成果物の更新 | macOSの`renamex_np(RENAME_SWAP)`でdirectoryを1回交換する。固定pathに旧zipと新metadataだけが残る二相更新を行わない |
+| 初回取り込み | `RENAME_EXCL`でdirectoryごと配置する。同時に別の取り込みが成立していれば上書きせず失敗する |
+| filesystemが交換非対応・容量不足・コピー／検証失敗 | delete／moveによる代替更新を行わず停止する。採用済みzip・metadataを保持する |
+| コピー元が後から変更された場合 | 取り込み用にコピーしたbytesを検証・hash化する。検証後にコピー元を読み直して採用しない |
+| プロセスが交換前後に強制終了 | 固定の採用先には旧pairまたは新pairが残る。残った`.WebRTC.import-*`は候補として自動採用せず、次の取り込みを妨げない |
+| 採用directoryがsymlink・無関係fileがある | 事前と採用直前に検査し、既存内容を保持して停止する。検査直後の変更が交換後に旧directory側へ移った場合も、未知fileは再帰削除せず保存場所を表示する |
+| 残留一時directory | 通常終了時は既知のzip／metadataと空directoryだけを回収する。強制終了後の残留物は実行中の取り込みがないことと内容を確認してから整理する |
+
+これはプロセス中断と公開操作の整合性であり、電源断・媒体障害の耐久性や、別processが交換をまたいで2ファイルを個別に開く一連の読取りまでtransactionにする保証ではない。常設の履歴・復旧台帳・採用先symlinkは追加しない。upstream完全commit、depot版、GN、SDKを成果物へ紐付ける再現情報は[改善候補](../../backlog/改善候補.md#全体監査からの追加候補)に残す。
 
 特定のzipを取り込む場合は `WEBRTC_XCFRAMEWORK_ZIP` を指定する。
 

@@ -1,5 +1,7 @@
 # 検証状況と証跡
 
+[WebRTC取り込みの中断保全](history/WebRTC取り込みの中断保全.md)で、更新中断時の旧／新pair保持と無関係fileの保全を確認した。統合後のPython119件成功。採用済みbinaryは不変、電源断の耐久性とbuild再現情報は別課題。
+
 [招待の復帰案内とXcode入力宣言](history/招待の復帰案内とXcode入力宣言.md)で、招待失敗からの復帰と両画面の英日表示、通常workspaceで必要なXcodeスクリプト入力を確認した。実機・署名・公開の受入とは区別する。
 
 [自動切断とXcode単独検証](history/自動切断とXcode単独検証.md)で、通常3時間／Watch5分のタイマーとXcode保存内容の統合を確認した。標準TestActionのMac510件・StoreKit39件、iPhone単体496件と修正後のタイマー／復旧UI、iPad3件、Python107件、Mac／iOS Archiveが成功。実機背景動作とWatch自身の音声は別に残す。
