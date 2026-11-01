@@ -26,6 +26,7 @@ extension IntercomViewModel {
         }
         #endif
         audioCheckWatchSessionID = watchSessionID
+        audioCheckRecordDuration = recordDuration
         audioCheckPlaybackDuration = playbackDuration
         audioCheckRecordedFrameCount = 0; audioCheckRecordedNonzeroSamples = 0
         audioCheckRecording = AudioCheckRecording(format: rtcAudioFormatPreset.audioFormat)
@@ -76,8 +77,22 @@ extension IntercomViewModel {
     }
 
     func processAudioCheckInput(level: Float, frame: PCMFrame) {
-        guard audioCheckPhase == .recording else { return }
+        guard audioCheckPhase == .recording, frame.frameCount > 0,
+              (try? frame.validated()) != nil else { return }
 
+        if audioCheckRecordedFrameCount == 0 {
+            audioCheckTask?.cancel()
+            let generation = audioCheckGeneration
+            let timeout = audioCheckRecordDuration + .seconds(1)
+            audioCheckTask = Task { [weak self] in
+                do { try await Task.sleep(for: timeout) } catch { return }
+                guard let self, !Task.isCancelled, self.audioCheckGeneration == generation,
+                      self.audioCheckPhase == .recording else { return }
+                self.audioCheckPhase = .failed
+                self.audioCheckStatusMessage = "Incomplete microphone recording"
+                self.stopAudioCheckOwnedPipeline()
+            }
+        }
         let clampedLevel = min(1, max(0, level))
         audioCheckInputLevel = clampedLevel
         audioCheckInputPeakLevel = audioCheckInputPeakWindow.record(clampedLevel)

@@ -212,6 +212,7 @@ final class IntercomViewModel {
     var connectionGeneration = UUID()
     var audioGeneration = UUID()
     var audioCheckTask: Task<Void, Never>?
+    var audioCheckRecordDuration: Duration = .seconds(5)
     var audioCheckPlaybackDuration: Duration = .seconds(5)
     var audioStartTask: Task<Void, Never>?
     var audioCheckOwnsAudioPipeline = false

@@ -50,6 +50,80 @@ struct FiniteAudioCheckDeliveryTests {
         }
     }
 
+    @Test func delayedFirstInputGetsItsOwnBoundedWindowForAllFiveSeconds() async throws {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        defer { vm.cancelAudioCheck() }
+        #expect(vm.startAudioCheck(recordDuration: .milliseconds(200)))
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        try #require(vm.audioCheckPhase == .recording)
+        try await Task.sleep(for: .milliseconds(650))
+        let format = AudioFormat(sampleRate: 48_000, channelCount: 1)
+        h.inputBackend.emit(.init(sequenceNumber: 0, format: format, capturedAt: 0,
+                                  samples: Array(repeating: 0.2, count: 1024)))
+        await AppTestSupport.waitUntil { vm.audioCheckRecordedFrameCount > 0 }
+        try #require(vm.audioCheckRecordedFrameCount > 0)
+        // The old preparation-relative 1.2 s deadline expires before these
+        // remaining samples; the new first-input-relative deadline has not.
+        try await Task.sleep(for: .milliseconds(650))
+        try #require(vm.audioCheckPhase == .recording)
+        for index in 1..<236 {
+            h.inputBackend.emit(.init(sequenceNumber: UInt64(index), format: format,
+                capturedAt: Double(index * 1024) / 48_000, samples: Array(repeating: 0.2, count: 1024)))
+        }
+        await AppTestSupport.waitUntil(timeout: .seconds(3)) { vm.audioCheckPhase == .playing || vm.audioCheckPhase == .failed }
+        #expect(vm.audioCheckPhase == .playing)
+        #expect(vm.audioCheckRecordedFrameCount == 240_000, "The shortened watchdog never shortens the five-second sample budget")
+    }
+
+    @Test func noInputAndInvalidInputStillFailWithinTheInitialDeadline() async throws {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        defer { vm.cancelAudioCheck() }
+        #expect(vm.startAudioCheck(recordDuration: .milliseconds(200)))
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        try #require(vm.audioCheckPhase == .recording)
+        vm.processAudioCheckInput(level: 0, frame: .init(sequenceNumber: 1, samples: []))
+        vm.processAudioCheckInput(level: 0, frame: .init(sequenceNumber: 2, samples: [.nan]))
+        #expect(vm.audioCheckRecordedFrameCount == 0, "Empty and invalid PCM cannot start recording")
+        await AppTestSupport.waitUntil(timeout: .seconds(2)) { vm.audioCheckPhase == .failed }
+        #expect(vm.audioCheckPhase == .failed)
+        #expect(vm.audioCheckStatusMessage == "Incomplete microphone recording")
+    }
+
+    @Test func laterFramesDoNotExtendTheFirstInputDeadline() async throws {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        defer { vm.cancelAudioCheck() }
+        #expect(vm.startAudioCheck(recordDuration: .milliseconds(200)))
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        try #require(vm.audioCheckPhase == .recording)
+        h.inputBackend.emit(.init(sequenceNumber: 0, capturedAt: 0, samples: Array(repeating: 0.2, count: 1024)))
+        await AppTestSupport.waitUntil { vm.audioCheckRecordedFrameCount > 0 }
+        try #require(vm.audioCheckRecordedFrameCount > 0)
+        try await Task.sleep(for: .milliseconds(700))
+        h.inputBackend.emit(.init(sequenceNumber: 1, capturedAt: 1024.0 / 48_000, samples: Array(repeating: 0.2, count: 1024)))
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(vm.audioCheckPhase == .failed, "A later frame must not restart the first-input watchdog")
+    }
+
+    @Test func cancelledWatchdogCannotStopTheNextRecordingGeneration() async throws {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        defer { vm.cancelAudioCheck() }
+        #expect(vm.startAudioCheck(recordDuration: .milliseconds(200)))
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        try #require(vm.audioCheckPhase == .recording)
+        h.inputBackend.emit(.init(sequenceNumber: 0, capturedAt: 0, samples: Array(repeating: 0.2, count: 1024)))
+        await AppTestSupport.waitUntil { vm.audioCheckRecordedFrameCount > 0 }
+        try #require(vm.audioCheckRecordedFrameCount > 0)
+        try await Task.sleep(for: .milliseconds(650))
+        vm.cancelAudioCheck()
+        #expect(vm.startAudioCheck(recordDuration: .milliseconds(200)))
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        try #require(vm.audioCheckPhase == .recording)
+        let newGeneration = vm.audioCheckGeneration
+        try await Task.sleep(for: .milliseconds(700))
+        #expect(vm.audioCheckGeneration == newGeneration)
+        #expect(vm.audioCheckPhase == .recording, "The cancelled generation's deadline must not stop its successor")
+    }
+
     @Test func finitePlaybackRetainsItsBoundedStartupAndDrainObservations() async {
         var count = 0
         let format = AudioFormat(sampleRate: 48_000, channelCount: 1)
