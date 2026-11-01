@@ -298,6 +298,7 @@ struct AudioPipelineTests {
 
     @Test func viewModelAudioCheckRecordsAndSchedulesPlaybackThroughPackageOutput() async {
         let harness = AppTestSupport.makeHarness(groups: [])
+        harness.viewModel.setSoundIsolationEnabled(false)
 
         harness.viewModel.startAudioCheck(recordDuration: .seconds(5), playbackDuration: .seconds(5))
         await AppTestSupport.waitUntil { harness.viewModel.audioCheckPhase == .recording }
@@ -312,7 +313,8 @@ struct AudioPipelineTests {
         await AppTestSupport.waitUntil { !harness.outputBackend.scheduledFrames.isEmpty }
         #expect(!harness.outputBackend.scheduledFrames.isEmpty)
         if let scheduledFrame = harness.outputBackend.scheduledFrames.first {
-            #expect(scheduledFrame.samples.contains { abs($0 - 0.5) < 0.01 })
+            #expect(scheduledFrame.samples.contains { abs($0) > 0.01 },
+                "Playback contains the actual transmit DSP output, whose gain can differ from raw input")
             #expect(scheduledFrame.format == .intercomHardwarePreferred)
         } else {
             Issue.record("Expected one audio check playback frame")
@@ -400,26 +402,43 @@ struct AudioPipelineTests {
         #expect(!(harness.viewModel.callTicker as! NoOpCallTicker).isRunning)
     }
 
-    @Test func audioCheckRetainsTheWholeFiveSecondRecordingForPlayback() async {
+    @Test func audioCheckRetainsTheWholeFiveSecondRecordingForPlayback() async throws {
         let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
-        vm.startAudioCheck(recordDuration: .seconds(30))
+        vm.setSoundIsolationEnabled(false)
+        vm.startAudioCheck()
         await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
         defer { vm.cancelAudioCheck() }
         for index in 0..<250 {
-            let value: Float = index < 80 ? 0.1 : (index < 170 ? 0.2 : 0.3)
-            vm.processAudioCheckInput(level: value, frame: PCMFrame(sequenceNumber: UInt64(index),
-                format: .intercomMixer, capturedAt: Double(index) * 0.02,
-                samples: Array(repeating: value, count: 960)))
+            let frequency = index < 80 ? 440.0 : (index < 170 ? 660.0 : 997.0)
+            let samples = (0..<960).map { Float(0.3 * sin(Double(index * 960 + $0) * 2 * .pi * frequency / 48_000)) }
+            h.inputBackend.emit(.init(sequenceNumber: UInt64(index), format: .intercomMixer,
+                capturedAt: Double(index) * 0.02, samples: samples))
         }
-        vm.finishAudioCheckRecording(playbackDuration: .seconds(5))
-        await AppTestSupport.waitUntil(timeout: .seconds(5)) {
-            h.outputBackend.scheduledFrames.flatMap(\.samples).filter { abs($0) > 0.04 }.count >= 230_000
+        await AppTestSupport.waitUntil(timeout: .seconds(3)) { vm.audioCheckPhase == .playing }
+        #expect(vm.audioCheckPhase == .playing)
+        let expected = try #require(vm.audioCheckRecording).recordedFrames().flatMap(\.samples)
+        #expect(expected.count == 240_000)
+        await AppTestSupport.waitUntil(timeout: .seconds(3)) {
+            h.outputBackend.scheduledFrames.reduce(0) { $0 + $1.frameCount } >= 252_000
         }
         let samples = h.outputBackend.scheduledFrames.flatMap(\.samples)
-        #expect(samples.filter { abs($0) > 0.04 }.count >= 230_000,
-            "A five-second recording must not be truncated to the live 100 ms queue")
-        for value: Float in [0.1, 0.2, 0.3] {
-            #expect(samples.contains { abs($0 - value) < 0.01 }, "Playback retains beginning, middle and ending")
+        let expectedAudible = expected.filter { abs($0) > 0.04 }.count
+        #expect(expectedAudible > 0)
+        #expect(samples.filter { abs($0) > 0.04 }.count >= expectedAudible - 960,
+            "The complete actual transmit recording must survive the finite playback queue")
+        #expect(vm.audioPipeline.droppedRenderFrameCount == 0)
+        func projection(_ values: [Float], frequency: Double) -> Double {
+            let sum = values.enumerated().reduce((0.0, 0.0)) { sum, item in
+                let phase = Double(item.offset) * 2 * .pi * frequency / 48_000
+                return (sum.0 + Double(item.element) * cos(phase), sum.1 + Double(item.element) * sin(phase))
+            }
+            return hypot(sum.0, sum.1)
+        }
+        for frequency in [440.0, 660.0, 997.0] {
+            let reference = projection(expected, frequency: frequency)
+            #expect(reference > 100)
+            #expect(projection(samples, frequency: frequency) >= reference * 0.95,
+                "Playback retains the actual processed beginning, middle and ending")
         }
     }
 

@@ -25,6 +25,7 @@ nonisolated struct AppAudioPipelineConfiguration: Equatable, Sendable {
     var maximumBufferedDuration: TimeInterval?
     var receiveMaximumBufferedDuration: TimeInterval?
     var receivePlayoutDelay: TimeInterval?
+    var finitePlaybackDuration: TimeInterval?
 
     init(
         mixerFormat: AudioFormat = .intercomMixer,
@@ -41,7 +42,8 @@ nonisolated struct AppAudioPipelineConfiguration: Equatable, Sendable {
         peerSoundIsolationEnabled: [String: Bool] = [:],
         maximumBufferedDuration: TimeInterval? = nil,
         receiveMaximumBufferedDuration: TimeInterval? = nil,
-        receivePlayoutDelay: TimeInterval? = nil
+        receivePlayoutDelay: TimeInterval? = nil,
+        finitePlaybackDuration: TimeInterval? = nil
     ) {
         self.mixerFormat = mixerFormat
         self.rtcSendFormat = rtcSendFormat
@@ -58,6 +60,7 @@ nonisolated struct AppAudioPipelineConfiguration: Equatable, Sendable {
         self.maximumBufferedDuration = maximumBufferedDuration
         self.receiveMaximumBufferedDuration = receiveMaximumBufferedDuration
         self.receivePlayoutDelay = receivePlayoutDelay
+        self.finitePlaybackDuration = finitePlaybackDuration
     }
 
     @MainActor var codecOptions: AppAudioCodecOptions {
@@ -84,6 +87,7 @@ nonisolated struct AppAudioPipelineConfiguration: Equatable, Sendable {
 enum AppAudioPipelineError: Error, Equatable {
     case notConfigured
     case invalidFormat
+    case transmitFailed
 }
 
 final class AppAudioPipeline {
@@ -110,6 +114,10 @@ final class AppAudioPipeline {
     private var configuration = AppAudioPipelineConfiguration()
     private nonisolated let receiver = AppAudioReceiver()
     private nonisolated let transmitter = AppAudioTransmitter()
+    var transmitProcessingLatency: TimeInterval { transmitter.processingLatency }
+    func finishMicrophone() throws { try transmitter.finishMicrophone() }
+    func startPreparedOutput() throws { try receiver.start() }
+    func beginFinitePlayback() { frameDeliveries.forEach { $0.activate() } }
     var transmitEncodingFailureCount: Int { transmitter.failureCount }
     var inputObservation: AudioInputObservation { transmitter.inputObservation }
     var vadRuntimeSnapshot: VADGateRuntimeSnapshot { transmitter.vadSnapshot }
@@ -160,7 +168,7 @@ final class AppAudioPipeline {
         configuration.audioPolicy
     }
 
-    func rebuild(configuration: AppAudioPipelineConfiguration, peerIDs: [String]) throws {
+    func rebuild(configuration: AppAudioPipelineConfiguration, peerIDs: [String], startsOutputClock: Bool = true) throws {
         stop()
         var completed = false
         defer { if !completed { stop() } }
@@ -176,13 +184,14 @@ final class AppAudioPipeline {
         engine.stop()
         try transmitter.rebuild(configuration: configuration, encoding: configuration.codecRuntimeReport.activeConfiguration)
 
-        let outputDelivery = AudioFrameDelivery { [weak self] frame in
+        let outputDelivery = AudioFrameDelivery(initiallyActive: configuration.finitePlaybackDuration == nil,
+                                                finiteRecordingDuration: configuration.finitePlaybackDuration) { [weak self] frame in
             guard let self, self.generation == generation else { return }
             self.publishOutput(frame)
         }
         frameDeliveries.append(outputDelivery)
         try receiver.rebuild(engine: engine, configuration: configuration, peers: peerIDs,
-            rendersToHardware: rendersToHardware) { frame in outputDelivery.yield(frame) }
+            rendersToHardware: rendersToHardware, startsClock: startsOutputClock) { frame in outputDelivery.yield(frame) }
         completed = true
     }
 

@@ -607,6 +607,81 @@ final class RideIntercomUITests: XCTestCase {
         attachScreen("Settings")
     }
 
+    #if os(iOS)
+    @MainActor
+    func testPhoneAudioCheckRecordsAndPlaysFromSettings() {
+        let permissionMonitor = addUIInterruptionMonitor(withDescription: "Microphone access") { alert in
+            guard alert.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'microphone'")).firstMatch.exists else { return false }
+            let allow = alert.buttons["OK"].firstMatch.exists ? alert.buttons["OK"].firstMatch : alert.buttons["Allow"].firstMatch
+            guard allow.exists else { return false }
+            allow.tap()
+            return true
+        }
+        defer { removeUIInterruptionMonitor(permissionMonitor) }
+        openSettingsTab()
+        revealSettingsPanelIfNeeded(identifier: "audioIOPanel")
+        let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        let candidates = [app.buttons["audioCheckButton"].firstMatch,
+                          app.descendants(matching: .any)["audioCheckButton"].firstMatch,
+                          app.buttons["Record 5s and Play"].firstMatch]
+        let names = ["button/identifier", "any/identifier", "button/label"]
+        func observe(_ name: String) {
+            var observations = ["viewport=\(scroll.exists ? String(describing: scroll.frame) : "unknown")"]
+            for (name, element) in zip(names, candidates) {
+                if element.exists {
+                    observations.append("\(name): exists=true enabled=\(element.isEnabled) hittable=\(element.isHittable) frame=\(element.frame) label=\(element.label)")
+                } else {
+                    observations.append("\(name): exists=false enabled=unknown hittable=unknown frame=unknown label=unknown")
+                }
+            }
+            for identifier in ["audioCheckStatusLabel", "audioCheckPhaseLabel", "liveAudioStateLabel"] {
+                let element = app.descendants(matching: .any)[identifier].firstMatch
+                observations.append(element.exists ? "\(identifier): label=\(element.label) value=\(element.value ?? "unknown")" : "\(identifier): unknown")
+            }
+            let details = XCTAttachment(string: observations.joined(separator: "\n") + "\n" + app.debugDescription)
+            details.name = name
+            details.lifetime = .keepAlways
+            add(details)
+        }
+        observe("Audio Check before section navigation")
+        let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.70))
+        let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.30))
+        start.press(forDuration: 0.1, thenDragTo: end)
+        observe("Audio Check after section navigation")
+        var button = candidates.first { $0.exists && $0.isHittable && $0.isEnabled }
+        let audioCheckHeader = app.descendants(matching: .any)["audioCheckPanel"].firstMatch
+        if button == nil && audioCheckHeader.exists {
+            start.press(forDuration: 0.1, thenDragTo: end)
+            observe("Audio Check after second section navigation")
+            button = candidates.first { $0.exists && $0.isHittable && $0.isEnabled }
+        }
+        guard let button else { XCTFail("Audio Check button unavailable after bounded observation"); return }
+        let phase = app.staticTexts["audioCheckPhaseLabel"]
+        let status = app.staticTexts["audioCheckStatusLabel"]
+        let input = app.descendants(matching: .any)["audioCheckInputSource"].firstMatch
+        let output = app.descendants(matching: .any)["audioCheckOutputDestination"].firstMatch
+        let inputMeter = app.descendants(matching: .any)["audioCheckInputMeter"].firstMatch
+        let outputMeter = app.descendants(matching: .any)["audioCheckOutputMeter"].firstMatch
+        for cycle in 1...2 {
+            button.tap()
+            if XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch.waitForExistence(timeout: 2) { app.tap() }
+            for expected in ["Recording", "Playing Back", "Audio Check Complete"] {
+                let predicate = NSPredicate(format: "label == %@ OR label == %@", expected, "Audio Check Failed")
+                let reached = expectation(for: predicate, evaluatedWith: phase)
+                let result = XCTWaiter.wait(for: [reached], timeout: 15)
+                let actual = phase.exists ? phase.label : "unknown"
+                let passed = result == .completed && actual == expected
+                let details = "phase=\(actual) buttonValue=\(button.exists ? (button.value ?? "unknown") : "unknown") status=\(status.exists ? status.label : "unknown") input=\(input.exists ? input.label : "unknown") \(input.exists ? (input.value ?? "") : "") output=\(output.exists ? output.label : "unknown") \(output.exists ? (output.value ?? "") : "") inputMeter=\(inputMeter.exists ? (inputMeter.value ?? "") : "unknown") outputMeter=\(outputMeter.exists ? (outputMeter.value ?? "") : "unknown")" + (passed ? "" : "\n" + app.debugDescription)
+                let attachment = XCTAttachment(string: details)
+                attachment.name = "Audio Check cycle \(cycle) \(expected)"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+                XCTAssertTrue(passed, "Expected \(expected): \(details)")
+            }
+        }
+    }
+    #endif
+
     @MainActor
     func testInternetCredentialValidationKeepsTabsUsable() {
         #if os(iOS)

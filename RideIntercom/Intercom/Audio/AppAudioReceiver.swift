@@ -34,7 +34,7 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
     }
 
     func rebuild(engine: AVAudioEngine, configuration: AppAudioPipelineConfiguration, peers: [String],
-                 rendersToHardware: Bool, onOutput: @escaping (PCMFrame) -> Void) throws {
+                 rendersToHardware: Bool, startsClock: Bool = true, onOutput: @escaping (PCMFrame) -> Void) throws {
         lock.lock(); defer { lock.unlock() }
         stop()
         graphGeneration.wrappingAdd(1, ordering: .releasing)
@@ -65,8 +65,15 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
         try mixer.route(output, to: device)
         try mixer.routeToOutput(device)
         for peer in peers { _ = try source(for: peer) }
-        try mixer.start()
-        sources.values.forEach { $0.start() }
+        if startsClock { try start() }
+    }
+
+    func start() throws {
+        try lock.withLock {
+            guard let mixer else { throw AppAudioPipelineError.notConfigured }
+            try mixer.start()
+            sources.values.forEach { $0.start() }
+        }
     }
 
     func setHardwareOutputEnabled(_ enabled: Bool) {

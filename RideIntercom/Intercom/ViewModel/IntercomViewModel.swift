@@ -199,7 +199,13 @@ final class IntercomViewModel {
     var audioCheckInputPeakWindow = VoicePeakWindow()
     var audioCheckOutputPeakWindow = VoicePeakWindow()
     var audioCheckRecordedFrames: [PCMFrame] = []
+    var audioCheckRecording: AudioCheckRecording?
+    var audioCheckTransmitFailureBaseline = 0
     var audioCheckRecordedFrameCount = 0
+    #if DEBUG && RIDEINTERCOM_VALIDATION && os(iOS) && targetEnvironment(simulator)
+    @ObservationIgnored var audioCheckObservation: AudioCheckValidationObservation?
+    @ObservationIgnored var audioCheckObservationRecords: [[String: Any]] = []
+    #endif
     var audioCheckGeneration = UUID()
     var connectionGeneration = UUID()
     var audioGeneration = UUID()

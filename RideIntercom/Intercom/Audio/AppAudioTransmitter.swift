@@ -44,6 +44,7 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
         set { lock.withLock { packetHandler = newValue } }
     }
     var inputObservation: AudioInputObservation { lock.withLock { observation } }
+    var processingLatency: TimeInterval { lock.withLock { processor?.bus.processingLatency ?? 0 } }
     var failureCount: Int { lock.withLock { failures } }
     var snapshot: AudioMixerSnapshot? { lock.withLock { processor?.mixer.snapshot() } }
     var isolationSnapshot: VoiceIsolationRuntimeSnapshot? { lock.withLock { isolation?.runtimeSnapshot } }
@@ -183,6 +184,21 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
         for packet in delivery.0 { delivery.1?(packet) }
     }
 
+    func finishMicrophone() throws {
+        let delivery = try lock.withLock {
+            defer { pendingPackets.removeAll(keepingCapacity: true) }
+            for packet in controller.finish() {
+                switch packet {
+                case .voice(let frame), .silence(let frame): try processFrame(frame)
+                }
+            }
+            try processor?.finish()
+            for encoded in try encoder?.finish() ?? [] { collect(encoded) }
+            return (pendingPackets, packetHandler)
+        }
+        for packet in delivery.0 { delivery.1?(packet) }
+    }
+
     private func encodeAndCollect(_ frame: PCMFrame) {
         guard !muted else { return }
         do {
@@ -190,14 +206,18 @@ nonisolated final class AppAudioTransmitter: @unchecked Sendable {
                 encoder = try StreamingCodecEncoder(configuration: encoding, suppressesSilence: true)
             }
             guard let encoded = try encoder?.encode(frame) else { return }
-            let packet = RTCAudioPacket(sequenceNumber: sequence, codec: .init(rawValue: encoded.codec.rawValue),
-                format: .init(sampleRate: encoded.format.sampleRate, channelCount: encoded.format.channelCount),
-                capturedAt: encoded.capturedAt, sampleCount: encoded.sampleCount,
-                bitRate: encoded.bitRate, payload: encoded.payload)
-            sequence &+= 1
-            observation.sentPackets += 1
-            pendingPackets.append(packet)
+            collect(encoded)
         } catch { failures += 1; encoder = nil }
+    }
+
+    private func collect(_ encoded: EncodedCodecFrame) {
+        let packet = RTCAudioPacket(sequenceNumber: sequence, codec: .init(rawValue: encoded.codec.rawValue),
+            format: .init(sampleRate: encoded.format.sampleRate, channelCount: encoded.format.channelCount),
+            capturedAt: encoded.capturedAt, sampleCount: encoded.sampleCount,
+            bitRate: encoded.bitRate, payload: encoded.payload)
+        sequence &+= 1
+        observation.sentPackets += 1
+        pendingPackets.append(packet)
     }
 
     deinit { processor?.stop() }

@@ -83,3 +83,14 @@ Recorder成功からWatchのnative入力一般が利用不能とはいえない�
 有限再生の観測はstartup／drainを含む最大6秒のsample予算で保持し、同一sample rateのstereo hardware出力はmonoへ平均して入力と比較する修正を追加した。`.validation/phone-audio-check-route-20261101/finite-output-green/`では、有限配送2件・ViewModelの5秒録音と再開始・stereo比較・故障注入後のgraph再構築の計5件が成功し、runtime warnings／skipは0。native再測定の`.validation/phone-audio-check-route-20261101/finite-output-native-two-cycles/`では、2回目の出力が242,880 frames／5.06秒、drop／gap 0で、先頭・中央・末尾の3窓の相関はすべて1.0、全量coverageが成立した。1回目は出力callbackの波形観測が0のため未測定であり、UI2回成功や入力両回5秒をもってnative再生両回の受入完了とはしない。録音前の送信pipeline構築と、録音から再生へのshared engine lifecycleを続く送信エフェクト工程で確認する。
 
 Simulatorのnative入力確認では、Macの既定入力が48kHz、既定出力が別形式の場合の0callbackを再現した。同じ所有Simulatorだけのinput／outputを既存48kHz機器へ固定するとnative入力testは成功した。Macの既定設定は変更せず、Simulatorのinput／output／volumeを実行前の値へ戻し、所有Simulatorを停止した。証跡は`finite-main-pinned/pinned-audio-state.json`と`finite-output-green/pinned-audio-state.json`。pinしたsuite全体の故障注入testでAppleのAudio Unit parameter更新threadのSIGTRAPを1回検出した。同じtestの同pin条件単独実行は成功したが、再現条件や原因を未確定のまま保持する。
+
+
+## 送信処理を使う録音と共有engineの開始順序
+
+2026-11-02、Watchの未統合差分を保全して外し、通常のmain作業場所・標準DerivedDataでAppの録音修正を単独検証した。録音は現在の送信エフェクト・VAD・codecを通したpacketの復号結果を保存し、DSP／codecの末尾を回収する。VADで送らない区間は5秒の同じ時間位置に残す。送信処理の失敗を無音の成功にせず、明示ミュートによる正常な無音とは区別する。通常通話と録音で共有engineのgraph構築をnative入力開始より先にし、入力開始後にgraph再構築で入力callbackが止まる問題を修正した。
+
+単独候補の影響回帰は65件中64件が成功し、残る1件は旧raw録音用のテストが実入力通知・送信処理を迂回していた。入力backendから実処理へ送るよう修正して限定再実行し、先頭・中央・末尾のtoneと有限再生の保持を確認した。製品コードはこの再実行前後で変更していない。証跡は`.validation/phone-audio-check-route-20261101/app-standalone-regression/`と`app-standalone-playback-regression/`。同回帰にはnative録音・再生の2回実行、通常通話のnative入力継続・再開始、送信失敗後のミュート録音再開始を含む。通話の認証・transportはfixtureであり、相手端末との会話成立を示すものではない。
+
+設定画面の最終実行は`.validation/phone-audio-check-route-20261101/app-standalone-settings-final/`。両回とも処理後録音240,000 frames／5秒、native出力242,880 frames／5.06秒、入力・出力観測のdropとgapは0で、録音→再生→完了→再開始と終了時の入出力停止を確認した。ただし、この実行の処理後録音と出力はともに全て無音だった。非無音区間を基準にした5秒全体の波形照合は測定不能で、波形受入判定は不合格のまま保存する。UI成功やframe数を有音の全量再生の成立へ読み替えない。条件を固定した有音検証、Mac／iPad／Watchの各経路、実機の聴感・Bluetoothは引き続き未確認である。
+
+診断用の独立したfresh AVAudioEngineマイク調査コードは、App本体のnative入力・再開始の回帰へ役割を移して撤去する。過去の失敗・成功証跡は維持し、専用Simulatorの音声設定復元・停止とsource対応を各runに記録する。

@@ -99,12 +99,13 @@ extension IntercomViewModel {
     }
 
     @discardableResult
-    func rebuildAudioPipeline() -> Bool {
+    func rebuildAudioPipeline(startsOutputClock: Bool = true) -> Bool {
         do {
             audioPipeline.setHardwareOutputEnabled(audioOutputRenderer.rendersToHardware)
             try audioPipeline.rebuild(
                 configuration: currentAudioPipelineConfiguration(),
-                peerIDs: receivePeerIDsForAudioPipeline()
+                peerIDs: receivePeerIDsForAudioPipeline(),
+                startsOutputClock: startsOutputClock
             )
             return true
         } catch {

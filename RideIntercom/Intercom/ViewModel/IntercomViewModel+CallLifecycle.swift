@@ -110,8 +110,9 @@ extension IntercomViewModel {
                 return
             }
             self.callSession.startMedia()
-            guard self.applyCurrentVoiceProcessingConfiguration() && self.startInputCapture(),
-                  self.startOutputRenderer(configuration: .intercomCall), self.rebuildAudioPipeline() else {
+            guard self.rebuildAudioPipeline(startsOutputClock: false),
+                  self.applyCurrentVoiceProcessingConfiguration(), self.startInputCapture(),
+                  self.startPreparedAudioOutput(configuration: .intercomCall) else {
                 self.stopAudioPipeline()
                 if resumingDevice { self.reportAudioDeviceRestartFailure() }
                 return
@@ -251,12 +252,14 @@ extension IntercomViewModel {
         }
         inputFrameDelivery = delivery
         let pipeline = audioPipeline
+        let recording = audioCheckRecording
         pipeline.setInputMuted(effectiveInputMuted)
         audioInputCapture.setRuntimeEventHandler { [weak self] event in
             if case .inputFrame(let frame) = event {
                 guard delivery.isActive else { return }
-                pipeline.processMicrophoneFrame(frame, shouldProcess: { delivery.isActive })
-                delivery.yield(frame)
+                guard let accepted = recording == nil ? frame : recording?.acceptInput(frame) else { return }
+                pipeline.processMicrophoneFrame(accepted, shouldProcess: { delivery.isActive })
+                delivery.yield(accepted)
                 return
             }
             DispatchQueue.main.async {
@@ -264,10 +267,14 @@ extension IntercomViewModel {
                 self.handleAudioStreamRuntimeEvent(event)
             }
         }
-        audioPipeline.onTransmitPacket = callSession.audioPacketSink
+        if let recording { audioPipeline.onTransmitPacket = { recording.receive($0) } }
+        else { audioPipeline.onTransmitPacket = callSession.audioPacketSink }
         audioPipeline.onOutputFrame = { [weak self] frame in
             guard let self, self.audioGeneration == generation else { return }
             if self.audioCheckPhase == .playing {
+                #if DEBUG && RIDEINTERCOM_VALIDATION && os(iOS) && targetEnvironment(simulator)
+                if self.audioPipeline.rendersToHardware { self.audioCheckObservation?.appendOutput(frame) }
+                #endif
                 if !self.audioPipeline.rendersToHardware {
                     self.lastOutputStreamOperationReport = self.audioOutputRenderer.schedule(frame)
                 }
@@ -347,6 +354,12 @@ extension IntercomViewModel {
         return true
     }
 
+    func startPreparedAudioOutput(configuration: SessionManager.AudioOutputStreamConfiguration? = nil) -> Bool {
+        guard startOutputRenderer(configuration: configuration) else { return false }
+        do { try audioPipeline.startPreparedOutput(); return true }
+        catch { audioErrorMessage = "Audio output failed"; return false }
+    }
+
     func startOutputRenderer(configuration: SessionManager.AudioOutputStreamConfiguration? = nil) -> Bool {
         let report = audioOutputRenderer.start(configuration: configuration ?? .intercom)
         lastOutputStreamOperationReport = report
@@ -364,7 +377,8 @@ extension IntercomViewModel {
             // Incoming speech changes the ducking level, not RemoteIO/VoiceIO.
             otherAudioDuckingEnabled: isDuckOthersEnabled,
             duckingLevel: isOtherAudioDuckingActiveInternal ? .medium : .minimum,
-            inputMuted: effectiveInputMuted
+            // Finite checks keep the capture clock while the transmitter owns mute.
+            inputMuted: !audioCheckOwnsAudioPipeline && effectiveInputMuted
         )
     }
 

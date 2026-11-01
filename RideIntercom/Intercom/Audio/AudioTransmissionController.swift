@@ -55,6 +55,16 @@ nonisolated struct AudioTransmissionController {
         reset()
     }
 
+    mutating func finish() -> [OutboundAudioPacket] {
+        defer { reset() }
+        return preRoll.map { captured in
+            if captured.isSpeech { return .voice(captured.frame) }
+            var silence = captured.frame
+            silence.samples = Array(repeating: 0, count: silence.samples.count)
+            return .silence(silence)
+        }
+    }
+
     mutating func reset() {
         vadGate.reset()
         lastAnalysis = nil
