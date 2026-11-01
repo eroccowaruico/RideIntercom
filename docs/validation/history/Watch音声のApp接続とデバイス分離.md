@@ -94,3 +94,14 @@ Simulatorのnative入力確認では、Macの既定入力が48kHz、既定出力
 設定画面の最終実行は`.validation/phone-audio-check-route-20261101/app-standalone-settings-final/`。両回とも処理後録音240,000 frames／5秒、native出力242,880 frames／5.06秒、入力・出力観測のdropとgapは0で、録音→再生→完了→再開始と終了時の入出力停止を確認した。ただし、この実行の処理後録音と出力はともに全て無音だった。非無音区間を基準にした5秒全体の波形照合は測定不能で、波形受入判定は不合格のまま保存する。UI成功やframe数を有音の全量再生の成立へ読み替えない。条件を固定した有音検証、Mac／iPad／Watchの各経路、実機の聴感・Bluetoothは引き続き未確認である。
 
 診断用の独立したfresh AVAudioEngineマイク調査コードは、App本体のnative入力・再開始の回帰へ役割を移して撤去する。過去の失敗・成功証跡は維持し、専用Simulatorの音声設定復元・停止とsource対応を各runに記録する。
+
+
+## 固定音声によるiPhoneの5秒全量再生
+
+2026-11-02、既存の`SpeechFileInput`と`RideIntercomAudioE2E` schemeで、native入力の時計・routeを動かしながらマイクPCMの内容だけを既存の日本語音声fixtureへ置き換えた。Appの同じAudio Check・選択済みの標準送信設定・codecを通し、実TXを復号した5秒分の録音とnative出力を比較した。製品コード・fixture機構は追加せず、テスト1件で録音→再生→停止→再開始を2回実行した。
+
+証跡は`.validation/phone-audio-check-route-20261101/audio-check-known-speech-final/`。両回とも処理後録音240,000 frames、有音232,992 samples。native出力は241,920／242,880 framesで、有音数は各回の録音と一致し、5秒全体のcoverage、相関1.0、正規化誤差0、無音区間残差0を確認した。実測した入力・出力観測のdropと時刻gapは0、共有engineの停止と2回目の再開始が成功した。波形の位置合わせ値約30／32msは、この比較のoffsetであり通話遅延の測定値ではない。
+
+テスト1件成功、skip・runtime warnings 0、実行前後の362ファイルの指紋一致、Simulatorの入出力・音量の復元と停止を確認した。追加テストはコミット済みのApp APIだけを参照し、保全中Watch差分の新API・fieldに依存しない。Watchのoffer・linkを作らないため、Watch専用の分岐は通らない。GUIからの録音・再生操作は前節の設定画面テストで確認した。
+
+成立した範囲は、制御した入力内容とnative時計の下での実TX5秒timeline→録音→native再生・再開始である。比較基準は送信処理後の復号音であり、元fixtureからTXまでの音質全体をこの比較だけで保証しない。実マイクの内容は置換しているため、実機マイクの音質・音響・Bluetoothは未確認である。Mac／iPad／Watchの各経路も別に確認を続ける。前節の環境マイクが全無音だった測定不能の結果は保持し、この成功へ書き換えない。
