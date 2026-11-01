@@ -56,7 +56,7 @@ class ArchiveNumberingTests(unittest.TestCase):
                  ('Debug', 'install', 'RideIntercom'),
                  ('Debug', 'build', 'RideIntercom.Validation.private'),
                  ('Debug-Validation', 'build', 'RideIntercom'),
-                 ('Debug-StoreKitValidation', 'build', 'RideIntercom')]
+                 ('Release-Validation', 'build', 'RideIntercom')]
         for index, (configuration, action, namespace) in enumerate(cases):
             self.env.update(CONFIGURATION=configuration, RIDEINTERCOM_STORAGE_NAMESPACE=namespace)
             result, output = self.run_phase(action, name=f'isolated-{index}')

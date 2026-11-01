@@ -55,12 +55,16 @@ def xcode_build_settings(root, scheme, destination, configuration):
     return settings
 
 
-def select_test_run(settings, scheme):
-    scheme_path = Path(__file__).resolve().parents[1] / 'RideIntercom.xcodeproj/xcshareddata/xcschemes' / (scheme + '.xcscheme')
+def scheme_test_plan(root, scheme):
+    scheme_path = Path(root) / 'RideIntercom.xcodeproj/xcshareddata/xcschemes' / (scheme + '.xcscheme')
     action = ET.parse(scheme_path).getroot().find('TestAction')
     plans = action.findall('TestPlans/TestPlanReference') if action is not None else []
     selected_plan = next((plan for plan in plans if plan.get('default') == 'YES'), plans[0] if plans else None)
-    plan_name = Path(selected_plan.get('reference', '')).stem if selected_plan is not None else None
+    return Path(selected_plan.get('reference', '')).stem if selected_plan is not None else None
+
+
+def select_test_run(settings, scheme):
+    plan_name = scheme_test_plan(Path(__file__).resolve().parents[1], scheme)
     products = Path(settings['BUILD_DIR'])
     expected_app = (Path(settings['TARGET_BUILD_DIR']) / settings['FULL_PRODUCT_NAME']).resolve()
     candidates = sorted(products.glob(scheme + '_*.xctestrun'), key=lambda p: p.stat().st_mtime, reverse=True)

@@ -71,6 +71,11 @@
                BlueprintName = "RideIntercomTests"
                ReferencedContainer = "container:RideIntercom.xcodeproj">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "LocalStoreKitTests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO">
@@ -81,6 +86,11 @@
                BlueprintName = "RideIntercomUITests"
                ReferencedContainer = "container:RideIntercom.xcodeproj">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "StorePurchaseUITests">
+               </Test>
+            </SkippedTests>
          </TestableReference>
       </Testables>
    </TestAction>

@@ -30,11 +30,43 @@ class PlatformConfigurationTests(unittest.TestCase):
                     self.assertEqual(reference.get('BlueprintIdentifier'), '0CCFFDBF2F4415059F932F5F')
                     self.assertEqual(reference.get('BuildableName'), 'RideIntercomWatch.app')
 
+    def test_project_has_only_normal_and_shared_validation_configurations(self):
+        objects = self.project['objects']
+        for value in objects.values():
+            if value.get('isa') == 'XCConfigurationList':
+                names = {objects[key]['name'] for key in value['buildConfigurations']}
+                self.assertEqual(names, {'Debug', 'Release', 'Debug-Validation', 'Release-Validation'})
+        self.assertFalse((ROOT / 'Configuration/StoreKitValidation.xcconfig').exists())
+
+    def test_storekit_native_suites_use_the_shared_build_but_explicit_test_selection(self):
+        import json
+        plan = json.loads((ROOT / 'Configuration/StoreKit.xctestplan').read_text())
+        self.assertEqual(set(plan['testTargets'][0].get('selectedTests', [])), {
+            'StoreEntitlementTests', 'StoreKitAccessTests', 'StoreDistributionAccessTests', 'LocalStoreKitTests'})
+        ordinary = ET.parse(ROOT / 'RideIntercom.xcodeproj/xcshareddata/xcschemes/RideIntercom.xcscheme')
+        excluded = {v.attrib['Identifier'] for v in ordinary.findall('TestAction/Testables/TestableReference/SkippedTests/Test')}
+        self.assertEqual(excluded, {'LocalStoreKitTests', 'StorePurchaseUITests'})
+        ui = ET.parse(ROOT / 'RideIntercom.xcodeproj/xcshareddata/xcschemes/RideIntercom-StoreKitUITests.xcscheme')
+        self.assertEqual([v.attrib['Identifier'] for v in ui.findall('TestAction/Testables/TestableReference/SelectedTests/Test')], ['StorePurchaseUITests'])
+        for name in ['RideIntercom-StoreKitTests', 'RideIntercom-StoreKitUITests']:
+            scheme = ET.parse(ROOT / ('RideIntercom.xcodeproj/xcshareddata/xcschemes/' + name + '.xcscheme'))
+            self.assertEqual(scheme.find('TestAction').get('buildConfiguration'), 'Debug-Validation')
+
+    def test_catalog_fixture_requires_validation_compilation_and_explicit_environment(self):
+        source = (ROOT / 'RideIntercom/StoreKit/StoreProductCatalog.swift').read_text()
+        self.assertIn('#if DEBUG && RIDEINTERCOM_VALIDATION', source)
+        self.assertIn('environment["RIDEINTERCOM_LOCAL_TESTING"] == "1"', source)
+        self.assertIn('environment["RIDEINTERCOM_STOREKIT_CATALOG_FIXTURE"]', source)
+        for config in self.project['objects'].values():
+            if config.get('isa') == 'XCBuildConfiguration' and config['name'] in {'Debug', 'Release'}:
+                flags = config.get('buildSettings', {}).get('SWIFT_ACTIVE_COMPILATION_CONDITIONS', '')
+                self.assertNotIn('RIDEINTERCOM_VALIDATION', flags)
+
     def test_repository_has_complete_minimum_platform_inputs(self):
         self.assertEqual(self.checker.check(ROOT, self.project), [])
 
     def test_named_validation_configurations_allow_mac_fixture_settings(self):
-        for name in ('Debug-Validation', 'Debug-StoreKitValidation', 'Release-Validation'):
+        for name in ('Debug-Validation', 'Release-Validation'):
             with self.subTest(configuration=name):
                 project = copy.deepcopy(self.project)
                 objects = project['objects']

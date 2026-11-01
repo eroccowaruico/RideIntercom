@@ -7,7 +7,7 @@ nonisolated enum StoreDistributionAccess: Equatable, Sendable {
     case disabled, unknown, standard, testDistribution
 
     static var automaticCheckEnabled: Bool {
-        #if DEBUG || RIDEINTERCOM_VALIDATION || RIDEINTERCOM_STOREKIT_TESTING || targetEnvironment(simulator)
+        #if DEBUG || RIDEINTERCOM_VALIDATION || targetEnvironment(simulator)
         false
         #else
         true

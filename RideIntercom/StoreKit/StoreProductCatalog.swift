@@ -11,7 +11,7 @@ nonisolated struct StoreProductCatalog: Equatable, Sendable {
     static let production = unconfigured
 
     static var currentProcess: Self {
-        #if RIDEINTERCOM_STOREKIT_TESTING
+        #if DEBUG && RIDEINTERCOM_VALIDATION
         let environment = ProcessInfo.processInfo.environment
         if environment["RIDEINTERCOM_LOCAL_TESTING"] == "1" {
             switch environment["RIDEINTERCOM_STOREKIT_CATALOG_FIXTURE"] {

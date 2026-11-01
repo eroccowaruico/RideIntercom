@@ -5,7 +5,7 @@ import Testing
 @MainActor @Suite(.serialized)
 struct XcodeValidationTests {
     @Test func sharedSchemesSeparateTestFromNormalRunAndArchive() throws {
-        for (name, configuration) in [("RideIntercom", "Debug-Validation"), ("RideIntercomAudioE2E", "Debug-Validation"), ("RideIntercom-StoreKitTests", "Debug-StoreKitValidation"), ("RideIntercom-StoreKitUITests", "Debug-StoreKitValidation")] {
+        for (name, configuration) in [("RideIntercom", "Debug-Validation"), ("RideIntercomAudioE2E", "Debug-Validation"), ("RideIntercom-StoreKitTests", "Debug-Validation"), ("RideIntercom-StoreKitUITests", "Debug-Validation")] {
             let scheme = try AppTestSupport.source("RideIntercom.xcodeproj/xcshareddata/xcschemes/\(name).xcscheme")
             for (action, value) in [("TestAction", configuration), ("LaunchAction", "Debug"), ("ArchiveAction", "Release")] {
                 #expect(scheme.range(of: "<\(action)\\b[^>]*buildConfiguration\\s*=\\s*\"\(value)\"", options: .regularExpression) != nil)
@@ -35,15 +35,14 @@ struct XcodeValidationTests {
                                             "RideIntercomTests", "RideIntercomUITests", "RideIntercomAudioE2ETests"]
         #expect(requiredTargets.isSubset(of: targetNames))
         #expect(!objects.values.contains { $0["isa"] as? String == "PBXAggregateTarget" })
-        let requiredConfigurations: Set<String> = ["Debug", "Release", "Debug-Validation",
-                                                    "Debug-StoreKitValidation", "Release-Validation"]
+        let requiredConfigurations: Set<String> = ["Debug", "Release", "Debug-Validation", "Release-Validation"]
         for owner in [projectObject] + nativeTargets {
             let listID = try #require(owner["buildConfigurationList"] as? String)
             let list = try #require(objects[listID])
             #expect(list["isa"] as? String == "XCConfigurationList")
             let ids = try #require(list["buildConfigurations"] as? [String])
             let names = Set(ids.compactMap { objects[$0]?["name"] as? String })
-            #expect(requiredConfigurations.isSubset(of: names))
+            #expect(requiredConfigurations == names)
             let releaseValidation = try #require(ids.compactMap { objects[$0] }.first { $0["name"] as? String == "Release-Validation" })
             let settings = try #require(releaseValidation["buildSettings"] as? [String: Any])
             let conditions = (settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] as? String ?? "").split { $0.isWhitespace }
@@ -75,9 +74,7 @@ struct XcodeValidationTests {
         #expect(validation.contains("RIDEINTERCOM_VALIDATION"))
         #expect(validation.contains("RideIntercom.Validation.Xcode"))
         #expect(!validation.contains("#include"))
-        let storeKit = try AppTestSupport.source("Configuration/StoreKitValidation.xcconfig")
-        #expect(storeKit.contains("#include \"Validation.xcconfig\""))
-        #expect(storeKit.contains("RIDEINTERCOM_STOREKIT_TESTING"))
+        #expect(!FileManager.default.fileExists(atPath: AppTestSupport.workspaceRoot().appending(path: "Configuration/StoreKitValidation.xcconfig").path))
     }
 
     @Test func watchTargetCompilesTheSharedSystemScope() throws {

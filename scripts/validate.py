@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.test_lifecycle import (exclusive_run, SimulatorLease,
                                     simulator_resource_root, process_snapshot, stop_process_tree)
-from scripts.xcode_paths import scheme_configuration, xcode_build_settings, select_test_run
+from scripts.xcode_paths import scheme_configuration, scheme_test_plan, xcode_build_settings, select_test_run
 
 
 def swift_supported(output):
@@ -207,13 +207,14 @@ class Runner:
         bundle = self.out / f'{name}.xcresult'
         settings_stage = name + '-build-settings'
         started = time.monotonic()
-        settings, test_run, configuration, namespace = None, None, '', ''
+        settings, test_run, configuration, namespace, plan_name = None, None, '', '', None
         blocked = [n for n in needs if self.results.get(n, {}).get('status') != 'passed']
         if blocked:
             self.record(settings_stage, [], 'blocked', None, started, 'requires ' + ', '.join(blocked))
         else:
             try:
                 configuration = scheme_configuration(ROOT, scheme)
+                plan_name = scheme_test_plan(ROOT, scheme)
                 settings = xcode_build_settings(ROOT, scheme, destination, configuration)
                 if reuse_build:
                     previous = json.loads((self.out / f'{reuse_build}-build-settings.json').read_text())
@@ -228,14 +229,23 @@ class Runner:
         if not reuse_build:
             command = ['xcodebuild', 'build-for-testing', '-project', 'RideIntercom.xcodeproj', '-scheme', scheme,
                        '-destination', destination, '-configuration', configuration]
+            if plan_name:
+                command += ['-testPlan', plan_name]
             self.run(name + '-build', command, needs=needs)
             needs = [name + '-build']
         if settings is not None:
             test_run = select_test_run(settings, scheme)
         preflight = name + '-host-preflight'
         self.check_test_host(preflight, test_run, namespace, needs=needs)
-        command = ['xcodebuild', 'test-without-building', '-xctestrun', str(test_run or ''),
-                   '-destination', destination, '-parallel-testing-enabled', 'NO', '-resultBundlePath', str(bundle)]
+        if plan_name:
+            # StoreKit activation belongs to the shared plan and is not carried
+            # by the generated xctestrun. Keep its host preflight above, then use
+            # the same project/scheme/plan entry as Xcode Test.
+            command = ['xcodebuild', 'test-without-building', '-project', 'RideIntercom.xcodeproj',
+                       '-scheme', scheme, '-testPlan', plan_name, '-configuration', configuration]
+        else:
+            command = ['xcodebuild', 'test-without-building', '-xctestrun', str(test_run or '')]
+        command += ['-destination', destination, '-parallel-testing-enabled', 'NO', '-resultBundlePath', str(bundle)]
         for identifier in ([only] if isinstance(only, str) else only or []):
             command.append(f'-only-testing:{identifier}')
         if skip:

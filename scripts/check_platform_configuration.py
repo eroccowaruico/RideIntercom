@@ -37,7 +37,7 @@ def check(root, project=None):
     app_settings = target_settings(project, 'RideIntercom')
     for config in target_configurations(project, 'RideIntercom'):
         settings = config['buildSettings']
-        validation = config['name'] in ('Debug-Validation', 'Debug-StoreKitValidation', 'Release-Validation')
+        validation = config['name'] in ('Debug-Validation', 'Release-Validation')
         mac_entitlements = '$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)' if validation else 'RideIntercom/RideIntercom-macOS.entitlements'
         sandbox = '$(RIDEINTERCOM_VALIDATION_SANDBOX)' if validation else 'YES'
         require(settings.get('RIDEINTERCOM_APNS_ENVIRONMENT') in ('development', 'production'), 'APNs environment must use development or production and feed both Info and entitlement.')

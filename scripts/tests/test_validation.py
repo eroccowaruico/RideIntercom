@@ -181,8 +181,8 @@ class ValidationTests(unittest.TestCase):
         commands = {}
         original_run = self.runner.run
         marker = self.runner.out / (name + '-host-started')
-        configuration = 'Debug-StoreKitValidation' if 'StoreKit' in scheme else 'Debug-Validation'
-        namespace = 'RideIntercom.Validation.XcodeStoreKit' if 'StoreKit' in scheme else 'RideIntercom.Validation.Xcode'
+        configuration = 'Debug-Validation'
+        namespace = 'RideIntercom.Validation.Xcode'
         platform = 'macosx' if destination.startswith('platform=macOS') else 'iphonesimulator'
         products = Path(self.temporary.name) / 'Xcode Default/Build/Products'
         target_dir = products / (configuration + ('' if platform == 'macosx' else '-iphonesimulator'))
@@ -283,11 +283,19 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(marker.exists())
         build = commands['storekit-build']
         self.assertIn('RideIntercom-StoreKitTests', build)
-        self.assertEqual(build[build.index('-configuration') + 1], 'Debug-StoreKitValidation')
+        self.assertEqual(build[build.index('-configuration') + 1], 'Debug-Validation')
         self.assertFalse(any(arg.startswith('SWIFT_ACTIVE_COMPILATION_CONDITIONS=') for arg in build))
         self.assertIn('-only-testing:RideIntercomTests/LocalStoreKitTests', commands['storekit'])
         self.assertIn('-only-testing:RideIntercomTests/StoreKitAccessTests', commands['storekit'])
         self.assertEqual(self.runner.results['storekit-host-preflight']['status'], 'passed')
+        # A generated xctestrun omits the StoreKit configuration activation.
+        # Execute the shared scheme/plan after checking its generated host.
+        execution = commands['storekit']
+        self.assertIn('-scheme', execution)
+        self.assertIn('-testPlan', execution)
+        self.assertEqual(execution[execution.index('-scheme') + 1], 'RideIntercom-StoreKitTests')
+        self.assertEqual(execution[execution.index('-testPlan') + 1], 'StoreKit')
+        self.assertNotIn('-xctestrun', execution)
 
     def test_newer_xctestrun_for_other_platform_is_not_selected(self):
         commands, marker = self.xcode_fixture('ios-tests', 'platform=iOS Simulator,id=owned', stale_platform=True)
@@ -298,7 +306,7 @@ class ValidationTests(unittest.TestCase):
     def test_explicit_plan_cannot_fall_back_to_an_old_scheme_run(self):
         products = Path(self.temporary.name) / 'Products'
         products.mkdir()
-        app = products / 'Debug-StoreKitValidation/RideIntercom.app'
+        app = products / 'Debug-Validation/RideIntercom.app'
         settings = dict(BUILD_DIR=str(products), TARGET_BUILD_DIR=str(app.parent), FULL_PRODUCT_NAME=app.name)
         scheme = 'RideIntercom-StoreKitTests'
         stale = products / (scheme + '_old.xctestrun')
@@ -315,7 +323,7 @@ class ValidationTests(unittest.TestCase):
     def test_scheme_actions_use_the_native_shared_configurations(self):
         self.assertEqual(self.paths.scheme_configuration(self.module.ROOT, 'RideIntercom'), 'Debug-Validation')
         for scheme in ['RideIntercom-StoreKitTests', 'RideIntercom-StoreKitUITests']:
-            self.assertEqual(self.paths.scheme_configuration(self.module.ROOT, scheme), 'Debug-StoreKitValidation')
+            self.assertEqual(self.paths.scheme_configuration(self.module.ROOT, scheme), 'Debug-Validation')
         self.assertEqual(self.paths.scheme_configuration(self.module.ROOT, 'RideIntercom', 'LaunchAction'), 'Debug')
 
     def test_build_settings_keep_only_paths_and_reject_other_platform(self):
@@ -398,12 +406,27 @@ class ValidationTests(unittest.TestCase):
              patch.object(validate_storekit, 'manifest', return_value={'head': 'fixture', 'files': {}}), \
              patch.object(validate_storekit, 'exclusive_run', return_value=nullcontext()) as lease, \
              patch.object(validate_storekit, 'simulator_resource_root', return_value=Path(self.temporary.name) / 'resources', create=True), \
+             patch.object(validate_storekit, 'record_selection_coverage') as coverage, \
              patch.object(self.runner, 'xcode') as run, patch.dict(os.environ):
             self.assertEqual(validate_storekit.main(), 0)
         self.assertEqual(run.call_args.kwargs['scheme'], 'RideIntercom-StoreKitTests')
         self.assertNotIn('derived_data', run.call_args.kwargs)
         self.assertNotIn('extra_conditions', run.call_args.kwargs)
         self.assertEqual(lease.call_args.args[0], Path(self.temporary.name) / 'resources/run.lock')
+        coverage.assert_called_once_with(self.runner, self.runner.out / 'storekit.xcresult')
+
+    def test_storekit_selection_rejects_missing_real_purchase_cases_even_when_other_suites_run(self):
+        from scripts import validate_storekit
+        cases = [{'nodeType': 'Test Case', 'nodeIdentifier': suite + '/fixture()', 'result': 'Passed'}
+                 for suite in validate_storekit.SUITES]
+        def tree(stage, argv, **kwargs):
+            (self.runner.out / (stage + '.log')).write_text(json.dumps(cases))
+        with patch.object(self.runner, 'run', side_effect=tree):
+            validate_storekit.record_selection_coverage(self.runner, self.runner.out / 'fixture.xcresult')
+            self.assertEqual(self.runner.results['storekit-selection-coverage']['status'], 'failed')
+            cases += [{'nodeType': 'Test Case', 'nodeIdentifier': name, 'result': 'Passed'} for name in validate_storekit.CORE_CASES]
+            validate_storekit.record_selection_coverage(self.runner, self.runner.out / 'fixture.xcresult')
+            self.assertEqual(self.runner.results['storekit-selection-coverage']['status'], 'passed')
 
     def test_macos_validation_holds_the_same_audio_test_lease(self):
         from contextlib import contextmanager
@@ -494,6 +517,7 @@ class ValidationTests(unittest.TestCase):
             with self.subTest(changed=changed):
                 path.write_text(changed)
                 self.assertFalse(self.module.fingerprints_match(before, {key: self.module.file_fingerprint(path)}))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -33,7 +33,13 @@
         "containerPath": "container:RideIntercom.xcodeproj",
         "identifier": "93F300D82F93829D0046716D",
         "name": "RideIntercomTests"
-      }
+      },
+      "selectedTests": [
+        "StoreEntitlementTests",
+        "StoreKitAccessTests",
+        "StoreDistributionAccessTests",
+        "LocalStoreKitTests"
+      ]
     }
   ],
   "version": 1

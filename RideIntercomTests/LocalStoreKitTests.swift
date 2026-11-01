@@ -1,4 +1,4 @@
-#if RIDEINTERCOM_STOREKIT_TESTING
+#if DEBUG && RIDEINTERCOM_VALIDATION
 import Foundation
 import StoreKit
 import StoreKitTest
@@ -96,20 +96,45 @@ struct LocalStoreKitTests {
         defer { updates.cancel() }
         let session = try makeSession()
         defer { session.clearTransactions() }
-        let transaction = try await session.buyProduct(identifier: catalog.monthlyProductID!)
-        let week = try await session.buyProduct(identifier: catalog.weeklyProductID!, options: [.purchaseDate(Date().addingTimeInterval(-100))])
+        // Use the same purchase entry as the product core. SKTestSession's
+        // backdated insertion can precede StoreKit 2 history visibility.
+        let weeklyProduct = try #require(try await Product.products(for: [catalog.weeklyProductID!]).first)
+        let monthlyProduct = try #require(try await Product.products(for: [catalog.monthlyProductID!]).first)
+        guard case .success(.verified(let week)) = try await weeklyProduct.purchase(),
+              case .success(.verified(let transaction)) = try await monthlyProduct.purchase() else {
+            Issue.record("The local fixture purchases were not verified"); return
+        }
+        var fixtureWeekIsVisible = false
+        for await result in Transaction.all(for: catalog.weeklyProductID!) {
+            if case .verified(let value) = result, value.id == week.id { fixtureWeekIsVisible = true }
+        }
+        try #require(fixtureWeekIsVisible, "The verified purchase must be visible before the read deadline starts")
         let gate = ManualAsyncGate()
+        var statusCompleted = false
         let source = SystemStoreKitAccessSource(subscriptionStatuses: { group in
             await gate.wait()
+            defer { statusCompleted = true }
             return try await Product.SubscriptionInfo.status(for: group)
         })
-        let access = StoreKitAccess(catalog: catalog, source: source, readTimeout: .milliseconds(200))
-        await access.refresh()
-        #expect(access.lastRefreshFailed && access.evaluation(at: .now).status == .active)
+        let access = StoreKitAccess(catalog: catalog, source: source)
+        let refreshing = Task { await access.refresh() }
+        for _ in 0..<150 {
+            if await gate.entryCount > 0 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        // The status barrier is still closed. Adoption and finish must already
+        // be observable, independently of a response or the read deadline.
+        #expect(await gate.entryCount > 0)
+        #expect(access.isRefreshing && !statusCompleted)
+        #expect(access.evaluation(at: .now).status == .active)
+        #expect(access.snapshot?.entitlements.contains { $0.transactionID == week.id } == true)
         #expect(!(await unfinishedIDs()).contains(transaction.id))
         #expect(!(await unfinishedIDs()).contains(week.id))
+        // Keep the real read deadline (15s), then verify a late response cannot
+        // finish purchases that were not adopted by the completed read.
+        await refreshing.value
+        #expect(access.lastRefreshFailed && access.evaluation(at: .now).status == .active)
         // A second weekly purchase must not wait for the unrelated status API.
-        let weeklyProduct = try #require(try await Product.products(for: [catalog.weeklyProductID!]).first)
         let nextPurchase = try await weeklyProduct.purchase()
         guard case .success(.verified(let nextWeek)) = nextPurchase else { Issue.record("Next ticket could not be purchased"); return }
         try session.forceRenewalOfSubscription(productIdentifier: catalog.monthlyProductID!)
@@ -120,7 +145,8 @@ struct LocalStoreKitTests {
         }
         #expect(waiting.contains(nextWeek.id) && waiting.count >= 2)
         await gate.release()
-        try await Task.sleep(for: .milliseconds(50))
+        for _ in 0..<150 where !statusCompleted { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(statusCompleted)
         #expect(await unfinishedIDs() == waiting)
         access.stop()
 

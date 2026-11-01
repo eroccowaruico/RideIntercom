@@ -27,11 +27,14 @@
          </ExecutionAction>
       </PostActions>
    </BuildAction>
-   <TestAction buildConfiguration="Debug-StoreKitValidation" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="NO" shouldAutocreateTestPlan="YES" onlyGenerateCoverageForSpecifiedTargets="YES">
+   <TestAction buildConfiguration="Debug-Validation" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="NO" shouldAutocreateTestPlan="YES" onlyGenerateCoverageForSpecifiedTargets="YES">
       <Testables>
          <TestableReference skipped="NO" parallelizable="NO">
             <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="93F300E22F93829D0046716D" BuildableName="RideIntercomUITests.xctest" BlueprintName="RideIntercomUITests" ReferencedContainer="container:RideIntercom.xcodeproj">
             </BuildableReference>
+            <SelectedTests>
+               <Test Identifier="StorePurchaseUITests" />
+            </SelectedTests>
          </TestableReference>
       </Testables>
       <EnvironmentVariables>

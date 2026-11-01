@@ -1,4 +1,4 @@
-#if RIDEINTERCOM_STOREKIT_TESTING && os(iOS)
+#if DEBUG && RIDEINTERCOM_VALIDATION && os(iOS)
 import XCTest
 
 /// The unavailable fixture intentionally has no product in the StoreKit file.
