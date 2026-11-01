@@ -109,7 +109,7 @@ CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。�
 | グループ一覧戻りボタン | `call-toolbar` | `showGroupsButton` | `Groups` | Action | 左上ボタン | 接続は維持する |
 | 接続ボタン | `call-primary-controls` | `connectButton` | `Connect` | `canDisconnectCall == false` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
 | 切断ボタン | `call-primary-controls` | `disconnectButton` | `Disconnect` | `canDisconnectCall == true` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
-| 招待ボタン | `call-primary-controls` | `inviteButton` | `Invite` | `canShareSelectedGroup` | `ShareLink` / `GroupInvitationShare` | ログイン・保存状態・所属・宛先から表示可否を判断。共有データ要求時に対象IDと権限を再確認してURLを発行する |
+| 招待ボタン | `call-primary-controls` | `inviteButton` | `Invite` | `canShareSelectedGroup` | `ShareLink` / `GroupInvitationShare` | ログイン・保存状態・所属・宛先から表示可否を判断。共有データ要求時に対象IDと権限を再確認してURLを発行する。共有画面の表示・取消やURLの共有だけでは参加者を追加しない |
 
 ## 参加者
 

@@ -54,6 +54,7 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     func testInvitationShareUsesSystemSheetAndReturnsToCall() throws {
         createTalkGroupAndOpenCall()
+        XCTAssertTrue(app.descendants(matching: .any)["emptyRemoteParticipantsLabel"].firstMatch.waitForExistence(timeout: 3))
         let invite = app.buttons["inviteButton"]
         XCTAssertTrue(invite.waitForExistence(timeout: 3))
         invite.tap()
@@ -62,8 +63,69 @@ final class RideIntercomUITests: XCTestCase {
         attachScreen("Invitation Native Share Sheet")
         copy.tap()
         XCTAssertTrue(invite.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["emptyRemoteParticipantsLabel"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertFalse(app.staticTexts["groupErrorLabel"].exists)
     }
+
+    #if os(iOS)
+    @MainActor
+    func testStandardInvitationCancelAndCopyPreservePeople() throws {
+        let suffix = UUID().uuidString
+        let existingRider = "Existing Rider \(suffix)"
+        try openSavedUserInvitation(inviter: "ui-share-\(suffix)", sharedName: existingRider)
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
+        openSettingsTab()
+        let picker = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
+        revealSettingsControl(picker)
+        picker.tap()
+        let standard = app.buttons["Standard"].firstMatch
+        if standard.exists { standard.tap() } else { app.menuItems["Standard"].tap() }
+        app.tabBars.buttons["Users"].tap()
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
+        let savedUsers = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-"))
+        let savedUserCount = savedUsers.count
+        app.tabBars.buttons["Call"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
+        let invite = app.buttons["inviteButton"]
+        XCTAssertTrue(invite.waitForExistence(timeout: 3))
+        invite.tap()
+        let copy = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        // Dismiss without choosing a share destination.
+        app.swipeDown()
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(invite.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
+        invite.tap()
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        copy.tap()
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(invite.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
+        XCTAssertFalse(app.staticTexts["Invited Rider 3"].exists)
+        app.tabBars.buttons["Users"].tap()
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertEqual(savedUsers.count, savedUserCount)
+        XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
+        XCTAssertFalse(app.staticTexts["Invited Rider 3"].exists)
+        app.terminate(); app.launch(); app.activate()
+        openSettingsTab()
+        revealSettingsControl(picker)
+        picker.tap()
+        if standard.exists { standard.tap() } else { app.menuItems["Standard"].tap() }
+        app.tabBars.buttons["Groups"].tap()
+        let group = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardGroup-", "Talk Group")).firstMatch
+        XCTAssertTrue(group.waitForExistence(timeout: 5))
+        group.tap()
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
+        XCTAssertFalse(app.staticTexts["Invited Rider 3"].exists)
+    }
+
+    #endif
 
     @MainActor
     func testInternetEnrollmentThrottleKeepsAccountAndShowsRetryInstruction() throws {
