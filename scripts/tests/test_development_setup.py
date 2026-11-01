@@ -93,32 +93,34 @@ class DevelopmentSetupTests(unittest.TestCase):
                     self.assertTrue(any('containing the project' in error for error in self.setup.check(ROOT)))
 
     def test_editing_folder_must_stay_visible_and_synchronized(self):
-        for failure in ['detached', 'static-group']:
-            with self.subTest(failure=failure):
-                project = copy.deepcopy(self.project)
-                objects = project['objects']
-                group_id = next(k for k,v in objects.items() if v.get('path') == 'docs')
-                if failure == 'detached':
-                    main = objects[objects[project['rootObject']]['mainGroup']]
-                    main['children'].remove(group_id)
-                else:
-                    objects[group_id]['isa'] = 'PBXGroup'
-                with patch.object(self.setup, 'load_project', return_value=project):
-                    self.assertTrue(any('docs must remain visible' in error for error in self.setup.check(ROOT)))
+        for folder in ['docs', '.agents']:
+            for failure in ['detached', 'static-group']:
+                with self.subTest(folder=folder, failure=failure):
+                    project = copy.deepcopy(self.project)
+                    objects = project['objects']
+                    group_id = next(k for k,v in objects.items() if v.get('path') == folder)
+                    if failure == 'detached':
+                        main = objects[objects[project['rootObject']]['mainGroup']]
+                        main['children'].remove(group_id)
+                    else:
+                        objects[group_id]['isa'] = 'PBXGroup'
+                    with patch.object(self.setup, 'load_project', return_value=project):
+                        self.assertTrue(any(f'{folder} must remain visible' in error for error in self.setup.check(ROOT)))
 
     def test_editing_only_folder_must_not_become_a_build_input(self):
-        for failure in ['target-group', 'build-file']:
-            with self.subTest(failure=failure):
-                project = copy.deepcopy(self.project)
-                objects = project['objects']
-                group_id = next(k for k,v in objects.items() if v.get('path') == 'docs')
-                if failure == 'target-group':
-                    target = next(v for v in objects.values() if v.get('isa') == 'PBXNativeTarget')
-                    target.setdefault('fileSystemSynchronizedGroups', []).append(group_id)
-                else:
-                    objects['DOCS_BUILD_FILE'] = {'isa': 'PBXBuildFile', 'fileRef': group_id}
-                with patch.object(self.setup, 'load_project', return_value=project):
-                    self.assertTrue(any('docs is editing-only' in error for error in self.setup.check(ROOT)))
+        for folder in ['docs', '.agents']:
+            for failure in ['target-group', 'build-file']:
+                with self.subTest(folder=folder, failure=failure):
+                    project = copy.deepcopy(self.project)
+                    objects = project['objects']
+                    group_id = next(k for k,v in objects.items() if v.get('path') == folder)
+                    if failure == 'target-group':
+                        target = next(v for v in objects.values() if v.get('isa') == 'PBXNativeTarget')
+                        target.setdefault('fileSystemSynchronizedGroups', []).append(group_id)
+                    else:
+                        objects['EDITING_BUILD_FILE'] = {'isa': 'PBXBuildFile', 'fileRef': group_id}
+                    with patch.object(self.setup, 'load_project', return_value=project):
+                        self.assertTrue(any(f'{folder} is editing-only' in error for error in self.setup.check(ROOT)))
 
     def test_self_project_folder_reference_is_also_rejected(self):
         project = copy.deepcopy(self.project)

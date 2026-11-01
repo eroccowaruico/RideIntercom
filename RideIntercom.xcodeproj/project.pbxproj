@@ -238,6 +238,11 @@
 			path = .codex;
 			sourceTree = "<group>";
 		};
+		D70000000000000000000005 /* .agents */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = .agents;
+			sourceTree = "<group>";
+		};
 		E2E000000000000000000003 /* RideIntercomAudioE2ETests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RideIntercomAudioE2ETests;
@@ -344,6 +349,7 @@
 				C0DE1C010000000000000002 /* RideIntercom/AppIcon.icon */,
 				D70000000000000000000002 /* .vscode */,
 				D70000000000000000000003 /* .codex */,
+				D70000000000000000000005 /* .agents */,
 				D70000000000000000000004 /* .gitignore */,
 				CFDE00000000000000000001 /* Configuration/Debug.xcconfig */,
 				93F300CA2F93829C0046716D /* RideIntercom */,

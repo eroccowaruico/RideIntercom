@@ -35,7 +35,7 @@ def check(root):
             errors.append('RideIntercom must not reference itself as a child project.')
     main = objects[objects[project['rootObject']]['mainGroup']]
     visible = {objects[key].get('path'): key for key in main['children']}
-    editing_folders = ['docs', 'scripts', 'server', 'Configuration', '.vscode', '.codex', '.github', '.claude']
+    editing_folders = ['docs', 'scripts', 'server', 'Configuration', '.vscode', '.codex', '.github', '.claude', '.agents']
     source_folders = ['RideIntercom', 'RideIntercomTests', 'RideIntercomUITests',
                       'RideIntercomAudioE2ETests', 'RideIntercomWidgets', 'RideIntercomWatch']
     for folder in source_folders + editing_folders:
