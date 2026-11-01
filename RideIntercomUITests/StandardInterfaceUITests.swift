@@ -110,6 +110,124 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor
+    func testStandardSettingsSeparatesRoutineControlsAndConfirmsReset() {
+        launch()
+        tab("Settings", id: "settingsTab")
+        let layout = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
+        XCTAssertTrue(layout.waitForExistence(timeout: 3))
+        XCTAssertTrue(layout.isHittable, "App Layout remains at the start of Settings")
+
+        let communication = app.buttons["communicationSettingsLink"].firstMatch
+        revealStandardSettingsControl(communication)
+        communication.tap()
+        XCTAssertTrue(app.navigationBars["Communication"].waitForExistence(timeout: 3))
+        screenshot("English Communication after navigation")
+        let communicationTree = XCTAttachment(string: app.debugDescription)
+        communicationTree.name = "English Communication accessibility tree"
+        communicationTree.lifetime = .keepAlways
+        add(communicationTree)
+        XCTAssertTrue(app.switches["Local Network"].firstMatch.exists)
+        XCTAssertTrue(app.switches["Internet"].firstMatch.exists)
+        screenshot("Standard Communication settings in English")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let vad = app.descendants(matching: .any)["vadSensitivityPicker"].firstMatch
+        revealStandardSettingsControl(vad)
+        let noisy = vad.buttons["Noisy"].firstMatch
+        XCTAssertTrue(noisy.waitForExistence(timeout: 3))
+        noisy.tap()
+        XCTAssertTrue(noisy.isSelected)
+        screenshot("Standard routine settings with Noisy selected")
+
+        let more = app.buttons["moreSettingsLink"].firstMatch
+        revealStandardSettingsControl(more)
+        more.tap()
+        XCTAssertTrue(app.navigationBars["More Settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.exists)
+        let codec = app.descendants(matching: .any)["transmitCodecPanel"].firstMatch
+        revealStandardSettingsControl(codec)
+        XCTAssertTrue(codec.exists)
+        for identifier in ["vadSensitivityPicker", "resetAllSettingsButton", "communicationSettingsLink",
+                           "communicationPanel", "localNetworkRouteToggle", "internetRouteToggle"] {
+            XCTAssertFalse(app.descendants(matching: .any)[identifier].firstMatch.exists,
+                           "Routine control duplicated in More Settings: \(identifier)")
+        }
+        screenshot("Standard More Settings contains specialist audio settings")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let reset = app.buttons["resetAllSettingsButton"].firstMatch
+        revealStandardSettingsControl(reset)
+        reset.tap()
+        let cancel = app.alerts.buttons["cancelResetAllSettingsButton"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+        screenshot("Standard reset confirmation in English")
+        cancel.tap()
+        revealStandardSettingsControl(vad)
+        XCTAssertTrue(noisy.isSelected, "Cancel keeps the selected VAD sensitivity")
+        revealStandardSettingsControl(reset)
+        reset.tap()
+        let confirm = app.alerts.buttons["confirmResetAllSettingsButton"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        confirm.tap()
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        revealStandardSettingsControl(layout)
+        XCTAssertTrue(layout.label.contains("Standard") || (layout.value as? String)?.contains("Standard") == true,
+                      "Reset keeps the selected layout")
+        revealStandardSettingsControl(vad)
+        XCTAssertTrue(vad.buttons["Standard"].firstMatch.isSelected,
+                       "Confirmed reset restores the default VAD sensitivity")
+        let recording = app.buttons["audioCheckButton"].firstMatch
+        revealStandardSettingsControl(recording)
+        XCTAssertTrue(recording.exists)
+        screenshot("Standard Settings after confirmed reset")
+    }
+
+    @MainActor
+    func testStandardJapaneseCommunicationAndResetCancellation() {
+        launch(japanese: true)
+        tab("設定", id: "settingsTab")
+        let communication = app.buttons["communicationSettingsLink"].firstMatch
+        revealStandardSettingsControl(communication)
+        XCTAssertEqual(communication.label, "通信経路")
+        communication.tap()
+        XCTAssertTrue(app.navigationBars["通信経路"].waitForExistence(timeout: 3))
+        screenshot("Japanese Communication after navigation")
+        let communicationTree = XCTAttachment(string: app.debugDescription)
+        communicationTree.name = "Japanese Communication accessibility tree"
+        communicationTree.lifetime = .keepAlways
+        add(communicationTree)
+        let local = app.switches["近距離"].firstMatch
+        let internet = app.switches["インターネット"].firstMatch
+        XCTAssertTrue(local.exists)
+        XCTAssertTrue(internet.exists)
+        XCTAssertEqual(local.label, "近距離")
+        XCTAssertEqual(internet.label, "インターネット")
+        screenshot("Japanese Standard Communication settings")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let reset = app.buttons["resetAllSettingsButton"].firstMatch
+        revealStandardSettingsControl(reset)
+        XCTAssertEqual(reset.label, "すべての設定をリセット")
+        reset.tap()
+        XCTAssertTrue(app.alerts.staticTexts["すべての設定をリセットしますか？"].firstMatch.waitForExistence(timeout: 3))
+        let cancel = app.alerts.buttons["cancelResetAllSettingsButton"].firstMatch
+        XCTAssertEqual(cancel.label, "キャンセル")
+        XCTAssertEqual(app.alerts.buttons["confirmResetAllSettingsButton"].firstMatch.label, "すべての設定をリセット")
+        screenshot("Japanese Standard reset confirmation")
+        cancel.tap()
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        let recording = app.buttons["audioCheckButton"].firstMatch
+        revealStandardSettingsControl(recording)
+        XCTAssertEqual(recording.label, "5秒録音して再生")
+    }
+
+    @MainActor private func revealStandardSettingsControl(_ control: XCUIElement) {
+        for _ in 0..<8 where !control.isHittable { app.swipeUp() }
+        for _ in 0..<12 where !control.isHittable { app.swipeDown() }
+        XCTAssertTrue(control.waitForExistence(timeout: 3))
+        XCTAssertTrue(control.isHittable, control.debugDescription)
+    }
+
+    @MainActor
     func testStandardInternetSetupKeepsManualCredentialsInAdvanced() {
         launch()
         tab("Settings", id: "settingsTab")

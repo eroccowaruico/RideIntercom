@@ -6,7 +6,7 @@
 
 ## 表示切替と共通設定
 
-App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・利用権の状態・本人の表示名・Internet接続・音声入出力・簡単な録音再生チェックを表示する。録音チェックの接続状態やmeterはAdvancedに限る。通信経路・Audio Session・送信codec・VAD・Reset All SettingsはMore Audio and Connection Settings（`moreSettingsLink`）から同じ設定操作へ進む。Advancedへ戻るPickerは設定の先頭に常設する。
+App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。両モードとも先頭に表示する。Standardはアカウント・本人の表示名・利用権、通話設定、Internet接続、通信経路への入口、音声入出力・VAD・録音再生チェックの順に表示し、リセットを最下部に置く。通信経路はCommunication（`communicationSettingsLink`）から別画面で設定し、Audio Session・送信codecはMore Audio and Connection Settings（`moreSettingsLink`）から設定する。Advancedは通信経路を主画面に表示し、音声設定をAudio Session・Audio I/O・Voice Activity・Transmit Codec・Audio Checkの順に表示する。録音チェックの接続状態やmeterはAdvancedに限る。
 
 StandardのInternet接続はInternet is set up / Internet is not set upとService Addressを表示し、Appleによる接続操作を案内する。手動のDevice access token入力・保存はAdvancedだけに表示する。AdvancedはWorker URLを含め従来の項目・識別子・保存操作とDiagnosticsを維持する。両表示で同じ設定保存先と音声処理を使う。商品未設定でも配布環境を独立に確認し、テスト配布で利用可能か、判定不能ならCheck Accessを表示する。配布の権利がない場合はNot Available Yetとし、商品未設定のRestore Purchasesは表示しない。
 
@@ -145,7 +145,8 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 異常系の考え方 |
 |---|---|---|---|---|---|---|---|
-| 設定リセットボタン | `resetSettingsPanel` | `resetAllSettingsButton` | `Reset All Settings` | Action | 常時 | destructive button | グループ、参加者、Internet資格、入力muteは維持。routeが既定へ変わる場合は切断する |
+| 設定リセットボタン | `resetSettingsPanel` | `resetAllSettingsButton` | `Reset All Settings` | Action | 常時 | destructive button。標準alertで確認 | グループ、参加者、Internet資格、入力muteは維持。routeが既定へ変わる場合は切断する |
+| リセットの確認 | `resetSettingsPanel` | `confirmResetAllSettingsButton` / `cancelResetAllSettingsButton` | `Reset All Settings` / `Cancel` | Action | 確認中 | 標準alert | 確定時のみリセット。キャンセル時は変更しない |
 | 設定リセット補足文 | `resetSettingsPanel` | `resetSettingsPanel` | 補足文 | 固定文字列 | 常時 | footer | データ削除と混同させない |
 
 ## Voice Isolationの現在の提供状態

@@ -10,29 +10,44 @@ struct SettingsView: View {
         Form {
             InterfaceModeSection(viewModel: viewModel)
             AccountSettingsPanel(viewModel: viewModel)
+            if viewModel.interfaceMode == .standard {
+                LocalDisplayNameSection(viewModel: viewModel)
+            }
             StoreAccessSection(access: viewModel.storeAccess)
-            CallNotificationSettingsSection(notifications: viewModel.notifications)
-            LocalDisplayNameSection(viewModel: viewModel)
-            CallStatusDisplaySection(viewModel: viewModel)
+            if viewModel.interfaceMode == .advanced {
+                LocalDisplayNameSection(viewModel: viewModel)
+            }
             CallDisconnectTimerSection(viewModel: viewModel)
+            CallNotificationSettingsSection(notifications: viewModel.notifications)
+            CallStatusDisplaySection(viewModel: viewModel)
             if viewModel.interfaceMode == .advanced {
                 CommunicationPanel(viewModel: viewModel)
                 InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
                 AudioSessionPanel(viewModel: viewModel)
                 AudioIOPanel(viewModel: viewModel)
-                AudioCheckPanel(viewModel: viewModel)
-                TransmitCodecPanel(viewModel: viewModel)
                 VoiceActivityPanel(viewModel: viewModel)
+                TransmitCodecPanel(viewModel: viewModel)
+                AudioCheckPanel(viewModel: viewModel)
                 ResetSettingsPanel(viewModel: viewModel)
             } else {
                 InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
+                Section {
+                    NavigationLink("Communication") {
+                        Form { CommunicationPanel(viewModel: viewModel) }
+                            .formStyle(.grouped)
+                            .navigationTitle("Communication")
+                    }
+                    .accessibilityIdentifier("communicationSettingsLink")
+                }
                 AudioIOPanel(viewModel: viewModel)
+                VoiceActivityPanel(viewModel: viewModel)
                 AudioCheckPanel(viewModel: viewModel)
                 Section {
                     NavigationLink("More Audio and Connection Settings") {
                         Form { advancedSections }.formStyle(.grouped).navigationTitle("More Settings")
                     }.accessibilityIdentifier("moreSettingsLink")
                 }
+                ResetSettingsPanel(viewModel: viewModel)
             }
         }
         .formStyle(.grouped)
@@ -54,11 +69,8 @@ struct SettingsView: View {
         }
     }
     @ViewBuilder private var advancedSections: some View {
-        CommunicationPanel(viewModel: viewModel)
         AudioSessionPanel(viewModel: viewModel)
         TransmitCodecPanel(viewModel: viewModel)
-        VoiceActivityPanel(viewModel: viewModel)
-        ResetSettingsPanel(viewModel: viewModel)
     }
 }
 
@@ -129,11 +141,11 @@ struct CommunicationPanel: View {
             .accessibilityIdentifier("internetRouteToggle")
         } header: {
             Label("Communication", systemImage: "network")
+                .accessibilityIdentifier("communicationPanel")
         } footer: {
             Text("Internet controls this device’s service connection. Nearby riders can relay calls for riders with Internet off. Relay uses battery and data. Changing these settings ends the current connection; connect again to apply them.")
                 .font(.footnote)
         }
-        .accessibilityIdentifier("communicationPanel")
     }
 }
 
@@ -470,7 +482,7 @@ struct VoiceActivityPanel: View {
                 set: { viewModel.setVADSensitivity($0) }
             )) {
                 ForEach(VoiceActivitySensitivity.allCases) { sensitivity in
-                    Text(sensitivity.label).tag(sensitivity)
+                    Text(LocalizedStringKey(sensitivity.label)).tag(sensitivity)
                 }
             }
             .pickerStyle(.segmented)
@@ -478,26 +490,37 @@ struct VoiceActivityPanel: View {
 
         } header: {
             Label("Voice Activity", systemImage: "waveform.badge.mic")
+                .accessibilityIdentifier("voiceActivityPanel")
         }
-        .accessibilityIdentifier("voiceActivityPanel")
     }
 }
 
 struct ResetSettingsPanel: View {
     @Bindable var viewModel: IntercomViewModel
+    @State private var isConfirmingReset = false
 
     var body: some View {
         Section {
             Button(role: .destructive) {
-                viewModel.resetAllSettings()
+                isConfirmingReset = true
             } label: {
                 Label("Reset All Settings", systemImage: "arrow.counterclockwise")
             }
             .accessibilityIdentifier("resetAllSettingsButton")
         } footer: {
             Text("Resets audio and call settings to their default values. Saved groups and members are not changed.")
+                .accessibilityIdentifier("resetSettingsPanel")
         }
-        .accessibilityIdentifier("resetSettingsPanel")
+        .alert("Reset All Settings?", isPresented: $isConfirmingReset) {
+            Button("Reset All Settings", role: .destructive) {
+                viewModel.resetAllSettings()
+            }
+            .accessibilityIdentifier("confirmResetAllSettingsButton")
+            Button("Cancel", role: .cancel) { }
+                .accessibilityIdentifier("cancelResetAllSettingsButton")
+        } message: {
+            Text("Resets audio and call settings to their default values. Saved groups and members are not changed.")
+        }
     }
 }
 
