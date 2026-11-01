@@ -9,10 +9,13 @@ struct WatchCallView: View {
             List {
                 Section {
                     if !client.isReachable {
-                        Text("Connect to your iPhone to control a call.")
+                        Label("Connect to your iPhone to control a call.", systemImage: "iphone.slash")
                     } else if let state = client.snapshot {
-                        Text(stateTitle(state.state))
-                        if let title = state.title { Text(title) }
+                        if let title = state.title {
+                            Text(title).font(.headline).accessibilityAddTraits(.isHeader)
+                        }
+                        Label(stateTitle(state.state), systemImage: stateSymbol(state.state))
+                            .font(.subheadline)
                         if state.reference != nil {
                             Picker("Microphone Mode", selection: Binding(
                                 get: { audio.microphoneIntent.mode }, set: audio.setMicrophoneMode)) {
@@ -21,7 +24,9 @@ struct WatchCallView: View {
                             }
                             if audio.microphoneIntent.mode == .hold {
                                 Button { } label: {
-                                    Text(audio.isTalking ? LocalizedStringKey("Talking…") : LocalizedStringKey("Hold to Talk"))
+                                    Label(audio.isTalking ? LocalizedStringKey("Talking…") : LocalizedStringKey("Hold to Talk"),
+                                          systemImage: audio.isTalking ? "waveform" : "mic")
+                                        .frame(maxWidth: .infinity, minHeight: 72)
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .simultaneousGesture(DragGesture(minimumDistance: 0).updating($isHolding) { _, state, _ in state = true })
@@ -72,8 +77,27 @@ struct WatchCallView: View {
                 }
                 Section { Text("Audio uses your Watch. Keep your iPhone nearby.").font(.footnote) }
             }
+            .containerBackground(useDarkBackground ? Color.black.gradient : Color.accentColor.gradient, for: .navigation)
             .navigationTitle("RideCom")
             .onDisappear { audio.setPressed(false) }
+        }
+    }
+    private var useDarkBackground: Bool {
+        guard client.isReachable, let state = client.snapshot?.state else { return true }
+        if client.problem != nil || audio.problem != nil { return true }
+        switch state {
+        case .signedOut, .audioPaused, .audioUnavailable: return true
+        case .idle, .connecting, .inCall: return false
+        }
+    }
+    private func stateSymbol(_ state: WatchCallState) -> String {
+        switch state {
+        case .signedOut: "person.crop.circle.badge.exclamationmark"
+        case .idle: "phone"
+        case .connecting: "hourglass"
+        case .inCall: "waveform"
+        case .audioPaused: "headphones"
+        case .audioUnavailable: "exclamationmark.triangle.fill"
         }
     }
     private func notificationTitle(_ status: CallNotificationStatus) -> LocalizedStringKey {

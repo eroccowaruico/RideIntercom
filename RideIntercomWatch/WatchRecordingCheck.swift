@@ -7,14 +7,22 @@ import SwiftUI
 struct WatchRecordingCheckView: View {
     let connection: WatchConnectivityClient
     @Environment(\.scenePhase) private var scenePhase
+    private var isAudioCheckActive: Bool {
+        connection.client.snapshot?.audioCheck?.phase.isInProgress == true || connection.audio.isPreparing
+    }
     var body: some View {
         Form {
-            Button("Record 5s and Play on Watch") { Task { await connection.audio.startAudioCheck() } }
-                .disabled(!connection.client.isReachable || connection.audio.isPreparing
-                    || connection.client.snapshot?.hasCall == true
-                    || connection.client.snapshot?.audioCheck?.phase.isInProgress == true)
-            Button("Stop Audio Check") { Task { await connection.audio.stopAudioCheck() } }
-                .disabled(connection.client.snapshot?.audioCheck?.phase.isInProgress != true && !connection.audio.isPreparing)
+            Button {
+                if isAudioCheckActive {
+                    Task { await connection.audio.stopAudioCheck() }
+                } else {
+                    Task { await connection.audio.startAudioCheck() }
+                }
+            } label: {
+                Text(isAudioCheckActive ? LocalizedStringKey("Stop Audio Check") : LocalizedStringKey("Record 5s and Play on Watch"))
+            }
+            .disabled(!isAudioCheckActive && (!connection.client.isReachable || connection.client.snapshot?.hasCall == true))
+            .accessibilityIdentifier("watchAudioCheckButton")
             Text("Recorded on iPhone. Played on Watch.")
             if let check = connection.client.snapshot?.audioCheck {
                 Text(LocalizedStringKey(check.phase.rawValue))
