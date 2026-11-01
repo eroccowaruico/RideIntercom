@@ -469,5 +469,31 @@ class ValidationTests(unittest.TestCase):
         self.assertNotIn('must-not-appear-in-diagnostics', result.stdout + result.stderr)
 
 
+    def test_build_number_advance_preserves_source_fingerprint_but_keeps_raw_evidence(self):
+        path = Path(self.temporary.name) / 'RideIntercom.xcodeproj/project.pbxproj'
+        path.parent.mkdir()
+        path.write_text('CURRENT_PROJECT_VERSION = 315;\nCURRENT_PROJECT_VERSION = 315;\nSETTING = keep;\n')
+        before = self.module.file_fingerprint(path)
+        path.write_text(path.read_text().replace('315', '316'))
+        after = self.module.file_fingerprint(path)
+        key = 'RideIntercom.xcodeproj/project.pbxproj'
+        self.assertNotEqual(before['sha256'], after['sha256'])
+        self.assertTrue(self.module.fingerprints_match({key: before}, {key: after}))
+
+    def test_build_number_exception_does_not_hide_other_changes_or_invalid_numbers(self):
+        path = Path(self.temporary.name) / 'RideIntercom.xcodeproj/project.pbxproj'
+        path.parent.mkdir()
+        original = 'CURRENT_PROJECT_VERSION = 315;\nCURRENT_PROJECT_VERSION = 315;\nSETTING = keep;\n'
+        path.write_text(original)
+        key = 'RideIntercom.xcodeproj/project.pbxproj'
+        before = {key: self.module.file_fingerprint(path)}
+        for changed in [original.replace('315', '314'),
+                        original.replace('315', '316', 1),
+                        original.replace('315', '0'),
+                        original.replace('315', '316').replace('keep', 'changed')]:
+            with self.subTest(changed=changed):
+                path.write_text(changed)
+                self.assertFalse(self.module.fingerprints_match(before, {key: self.module.file_fingerprint(path)}))
+
 if __name__ == '__main__':
     unittest.main()

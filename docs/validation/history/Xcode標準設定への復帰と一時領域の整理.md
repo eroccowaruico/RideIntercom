@@ -1,5 +1,7 @@
 # Xcode標準設定への復帰と一時領域の整理
 
+以下は当時の記録である。毎buildの自動採番廃止と入力指紋の完全一致は、同日後半の要求訂正により下記「自動インクリメントの維持と設定増設禁止」へ置き換えた。
+
 2026-11-01の「Xcode標準のお作法で使えるようにする」「独自buildの場所をなくす」「不要な/tmpを削除する」という指示に対応した。通常checkoutのmainとXcode既定のDerivedDataを使用する。Xcodeで保存された製品名RideComへの変更を保持した。
 
 ## 実装した変更
@@ -57,3 +59,27 @@ OSのパスワード保存提案がfixtureの資格入力後にタブを覆う�
 ## 確認範囲
 
 Xcode GUIでの実操作、WatchのRun／Profile、実端末の音声・Widget／CarPlay操作、配布profile、Organizerからの提出とApple側の受理は別の受入である。外部swift-logとUI test targetにはAppIntents metadata抽出省略のSDK警告が残り、productionのIntent欠落とは区別する。音声経路自体の測定成功を、build構成やhost隔離の成功で代用しない。
+
+
+## 自動インクリメントの維持と設定増設禁止
+
+2026-11-01、ビルド番号の保存先の見直しを自動採番の廃止へ広げた解釈を訂正した。要求は全ビルド・全対象の番号を進めることであり、開始時への即時反映や厳密な連番は不要で、次回用設定の更新でよい。現行の正本は[開発方針](../../policies/開発方針.md#公開バージョンとビルド番号)と[開発環境](../../development/開発環境.md#xcode標準のバージョン管理とarchive)に反映した。設定ディレクトリ・設定ファイル・Build Configuration・採番用target・別カウンタの増設は行っていない。
+
+既存の5shared schemeのBuild後処理から、macOS host SDKを明示したApple標準の`agvtool next-version`を呼ぶ。App・Widget・Watch・テスト対象は既存projectの`CURRENT_PROJECT_VERSION`を継承し、公開バージョンは自動変更しない。通常buildとArchiveの生成Info.plistはXcode標準のままとし、署名後のbundleを書き換えない。
+
+Xcode 27.2（27B52）、標準DerivedData、`CODE_SIGNING_ALLOWED=NO`で以下を自動実行し、生成Info.plistを直接読んだ。
+
+| 実行 | 成果物の共通番号 | Build後の次回用番号 |
+|---|---|---|
+| macOS Debug通常Build・初回 | App / Widgetとも317 | 318 |
+| macOS Debug通常Build・連続 | App / Widgetとも318 | 319 |
+| generic iOS Release Archive | App / Widget / Watchすべて319 | 320 |
+| macOS App build-for-testing | App / unit test / UI testとも321 | 322 |
+| macOS音声E2E build-for-testing | App / 音声E2E testとも322 | 323 |
+| generic watchOS Simulator単独Build | Watch 323 | 324 |
+
+番号の欠番は許容する。各実行で番号以外のproject設定の指紋が一致することも確認した。証跡は`/private/tmp/ridecom-auto-build-number-change/results/summary.json`と同ディレクトリの環境変数を除去したlog。テストbundleの確認はbuildとmetadataの確認であり、音声・UI機能の実行試験、署名・配布・Organizer受理の検証ではない。
+
+関連Python 59件は成功した。実projectでは音声チェックの`AudioDevice` import不足を補い、他buildとのDB競合後は標準生成先が空いてから再実行した。後処理の環境が`SDKROOT=auto`でも動くようhost SDKを明示し、5schemeの実agvtool実行テストでもこの条件を再確認した。
+
+入力指紋は元のSHA-256を保持し、共通の正のビルド番号の増加だけを別途照合する。他のproject設定の変更、番号の減少・構成間の不一致は失敗にする。最小実験に使った一時project・不採用の採番方式・不要なunsigned Archiveは検証後に回収し、通常のbuild cacheは再利用する。

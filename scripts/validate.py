@@ -256,12 +256,35 @@ class Runner:
 def file_fingerprint(path):
     if not path.is_file():
         return {'sha256': None}
-    return {'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+    data = path.read_bytes()
+    result = {'sha256': hashlib.sha256(data).hexdigest()}
+    if path.name == 'project.pbxproj' and path.parent.name == 'RideIntercom.xcodeproj':
+        pattern = rb'(CURRENT_PROJECT_VERSION\s*=\s*)([1-9][0-9]*)(\s*;)'
+        numbers = re.findall(pattern, data)
+        # Keep the raw hash as evidence. Only the common positive build number
+        # may advance; every other project byte remains part of the comparison.
+        if numbers and len({row[1] for row in numbers}) == 1:
+            result['build_number'] = int(numbers[0][1])
+            normalized = re.sub(pattern, rb'\1<BUILD_NUMBER>\3', data)
+            result['configuration_sha256'] = hashlib.sha256(normalized).hexdigest()
+    return result
 
 
 def fingerprints_match(before, after):
-    # Builds must not mutate any input, including Xcode Version / Build settings.
-    return before == after
+    if before.keys() != after.keys():
+        return False
+    for name, original in before.items():
+        current = after[name]
+        if original == current:
+            continue
+        if (name != 'RideIntercom.xcodeproj/project.pbxproj'
+                or not isinstance(original, dict) or not isinstance(current, dict)
+                or set(original) != {'sha256', 'build_number', 'configuration_sha256'}
+                or original.keys() != current.keys()
+                or original['configuration_sha256'] != current['configuration_sha256']
+                or current['build_number'] < original['build_number']):
+            return False
+    return True
 
 
 def snapshot(out):
@@ -374,7 +397,7 @@ def main():
     after = (runner.out / 'inputs.json').read_text()
     (runner.out / 'inputs-before.json').write_text(before)
     runner.record('unchanged-inputs', [], 'passed' if fingerprints_match(json.loads(before), json.loads(after)) else 'failed', 0 if fingerprints_match(json.loads(before), json.loads(after)) else 1,
-                  time.monotonic(), 'source/configuration fingerprints before/after validation must match exactly')
+                  time.monotonic(), 'source/configuration fingerprints must match except for advancing the shared build number')
     print(f'Results: {runner.out / "results.tsv"}')
     return runner.exit_code
 

@@ -22,6 +22,25 @@
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
+      <PostActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Advance next build number"
+               scriptText = "set -eu&#10;cd &quot;$PROJECT_DIR&quot;&#10;xcrun --sdk macosx agvtool next-version&#10;">
+                  <!-- Widget avoids App credentials; agvtool explicitly uses the macOS host SDK. -->
+                  <EnvironmentBuildable>
+                     <BuildableReference
+                        BuildableIdentifier = "primary"
+                        BlueprintIdentifier = "4517BC59AC831097FA328DE8"
+                        BuildableName = "RideIntercomWidgets.appex"
+                        BlueprintName = "RideIntercomWidgets"
+                        ReferencedContainer = "container:RideIntercom.xcodeproj">
+                     </BuildableReference>
+                  </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PostActions>
    </BuildAction>
    <TestAction
       buildConfiguration = "Debug-Validation"

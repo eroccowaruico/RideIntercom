@@ -119,3 +119,35 @@ class ArchiveNumberingTests(unittest.TestCase):
         result, output = self.run_phase()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.config.read_bytes(), before)
+
+
+class BuildNumberSchemeTests(unittest.TestCase):
+    def test_every_shared_scheme_advances_all_configurations_without_extra_state(self):
+        import re
+        import xml.etree.ElementTree as ET
+        root = SCRIPT.parents[1]
+        source = (root / 'RideIntercom.xcodeproj/project.pbxproj').read_text()
+        pattern = r'CURRENT_PROJECT_VERSION\s*=\s*([0-9]+)\s*;'
+        original = {int(value) for value in re.findall(pattern, source)}
+        self.assertEqual(len(original), 1)
+        for scheme in (root / 'RideIntercom.xcodeproj/xcshareddata/xcschemes').glob('*.xcscheme'):
+            with self.subTest(scheme=scheme.name), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                project = directory / 'RideIntercom.xcodeproj'
+                project.mkdir()
+                config = project / 'project.pbxproj'
+                config.write_text(source)
+                actions = ET.parse(scheme).findall('BuildAction/PostActions/ExecutionAction/ActionContent')
+                numbering = [action for action in actions if 'agvtool' in action.get('scriptText', '')]
+                self.assertEqual(len(numbering), 1)
+                result = subprocess.run(['/bin/sh', '-c', numbering[0].get('scriptText')],
+                    env=dict(os.environ, PROJECT_DIR=str(directory), SDKROOT='auto',
+                             DEVELOPER_DIR='/Applications/Xcode.app/Contents/Developer'),
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                after = config.read_text()
+                self.assertEqual({int(value) for value in re.findall(pattern, after)}, {next(iter(original)) + 1})
+                self.assertEqual(re.sub(pattern, 'CURRENT_PROJECT_VERSION = <NUMBER>;', source),
+                                 re.sub(pattern, 'CURRENT_PROJECT_VERSION = <NUMBER>;', after))
+                self.assertEqual(sorted(path.relative_to(directory).as_posix() for path in directory.rglob('*')),
+                                 ['RideIntercom.xcodeproj', 'RideIntercom.xcodeproj/project.pbxproj'])
