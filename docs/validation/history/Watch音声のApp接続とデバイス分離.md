@@ -266,6 +266,16 @@ Phoneは録音完了後のpreparingへ進み、約5.32秒後にfailedとなっ�
 
 先行1件の期待失敗後、関連2suiteの11関数・パラメータを含む12ケースが成功し、失敗・skip・runtime warningは0。Watch buildも成功した。証跡は`.validation/watch-recording-snapshot-20261102/manifest.json`。最終5ファイルhashと実行前後の入力を照合し、専用Simulator停止・共有lock解放・一時runner回収を確認した。build warningは7件保持、Build番号は404→407。不要な観測・公開判定の修正であり、過去に毎フレーム実送信されたという計測や、実Appのphase不達の原因確定ではない。配送・再生への効果は次の同条件比較で確かめる。
 
+## 状態通知修正後の制御完了とWatch作業の区切り
+
+2026-11-02、`8c8f02bc`の状態投影修正後に同じファイルbootstrap対照を1回実行した。Phoneは240,000 frames／48kHzの5秒録音を完了し、Watchからのplay要求、Phoneのplaying／completed、Watchの終了処理まで到達した。前回未到達だった制御の進行を確認できたが、過去のWC不達原因を確定したものではない。最終結果が出たため、条件付きのスレッド採取は実施していない。
+
+Watch native入力は259,584 samples中256,964が非zeroだった一方、Phoneの処理後録音は全無音だった。Watch受信は無音4,800 frames／48kHz、native出力も非zero 0で、相関・全量波形は未測定。AudioDeviceは無音抑制を有効にし、StreamingCodecは完全無音を最初の100ms送った後に抑止するため、0.1秒の受信量はこの契約と整合する。受信量だけを有音欠落の証拠にしない。振幅・各DSP段の波形・媒体dropは未測定で、無音化の場所や有音の全量配送は未確認である。
+
+証跡は`.validation/watch-audio-file-bootstrap-snapshot-20261102/manifest.json`。実行前後363入力とbinary対応を照合し、一時6ソースをHEADへ完全復元した。秘密一時入出力4ファイルを削除、両端の音声設定・音量を復元して所有ペアを停止し、実行用runnerとcacheを撤去した。Build番号は407→409へ進んだ。
+
+同日の利用者指示により、Watchの追加実験はここで止め、検証済みのマイク意図・録音期限・状態通知の修正を保持して区切る。既知speechをnative capture clockへ載せる追加対照は候補に留め、実装・実行していない。通常のBonjour／WC開始、有音の処理・Watch全量再生・会話E2Eは未完として残す。更新されたゴールに従い、主軸を一般向けの招待・参加へ移す。Watch関連は利用者から再開指示があるまで現状を保持する。
+
 ## iPadの5秒録音と送信処理の回帰
 
 2026-11-02、Watchの返信境界の読取確認と並行し、既存のiPad録音チェック回帰を実行した。所有専用iPadはOS 26.4で現最低27.0を満たさなかったため、所有記録・停止状態とValidation名前空間だけの保存を確認して退役し、同じ用途のiPad Pro 13-inch (M5)／iPadOS 27.2を1台作成した。一般・所有不明のSimulatorは変更していない。
