@@ -9,7 +9,7 @@
 | パス | `RideIntercom/packages/Audio/AudioCore` |
 | Product | `AudioCore` library |
 | 依存 | なし |
-| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降 |
+| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降、watchOS `26.4` 以降 |
 | Swift | Swift `6` |
 | テスト | Swift Testing の SwiftPM テスト |
 

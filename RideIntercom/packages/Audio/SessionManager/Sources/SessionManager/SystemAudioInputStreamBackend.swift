@@ -14,6 +14,13 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     private var captureNode: AVAudioSinkNode?
     private var renderCapture: AudioRenderCapture?
     public var droppedCaptureFrameCount: Int { renderCapture?.droppedFrameCount ?? 0 }
+    public var unsupportedVoiceProcessingSettings: [AudioInputVoiceProcessingSetting] {
+        #if os(watchOS)
+        [.advancedDucking]
+        #else
+        []
+        #endif
+    }
 
     public init(
         engine: AVAudioEngine = AVAudioEngine(),
@@ -58,7 +65,7 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
     }
 
     public func updateVoiceProcessing(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
-        #if os(iOS)
+        #if os(iOS) || os(watchOS)
         if voiceProcessingManager == nil {
             let inputNode = engine.inputNode
             openedInputNode = inputNode

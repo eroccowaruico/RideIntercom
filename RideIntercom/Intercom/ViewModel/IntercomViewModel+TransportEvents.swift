@@ -61,7 +61,7 @@ extension IntercomViewModel {
             )
             connectedPeerIDs = peerIDs
             removeDisconnectedAuthenticatedPeers(connectedPeerIDs: peerIDs)
-            if authenticatedPeerIDs.isEmpty, isAudioReady { stopAudioPipeline() }
+            if authenticatedPeerIDs.isEmpty, isAudioReady || audioStartTask != nil { stopAudioPipeline() }
             refreshCallAccess()
             localNetworkStatus = peerIDs.isEmpty ? .advertisingBrowsing : .connected
             connectionState = isInternetOnlyCall
@@ -80,6 +80,7 @@ extension IntercomViewModel {
             }
             let authenticatedPeerIDSet = Set(peerIDs)
             authenticatedPeerIDs = Array(authenticatedPeerIDSet).sorted()
+            if authenticatedPeerIDs.isEmpty, isAudioReady || audioStartTask != nil { stopAudioPipeline() }
             synchronizePeerProfiles(members: members)
             connectedPeerIDs = Array(Set(connectedPeerIDs).union(authenticatedPeerIDSet)).sorted()
             connectionState = isInternetOnlyCall ? .internetConnected : .localConnected

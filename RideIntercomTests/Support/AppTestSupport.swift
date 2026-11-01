@@ -26,6 +26,7 @@ enum AppTestSupport {
 
     static func makeHarness(
         accountSession: AppleAccountSession? = nil,
+        audioSessionManager: AudioSessionManager? = nil,
         groups: [IntercomGroup]? = nil,
         groupStore suppliedGroupStore: InMemoryGroupStore? = nil,
         credentialStore: GroupCredentialStoring? = nil,
@@ -70,7 +71,7 @@ enum AppTestSupport {
             internetSettingsStore: internetSettingsStore ?? InternetConnectionSettingsStore(keychain: identityKeychain, namespace: identityNamespace),
             localMemberIdentityStore: identityStore,
             invitationAuthority: invitationAuthority ?? testInvitationAuthority(),
-            audioSessionManager: AudioSessionManager(backend: audioSessionBackend),
+            audioSessionManager: audioSessionManager ?? AudioSessionManager(backend: audioSessionBackend),
             audioInputCapture: AudioInputStreamCapture(
                 configuration: .intercom(voiceProcessing: IntercomViewModel.defaultVoiceProcessingConfiguration()),
                 backend: inputBackend

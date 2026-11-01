@@ -73,15 +73,16 @@ private final class CallAccessPair {
         #expect(a.viewModel.createTalkGroup(name: "Local friends"))
         try b.viewModel.acceptInviteURL(#require(a.viewModel.makeSelectedGroupInviteURL()))
     }
-    func connect() {
+    func connect() async {
         if a.viewModel.activeGroupID == nil { a.viewModel.connectLocal() }
         if b.viewModel.activeGroupID == nil { b.viewModel.connectLocal() }
         a.viewModel.enabledRTCTransportRoutes = [.multipeer]; b.viewModel.enabledRTCTransportRoutes = [.multipeer]
         a.callSession.authenticate(["bob"]); b.callSession.authenticate(["alice"])
-        pump()
+        await pump()
     }
-    func pump() {
-        for _ in 0..<30 {
+    func pump() async {
+        for _ in 0..<100 {
+            await Task.yield()
             let count = ai + bi
             while ai < a.callSession.sentApplicationDataMessages.count {
                 let m = a.callSession.sentApplicationDataMessages[ai]; ai += 1
@@ -91,7 +92,7 @@ private final class CallAccessPair {
                 let m = b.callSession.sentApplicationDataMessages[bi]; bi += 1
                 a.viewModel.handleTransportEvent(.receivedApplicationData(peerID: "bob", message: m))
             }
-            if ai + bi == count { return }
+            if ai + bi == count, a.viewModel.audioStartTask == nil, b.viewModel.audioStartTask == nil { return }
         }
         Issue.record("Call state exchange failed to settle")
     }
@@ -99,52 +100,52 @@ private final class CallAccessPair {
 }
 
 extension CallAccessTests {
-    @Test func unpaidCallerCanConnectControlToPaidLocalPeerAndEstablishExactlyOnce() throws {
+    @Test func unpaidCallerCanConnectControlToPaidLocalPeerAndEstablishExactlyOnce() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.sourceA.value = .init(status: .notPurchased)
-        f.connect()
+        await f.connect()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
         #expect(f.a.viewModel.isAudioReady && f.b.viewModel.isAudioReady)
         let start = try #require(f.a.viewModel.callAccessState.lastSponsoredStart)
         #expect(f.b.viewModel.callAccessState.lastSponsoredStart == start)
         #expect(f.a.viewModel.groupRepository.lastSponsoredStart(for: try #require(f.a.viewModel.activeGroupID)) == start)
         f.sourceB.value = .init(status: .revoked)
-        f.a.viewModel.refreshCallAccess(); f.b.viewModel.refreshCallAccess(); f.pump()
+        f.a.viewModel.refreshCallAccess(); f.b.viewModel.refreshCallAccess(); await f.pump()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == start)
         let messages = f.a.callSession.sentApplicationDataMessages.count + f.b.callSession.sentApplicationDataMessages.count
-        f.a.viewModel.refreshCallAccess(); f.b.viewModel.refreshCallAccess(); f.pump()
+        f.a.viewModel.refreshCallAccess(); f.b.viewModel.refreshCallAccess(); await f.pump()
         #expect(f.a.callSession.sentApplicationDataMessages.count + f.b.callSession.sentApplicationDataMessages.count == messages)
     }
 
     @Test func unpaidPeersKeepControlButNoAudioOrInventedWindowThenRestoreAutomaticallyResumes() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .notPurchased)
-        f.connect()
+        await f.connect()
         #expect(f.a.viewModel.peerProfiles["bob"]?.verified != nil)
         #expect(f.b.viewModel.peerProfiles["alice"]?.verified != nil)
         #expect(!f.a.viewModel.isAudioReady && !f.b.viewModel.isAudioReady)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == nil)
         f.sourceB.value = .init(status: .active, activeUntil: .distantFuture)
         await AppTestSupport.waitUntil { f.b.viewModel.isAudioReady }
-        f.pump()
+        await f.pump()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
     }
 
-    @Test func failedRemoteMediaDoesNotGrantWindowAndRetryCanEstablish() throws {
+    @Test func failedRemoteMediaDoesNotGrantWindowAndRetryCanEstablish() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.b.outputBackend.startError = AudioStreamError.engineOperationFailed("unavailable")
-        f.connect()
+        await f.connect()
         #expect(!f.a.viewModel.callAccessState.isEstablished && !f.b.viewModel.callAccessState.isEstablished)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == nil && f.b.viewModel.callAccessState.lastSponsoredStart == nil)
         #expect(f.a.callSession.audioPolicies.last?.peerPolicy == .admittedMemberships([:]))
         #expect(f.a.viewModel.standardCallStatus == .connecting)
         f.b.outputBackend.startError = nil
-        f.b.viewModel.refreshCallAccess(); f.pump()
+        f.b.viewModel.refreshCallAccess(); await f.pump()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
     }
 
-    @Test func creationNeedsOwnRightButAcceptingAndEndingDoNot() throws {
+    @Test func creationNeedsOwnRightButAcceptingAndEndingDoNot() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.sourceA.value = .init(status: .notPurchased)
         #expect(!f.a.viewModel.createTalkGroup(name: "Blocked"))
@@ -153,15 +154,16 @@ extension CallAccessTests {
         let count = f.a.viewModel.selectedGroup?.members.count
         f.a.viewModel.reserveInviteMemberSlot()
         #expect(f.a.viewModel.selectedGroup?.members.count == count)
-        f.connect()
+        await f.connect()
         f.a.viewModel.disconnect()
         #expect(f.a.viewModel.activeGroupID == nil)
     }
 
-    @Test func emptyCatalogKeepsTrialWithoutClaimingPurchaseOrRecordingSponsor() throws {
+    @Test func emptyCatalogKeepsTrialWithoutClaimingPurchaseOrRecordingSponsor() async throws {
         let h = AppTestSupport.makeHarness(); defer { h.viewModel.disconnect() }
         #expect(h.viewModel.storeAccess.evaluation(at: Date()).status == .unconfigured)
         h.viewModel.selectGroup(try #require(h.viewModel.groups.first)); h.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
         #expect(h.viewModel.isAudioReady)
         #expect(h.viewModel.callAccessState.lastSponsoredStart == nil)
         #expect(h.callSession.sentApplicationDataMessages.allSatisfy { $0.namespace != SharedCallAccess.namespace })
@@ -169,34 +171,34 @@ extension CallAccessTests {
 }
 
 extension CallAccessTests {
-    @Test func devicePauseAndPartialRoutesKeepConversationPastWindowButLastPeerLossRequiresSponsor() throws {
-        let f = try CallAccessPair(); defer { f.close() }; f.connect()
+    @Test func devicePauseAndPartialRoutesKeepConversationPastWindowButLastPeerLossRequiresSponsor() async throws {
+        let f = try CallAccessPair(); defer { f.close() }; await f.connect()
         let original = try #require(f.a.viewModel.callAccessState.lastSponsoredStart)
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .revoked)
         // Resume near the end of the access window. The new call's timer still has time
         // left when the older sponsored window ends, so only access policy is exercised.
         f.close()
         f.sourceA.now = Date(timeIntervalSince1970: original + 86_340); f.sourceB.now = f.sourceA.now
-        f.connect()
+        await f.connect()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == original)
         f.sourceA.now = Date(timeIntervalSince1970: original + 86_401); f.sourceB.now = f.sourceA.now
         #expect(try #require(f.a.viewModel.callDisconnectDeadline) > f.sourceA.now)
-        f.a.viewModel.stopAudioPipeline(); f.a.viewModel.refreshCallAccess(); f.b.viewModel.refreshCallAccess(); f.pump()
+        f.a.viewModel.stopAudioPipeline(); f.a.viewModel.refreshCallAccess(); f.b.viewModel.refreshCallAccess(); await f.pump()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.a.viewModel.isAudioReady)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == original)
         f.a.viewModel.handleTransportEvent(.serviceError("Internet unavailable; Local remains"))
         #expect(f.a.viewModel.callAccessState.isEstablished)
         f.a.callSession.authenticate([]); f.b.callSession.authenticate([])
         #expect(!f.a.viewModel.callAccessState.isEstablished && !f.b.viewModel.callAccessState.isEstablished)
-        f.connect()
+        await f.connect()
         #expect(!f.a.viewModel.callAccessState.isEstablished && !f.b.viewModel.callAccessState.isEstablished)
         #expect(!f.a.viewModel.isAudioReady && !f.b.viewModel.isAudioReady)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == original)
     }
 
-    @Test func paidLateJoinerAndRepeatedProofDoNotRenewExistingConversation() throws {
-        let f = try CallAccessPair(); defer { f.close() }; f.connect()
+    @Test func paidLateJoinerAndRepeatedProofDoNotRenewExistingConversation() async throws {
+        let f = try CallAccessPair(); defer { f.close() }; await f.connect()
         let original = try #require(f.a.viewModel.callAccessState.lastSponsoredStart)
         f.sourceA.now = f.sourceA.now.addingTimeInterval(200); f.sourceB.now = f.sourceA.now
         f.a.callSession.authenticate(["bob", "carol"])
@@ -221,14 +223,14 @@ extension CallAccessTests {
         #expect(vm.callAccessState.lastSponsoredStart == original)
     }
 
-    @Test func replayWrongSignatureAndFutureTimestampCannotAuthorizeNewMembership() throws {
-        let f = try CallAccessPair(); defer { f.close() }; f.connect()
+    @Test func replayWrongSignatureAndFutureTimestampCannotAuthorizeNewMembership() async throws {
+        let f = try CallAccessPair(); defer { f.close() }; await f.connect()
         let vm = f.a.viewModel
         let previous = try #require(vm.peerProfiles["bob"]?.callAccess)
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .notPurchased)
         f.sourceA.now = f.sourceA.now.addingTimeInterval(86_401); f.sourceB.now = f.sourceA.now
         f.a.callSession.authenticate([]); f.b.callSession.authenticate([])
-        f.connect()
+        await f.connect()
         vm.handleTransportEvent(.receivedApplicationData(peerID: "bob", message: .init(namespace: SharedCallAccess.namespace, payload: try JSONEncoder().encode(previous))))
         #expect(!vm.callAccessState.isEstablished)
         let peer = try #require(vm.peerProfiles["bob"])
@@ -245,7 +247,7 @@ extension CallAccessTests {
 
     @Test func stoppedObservationCannotResumeAndOldAccountCannotShareOrReceiveAccess() async throws {
         let f = try CallAccessPair(); defer { f.close() }
-        f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .notPurchased); f.connect()
+        f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .notPurchased); await f.connect()
         f.a.viewModel.stopCallAccessObservation()
         f.sourceA.value = .init(status: .active, activeUntil: .distantFuture)
         try await Task.sleep(for: .milliseconds(50))
@@ -259,31 +261,31 @@ extension CallAccessTests {
 }
 
 extension CallAccessTests {
-    @Test func verifiedDistributionAccessWithoutAnExpirationCanSponsor() throws {
+    @Test func verifiedDistributionAccessWithoutAnExpirationCanSponsor() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .active)
-        f.connect()
+        await f.connect()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart != nil)
     }
 
-    @Test func failedHistorySaveDoesNotStopEstablishedMedia() throws {
+    @Test func failedHistorySaveDoesNotStopEstablishedMedia() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.b.outputBackend.startError = AudioStreamError.engineOperationFailed("paused")
-        f.connect()
+        await f.connect()
         // Both identities are now verified; fail only the subsequent start write.
         f.a.groupStore.failSaving = true
         f.b.outputBackend.startError = nil
-        f.b.viewModel.refreshCallAccess(); f.pump()
+        f.b.viewModel.refreshCallAccess(); await f.pump()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.a.viewModel.isAudioReady)
         #expect(f.a.viewModel.groupStorageIssue != nil)
         #expect(f.a.groupStore.snapshot.groups.first?.lastSponsoredStart == nil)
-        f.a.viewModel.refreshCallAccess(); f.pump()
+        f.a.viewModel.refreshCallAccess(); await f.pump()
         #expect(f.a.viewModel.isAudioReady)
     }
 
-    @Test func directInvitationAndRestartRemainAvailableToUnpaidContact() throws {
-        let f = try CallAccessPair(); defer { f.close() }; f.connect()
+    @Test func directInvitationAndRestartRemainAvailableToUnpaidContact() async throws {
+        let f = try CallAccessPair(); defer { f.close() }; await f.connect()
         f.sourceA.value = .init(status: .notPurchased)
         let user = try #require(f.a.viewModel.savedRemoteUsers.first)
         f.a.viewModel.disconnect(); f.b.viewModel.disconnect()
@@ -293,7 +295,7 @@ extension CallAccessTests {
         try f.b.viewModel.acceptInviteURL(invite)
         f.ai = f.a.callSession.sentApplicationDataMessages.count
         f.bi = f.b.callSession.sentApplicationDataMessages.count
-        f.connect()
+        await f.connect()
         let original = try #require(f.a.viewModel.callAccessState.lastSponsoredStart)
         #expect(f.a.viewModel.removeSavedUser(user.id))
         #expect(f.a.viewModel.callAccessState.isEstablished)
@@ -305,11 +307,11 @@ extension CallAccessTests {
 }
 
 extension CallAccessTests {
-    @Test func smallClockDifferenceDoesNotDiscardReadyStateOrInventFutureWindow() throws {
+    @Test func smallClockDifferenceDoesNotDiscardReadyStateOrInventFutureWindow() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.sourceB.now = f.sourceA.now.addingTimeInterval(0.1)
         f.sourceA.value = .init(status: .notPurchased)
-        f.connect()
+        await f.connect()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
         if let aStart = f.a.viewModel.callAccessState.lastSponsoredStart {
             #expect(aStart <= f.sourceA.now.timeIntervalSince1970)
@@ -319,7 +321,7 @@ extension CallAccessTests {
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == f.b.viewModel.callAccessState.lastSponsoredStart)
     }
 
-    @Test func unreadySponsorDoesNotLetTwoUnpaidParticipantsEstablish() throws {
+    @Test func unreadySponsorDoesNotLetTwoUnpaidParticipantsEstablish() async throws {
         let source = CallAccessSourceFixture(); source.value = .init(status: .notPurchased)
         let h = AppTestSupport.makeHarness(enforceCallAccess: true, callAccessEvaluation: { _ in source.value })
         defer { h.viewModel.disconnect() }; let vm = h.viewModel
@@ -334,6 +336,7 @@ extension CallAccessTests {
             vm.handleTransportEvent(.receivedApplicationData(peerID: peerID, message: .init(namespace: SharedCallAccess.namespace,
                 payload: try JSONEncoder().encode(status.signed(by: testIdentitySigner(peerID))))))
         }
+        await AppTestSupport.waitUntil { vm.isAudioReady }
         #expect(vm.isAudioReady)
         #expect(!vm.callAccessState.isEstablished)
         #expect(vm.callAccessState.lastSponsoredStart == nil)
@@ -342,13 +345,13 @@ extension CallAccessTests {
 }
 
 extension CallAccessTests {
-    @Test func unpaidLocalReconnectAtExactly24HoursKeepsOriginalStart() throws {
-        let f = try CallAccessPair(); defer { f.close() }; f.connect()
+    @Test func unpaidLocalReconnectAtExactly24HoursKeepsOriginalStart() async throws {
+        let f = try CallAccessPair(); defer { f.close() }; await f.connect()
         let original = try #require(f.a.viewModel.callAccessState.lastSponsoredStart)
         f.close()
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .notPurchased)
         f.sourceA.now = Date(timeIntervalSince1970: original + 86_400); f.sourceB.now = f.sourceA.now
-        f.connect()
+        await f.connect()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == original && f.b.viewModel.callAccessState.lastSponsoredStart == original)
         #expect(!f.a.viewModel.createTalkGroup(name: "Window is not a pass"))
@@ -371,21 +374,22 @@ extension CallAccessTests {
         #expect(throws: (any Error).self) { try corrupt.encoded() }
     }
 
-    @Test func distributionSourceDoesNotEnableCommercialRulesWhileCatalogIsEmpty() throws {
+    @Test func distributionSourceDoesNotEnableCommercialRulesWhileCatalogIsEmpty() async throws {
         let h = AppTestSupport.makeHarness(enforceCallAccess: false, callAccessEvaluation: { _ in .init(status: .active) })
         defer { h.viewModel.disconnect() }
         #expect(h.viewModel.createTalkGroup(name: "Trial"))
         h.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
         #expect(h.viewModel.isAudioReady)
         #expect(h.viewModel.callAccessState.lastSponsoredStart == nil)
     }
 }
 
 extension CallAccessTests {
-    @Test func forgedOrAlteredSignedStatusCannotGrantAccessEvenWithNewRevision() throws {
+    @Test func forgedOrAlteredSignedStatusCannotGrantAccessEvenWithNewRevision() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .notPurchased)
-        f.connect()
+        await f.connect()
         let vm = f.a.viewModel, peer = try #require(f.a.viewModel.peerProfiles["bob"])
         let value = SharedCallAccess(groupID: try #require(vm.activeGroupID), recipientMemberID: vm.localMemberIdentity.memberID,
             challenge: peer.challenge, revision: 10_000, activeUntil: nil,
@@ -405,10 +409,10 @@ extension CallAccessTests {
 }
 
 extension CallAccessTests {
-    @Test func controlTickerSurvivesRetryButStopsAtTerminalFailureAndRestartsOnConnect() throws {
+    @Test func controlTickerSurvivesRetryButStopsAtTerminalFailureAndRestartsOnConnect() async throws {
         let f = try CallAccessPair(); defer { f.close() }
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .notPurchased)
-        f.connect()
+        await f.connect()
         let vm = f.a.viewModel, ticker = try #require(f.a.viewModel.callTicker as? NoOpCallTicker)
         #expect(ticker.isRunning)
         vm.handleTransportEvent(.linkFailed(willRetry: true))
@@ -419,5 +423,27 @@ extension CallAccessTests {
         #expect(ticker.isRunning)
         vm.disconnect()
         #expect(!ticker.isRunning)
+    }
+}
+
+
+extension CallAccessTests {
+    @Test func rightExpiringDuringActivationCannotOpenMedia() async throws {
+        let f = try CallAccessPair(), gate = ManualAsyncGate()
+        defer { f.close() }
+        f.a.viewModel.setSoundIsolationEnabled(false); f.b.viewModel.setSoundIsolationEnabled(false)
+        f.a.audioSessionBackend.activationGate = gate
+        f.sourceA.value = .init(status: .active, activeUntil: f.sourceA.now.addingTimeInterval(1))
+        f.sourceB.value = .init(status: .notPurchased)
+        let connecting = Task { await f.connect() }
+        await gate.waitForEntry()
+        f.sourceA.now = f.sourceA.now.addingTimeInterval(2)
+        f.sourceB.now = f.sourceA.now
+        await gate.release()
+        await connecting.value
+        #expect(!f.a.viewModel.isAudioReady)
+        #expect(f.a.inputBackend.startCount == 0 && f.a.callSession.startMediaCallCount == 0)
+        #expect(!f.a.viewModel.callAccessState.isEstablished)
+        _ = await f.a.viewModel.audioSessionManager.requestActive(false).value
     }
 }

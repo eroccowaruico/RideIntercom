@@ -40,7 +40,7 @@ snapshotの現在通話は閲覧中groupと分ける。表示状態は未ログ�
 
 [WCSession](https://developer.apple.com/documentation/watchconnectivity/wcsession)の背景転送は即時ではないため、開始・マイクONを`transferUserInfo`へ退避しない。[sendMessage](https://developer.apple.com/documentation/watchconnectivity/wcsession/sendmessage(_:replyhandler:errorhandler:))によるWatchからiPhoneの背景起動と、マイクの利用・長時間継続は別条件として確認する。
 
-Watch音声の媒体経路と長時間の電池消費は未実装・未受入。既存WebRTC binaryはwatchOS sliceを持たず、SessionManagerにもwatchOS音声sessionの工程が必要。[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)が定める音声配信・CallKit通話等の通信条件を確認する。ただし本製品は電話型通話にしないため、CallKitを音声実装の前提にせず、採用しない条件で成立する経路を評価する。WatchConnectivityの操作配送を連続音声の代用にしない。CarPlay専用画面・entitlementも本工程の実装ではない。
+Watch音声の媒体経路と長時間の電池消費は未実装・未受入。SessionManagerのWatch音声session・PCM入出力の共通基盤は追加したが、iPhoneとの媒体配送とWatch Appへの接続はまだない。通話処理をiPhoneに残すため、WebRTC binaryをWatchへ移植する工程は設けない。[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)が定める音声配信・CallKit通話等の通信条件を確認する。ただし本製品は電話型通話にしないため、CallKitを音声実装の前提にせず、採用しない条件で成立する経路を評価する。WatchConnectivityの操作配送を連続音声の代用にしない。CarPlay専用画面・entitlementも本工程の実装ではない。
 
 ## 自動切断
 

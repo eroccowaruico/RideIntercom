@@ -10,9 +10,7 @@ import XCTest
 extension AudioE2ETests {
     @MainActor
     func testEightPersonMixedRouteConversation() async throws {
-        let session = AudioSessionManager()
-        _ = try session.configure(.init()); _ = try session.setActive(true)
-        defer { _ = try? session.setActive(false) }
+        try await activateAudioSessionForTest()
         let probe = RenderedAudioProbe(), engine = AVAudioEngine()
         let output = SystemAudioOutputStreamBackend(engine: engine)
         engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }

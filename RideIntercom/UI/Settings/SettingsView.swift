@@ -368,7 +368,7 @@ struct AudioCheckPanel: View {
                             .font(AppTypography.bodyStrong)
                             .foregroundStyle(AppColorPalette.textPrimary)
                             .accessibilityIdentifier("liveAudioStateLabel")
-                        Text(viewModel.audioCheckPhase.rawValue)
+                        Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue))
                             .font(AppTypography.captionStrongMono)
                             .foregroundStyle(statusColor)
                             .accessibilityIdentifier("audioCheckPhaseLabel")
@@ -404,7 +404,7 @@ struct AudioCheckPanel: View {
                 .lineLimit(nil)
                 .accessibilityIdentifier("audioCheckStatusLabel")
 
-            if viewModel.audioCheckPhase == .recording || viewModel.audioCheckPhase == .playing {
+            if viewModel.audioCheckPhase.isInProgress {
                 Button("Stop Audio Check") { viewModel.cancelAudioCheck() }
                     .accessibilityIdentifier("stopAudioCheckButton")
             }
@@ -417,7 +417,7 @@ struct AudioCheckPanel: View {
             .appProminentButtonStyle()
             .controlSize(.large)
             .disabled(!viewModel.canStartAudioCheck)
-            .accessibilityValue(viewModel.audioCheckPhase.rawValue)
+            .accessibilityValue(Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue)))
             .accessibilityIdentifier("audioCheckButton")
         } header: {
             Label("Audio Check", systemImage: "waveform")
@@ -427,7 +427,7 @@ struct AudioCheckPanel: View {
 
     private var statusColor: Color {
         switch viewModel.audioCheckPhase {
-        case .idle:
+        case .idle, .preparing:
             AppColorPalette.neutral
         case .recording:
             AppColorPalette.danger

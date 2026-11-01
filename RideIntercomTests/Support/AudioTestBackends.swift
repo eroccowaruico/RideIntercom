@@ -33,8 +33,16 @@ final class FakeAudioSessionBackend: SessionManager.AudioSessionBackend {
         appliedConfigurations.append(configuration)
     }
 
-    func setActive(_ active: Bool) throws {
+    var activationGate: ManualAsyncGate?
+    var activationError: Error?
+
+    @MainActor func setActive(_ active: Bool) async throws {
         activeValues.append(active)
+        if active {
+            let error = activationError
+            await activationGate?.wait()
+            if let error { throw error }
+        }
         current.isActive = active
     }
 

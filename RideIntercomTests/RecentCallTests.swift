@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 struct RecentCallTests {
-    @Test func onlyVerifiedConnectedCallsUpdateHistoryAndGroupPeersStayPrivate() throws {
+    @Test func onlyVerifiedConnectedCallsUpdateHistoryAndGroupPeersStayPrivate() async throws {
         let settings = InMemoryAppSettingsStore()
         let h = AppTestSupport.makeHarness(appSettingsStore: settings); let vm = h.viewModel
         defer { vm.disconnect() }
@@ -14,7 +14,7 @@ struct RecentCallTests {
         #expect(vm.recentCallDestination == nil)
         h.callSession.authenticate(["member-108"])
         #expect(vm.recentCallDestination == nil)
-        try prove("member-108", in: h)
+        try await prove("member-108", in: h)
         #expect(vm.recentCallDestination == .group(first.id))
         #expect(settings.load().recentCallDestination == .group(first.id))
         #expect(vm.savedRemoteUsers.isEmpty)
@@ -22,12 +22,12 @@ struct RecentCallTests {
         #expect(vm.recentCallDestination == .group(first.id))
         #expect(vm.startCall(to: .group(second.id), accountAccessID: vm.accountAccessID))
         #expect(vm.recentCallDestination == .group(first.id))
-        h.callSession.authenticate(["member-215"]); try prove("member-215", in: h)
+        h.callSession.authenticate(["member-215"]); try await prove("member-215", in: h)
         #expect(vm.recentCallDestination == .group(second.id))
         #expect(vm.recentCallTitle == second.name && vm.savedRemoteUsers.isEmpty)
     }
 
-    @Test func directCallRemembersTheSavedUserAndDeletionKeepsOnlyTheCurrentCall() throws {
+    @Test func directCallRemembersTheSavedUserAndDeletionKeepsOnlyTheCurrentCall() async throws {
         let settings = InMemoryAppSettingsStore()
         let h = AppTestSupport.makeHarness(appSettingsStore: settings); let vm = h.viewModel
         defer { vm.disconnect() }
@@ -37,7 +37,7 @@ struct RecentCallTests {
         try vm.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token))
         let user = try #require(vm.savedRemoteUsers.first)
         #expect(vm.startCall(to: .user(user.id), accountAccessID: vm.accountAccessID))
-        h.callSession.authenticate(["friend"]); try prove("friend", in: h)
+        h.callSession.authenticate(["friend"]); try await prove("friend", in: h)
         #expect(vm.recentCallDestination == .user(user.id))
         #expect(vm.renameSavedUser(user.id, displayName: "Nickname"))
         #expect(vm.recentCallTitle == "Nickname")
@@ -48,7 +48,7 @@ struct RecentCallTests {
         #expect(vm.currentCallReference == call && vm.endCall(call))
     }
 
-    @Test func mediaFailureDoesNotRecordUntilTheVerifiedCallRecovers() throws {
+    @Test func mediaFailureDoesNotRecordUntilTheVerifiedCallRecovers() async throws {
         let h = AppTestSupport.makeHarness(); let vm = h.viewModel
         defer { vm.disconnect() }
         let group = vm.groups[0]
@@ -59,8 +59,11 @@ struct RecentCallTests {
             message: .init(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(proof))))
         #expect(vm.peerProfiles["member-108"]?.verified != nil)
         #expect(!vm.isAudioReady && vm.recentCallDestination == nil)
+        await AppTestSupport.waitUntil { vm.audioErrorMessage != nil }
         h.inputBackend.startError = nil
-        #expect(vm.startAudioPipelineIfNeeded())
+        vm.startAudioPipelineIfNeeded()
+        await AppTestSupport.waitUntil { vm.isAudioReady }
+        #expect(vm.isAudioReady)
         #expect(vm.recentCallDestination == .group(group.id))
     }
 
@@ -78,12 +81,12 @@ struct RecentCallTests {
         #expect(h.viewModel.recentCallDestination == .group(group.id))
     }
 
-    @Test func settingsChangesAndResetPreserveRecentCallAndRestartUsesItsDestination() throws {
+    @Test func settingsChangesAndResetPreserveRecentCallAndRestartUsesItsDestination() async throws {
         let settings = InMemoryAppSettingsStore()
         let h = AppTestSupport.makeHarness(appSettingsStore: settings); let vm = h.viewModel
         defer { vm.disconnect() }
         let group = vm.groups[0]
-        vm.selectGroup(group); h.callSession.authenticate(["member-108"]); try prove("member-108", in: h)
+        vm.selectGroup(group); h.callSession.authenticate(["member-108"]); try await prove("member-108", in: h)
         vm.setInterfaceMode(.advanced)
         #expect(settings.load().recentCallDestination == .group(group.id))
         vm.setVADSensitivity(.noisy)
@@ -100,11 +103,11 @@ struct RecentCallTests {
         #expect(fresh.viewModel.activeGroupID == group.id)
     }
 
-    @Test func failedDeleteAndUnreadableGroupsPreserveHistoryUntilSuccessfulDeletion() throws {
+    @Test func failedDeleteAndUnreadableGroupsPreserveHistoryUntilSuccessfulDeletion() async throws {
         let h = AppTestSupport.makeHarness(); let vm = h.viewModel
         defer { vm.disconnect() }
         let group = vm.groups[0]
-        vm.selectGroup(group); h.callSession.authenticate(["member-108"]); try prove("member-108", in: h)
+        vm.selectGroup(group); h.callSession.authenticate(["member-108"]); try await prove("member-108", in: h)
         vm.disconnect()
         h.groupStore.failSaving = true
         vm.deleteGroup(group.id)
@@ -117,12 +120,12 @@ struct RecentCallTests {
         #expect(vm.recentCallDestination == nil && vm.appSettingsStore.load().recentCallDestination == nil)
     }
 
-    @Test func oldLoginCannotReadStartOrReplaceTheRecentDestination() throws {
+    @Test func oldLoginCannotReadStartOrReplaceTheRecentDestination() async throws {
         let f = AccountFixture(); defer { f.remove() }; f.signIn()
         let h = AppTestSupport.makeHarness(accountSession: f.session); let vm = h.viewModel
         defer { vm.disconnect() }
         let first = vm.groups[0]
-        vm.selectGroup(first); h.callSession.authenticate(["member-108"]); try prove("member-108", in: h)
+        vm.selectGroup(first); h.callSession.authenticate(["member-108"]); try await prove("member-108", in: h)
         let access = vm.accountAccessID
         f.session.signOut(); f.signIn()
         #expect(vm.recentCallDestination == nil && vm.recentCallTitle == nil)
@@ -149,7 +152,8 @@ struct RecentCallTests {
         #expect(UserDefaultsAppSettingsStore(defaults: b).load().recentCallDestination == nil)
     }
 
-    private func prove(_ peer: String, in h: AppTestSupport.Harness) throws {
+    private func prove(_ peer: String, in h: AppTestSupport.Harness) async throws {
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
         let value = try testPeerProfile(h.viewModel, peerID: peer, displayName: "Friend")
         h.viewModel.handleTransportEvent(.receivedApplicationData(peerID: peer,
             message: .init(namespace: SharedDisplayName.namespace, payload: try JSONEncoder().encode(value))))

@@ -64,7 +64,7 @@ import Testing
     }
 }
 
-@Test func managerAppliesConfigurationBeforeActivating() throws {
+@Test @MainActor func managerAppliesConfigurationBeforeActivating() async throws {
     let backend = FakeAudioSessionBackend()
     let manager = AudioSessionManager(backend: backend)
     let input = AudioSessionDevice(id: "mic-1", name: "Helmet Mic", direction: .input)
@@ -77,7 +77,7 @@ import Testing
             preferredOutput: .device(output.id)
         )
     )
-    try manager.setActive(true)
+    _ = await manager.requestActive(true).value
 
     #expect(backend.events == [
         .applyConfiguration,

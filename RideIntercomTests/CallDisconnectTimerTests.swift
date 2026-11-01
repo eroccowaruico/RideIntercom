@@ -186,7 +186,7 @@ struct CallDisconnectTimerTests {
             oldHandler?(ending)
             oldHandler?(.connected(peerIDs: ["member-108"]))
             #expect(vm.connectionState == .idle && vm.connectedPeerIDs.isEmpty)
-            #expect(!vm.startAudioPipelineIfNeeded())
+            vm.startAudioPipelineIfNeeded()
             #expect(!vm.isAudioReady && h.callSession.startMediaCallCount == 0)
             vm.disconnect()
         }

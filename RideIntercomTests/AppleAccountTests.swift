@@ -5,12 +5,13 @@ import Testing
 
 @MainActor
 struct AppleAccountTests {
-    @Test func allRoutesRequireLoginAndSignOutStopsActiveCall() throws {
+    @Test func allRoutesRequireLoginAndSignOutStopsActiveCall() async throws {
         let f = AccountFixture(); defer { f.remove() }
         let denied = AppTestSupport.makeHarness(accountSession: f.session)
         denied.viewModel.selectGroup(try #require(denied.viewModel.groups.first))
         #expect(denied.callSession.connectedGroup == nil)
-        #expect(!denied.viewModel.startAudioPipelineIfNeeded())
+        denied.viewModel.startAudioPipelineIfNeeded()
+        #expect(!denied.viewModel.isAudioReady)
         f.signIn()
         let allowed = AppTestSupport.makeHarness(accountSession: f.session)
         defer { allowed.viewModel.disconnect() }
@@ -20,6 +21,7 @@ struct AppleAccountTests {
         allowed.viewModel.selectGroup(try #require(allowed.viewModel.groups.first))
         #expect(allowed.callSession.connectedGroup != nil)
         allowed.callSession.authenticate(try #require(allowed.viewModel.selectedGroup).members.dropFirst().map(\.id))
+        await AppTestSupport.waitUntil { allowed.viewModel.isAudioReady }
         #expect(allowed.viewModel.isAudioReady)
         let savedGroups = allowed.viewModel.groups
         f.session.signOut()

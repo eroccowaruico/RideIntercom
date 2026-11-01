@@ -9,6 +9,9 @@ import SessionManager
 import VADGate
 
 extension IntercomViewModel {
+    // AVAudioSession is process-wide; account changes retain its activation ordering.
+    private static let processAudioSessionManager = SessionManager.AudioSessionManager()
+
     static func makeForCurrentProcess(accountSession: AppleAccountSession) -> IntercomViewModel? {
         guard let userID = accountSession.userID else { return nil }
         let base = Bundle.main.object(forInfoDictionaryKey: "StorageNamespace") as? String ?? "RideIntercom"
@@ -23,7 +26,8 @@ extension IntercomViewModel {
             appSettingsStore: UserDefaultsAppSettingsStore(defaults: defaults),
             internetSettingsStore: InternetConnectionSettingsStore.makeForCurrentProcess(namespace: namespace),
             localMemberIdentityStore: localMemberIdentityStore,
-            invitationAuthority: DirectInvitationAuthority(keychain: SystemKeychainSecretStore(), namespace: namespace)
+            invitationAuthority: DirectInvitationAuthority(keychain: SystemKeychainSecretStore(), namespace: namespace),
+            audioSessionManager: processAudioSessionManager
         )
     }
 

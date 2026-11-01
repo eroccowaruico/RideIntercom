@@ -10,10 +10,7 @@ import XCTest
 extension AudioE2ETests {
     @MainActor
     func testInputModeChangesRestoreTheSharedReceiveClock() async throws {
-        let session = AudioSessionManager()
-        _ = try session.configure(.init(prefersEchoCancelledInput: true))
-        _ = try session.setActive(true)
-        defer { _ = try? session.setActive(false) }
+        try await activateAudioSessionForTest(configuration: .init(prefersEchoCancelledInput: true))
         let engine = AVAudioEngine(), probe = RenderedAudioProbe()
         let input = SpeechFileInput(samples: (0..<48000).map { Float(0.15 * sin(Double($0) * 2 * .pi * 600 / 48000)) }, engine: engine)
         let processing = AudioInputVoiceProcessingConfiguration(soundIsolationEnabled: false, otherAudioDuckingEnabled: true)
@@ -69,10 +66,7 @@ extension AudioE2ETests {
 
     @MainActor
     func testLiveSettingsKeepBoundedSilenceAndContinuousSteadyAudio() async throws {
-        let session = AudioSessionManager()
-        _ = try session.configure(.init(prefersEchoCancelledInput: true))
-        _ = try session.setActive(true)
-        defer { _ = try? session.setActive(false) }
+        try await activateAudioSessionForTest(configuration: .init(prefersEchoCancelledInput: true))
         let probe = RenderedAudioProbe(), engine = AVAudioEngine()
         let decodedProbe = RenderedAudioProbe(), mixedProbe = RenderedAudioProbe()
         let input = SpeechFileInput(samples: (0..<48000).map { Float(0.15 * sin(Double($0) * 2 * .pi * 600 / 48000)) }, engine: engine)

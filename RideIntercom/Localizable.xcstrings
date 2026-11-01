@@ -1,6 +1,50 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Audio was interrupted. Your microphone and playback are paused. Resume audio when you are ready.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声処理が中断されました。マイクと再生は一時停止中です。準備ができたら音声を再開してください。"
+          }
+        }
+      }
+    },
+    "Audio Check was interrupted. Run Audio Check again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声チェックが中断されました。もう一度実行してください。"
+          }
+        }
+      }
+    },
+    "Preparing Audio Check": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声チェックを準備中"
+          }
+        }
+      }
+    },
+    "Preparing microphone and speaker": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイクとスピーカーを準備しています"
+          }
+        }
+      }
+    },
     "This invitation has expired. Ask the sender for a new invitation.": {
       "extractionState": "manual",
       "localizations": {

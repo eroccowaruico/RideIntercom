@@ -11,6 +11,9 @@ public final class AudioInputStreamCapture {
     private let stateLock = NSRecursiveLock()
     private var generation = UUID()
     private var isRunning = false
+    // Native voice-processing mute is not available on every configuration.
+    // Keep the PCM delivery boundary closed independently of that native option.
+    private var inputMuted: Bool
     private var capturedFrameCount: UInt64 = 0
     private var actualHardwareFormat: AudioFormat
     public private(set) var configuration: AudioInputStreamConfiguration
@@ -22,6 +25,7 @@ public final class AudioInputStreamCapture {
         self.configuration = configuration
         self.backend = backend
         self.actualHardwareFormat = configuration.preferredFormat
+        self.inputMuted = configuration.voiceProcessing.inputMuted
     }
 
     #if canImport(AVFAudio)
@@ -92,8 +96,12 @@ public final class AudioInputStreamCapture {
     public func updateVoiceProcessing(
         _ voiceProcessing: AudioInputVoiceProcessingConfiguration
     ) -> AudioStreamOperationReport {
-        let changesIOMode = configuration.voiceProcessing.voiceProcessingEnabled != voiceProcessing.voiceProcessingEnabled
-        stateLock.withLock { configuration.voiceProcessing = voiceProcessing }
+        let changesIOMode = effectiveVoiceProcessingEnabled(configuration.voiceProcessing)
+            != effectiveVoiceProcessingEnabled(voiceProcessing)
+        stateLock.withLock {
+            configuration.voiceProcessing = voiceProcessing
+            if voiceProcessing.inputMuted { inputMuted = true }
+        }
         guard stateLock.withLock({ isRunning }) else {
             // Keep desired settings, but do not open I/O while capture is stopped.
             // start() applies the latest configuration before starting the backend.
@@ -112,21 +120,33 @@ public final class AudioInputStreamCapture {
         return applyVoiceProcessing(voiceProcessing)
     }
 
+    private func effectiveVoiceProcessingEnabled(_ configuration: AudioInputVoiceProcessingConfiguration) -> Bool {
+        configuration.soundIsolationEnabled || (configuration.otherAudioDuckingEnabled
+            && !backend.unsupportedVoiceProcessingSettings.contains(.advancedDucking))
+    }
+
     @discardableResult
     private func applyVoiceProcessing(
         _ voiceProcessing: AudioInputVoiceProcessingConfiguration
     ) -> AudioStreamOperationReport {
         do {
             try backend.updateVoiceProcessing(voiceProcessing)
+            stateLock.withLock { inputMuted = voiceProcessing.inputMuted }
             return emitReport(.updateInputVoiceProcessing(voiceProcessing), .applied)
         } catch {
-            return emitReport(.updateInputVoiceProcessing(voiceProcessing), Self.operationResult(for: error))
+            let result = Self.operationResult(for: error)
+            // The software boundary still implements mute when the backend has
+            // no voice processing. Real native errors must not reopen input.
+            if case .ignored(.unsupportedOnCurrentPlatform) = result {
+                stateLock.withLock { inputMuted = voiceProcessing.inputMuted }
+            }
+            return emitReport(.updateInputVoiceProcessing(voiceProcessing), result)
         }
     }
 
     private func handleCapturedFrame(_ frame: PCMFrame, generation: UUID) {
         let handler: ((AudioStreamRuntimeEvent) -> Void)? = stateLock.withLock {
-            guard isRunning, self.generation == generation else { return nil }
+            guard isRunning, !inputMuted, self.generation == generation else { return nil }
             actualHardwareFormat = frame.format
             capturedFrameCount += 1
             return runtimeEventHandler
@@ -143,7 +163,10 @@ public final class AudioInputStreamCapture {
             preferredFormat: configuration.preferredFormat,
             actualHardwareFormat: actualHardwareFormat,
             processedFrameCount: capturedFrameCount,
-            inputVoiceProcessing: configuration.voiceProcessing
+            inputVoiceProcessing: configuration.voiceProcessing,
+            inputDeliveryMuted: inputMuted,
+            unsupportedInputVoiceProcessingSettings: configuration.voiceProcessing.otherAudioDuckingEnabled
+                ? backend.unsupportedVoiceProcessingSettings : []
         )
     }
 

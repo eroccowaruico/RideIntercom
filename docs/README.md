@@ -150,6 +150,8 @@
 
 ### 検証と履歴
 
+[音声開始の完了待ちと中断処理](validation/history/音声開始の完了待ちと中断処理.md)は、Watch音声基盤とAppの開始・終了・中断の順序を扱う。
+
 [正式アイコンとLiquid Glassの検証](validation/history/正式アイコンとLiquid Glassの検証.md)は、利用者指定SVGから全アプリアイコンへの統一と、各外観・platformの描画と組み込みを扱う。
 
 [通常グループの代表端末検証](validation/history/通常グループの代表端末検証.md)は、本人単位の人数と保存、既存通話維持・端末切替のApp検証を扱う。

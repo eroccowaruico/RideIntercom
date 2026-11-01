@@ -10,11 +10,25 @@ import XCTest
 
 extension AudioE2ETests {
     @MainActor
-    func testRealtimeAudioLatencyAndIdentity() async throws {
+    func activateAudioSessionForTest(configuration: AudioSessionConfiguration = .init()) async throws {
         let session = AudioSessionManager()
-        _ = try session.configure(.init(prefersEchoCancelledInput: true))
-        _ = try session.setActive(true)
-        defer { _ = try? session.setActive(false) }
+        // XCTest awaits this cleanup after each test's stream/engine defers.
+        addTeardownBlock { @MainActor in
+            let report = await session.requestActive(false).value
+            XCTAssertTrue([AudioSessionOperationResult.applied, .ignored(.unsupportedOnCurrentPlatform)].contains(report.result),
+                "Audio session cleanup failed: \(report.result)")
+        }
+        _ = try session.configure(configuration)
+        let report = await session.requestActive(true).value
+        guard [AudioSessionOperationResult.applied, .ignored(.unsupportedOnCurrentPlatform)].contains(report.result) else {
+            throw NSError(domain: "AudioE2E.Activation", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Audio session did not activate: \(report.result)"])
+        }
+    }
+
+    @MainActor
+    func testRealtimeAudioLatencyAndIdentity() async throws {
+        try await activateAudioSessionForTest(configuration: .init(prefersEchoCancelledInput: true))
         weak var previousPipeline: AppAudioPipeline?
         for fixture in ["speech-ja", "conversation-ja", "conversation-reply-ja"] {
         for codec: RTCAudioCodecIdentifier in [.pcm16, .opus, .mpeg4AACELD] {

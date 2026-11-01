@@ -11,6 +11,10 @@ final class FakeAudioSessionBackend: AudioSessionBackend {
     }
 
     var events: [Event] = []
+    var unsupportedSettings: [AudioSessionConfigurationSetting] = []
+    func unsupportedSettings(in configuration: ResolvedAudioSessionConfiguration) -> [AudioSessionConfigurationSetting] {
+        unsupportedSettings
+    }
     var appliedConfigurations: [ResolvedAudioSessionConfiguration] = []
     var snapshotChangeHandler: ((AudioSessionSnapshotChange) -> Void)?
     var applyError: Error?
@@ -81,6 +85,7 @@ final class FakeAudioSessionBackend: AudioSessionBackend {
 
 final class FakeVoiceProcessingBackend: AudioInputVoiceProcessingBackend {
     var failDucking = false
+    var supportsAdvancedDucking = true
     enum Event: Equatable {
         case setVoiceProcessingEnabled(Bool)
         case setVoiceProcessingBypassed(Bool)

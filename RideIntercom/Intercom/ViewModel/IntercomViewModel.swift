@@ -195,6 +195,7 @@ final class IntercomViewModel {
     var connectionGeneration = UUID()
     var audioGeneration = UUID()
     var audioCheckTask: Task<Void, Never>?
+    var audioStartTask: Task<Void, Never>?
     var audioCheckOwnsAudioPipeline = false
     var isOtherAudioDuckingActiveInternal = false
     var lastAudioSessionConfigurationReport: SessionManager.AudioSessionConfigurationReport?

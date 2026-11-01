@@ -13,6 +13,17 @@ extension IntercomViewModel {
         case .snapshotChanged(let change):
             let previous = audioSessionSnapshot
             applyAudioSessionSnapshot(change.snapshot)
+            switch change.reason {
+            case .interruptionBegan, .mediaServicesReset:
+                pauseAudioForSessionChange(
+                    callNotice: "Audio was interrupted. Your microphone and playback are paused. Resume audio when you are ready.",
+                    checkNotice: "Audio Check was interrupted. Run Audio Check again.")
+                return
+            case .interruptionEnded:
+                // OS permission to resume is not a user's request to transmit.
+                return
+            default: break
+            }
             let lostInput = previous.availableInputs.contains(previous.currentInput)
                 && !change.snapshot.availableInputs.contains(previous.currentInput)
             let lostOutput = previous.availableOutputs.contains(previous.currentOutput)
@@ -20,15 +31,9 @@ extension IntercomViewModel {
             let lostDevice = change.reason == .routeChanged(.oldDeviceUnavailable)
                 || change.reason == .routeChanged(.noSuitableRouteForCategory) || lostInput || lostOutput
             if lostDevice {
-                if audioCheckPhase == .recording || audioCheckPhase == .playing {
-                    cancelAudioCheck()
-                    audioCheckStatusMessage = "Audio device disconnected. Choose a device and run Audio Check again."
-                }
-                if isAudioReady {
-                    stopAudioPipeline()
-                    isAudioPausedForDeviceChange = true
-                    audioRouteNotice = "Audio device disconnected. Your microphone and playback are paused; the group connection and relay continue. Check your audio device, then resume."
-                }
+                pauseAudioForSessionChange(
+                    callNotice: "Audio device disconnected. Your microphone and playback are paused; the group connection and relay continue. Check your audio device, then resume.",
+                    checkNotice: "Audio device disconnected. Choose a device and run Audio Check again.")
             } else if previous.currentInput != change.snapshot.currentInput
                         || previous.currentOutput != change.snapshot.currentOutput {
                 refreshAudioDevicesIfNeeded()
@@ -38,7 +43,22 @@ extension IntercomViewModel {
                 metadata: .event("audio.session.route_changed")
             )
         case .operation(let report):
+            guard report.result != .ignored(.superseded) else { return }
             lastAudioSessionActivationReport = report
+        }
+    }
+
+    private func pauseAudioForSessionChange(callNotice: String, checkNotice: String) {
+        if audioCheckPhase.isInProgress {
+            cancelAudioCheck()
+            audioCheckStatusMessage = checkNotice
+        }
+        // A peer authenticating later must not bypass an interruption that
+        // occurred while this call was still waiting for its first rider.
+        if hasAnyActiveGroupConnection || isAudioReady || audioStartTask != nil {
+            stopAudioPipeline()
+            isAudioPausedForDeviceChange = true
+            audioRouteNotice = callNotice
         }
     }
 
@@ -49,25 +69,25 @@ extension IntercomViewModel {
     }
 
     func refreshAudioDevicesIfNeeded() {
-        if audioCheckPhase == .recording || audioCheckPhase == .playing {
+        if audioCheckPhase.isInProgress {
             cancelAudioCheck()
             audioCheckStatusMessage = "Audio device changed. Run Audio Check again."
         }
-        guard isAudioReady else { return }
+        guard isAudioReady || audioStartTask != nil else { return }
         stopAudioPipeline()
-        if !startAudioPipelineIfNeeded(), hasAnyActiveGroupConnection {
-            isAudioPausedForDeviceChange = true
-            audioRouteNotice = "Audio could not restart on the selected device. The group connection and relay continue. Check your device, then resume."
-        }
+        startAudioPipelineIfNeeded(resumingDevice: true)
     }
 
     func resumeAudioAfterDeviceChange() {
         guard isAudioPausedForDeviceChange, activeGroupID != nil,
               !authenticatedPeerIDs.isEmpty else { return }
-        if startAudioPipelineIfNeeded() {
-            isAudioPausedForDeviceChange = false
-            audioRouteNotice = nil
-        }
+        startAudioPipelineIfNeeded(resumingDevice: true)
+    }
+
+    func reportAudioDeviceRestartFailure() {
+        guard hasAnyActiveGroupConnection, callDisconnectDeadline != nil else { return }
+        isAudioPausedForDeviceChange = true
+        audioRouteNotice = "Audio could not restart on the selected device. The group connection and relay continue. Check your device, then resume."
     }
 
     func deduplicatedPorts(_ ports: [AudioPortInfo]) -> [AudioPortInfo] {

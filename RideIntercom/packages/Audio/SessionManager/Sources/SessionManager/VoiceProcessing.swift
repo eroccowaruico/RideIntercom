@@ -21,15 +21,22 @@ public final class AudioInputVoiceProcessingManager {
         self.backend = backend
     }
 
-    public func configure(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
+    public var unsupportedSettings: [AudioInputVoiceProcessingSetting] {
+        !backend.supportsAdvancedDucking && configuration.otherAudioDuckingEnabled ? [.advancedDucking] : []
+    }
+
+    public func configure(_ requested: AudioInputVoiceProcessingConfiguration) throws {
+        var configuration = requested
+        if !backend.supportsAdvancedDucking { configuration.otherAudioDuckingEnabled = false }
         let previous = appliedConfiguration
         // A partial failure leaves native state unknown. The next request must
         // reapply the complete configuration, even if it returns to the old one.
         appliedConfiguration = nil
         let changesIO = previous?.voiceProcessingEnabled != configuration.voiceProcessingEnabled
         if changesIO { try backend.setVoiceProcessingEnabled(configuration.voiceProcessingEnabled) }
-        if changesIO || previous?.advancedDuckingEnabled != configuration.advancedDuckingEnabled
-            || previous?.resolvedDuckingLevel != configuration.resolvedDuckingLevel {
+        if backend.supportsAdvancedDucking && (changesIO
+            || previous?.advancedDuckingEnabled != configuration.advancedDuckingEnabled
+            || previous?.resolvedDuckingLevel != configuration.resolvedDuckingLevel) {
             try backend.setAdvancedDucking(enabled: configuration.advancedDuckingEnabled,
                 level: configuration.resolvedDuckingLevel)
         }
@@ -40,7 +47,7 @@ public final class AudioInputVoiceProcessingManager {
         if changesIO || previous?.inputMuted != configuration.inputMuted {
             try backend.setInputMuted(configuration.inputMuted)
         }
-        self.configuration = configuration
+        self.configuration = requested
         appliedConfiguration = configuration
     }
 
@@ -59,6 +66,13 @@ public final class AudioInputVoiceProcessingManager {
 }
 
 public final class SystemAudioInputVoiceProcessingBackend: AudioInputVoiceProcessingBackend {
+    public var supportsAdvancedDucking: Bool {
+        #if os(watchOS)
+        false
+        #else
+        true
+        #endif
+    }
     #if canImport(AVFAudio)
     private let inputNode: AVAudioInputNode?
 
@@ -70,7 +84,7 @@ public final class SystemAudioInputVoiceProcessingBackend: AudioInputVoiceProces
     #endif
 
     public func setVoiceProcessingEnabled(_ enabled: Bool) throws {
-        #if os(iOS)
+        #if os(iOS) || os(watchOS)
         guard let inputNode else { return }
         if inputNode.isVoiceProcessingEnabled != enabled {
             try inputNode.setVoiceProcessingEnabled(enabled)
@@ -81,7 +95,7 @@ public final class SystemAudioInputVoiceProcessingBackend: AudioInputVoiceProces
     }
 
     public func setVoiceProcessingBypassed(_ bypassed: Bool) throws {
-        #if os(iOS)
+        #if os(iOS) || os(watchOS)
         guard let inputNode else { return }
         inputNode.isVoiceProcessingBypassed = bypassed
         #else
@@ -99,11 +113,14 @@ public final class SystemAudioInputVoiceProcessingBackend: AudioInputVoiceProces
         #else
         _ = enabled
         _ = level
+        #if os(watchOS)
+        throw AudioSessionManagerError.operationUnsupportedOnCurrentPlatform
+        #endif
         #endif
     }
 
     public func setInputMuted(_ muted: Bool) throws {
-        #if os(iOS)
+        #if os(iOS) || os(watchOS)
         guard let inputNode else { return }
         inputNode.isVoiceProcessingInputMuted = muted
         #else

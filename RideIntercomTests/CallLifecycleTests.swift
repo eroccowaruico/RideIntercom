@@ -65,12 +65,15 @@ struct CallLifecycleTests {
         await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
         h.outputBackend.startError = AudioStreamError.engineOperationFailed("removed")
         h.viewModel.refreshAudioDevicesIfNeeded()
+        await AppTestSupport.waitUntil { h.viewModel.audioErrorMessage != nil }
         #expect(!h.viewModel.isAudioReady)
         #expect(h.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
         #expect(h.inputBackend.stopCount > 0)
         #expect(h.viewModel.audioErrorMessage != nil)
         h.outputBackend.startError = nil
-        #expect(h.viewModel.startAudioPipelineIfNeeded())
+        h.viewModel.resumeAudioAfterDeviceChange()
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
+        #expect(h.viewModel.isAudioReady)
         h.viewModel.disconnect()
     }
 
@@ -139,10 +142,12 @@ struct CallLifecycleTests {
         #expect(h.viewModel.callPresenceLabel == "Connected / Audio Paused")
         h.inputBackend.startError = AudioStreamError.engineOperationFailed("missing")
         h.viewModel.resumeAudioAfterDeviceChange()
+        await AppTestSupport.waitUntil { h.viewModel.audioErrorMessage != nil }
         #expect(h.viewModel.isAudioPausedForDeviceChange)
         #expect(!h.viewModel.isAudioReady)
         h.inputBackend.startError = nil
         h.viewModel.resumeAudioAfterDeviceChange()
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
         #expect(h.viewModel.isAudioReady)
         #expect(!h.viewModel.isAudioPausedForDeviceChange)
         #expect(h.viewModel.isMuted && h.viewModel.isOutputMuted)
@@ -166,6 +171,7 @@ struct CallLifecycleTests {
         snapshot.currentOutput = .builtInSpeaker
         h.viewModel.handleAudioSessionRuntimeEvent(.snapshotChanged(.init(
             reason: .defaultOutputChanged, snapshot: snapshot)))
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
         #expect(h.viewModel.isAudioReady)
         #expect(h.inputBackend.startCount == starts + 1)
         h.viewModel.disconnect()

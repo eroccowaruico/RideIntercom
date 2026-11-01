@@ -131,8 +131,17 @@ public enum AudioSessionOperation: Codable, Equatable, Sendable {
 
 public enum AudioSessionIgnoredReason: Codable, Equatable, Sendable {
     case unsupportedOnCurrentPlatform
+    case superseded
     case unsupportedSelection(AudioSessionDeviceSelection)
     case unavailableDevice(AudioSessionDevice.ID)
+}
+
+/// Requested preferences that this backend cannot apply. Successful category
+/// configuration does not imply these hardware preferences were accepted.
+public enum AudioSessionConfigurationSetting: Codable, Equatable, Hashable, Sendable {
+    case categoryOption(AudioSessionCategoryOption)
+    case preferredSampleRate
+    case preferredIOBufferDuration
 }
 
 public enum AudioSessionOperationFailure: Codable, Equatable, Sendable {
@@ -290,10 +299,37 @@ public enum AudioSessionRouteChangeReason: Codable, Equatable, Sendable {
 
 public enum AudioSessionSnapshotChangeReason: Codable, Equatable, Sendable {
     case routeChanged(AudioSessionRouteChangeReason)
+    case interruptionBegan
+    case interruptionEnded(shouldResume: Bool)
+    case mediaServicesReset
     case deviceListChanged
     case defaultInputChanged
     case defaultOutputChanged
     case unknown
+}
+
+/// Native interruption/reset invalidates an activation that is still awaiting
+/// authorization. Ending an interruption is permission to retry, not activation.
+struct AudioSessionActivityState {
+    private(set) var generation: UInt64 = 0
+    private(set) var isActive = false
+
+    mutating func activate(ifUnchangedFrom generation: UInt64) -> Bool {
+        guard self.generation == generation else { return false }
+        isActive = true
+        return true
+    }
+
+    mutating func deactivate() { isActive = false }
+
+    mutating func observe(_ reason: AudioSessionSnapshotChangeReason) {
+        switch reason {
+        case .interruptionBegan, .mediaServicesReset:
+            generation &+= 1
+            isActive = false
+        default: break
+        }
+    }
 }
 
 public struct AudioSessionSnapshotChange: Codable, Equatable, Sendable {
@@ -311,17 +347,20 @@ public struct AudioSessionConfigurationReport: Codable, Equatable, Sendable {
     public var resolvedConfiguration: ResolvedAudioSessionConfiguration
     public var operations: [AudioSessionOperationReport]
     public var snapshot: AudioSessionSnapshot?
+    public var unsupportedSettings: [AudioSessionConfigurationSetting]
 
     public init(
         requestedConfiguration: AudioSessionConfiguration,
         resolvedConfiguration: ResolvedAudioSessionConfiguration,
         operations: [AudioSessionOperationReport],
-        snapshot: AudioSessionSnapshot?
+        snapshot: AudioSessionSnapshot?,
+        unsupportedSettings: [AudioSessionConfigurationSetting] = []
     ) {
         self.requestedConfiguration = requestedConfiguration
         self.resolvedConfiguration = resolvedConfiguration
         self.operations = operations
         self.snapshot = snapshot
+        self.unsupportedSettings = unsupportedSettings
     }
 }
 
@@ -329,6 +368,10 @@ public enum AudioSessionRuntimeEvent: Codable, Equatable, Sendable {
     case operation(AudioSessionOperationReport)
     case configuration(AudioSessionConfigurationReport)
     case snapshotChanged(AudioSessionSnapshotChange)
+}
+
+public enum AudioInputVoiceProcessingSetting: Codable, Equatable, Sendable {
+    case advancedDucking
 }
 
 public struct AudioInputVoiceProcessingConfiguration: Codable, Equatable, Sendable {

@@ -4,7 +4,7 @@ import SessionManager
 
 extension IntercomViewModel {
     var canStartAudioCheck: Bool {
-        canStartCalls && !hasAnyActiveGroupConnection && !isAudioReady && audioCheckPhase != .recording && audioCheckPhase != .playing
+        canStartCalls && !hasAnyActiveGroupConnection && !isAudioReady && audioStartTask == nil && !audioCheckPhase.isInProgress
     }
 
     func startAudioCheck(recordDuration: Duration = .seconds(5), playbackDuration: Duration = .seconds(5)) {
@@ -12,33 +12,38 @@ extension IntercomViewModel {
 
         cancelAudioCheck()
         bindAudioEvents(deliverEveryFrame: true)
-        let generation = audioCheckGeneration
+        let generation = audioCheckGeneration, audio = audioGeneration
         resetAudioCheckMeters()
         audioCheckRecordedFrames = []
-        audioCheckPhase = .recording
-        audioCheckStatusMessage = "Recording microphone for 5 seconds"
-        audioCheckOwnsAudioPipeline = !isAudioReady
-
-        if audioCheckOwnsAudioPipeline {
-            guard configureAudioSession(active: true),
-                  startInputCapture(),
-                  startOutputRenderer(),
-                  applyCurrentVoiceProcessingConfiguration() else {
-                audioCheckPhase = .failed
-                audioCheckStatusMessage = audioErrorMessage ?? "Audio setup failed"
-                stopAudioCheckOwnedPipeline()
+        audioCheckPhase = .preparing
+        audioCheckStatusMessage = "Preparing microphone and speaker"
+        audioCheckOwnsAudioPipeline = true
+        guard configureAudioSession() else {
+            audioCheckPhase = .failed
+            audioCheckStatusMessage = audioErrorMessage ?? "Audio setup failed"
+            stopAudioCheckOwnedPipeline()
+            return
+        }
+        let activation = audioSessionManager.requestActive(true)
+        audioCheckTask = Task { [weak self] in
+            let report = await activation.value
+            guard let self, !Task.isCancelled, self.audioCheckGeneration == generation,
+                  self.audioGeneration == audio, self.canStartCalls,
+                  !self.hasAnyActiveGroupConnection, self.audioCheckPhase == .preparing else { return }
+            guard report.result != .ignored(.superseded) else { self.cancelAudioCheck(); return }
+            guard self.applyAudioSessionActivationReport(report), self.startInputCapture(),
+                  self.startOutputRenderer(), self.applyCurrentVoiceProcessingConfiguration() else {
+                self.audioCheckPhase = .failed
+                self.audioCheckStatusMessage = self.audioErrorMessage ?? "Audio setup failed"
+                self.stopAudioCheckOwnedPipeline()
                 return
             }
-        }
-
-        inputFrameDelivery?.activate()
-        audioCheckTask = Task { [weak self] in
+            self.audioCheckPhase = .recording
+            self.audioCheckStatusMessage = "Recording microphone for 5 seconds"
+            self.inputFrameDelivery?.activate()
             try? await Task.sleep(for: recordDuration)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard self?.audioCheckGeneration == generation else { return }
-                self?.finishAudioCheckRecording(playbackDuration: playbackDuration)
-            }
+            guard !Task.isCancelled, self.audioCheckGeneration == generation else { return }
+            self.finishAudioCheckRecording(playbackDuration: playbackDuration)
         }
     }
 
@@ -122,7 +127,7 @@ extension IntercomViewModel {
         audioPipeline.stop()
         _ = audioInputCapture.stop()
         _ = audioOutputRenderer.stop()
-        _ = try? audioSessionManager.setActive(false)
+        _ = audioSessionManager.requestActive(false)
         audioCheckOwnsAudioPipeline = false
     }
 

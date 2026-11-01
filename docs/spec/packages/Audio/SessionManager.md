@@ -11,7 +11,7 @@
 | `SessionManager.swift` | 共通session操作とbackend契約 |
 | `SessionModels.swift` | 設定解決と公開reportの値型 |
 | `VoiceProcessing.swift` | input voice processingの操作とOS bridge |
-| `SystemAudioSessionBackend*.swift` | OS session操作とiOS/macOSの機器・通知処理 |
+| `SystemAudioSessionBackend*.swift` | OS session操作とiOS/watchOS/macOSの機器・通知処理 |
 | `AudioStreams.swift` | stream設定・report・backend契約 |
 | `AudioInputStreamCapture.swift` / `AudioOutputStreamRenderer.swift` | 入出力それぞれのlifecycle |
 | `SystemAudioInputStreamBackend.swift` / `SystemAudioOutputStreamBackend.swift` | AVAudioEngineの入出力所有 |
@@ -25,11 +25,36 @@
 | Product | `SessionManager` library |
 | 依存 | `AudioCore` |
 | 使用する共通型 | `AudioFormat`, `PCMFrame` |
-| 実装基盤 | `AVFAudio`, iOS `AVAudioSession`, macOS `CoreAudio` |
-| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降 |
+| 実装基盤 | `AVFAudio`, iOS/watchOS `AVAudioSession`, macOS `CoreAudio` |
+| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降、watchOS `26.4` 以降 |
 | Swift | Swift `6` |
 | テスト | fake backend による SwiftPM テスト。実マイク / 実スピーカーに依存しない |
 | 移植単位 | `SessionManager` と `AudioCore` だけで他アプリへ移植できる |
+
+## watchOS の音声基盤と非同期 activation
+
+watchOSでも既存のconfigure、入力capture、出力renderer、PCM型を使う。Watch専用の通話・通信エンジンを本packageへ持たせず、CallKitを導入しない。対応するSDKでcompileできることと、Watchの内蔵マイク・スピーカー、背景動作、端末間音声配送が成立することを区別する。本packageのactivation成功は低レベル通信の利用許可や通話成立を保証しない。
+
+| 項目 | watchOSの扱い |
+|---|---|
+| category / mode | playAndRecordとdefault / voiceChatを既存設定から適用する。longFormAudioはplayback用なので通話categoryへ混ぜない |
+| 有効化 | `AVAudioSession.activate(options:)`をawaitする。falseまたはthrowを成功にせず、同期wait・semaphoreは使わない |
+| 無効化 | `setActive(false, options: .notifyOthersOnDeactivation)`。最低watchOS 26.4で使えるAPIを維持する |
+| preferred sample rate / IO buffer duration | watchOSの設定APIは非対応。`unsupportedSettings`へ項目を残し、実hardware formatはcapture/renderの戻り値で確認する |
+| category option | defaultToSpeaker、farFieldInput、bluetoothHighQualityRecordingを適用せずreportへ残す。他の既存optionはnativeへ渡し、OS拒否は通常の失敗reportとする |
+| 入出力選択 | systemDefaultはOSのroute選択に従う。個別device IDや明示builtInSpeaker / builtInReceiverはignored。`overrideOutputAudioPort`メソッドは存在するが、speakerのenum値はwatchOS非対応のためspeaker固定には使えない |
+| route情報 | 現在の入力・出力routeを報告する。watchOSに選択可能なdevice一覧があるように表示せず、入力snapshotのroute記述と選択APIの可否を分ける |
+| voice processing | enabled / bypass / input muteは既存native入力経路へ接続する。advanced duckingは未対応としてreportし、その設定だけでvoice-processing I/Oを有効化・再起動しない |
+| PCMミュート | `AudioInputStreamCapture`自身も配送を遮断する。native voice processingがOFF／非対応でもinputMuted中はframeを外へ渡さない。解除のnative操作が失敗した場合は配送ミュートを維持する |
+| 中断と再起動 | interruptionBegan、interruptionEnded(shouldResume:)、mediaServicesResetをsnapshot changeとして通知する。begin/resetでinactiveへ戻し、それ以前の未完了activationを有効化成功にしない。古いnative activationが成功して戻った場合は、後続要求の前にdeactivateして実作用も解除し、解除失敗はfailed reportで返す。snapshot上のinactiveは実OS停止が成功した証拠とはしない。endのshouldResumeは再試行判断用であり自動再開ではない |
+
+`requestActive(_:)`はMainActor上で要求をその場で登録し、完了結果を返すTaskを渡す。開始側はTaskの`.value`をawaitし、`.applied`を確認してからPCMを開始する。停止側も同期の終了処理中に直接`requestActive(false)`を呼べるため、後からTaskを作って終了要求の登録順序が逆転することを避ける。未完了中の同じ希望値は同じTaskへ集約し、native操作を増やさない。異なる希望値はnative操作を直列化し、まだnativeへ渡していない古い要求は`.ignored(.superseded)`にする。native activationが既に待機中ならその完了を待ち、最後の要求が終了なら必ずdeactivateへ進む。完了前をappliedとして返さない。
+
+この順序保証は同じAudioSessionManagerの要求に対するもの。同一のnative sessionを複数のmanagerから同時に操作する場合は保証対象外とし、通話・アカウントの切替でもnative sessionの所有者はmanagerを共有する。configureやstreamのlifecycleはこのTaskに自動登録しない。再設定する呼出し側は必要なdeactivation完了を待ち、古い通話の非同期完了が新しい通話のPCMを開始しないよう既存の通話世代も確認する。
+
+ミュートと停止は以後のPCM配送を止める。既に呼出し先で実行中のcallbackを巻き戻す保証はなく、送信先も通話世代と送話条件を確認する。押下UI、Watch Connectivity、codec／端末間媒体、マイク権限要求、AppのBackground Modes設定はこのpackageの責務に含めない。
+
+Appleの[非同期activation](https://developer.apple.com/documentation/avfaudio/avaudiosession/activate(options:completionhandler:))と[低レベル通信の制約](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)を別の条件として扱う。後者は実機確認が必要であり、このpackageのcompileやfake試験で満たした扱いにしない。
 
 ## 最初に読む結論
 
@@ -37,12 +62,12 @@
 |---|---|---|---|
 | 標準で他アプリ音声は止まるか | 原則止まらない。`mixWithOthers` で混ぜる | `AudioSessionConfiguration.resolved()` が `.mixWithOthers` を常に入れる | 外すと Music / Podcast / Navigation を止める体験へ変わり得る |
 | 標準で他アプリ音声は小さくなるか | session active 中は小さくなり得る。`duckOthers` を標準ONにする | `resolved()` が `.duckOthers` を常に入れる | 外すと通話音声と他アプリ音声が競合しやすい |
-| advanced ducking の強さを細かく指定できるか | できる。`.systemDefault`, `.minimum`, `.medium`, `.maximum` を指定する | `AudioSessionDuckingLevel` を `AVAudioVoiceProcessingOtherAudioDuckingConfiguration.Level` へ写像する | `otherAudioDuckingEnabled == false` のときはlevel指定を使わない |
+| advanced ducking の強さを細かく指定できるか | iOSではできる。watchOSでは未対応をreportする。`.systemDefault`, `.minimum`, `.medium`, `.maximum` を指定する | `AudioSessionDuckingLevel` を `AVAudioVoiceProcessingOtherAudioDuckingConfiguration.Level` へ写像する | `otherAudioDuckingEnabled == false` のときはlevel指定を使わない |
 | 通話終了後に利用者の再生操作が必要か | 原則不要。mixされている音声は継続し、duckはdeactivateで解除される | iOSの `setActive(false)` は `.notifyOthersOnDeactivation` 付き | 他アプリやOSがpauseした場合の再開は保証しない |
 | `configure` だけで他アプリ音声へ影響するか | 原則影響しない。設定を解決して適用するだけ | `configure` は category / route希望を適用し、active化しない | 実際のmix / duck影響は `setActive(true)` で出る |
 | speaker既定時にecho希望が自動でtrueになる理由 | speaker出力はマイクへ回り込みやすいため、default modeでは通話品質側へ倒す | `resolvedPrefersEchoCancelledInput = prefersEchoCancelledInput || defaultToSpeaker` | PCM処理ではない。resample / gain / noise reduction はしない |
 | `voiceChat` と explicit echo希望を併用しない理由 | mode由来の挙動と明示preferenceの適用点が競合するため止める | `mode == .voiceChat && prefersEchoCancelledInput` で throw | 暗黙解決しない。呼び出し側がどちらを使うか選ぶ |
-| 終了時にstreamを自動停止するか | しない。呼び出し側が output / input stream を止めてから deactivate する | `AudioSessionManager.setActive(false)` は session だけを扱う | 自動停止を入れると SessionManager が stream lifecycle を所有してしまう |
+| 終了時にstreamを自動停止するか | しない。呼び出し側が output / input stream を止めてから deactivate する | `AudioSessionManager.requestActive(false)` は session だけを扱う | 自動停止を入れると SessionManager が stream lifecycle を所有してしまう |
 
 ## Activation Diagram
 
@@ -57,13 +82,15 @@ sequenceDiagram
     App->>SessionManager: configure(AudioSessionConfiguration)
     SessionManager->>AVAudioSession: setCategory(playAndRecord, mode, options)
     Note over OtherAudio: まだactiveではないため、mix/duck影響は原則出ない
-    App->>SessionManager: setActive(true)
-    SessionManager->>AVAudioSession: setActive(true)
+    App->>SessionManager: requestActive(true) の Task.value を await
+    SessionManager->>AVAudioSession: iOS setActive(true) / watchOS activate(options:)
+    AVAudioSession-->>SessionManager: activation の完了 / 失敗
+    SessionManager-->>App: operation report
     AVAudioSession-->>OtherAudio: mixWithOthers + duckOthers の影響
     App->>Streams: start input / output
     Note over OtherAudio: 再生は原則継続し、通話中は音量が下がり得る
     App->>Streams: stop output / input
-    App->>SessionManager: setActive(false)
+    App->>SessionManager: requestActive(false) を同期登録
     SessionManager->>AVAudioSession: setActive(false, notifyOthersOnDeactivation)
     AVAudioSession-->>OtherAudio: duck解除 / 再開判断通知
 ```
@@ -102,7 +129,7 @@ sequenceDiagram
 | `.defaultToSpeaker` は `playAndRecord` でbuilt-in speakerを既定routeへ寄せる | `defaultToSpeaker == true` の場合だけ追加する | speaker出力に寄る。receiverや一部user gestureより強いroute希望になる | 常時ONにしない。speaker利用を明示した設定だけで使う |
 | `voiceChat` mode はVoIP向けに音声EQやroute候補をvoice chat向けへ寄せる | `mode == .voiceChat` の場合だけ使う | route候補や音量感が標準modeと変わり得る | default modeで足りる場合は使わない。明示設定として扱う |
 | `voiceChat` は voice processing I/O と組み合わせる前提が強い | input stream側で `AVAudioInputNode.setVoiceProcessingEnabled` 系を別途扱う | modeだけではPCM effect chainやMixer処理は増えない | session mode と input node voice processing を混同しない |
-| `setActive(true)` でsession設定が実際に効き始める | `AudioSessionManager.setActive(true)` で呼ぶ | 他アプリ音声のmix / duck、route挙動はactive化で表面化する | configure と active を分け、開始タイミングを呼び出し側が制御する |
+| `setActive(true)` でsession設定が実際に効き始める | `AudioSessionManager.requestActive(true)`の完了待ち で呼ぶ | 他アプリ音声のmix / duck、route挙動はactive化で表面化する | configure と active を分け、開始タイミングを呼び出し側が制御する |
 | `setActive(false, .notifyOthersOnDeactivation)` はdeactivate時に他sessionへ通知する | iOSでは `setActive(false, options: .notifyOthersOnDeactivation)` を呼ぶ | interruptされた他アプリが再開判断できる。ただし現在の標準設定はinterruptではなくmix / duckが主 | deactivation前にstream停止を済ませる。再生再開は他アプリとOSの責務で、packageは保証しない |
 
 ## 他アプリ音声影響マトリックス
@@ -175,7 +202,7 @@ flowchart LR
 | 外部入力 | 正常出力 | エラー出力 | 保証 |
 |---|---|---|---|
 | `AudioSessionConfiguration` | `AudioSessionConfigurationReport` | 設定矛盾は throw、OS差分は operation report | 要求値と解決後値を両方保持する |
-| `setActive(Bool)` | `AudioSessionOperationReport` | `ignored` / `failed` report | active 切替結果を I/O として返す |
+| `requestActive(Bool)` | `Task<AudioSessionOperationReport, Never>` | 完了したTask内の `ignored` / `failed` report | MainActorで要求を同期登録し、nativeの完了は `.value` をawaitして確認する |
 | `snapshot()` | `AudioSessionSnapshot` | throw | 現在の device / route を外へ出す |
 | snapshot change handler | `AudioSessionSnapshotChange` | なし | route / device 変更を event として出す |
 | `AudioInputStreamConfiguration` | input `AudioStreamOperationReport` | `ignored` / `failed` report | preferred と actual hardware format を分ける |
@@ -202,12 +229,12 @@ AudioMixer -> PCMFrame(output actual hardware format) -> SessionManager -> outpu
 ```mermaid
 stateDiagram-v2
     [*] --> Configured: configure
-    Configured --> Active: setActive(true)
+    Configured --> Active: requestActive(true) の完了
     Active --> InputRunning: input.start
     Active --> OutputRunning: output.start
     InputRunning --> Active: input.stop
     OutputRunning --> Active: output.stop
-    Active --> Configured: setActive(false)
+    Active --> Configured: requestActive(false) の完了
     Configured --> Configured: route/device change snapshot
     Active --> Active: route/device change snapshot
 ```
@@ -215,7 +242,7 @@ stateDiagram-v2
 | 状態 | 外部観測 | 失敗時の扱い |
 |---|---|---|
 | 設定済み | 解決後設定、操作結果、snapshot | OS差分は operation report に残す |
-| session有効 | `setActive(true)` の結果、現在device / route | iOS以外の active 操作は ignored として返す |
+| session有効 | `requestActive(true).value` の結果、現在device / route | iOS/watchOSのnative完了を待つ。macOSのactive操作はignoredとして返す |
 | input実行中 | actual hardware format、capture済みframe数、input frame event | voice processing 非対応でも capture start は継続する |
 | output実行中 | actual hardware format、schedule済みframe数、schedule event | format不一致は変換せず reject report として返す |
 | route変更後 | snapshot change event | snapshot取得不能時は event を出さない |
@@ -304,8 +331,8 @@ stateDiagram-v2
 
 | 目的 | 推奨順序 | 理由 | 今の実装の責務 |
 |---|---|---|---|
-| 通話開始 | `configure` -> `setActive(true)` -> input / output stream start | AVAudioSession設定はactive化で実効化される。開始直前までactive化を遅らせると、他アプリ音声への影響を遅らせられる | `SessionManager` は順序を強制せず、各操作結果を report する |
-| 通話終了 | output stream stop -> input stream stop -> `setActive(false)` | running audio object があるままdeactivateすると、OSが停止や失敗を返し得る | `SessionManager` はstreamを自動停止しない。呼び出し側が停止順序を組む |
+| 通話開始 | `configure` -> `await requestActive(true).value` -> input / output stream start | AVAudioSession設定はactive化で実効化される。開始直前までactive化を遅らせると、他アプリ音声への影響を遅らせられる | `SessionManager` は順序を強制せず、各操作結果を report する |
+| 通話終了 | output stream stop -> input stream stop -> `requestActive(false)` | running audio object があるままdeactivateすると、OSが停止や失敗を返し得る | `SessionManager` はstreamを自動停止しない。呼び出し側が停止順序を組む |
 | 他アプリ音声のduck解除 | `setActive(false)` | `duckOthers` の影響はsession active中の挙動で、deactivate後に解除される | iOSでは `.notifyOthersOnDeactivation` を付けてdeactivateする |
 | 他アプリ音声の再開通知 | `setActive(false, .notifyOthersOnDeactivation)` | interruptされたsessionがある場合に、OSが再開判断の機会を渡す | packageは通知optionを付けるが、他アプリが再生を再開するかは保証しない |
 
@@ -504,12 +531,15 @@ flowchart LR
 | `AudioSessionConfigurationReport` | `resolvedConfiguration` | OSへ渡す確定値 |
 | `AudioSessionConfigurationReport` | `operations` | OS差分、device不在、適用失敗 |
 | `AudioSessionConfigurationReport` | `snapshot` | 適用後に観測できた route / device |
+| `AudioSessionConfigurationReport` | `unsupportedSettings` | category設定と区別し、適用できなかったsample rate・buffer duration・category optionを列挙 |
 | `AudioStreamOperationReport` | `operation` | どの stream 操作の結果か |
 | `AudioStreamOperationReport` | `result` | 適用済み / 無視 / 失敗 |
 | `AudioStreamOperationReport` | `snapshot.preferredFormat` | 呼び出し側が希望した hardware format |
 | `AudioStreamOperationReport` | `snapshot.actualHardwareFormat` | OS / device / route が実際に返した format |
 | `AudioStreamOperationReport` | `snapshot.processedFrameCount` | capture / schedule 済み frame 数 |
 | `AudioStreamOperationReport` | `snapshot.inputVoiceProcessing` | input stream の現在 voice processing 希望 |
+| `AudioStreamOperationReport` | `snapshot.inputDeliveryMuted` | PCM配送境界の実ミュート。native解除失敗ではtrueを維持する |
+| `AudioStreamOperationReport` | `snapshot.unsupportedInputVoiceProcessingSettings` | 要求したがOS非対応だったvoice processing設定 |
 
 ## 改修者向け判断表
 
@@ -575,7 +605,7 @@ flowchart LR
 |---|---|
 | SystemAudioInputStreamBackendのinit | inputNodeを取得しない。VoiceProcessingManagerも必要時まで生成しない |
 | 未開始のstopCapture | 新しくinputNodeを取得せず、既に開いたsinkとrender captureだけを解除する |
-| startCapture / iOS voice processing適用 | 初めてinputNodeへアクセスする。App表示だけで音声I/Oを初期化しない |
+| startCapture / iOS・watchOS voice processing適用 | 初めてinputNodeへアクセスする。App表示だけで音声I/Oを初期化しない |
 
 SimulatorのApp初期表示でAURemoteIOのRPC timeoutによるabortが観測されたため、通話以前のinitから入力デバイス取得を除去した。engine spyの取得回数がinit・反復stopの前後でゼロであることを単体テストで確認する。実I/O開始時のOS音声サービス障害をこのテストだけで解決済みとは扱わない。
 

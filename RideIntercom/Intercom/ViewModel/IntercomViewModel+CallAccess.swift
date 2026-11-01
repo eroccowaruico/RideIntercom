@@ -65,7 +65,7 @@ extension IntercomViewModel {
         let peers = currentRepresentativeProfiles.values.filter { $0.verified != nil && $0.membershipID != nil }
         for peer in peers { callAccessState.mergeStart(peer.callAccess?.lastSponsoredStart, now: now) }
         if canPrepareCallMedia {
-            if !isAudioPausedForDeviceChange, audioErrorMessage == nil || retryMedia { _ = startAudioPipelineIfNeeded() }
+            if !isAudioPausedForDeviceChange, audioErrorMessage == nil || retryMedia { startAudioPipelineIfNeeded() }
             let readyPeers = peers.compactMap(\.callAccess).filter { $0.mediaReady || $0.isEstablished }
             let sponsored = hasLocalCallRight(at: now) || readyPeers.contains { $0.hasRight(at: now) }
             let canEstablish = sponsored || CallAccessState.permitsResume(since: callAccessState.lastSponsoredStart, now: now)
@@ -74,7 +74,7 @@ extension IntercomViewModel {
                 mediaReady: isAudioReady && !readyPeers.isEmpty && canEstablish)
             if groupErrorMessage == Self.callAccessRequiredMessage { groupErrorMessage = nil }
         } else {
-            if isAudioReady { stopAudioPipeline() }
+            if isAudioReady || audioStartTask != nil { stopAudioPipeline() }
             if !peers.isEmpty { groupErrorMessage = Self.callAccessRequiredMessage }
         }
         let storedStart = groupRepository.lastSponsoredStart(for: groupID)

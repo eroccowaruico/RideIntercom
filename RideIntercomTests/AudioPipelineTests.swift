@@ -293,6 +293,7 @@ struct AudioPipelineTests {
         let harness = AppTestSupport.makeHarness(groups: [])
 
         harness.viewModel.startAudioCheck(recordDuration: .seconds(5), playbackDuration: .seconds(5))
+        await AppTestSupport.waitUntil { harness.viewModel.audioCheckPhase == .recording }
         harness.inputBackend.emit(PCMFrame(sequenceNumber: 1, format: AudioFormat(sampleRate: 44_100, channelCount: 2), capturedAt: 100, samples: Array(repeating: 0.5, count: 1764)))
         await AppTestSupport.waitUntil { harness.viewModel.audioCheckInputLevel > 0 }
         harness.viewModel.finishAudioCheckRecording(playbackDuration: .seconds(5))
@@ -385,6 +386,7 @@ struct AudioPipelineTests {
         harness.inputBackend.startError = nil
         harness.outputBackend.startError = nil
         harness.viewModel.startActiveCallAfterAuthenticatedPeer()
+        await AppTestSupport.waitUntil { harness.viewModel.isAudioReady }
         #expect(harness.viewModel.isAudioReady)
         #expect(harness.viewModel.callDisconnectDeadline == deadline)
         harness.viewModel.disconnect()
@@ -657,6 +659,7 @@ struct AudioPipelineTests {
         #expect(!h.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
         let starts = h.outputBackend.startCount
         h.viewModel.refreshAudioDevicesIfNeeded()
+        await AppTestSupport.waitUntil { h.viewModel.isAudioReady }
         #expect(h.outputBackend.startCount == starts + 1)
         #expect(h.viewModel.isAudioReady)
         h.viewModel.disconnect()
@@ -685,7 +688,7 @@ struct AudioPipelineTests {
     @Test func connectingCancelsAudioCheckBeforePeerAuthentication() {
         let harness = AppTestSupport.makeHarness()
         harness.viewModel.startAudioCheck()
-        #expect(harness.viewModel.audioCheckPhase == .recording)
+        #expect(harness.viewModel.audioCheckPhase == .preparing)
         harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
         #expect(harness.viewModel.audioCheckPhase == .idle)
         #expect(!harness.viewModel.audioCheckOwnsAudioPipeline)

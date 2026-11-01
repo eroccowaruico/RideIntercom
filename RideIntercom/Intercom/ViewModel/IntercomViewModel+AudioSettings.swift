@@ -33,7 +33,7 @@ extension IntercomViewModel {
     func setAudioSessionProfile(_ profile: AudioSessionProfile) {
         audioSessionProfile = profile
         saveAppSettings()
-        guard configureAudioSession(active: isAudioReady) else { return }
+        guard configureAudioSession() else { return }
         audioErrorMessage = nil
         AppLoggers.settings.info(
             "settings.audio_session.changed",
@@ -59,7 +59,7 @@ extension IntercomViewModel {
             selectedOutputPort = .speaker
         }
         saveAppSettings()
-        guard configureAudioSession(active: isAudioReady) else { return }
+        guard configureAudioSession() else { return }
         audioErrorMessage = nil
         if selectedOutputPort != previousOutputPort {
             refreshAudioDevicesIfNeeded()
@@ -80,7 +80,7 @@ extension IntercomViewModel {
         }
         selectedOutputPort = enabled ? .speaker : .systemDefault
         saveAppSettings()
-        guard configureAudioSession(active: isAudioReady) else { return }
+        guard configureAudioSession() else { return }
         audioErrorMessage = nil
         if selectedOutputPort != previousOutputPort {
             refreshAudioDevicesIfNeeded()
@@ -98,7 +98,7 @@ extension IntercomViewModel {
         guard canToggleSessionEchoCancellation else { return }
         audioSessionProfile = enabled ? .echoCancelledInput : .standard
         saveAppSettings()
-        guard configureAudioSession(active: isAudioReady) else { return }
+        guard configureAudioSession() else { return }
         audioErrorMessage = nil
         AppLoggers.settings.info(
             "settings.echo_cancellation.changed",
@@ -325,7 +325,7 @@ extension IntercomViewModel {
     func setInputPort(_ port: AudioPortInfo) {
         let previousInputPort = selectedInputPort
         selectedInputPort = port
-        guard configureAudioSession(active: isAudioReady) else { return }
+        guard configureAudioSession() else { return }
         audioErrorMessage = nil
         if selectedInputPort != previousInputPort { refreshAudioDevicesIfNeeded() }
         AppLoggers.settings.info(
@@ -340,7 +340,7 @@ extension IntercomViewModel {
     func setOutputPort(_ port: AudioPortInfo) {
         let previousOutputPort = selectedOutputPort
         selectedOutputPort = port
-        guard configureAudioSession(active: isAudioReady) else { return }
+        guard configureAudioSession() else { return }
         audioErrorMessage = nil
         if selectedOutputPort != previousOutputPort {
             refreshAudioDevicesIfNeeded()

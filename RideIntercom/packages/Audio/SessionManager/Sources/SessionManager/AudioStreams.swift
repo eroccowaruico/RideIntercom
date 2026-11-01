@@ -45,6 +45,8 @@ public struct AudioStreamSnapshot: Codable, Equatable, Sendable {
     public var bufferedOutputDuration: TimeInterval?
     public var playbackResetCount: Int?
     public var inputVoiceProcessing: AudioInputVoiceProcessingConfiguration?
+    public var inputDeliveryMuted: Bool?
+    public var unsupportedInputVoiceProcessingSettings: [AudioInputVoiceProcessingSetting]
 
     public init(
         direction: AudioStreamDirection,
@@ -54,7 +56,9 @@ public struct AudioStreamSnapshot: Codable, Equatable, Sendable {
         processedFrameCount: UInt64,
         inputVoiceProcessing: AudioInputVoiceProcessingConfiguration? = nil,
         bufferedOutputDuration: TimeInterval? = nil,
-        playbackResetCount: Int? = nil
+        playbackResetCount: Int? = nil,
+        inputDeliveryMuted: Bool? = nil,
+        unsupportedInputVoiceProcessingSettings: [AudioInputVoiceProcessingSetting] = []
     ) {
         self.direction = direction
         self.isRunning = isRunning
@@ -64,6 +68,8 @@ public struct AudioStreamSnapshot: Codable, Equatable, Sendable {
         self.inputVoiceProcessing = inputVoiceProcessing
         self.bufferedOutputDuration = bufferedOutputDuration
         self.playbackResetCount = playbackResetCount
+        self.inputDeliveryMuted = inputDeliveryMuted
+        self.unsupportedInputVoiceProcessingSettings = unsupportedInputVoiceProcessingSettings
     }
 }
 
@@ -125,6 +131,7 @@ public enum AudioStreamError: Error, Equatable, Sendable {
 }
 
 public protocol AudioInputStreamBackend: AnyObject {
+    var unsupportedVoiceProcessingSettings: [AudioInputVoiceProcessingSetting] { get }
     func startCapture(
         configuration: AudioInputStreamConfiguration,
         onFrame: @escaping (PCMFrame) -> Void
@@ -134,6 +141,7 @@ public protocol AudioInputStreamBackend: AnyObject {
 }
 
 public extension AudioInputStreamBackend {
+    var unsupportedVoiceProcessingSettings: [AudioInputVoiceProcessingSetting] { [] }
     func updateVoiceProcessing(_ configuration: AudioInputVoiceProcessingConfiguration) throws {
         _ = configuration
         throw AudioStreamError.unsupportedOnCurrentPlatform

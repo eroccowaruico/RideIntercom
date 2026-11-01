@@ -67,54 +67,75 @@ extension IntercomViewModel {
 
     func startActiveCallAfterAuthenticatedPeer() {
         if enforceCallAccess { refreshCallAccess(); return }
-        guard !isAudioPausedForDeviceChange,
-              !authenticatedPeerIDs.isEmpty,
-              startAudioPipelineIfNeeded() else { return }
-
-        connectionState = isInternetOnlyCall ? .internetConnected : .localConnected
-        markConnectedMembers(peerIDs: connectedPeerIDs)
+        startAudioPipelineIfNeeded()
     }
 
-    func startAudioPipelineIfNeeded() -> Bool {
+    func startAudioPipelineIfNeeded(resumingDevice: Bool = false) {
         guard !disconnectIfTimerExpired(now: callAccessNow().timeIntervalSince1970),
-              callDisconnectDeadline != nil, canStartCalls, canPrepareCallMedia else { return false }
-        if isAudioReady {
-            return true
-        }
+              callDisconnectDeadline != nil, canStartCalls, canPrepareCallMedia,
+              !authenticatedPeerIDs.isEmpty,
+              !isAudioPausedForDeviceChange || resumingDevice,
+              !isAudioReady, audioStartTask == nil else { return }
 
         cancelAudioCheck()
         bindAudioEvents()
-        callSession.startMedia()
-        guard configureAudioSession(active: true),
-              applyCurrentVoiceProcessingConfiguration(),
-              startInputCapture(),
-              startOutputRenderer(configuration: .intercomCall),
-              rebuildAudioPipeline() else {
-            stopAudioPipeline()
-            return false
+        guard configureAudioSession() else {
+            if resumingDevice { reportAudioDeviceRestartFailure() }
+            return
         }
-
-        inputFrameDelivery?.activate()
-        callTicker.start()
-        isAudioReady = true
-        callSession.setAudioPolicy(currentCallAudioPolicy())
-        refreshOtherAudioDuckingState()
-        publishRuntimePackageReports(force: true)
-        audioErrorMessage = nil
-        AppLoggers.audio.info(
-            "audio.media.started",
-            metadata: .event("audio.media.started", [
-                "route": "\(routeLabel)",
-                "codec": "\(selectedTransmitCodec.rawValue)"
-            ])
-        )
-        refreshCallAccess()
-        recordEstablishedCall()
-        return true
+        let generation = audioGeneration, connection = connectionGeneration
+        // Register before returning to the caller, so a synchronous stop or
+        // a new call cannot be overtaken by a task that has not started yet.
+        let activation = audioSessionManager.requestActive(true)
+        audioStartTask = Task { [weak self] in
+            let report = await activation.value
+            guard let self, !Task.isCancelled, self.audioGeneration == generation,
+                  self.connectionGeneration == connection else { return }
+            self.audioStartTask = nil
+            guard !self.disconnectIfTimerExpired(now: self.callAccessNow().timeIntervalSince1970),
+                  self.callDisconnectDeadline != nil, self.canStartCalls,
+                  self.canPrepareCallMedia, !self.authenticatedPeerIDs.isEmpty else {
+                self.stopAudioPipeline()
+                return
+            }
+            guard report.result != .ignored(.superseded) else { return }
+            guard self.applyAudioSessionActivationReport(report) else {
+                self.stopAudioPipeline()
+                if resumingDevice { self.reportAudioDeviceRestartFailure() }
+                return
+            }
+            self.callSession.startMedia()
+            guard self.applyCurrentVoiceProcessingConfiguration(), self.startInputCapture(),
+                  self.startOutputRenderer(configuration: .intercomCall), self.rebuildAudioPipeline() else {
+                self.stopAudioPipeline()
+                if resumingDevice { self.reportAudioDeviceRestartFailure() }
+                return
+            }
+            self.inputFrameDelivery?.activate()
+            self.callTicker.start()
+            self.isAudioReady = true
+            if resumingDevice {
+                self.isAudioPausedForDeviceChange = false
+                self.audioRouteNotice = nil
+            }
+            self.connectionState = self.isInternetOnlyCall ? .internetConnected : .localConnected
+            self.markConnectedMembers(peerIDs: self.connectedPeerIDs)
+            self.callSession.setAudioPolicy(self.currentCallAudioPolicy())
+            self.refreshOtherAudioDuckingState()
+            self.publishRuntimePackageReports(force: true)
+            self.audioErrorMessage = nil
+            AppLoggers.audio.info("audio.media.started", metadata: .event("audio.media.started", [
+                "route": "\(self.routeLabel)", "codec": "\(self.selectedTransmitCodec.rawValue)"
+            ]))
+            self.refreshCallAccess()
+            self.recordEstablishedCall()
+        }
     }
 
-    func stopAudioPipeline(deactivateSession: Bool = false) {
+    func stopAudioPipeline() {
         audioGeneration = UUID()
+        audioStartTask?.cancel()
+        audioStartTask = nil
         inputFrameDelivery?.finish()
         inputFrameDelivery = nil
         let wasAudioReady = isAudioReady
@@ -124,9 +145,7 @@ extension IntercomViewModel {
         _ = audioInputCapture.stop()
         _ = audioOutputRenderer.stop()
         if callDisconnectDeadline == nil && (!enforceCallAccess || activeGroupID == nil) { callTicker.stop() }
-        if deactivateSession {
-            _ = try? audioSessionManager.setActive(false)
-        }
+        audioSessionManager.requestActive(false)
         isAudioReady = false
         publishRuntimePackageReports(force: true)
         if wasAudioReady {
@@ -244,28 +263,26 @@ extension IntercomViewModel {
         }
     }
 
-    func configureAudioSession(active: Bool) -> Bool {
+    func applyAudioSessionActivationReport(_ report: AudioSessionOperationReport) -> Bool {
+        guard report.result != .ignored(.superseded) else { return false }
+        lastAudioSessionActivationReport = report
+        guard report.result.isContinuable else {
+            audioErrorMessage = "Audio session activation failed"
+            publishRuntimePackageReports(force: true)
+            AppLoggers.audio.error("audio.session.failed", metadata: .event("audio.session.failed", [
+                "operation": "setActive", "isRecoverable": "true"
+            ]))
+            return false
+        }
+        return true
+    }
+
+    func configureAudioSession() -> Bool {
         do {
             let report = try audioSessionManager.configure(makeAudioSessionConfiguration())
             lastAudioSessionConfigurationReport = report
             if let snapshot = report.snapshot {
                 applyAudioSessionSnapshot(snapshot)
-            }
-            if active {
-                let activeReport = try audioSessionManager.setActive(true)
-                lastAudioSessionActivationReport = activeReport
-                guard activeReport.result.isContinuable else {
-                    audioErrorMessage = "Audio session activation failed"
-                    publishRuntimePackageReports(force: true)
-                    AppLoggers.audio.error(
-                        "audio.session.failed",
-                        metadata: .event("audio.session.failed", [
-                            "operation": "setActive",
-                            "isRecoverable": "true"
-                        ])
-                    )
-                    return false
-                }
             }
             guard report.operations.allSatisfy(\.result.isContinuable) else {
                 audioErrorMessage = "Audio session configuration failed"
@@ -370,9 +387,9 @@ extension IntercomViewModel {
 private extension SessionManager.AudioSessionOperationResult {
     var isContinuable: Bool {
         switch self {
-        case .applied, .ignored(_):
+        case .applied, .ignored(.unsupportedOnCurrentPlatform), .ignored(.unsupportedSelection), .ignored(.unavailableDevice):
             true
-        case .failed(_):
+        case .ignored(.superseded), .failed(_):
             false
         }
     }
