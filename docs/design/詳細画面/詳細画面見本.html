@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RideCom 詳細画面見本</title>
+<!--
+  RideCom の詳細表示（Advanced）の診断・通話・設定画面の見本。実装前。iPhone が主な端末。
+  定義の正本: 診断と詳細画面の構成.md（同じディレクトリ）
+  一般向け画面の見本は ../一般向け/デザイン見本.html。こちらとは混ぜない。
+  画面内の文字は英語のみ。数値は説明用の例で、実装では package の runtime snapshot と report の値をそのまま表示する。
+-->
+<style>
+:root {
+  color-scheme: light;
+  --accent: #1584CC; --ok: #2FA86E; --warn: #E8930C; --err: #E5484D; --idle: #8A9099; --voice: #0BA59B;
+  --bg: #F2F4F7; --card: #FFFFFF; --line: #E2E6EC; --sub: #F6F8FA;
+  --label: #10161F; --label2: #5B6472; --label3: #98A0AB; --page: #FBFCFE;
+}
+:root[data-scheme="dark"] {
+  color-scheme: dark;
+  --accent: #2F95DC; --ok: #3CC98F; --warn: #FFB340; --err: #FF6B6B; --idle: #7D8590; --voice: #5BF3E2;
+  --bg: #0B0F15; --card: #151B24; --line: #263040; --sub: #1B2330;
+  --label: #EEF2F6; --label2: #A3ADBA; --label3: #6C7684; --page: #0A0E14;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--label); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px 80px; }
+svg.i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -2px; }
+.gearbody { fill: currentColor; stroke: none; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.num { font-variant-numeric: tabular-nums; }
+
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 12px; flex-wrap: wrap; }
+.top b { font-size: 17px; }
+.top nav { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.top nav a { color: var(--label2); text-decoration: none; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+.seg { display: inline-flex; background: rgba(118,118,128,.14); border-radius: 9px; padding: 2px; }
+.seg button { border: 0; background: transparent; color: var(--label); font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.15); font-weight: 600; }
+h1 { font-size: 26px; margin: 34px 0 6px; }
+h2 { font-size: 20px; margin: 50px 0 4px; }
+.lead, .note { color: var(--label2); max-width: 840px; margin: 0; }
+.note { font-size: 12.5px; }
+a { color: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; font-size: 12.5px; color: var(--label2); }
+
+/* ---------- 状態 ---------- */
+.d { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; vertical-align: 0; }
+.d.ok { background: var(--ok); } .d.warn { background: var(--warn); } .d.err { background: var(--err); } .d.idle { border: 1.5px dashed var(--idle); } .d.na { background: var(--idle); }
+.ok-t { color: var(--ok); } .warn-t { color: var(--warn); } .err-t { color: var(--err); } .idle-t { color: var(--label3); }
+
+/* ---------- iPhone ---------- */
+.gallery { display: flex; flex-wrap: wrap; gap: 26px 22px; margin-top: 14px; align-items: flex-start; }
+figure { margin: 0; }
+figcaption { margin-top: 10px; font-size: 12.5px; color: var(--label2); max-width: 300px; line-break: strict; word-break: auto-phrase; }
+figcaption b { color: var(--label); display: block; font-size: 13px; }
+.phone { width: 300px; height: 650px; border-radius: 48px; padding: 9px; background: #1B1D21; box-shadow: 0 18px 40px rgba(14,34,56,.2), inset 0 0 0 1.5px #3A3D44; }
+.phone.tall { height: auto; }
+.screen { position: relative; height: 100%; border-radius: 40px; overflow: hidden; background: var(--bg); color: var(--label); font-size: 11px; line-height: 1.35; }
+.phone.tall .screen { height: auto; padding-bottom: 84px; }
+.sbar { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 6px 26px 0 30px; font-weight: 600; font-size: 12.5px; }
+.sbar .island { position: absolute; left: 50%; top: 10px; width: 92px; height: 26px; margin-left: -46px; background: #000; border-radius: 20px; }
+.ptitle { font-size: 21px; font-weight: 700; padding: 2px 14px 6px; }
+.pseg { display: flex; margin: 0 10px 8px; background: var(--line); border-radius: 8px; padding: 2px; font-size: 10px; font-weight: 600; }
+.pseg span { flex: 1; text-align: center; padding: 4px 0; border-radius: 6px; color: var(--label2); }
+.pseg span.on { background: var(--card); color: var(--label); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.pbody { padding: 0 10px 84px; display: grid; gap: 7px; }
+.phone.tall .pbody { padding-bottom: 0; }
+.card { background: var(--card); border-radius: 11px; border: 1px solid var(--line); padding: 7px 9px; }
+.hd { font-size: 9.5px; color: var(--label2); font-weight: 700; letter-spacing: .02em; text-transform: uppercase; padding: 3px 4px 0; display: flex; justify-content: space-between; }
+.hd span { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.vline { display: flex; gap: 6px; align-items: baseline; padding: 2px 0; }
+.vline b { font-size: 12px; }
+.vline .r { color: var(--label2); }
+.dots { display: flex; flex-wrap: wrap; gap: 3px 9px; padding: 3px 0; }
+.dots span { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
+.dots .lab { font-weight: 700; width: 52px; }
+.row { display: grid; grid-template-columns: 58px 1fr auto; gap: 1px 6px; padding: 4px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.row:last-child { border-bottom: 0; }
+.row .k { color: var(--label2); white-space: nowrap; }
+.row .v { min-width: 0; }
+.row .x { text-align: right; white-space: nowrap; }
+.row .x b { font-size: 11.5px; }
+.row.dim { opacity: .45; }
+.row.cur { background: color-mix(in srgb, var(--err) 9%, transparent); border-radius: 6px; padding-inline: 4px; }
+.sub { color: var(--label3); font-size: 9.5px; }
+.pill { display: inline-flex; gap: 3px; align-items: center; font-size: 9px; font-weight: 600; padding: 0 5px; border-radius: 5px; background: var(--sub); border: 1px solid var(--line); white-space: nowrap; }
+.nest { margin: 0 0 3px 10px; padding-left: 8px; border-left: 1.5px solid var(--line); display: grid; gap: 1px; }
+.nest .row { grid-template-columns: 82px 1fr auto; border-bottom: 0; padding: 2px 0; }
+.nest.routes .row { grid-template-columns: 56px 1fr auto; }
+.btns { display: flex; flex-wrap: wrap; gap: 4px; }
+.btns span { font-size: 9.5px; font-weight: 600; padding: 4px 7px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--accent); }
+.meter { display: inline-block; width: 40px; height: 5px; border-radius: 3px; background: var(--line); position: relative; vertical-align: middle; }
+.meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--voice); }
+
+/* 合流する木 */
+.tree { position: relative; padding-left: 14px; display: grid; gap: 6px; }
+.tree::before { content: ""; position: absolute; left: 5px; top: 12px; bottom: 15px; border-left: 2px solid var(--accent); opacity: .55; }
+.tree > .card { position: relative; }
+.tree > .card::before { content: ""; position: absolute; left: -10px; top: 12px; width: 9px; border-top: 2px solid var(--accent); opacity: .55; }
+.tree > .card.off::before { border-top-style: dashed; opacity: .35; }
+.blk-h { display: flex; gap: 5px; align-items: baseline; padding-bottom: 3px; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+.blk-h b { font-size: 12px; }
+.blk-h .r { margin-left: auto; color: var(--label2); font-size: 10px; white-space: nowrap; }
+.blk .row { grid-template-columns: 46px 1fr; }
+.card.off { opacity: .5; }
+.merge { position: relative; display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); font-weight: 700; }
+.merge::before { content: ""; position: absolute; left: -10px; top: 50%; width: 9px; border-top: 2px solid var(--accent); opacity: .55; }
+.merge .r { margin-left: auto; font-weight: 600; color: var(--label2); font-size: 10px; }
+.down { text-align: center; color: var(--label3); font-size: 11px; line-height: 1; }
+
+.tabbar { position: absolute; left: 14px; right: 14px; bottom: 16px; height: 52px; border-radius: 26px; display: flex; justify-content: space-around; align-items: center; background: color-mix(in srgb, var(--card) 85%, transparent); border: 1px solid var(--line); backdrop-filter: blur(14px); }
+.tab { display: grid; justify-items: center; font-size: 9.5px; font-weight: 600; color: var(--label2); gap: 1px; }
+.tab svg { font-size: 17px; }
+.tab { font-size: 8.5px !important; }
+.tab.on { color: var(--accent); }
+
+/* 通話・設定 */
+.frow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); min-height: 32px; }
+.frow:last-child { border-bottom: 0; }
+.frow .g { flex: 1; min-width: 0; font-size: 11.5px; }
+.frow .tail { color: var(--label2); }
+.foot { font-size: 9.5px; color: var(--label2); padding: 0 6px; }
+.toggle { width: 34px; height: 21px; border-radius: 11px; background: var(--ok); position: relative; flex: none; }
+.toggle::after { content: ""; position: absolute; right: 2px; top: 2px; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.toggle.off { background: var(--line); } .toggle.off::after { right: auto; left: 2px; }
+.btn { display: flex; justify-content: center; align-items: center; height: 34px; border-radius: 17px; font-weight: 700; font-size: 12px; }
+.btn.danger { background: var(--err); color: #fff; } .btn.gl { background: var(--card); border: 1px solid var(--line); color: var(--accent); }
+.circle { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; background: var(--card); border: 1px solid var(--line); flex: none; }
+.slider { display: flex; align-items: center; gap: 6px; color: var(--label2); }
+.slider .track { flex: 1; height: 5px; border-radius: 3px; background: var(--line); position: relative; }
+.slider .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
+.slider .track b { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.slider .track u { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: var(--label3); }
+.bigmeter { position: relative; height: 10px; border-radius: 5px; background: var(--line); margin: 4px 0 13px; }
+.bigmeter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--voice); }
+.bigmeter .mk { position: absolute; top: -3px; bottom: -3px; width: 2px; }
+.bigmeter .mk span { position: absolute; top: 13px; left: 50%; transform: translateX(-50%); font-size: 8.5px; white-space: nowrap; color: var(--label2); }
+.seg2 { display: flex; background: var(--line); border-radius: 7px; padding: 2px; font-size: 10px; margin: 4px 0; }
+.seg2 span { flex: 1; text-align: center; padding: 3px 0; border-radius: 5px; }
+.seg2 span.on { background: var(--card); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="mic-slash" viewBox="0 0 24 24"><path d="M15 9.5V6a3 3 0 0 0-5.8-1.1M9 9v2a3 3 0 0 0 4.9 2.3M18.5 11a6.5 6.5 0 0 1-1 3.5M5.5 11a6.5 6.5 0 0 0 10 5.5M12 17.5V21M8.5 21h7M3.5 3.5l17 17"/></symbol>
+  <symbol id="speaker" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="phone" viewBox="0 0 24 24"><path d="M5 3h3l2 5-2.5 1.5a11 11 0 0 0 7 7L16 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="gauge" viewBox="0 0 24 24"><path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 17 4-6"/></symbol>
+  
+<symbol id="gear" viewBox="0 0 24 24"><path class="gearbody" fill-rule="evenodd" d="M9.43 4.53 L9.88 2.02 L14.12 2.02 L14.57 4.53 L15.46 4.90 L17.56 3.45 L20.55 6.44 L19.10 8.54 L19.47 9.43 L21.98 9.88 L21.98 14.12 L19.47 14.57 L19.10 15.46 L20.55 17.56 L17.56 20.55 L15.46 19.10 L14.57 19.47 L14.12 21.98 L9.88 21.98 L9.43 19.47 L8.54 19.10 L6.44 20.55 L3.45 17.56 L4.90 15.46 L4.53 14.57 L2.02 14.12 L2.02 9.88 L4.53 9.43 L4.90 8.54 L3.45 6.44 L6.44 3.45 L8.54 4.90 Z M15.3 12a3.3 3.3 0 1 0-6.6 0a3.3 3.3 0 1 0 6.6 0Z"/></symbol>
+  <symbol id="person2" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 13.5a6.5 6.5 0 0 1 3.5 6"/></symbol>
+  <symbol id="person3" viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="3"/><circle cx="5.5" cy="10" r="2.3"/><circle cx="18.5" cy="10" r="2.3"/><path d="M7 19.5a5 5 0 0 1 10 0M1.5 18.5a4 4 0 0 1 5-3.7M22.5 18.5a4 4 0 0 0-5-3.7"/></symbol>
+</defs></svg>
+
+<style>
+/* 構成図（グループ > セクション > 項目） */
+.pair { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+.outline { flex: 1 1 320px; max-width: 460px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 12.5px; }
+.outline h4 { margin: 0 0 8px; font-size: 13px; }
+.og { border-left: 4px solid var(--gc); padding: 4px 0 6px 10px; margin-bottom: 10px; }
+.og > b { display: block; font-size: 12.5px; }
+.og ol { margin: 4px 0 0; padding-left: 18px; }
+.og li { margin: 2px 0; }
+.og li span { color: var(--label2); font-size: 11.5px; }
+.g1 { --gc: #1584CC; } .g2 { --gc: #2FA86E; } .g3 { --gc: #8E6CEF; } .g4 { --gc: #E8930C; } .g5 { --gc: #E5484D; } .g6 { --gc: #8A9099; }
+.gdot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--gc); margin-right: 4px; vertical-align: 0; }
+.fhd { font-size: 9.5px; color: var(--label2); font-weight: 600; text-transform: uppercase; letter-spacing: .02em; padding: 6px 4px 2px; }
+.gsep { height: 10px; }
+.redtext { color: var(--err); }
+.linkt { color: var(--accent); }
+.chev { color: var(--label3); }
+.field { color: var(--label3); }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <b>RideCom 詳細画面見本</b>
+    <nav>
+      <a href="#diag">診断</a>
+      <a href="#stopped">停止の例</a>
+      <a href="#call">通話・ユーザー・グループ</a>
+      <a href="#settings">設定（詳細）</a>
+    </nav>
+    <div class="seg" role="group" aria-label="外観">
+      <button type="button" data-set="light" aria-pressed="true">ライト</button>
+      <button type="button" data-set="dark" aria-pressed="false">ダーク</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>相手ごとの条件が、1つのミックスへ合流するまで</h1>
+  <p class="lead">詳細表示（Advanced）の見本。主な端末はiPhone。画面内は英語のみで、語は現行コードの表示語（<code>Live TX Pipeline</code>、<code>TX Bus</code>、<code>Peer Buses</code>、<code>Mix Down</code>、<code>RX Master</code>、<code>Connect</code>、<code>Participants</code>など）に合わせ、説明は現行の注記程度に留める。定義の正本は <a href="診断と詳細画面の構成.md">診断と詳細画面の構成</a>。数値は説明用の例。</p>
+  <div class="legend">
+    <span><span class="d ok"></span> Running（passing）</span>
+    <span><span class="d warn"></span> Waiting（waiting・理由を併記）</span>
+    <span><span class="d err"></span> Blocked（blocked・理由と次の操作を併記）</span>
+    <span><span class="d idle"></span> Idle（idle・上流が止まって未到達も含む）</span>
+    <span><span class="d na"></span> Unsupported（非対応）</span>
+  </div>
+
+  <h2 id="diag">診断（Diagnostics）</h2>
+  <p class="note">例: グループ通話中。Harukaは近距離で直接、KentaはHaruka経由の中継で低帯域のOpus、MikaはインターネットでPCMへフォールバック、Yuは未接続。相手ごとに送信条件と自分側の設定がばらばらな状態。</p>
+  <div class="gallery">
+
+    <!-- Overview -->
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Diagnostics</div>
+        <div class="pseg"><span class="on">Overview</span><span>TX</span><span>RX</span><span>Network</span><span>Applied</span></div>
+        <div class="pbody">
+          <div class="card">
+            <div class="vline"><span class="d ok"></span><b>TX: Running</b></div>
+            <div class="vline" style="padding-left:14px;color:var(--label2)">100 packets/s · Local + Internet</div>
+            <div class="vline"><span class="d ok"></span><b>RX: Running</b></div>
+            <div class="vline" style="padding-left:14px;color:var(--label2)">2 of 3 connected participants speaking</div>
+          </div>
+          <div class="hd">Pipeline</div>
+          <div class="card">
+            <div class="dots"><span class="lab">TX</span><span><span class="d ok"></span>Session</span><span><span class="d ok"></span>Input</span><span><span class="d ok"></span>VAD</span><span><span class="d ok"></span>TX Bus</span><span><span class="d ok"></span>Codec</span><span><span class="d ok"></span>RTC</span></div>
+            <div class="dots" style="border-top:1px solid var(--line);margin-top:3px;padding-top:5px"><span class="lab">RX</span><span><span class="d ok"></span>RTC RX</span><span><span class="d ok"></span>Decode</span><span><span class="d ok"></span>Peer Buses</span><span><span class="d ok"></span>Mix Down</span><span><span class="d ok"></span>RX Master</span><span><span class="d ok"></span>Master FX</span><span><span class="d ok"></span>Output</span></div>
+          </div>
+          <div class="hd">Participants <span>4 members</span></div>
+          <div class="card">
+            <div class="row"><b>Haruka</b><span class="v">Local · direct</span><span class="x num"><span class="d ok"></span> RX <b>100</b>/s</span></div>
+            <div class="row"><b>Kenta</b><span class="v">Local · relayed</span><span class="x"><span class="d warn"></span> Not speaking</span></div>
+            <div class="row"><b>Mika</b><span class="v">Internet</span><span class="x num"><span class="d ok"></span> RX <b>100</b>/s · 3 dropped</span></div>
+            <div class="row dim"><b>Yu</b><span class="v">—</span><span class="x"><span class="d idle"></span> Offline</span></div>
+          </div>
+          <div class="hd">Network</div>
+          <div class="card">
+            <div class="row"><b>Local</b><span class="v">2 participants</span><span class="x"><span class="d ok"></span> RTT Not available</span></div>
+            <div class="row"><b>Internet</b><span class="v">1 participant</span><span class="x num"><span class="d ok"></span> RTT 42 ms</span></div>
+          </div>
+          <div class="btns"><span>Others can't hear me</span><span>I can't hear someone</span><span>Audio drops out</span><span>Audio is delayed</span></div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>Overview（スクロール全体）</b>判定2行、Live TX／RX Pipelineの全段を状態ドットで1行ずつ、ParticipantsとNetworkを1行ずつ。ここだけで全体を一覧できる。</figcaption>
+    </figure>
+
+    <!-- TX -->
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Diagnostics</div>
+        <div class="pseg"><span>Overview</span><span class="on">TX</span><span>RX</span><span>Network</span><span>Applied</span></div>
+        <div class="pbody">
+          <div class="hd">Live TX Pipeline</div>
+          <div class="card">
+            <div class="row"><span class="k"><span class="d ok"></span> Session</span><span class="v">Burst mode · Active</span><span class="x"></span></div>
+            <div class="row"><span class="k"><span class="d ok"></span> Input</span><span class="v">AirPods Pro · 48 kHz mono</span><span class="x num"><b>48,000</b> frames/s</span></div>
+            <div class="row"><span class="k"><span class="d ok"></span> VAD</span><span class="v">Speech · Standard<div class="sub num">Noise floor −52 dBFS · Threshold −40 dBFS</div></span><span class="x"></span></div>
+            <div class="row" style="border-bottom:0"><span class="k"><span class="d ok"></span> TX Bus</span><span class="v"><span class="sub mono">tx-bus</span> · 1 source · 3 effects</span><span class="x"></span></div>
+            <div class="nest">
+              <div class="sub" style="font-weight:600">TX Bus Effects</div>
+              <div class="row"><span class="k">SoundIsolation</span><span class="v"></span><span class="x ok-t">Active</span></div>
+              <div class="row"><span class="k">DynamicsProcessor</span><span class="v"></span><span class="x ok-t">Active</span></div>
+              <div class="row"><span class="k">PeakLimiter</span><span class="v"></span><span class="x ok-t">Active</span></div>
+            </div>
+            <div class="row" style="border-top:1px solid var(--line)"><span class="k"><span class="d ok"></span> Codec</span><span class="v">AAC-ELD · 48 kHz · 48 kbps</span><span class="x num"><b>100</b> packets/s</span></div>
+            <div class="row" style="border-bottom:0"><span class="k"><span class="d ok"></span> RTC</span><span class="v">Local + Internet / Relay</span><span class="x num">TX <b>100</b>/s</span></div>
+            <div class="nest routes">
+              <div class="row"><span class="k"><span class="d ok"></span> Local</span><span class="v">Haruka · direct<div>Kenta · relayed by Haruka</div></span><span class="x"></span></div>
+              <div class="row"><span class="k"><span class="d ok"></span> Internet</span><span class="v">Mika<div class="sub num">Send queue 1.2 KB</div></span><span class="x"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>TX（Live TX Pipeline）</b>Session → Input → VAD → TX Bus → Codec → RTC。TX Busの中のeffect（packageのstage名のまま）と、RTCから経路ごとへの分岐を入れ子で示す。</figcaption>
+    </figure>
+
+    <!-- RX (tall) -->
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Diagnostics</div>
+        <div class="pseg"><span>Overview</span><span>TX</span><span class="on">RX</span><span>Network</span><span>Applied</span></div>
+        <div class="pbody">
+          <div class="hd">Live RX Pipeline <span>3 peer buses · 1 offline</span></div>
+          <div class="tree">
+            <div class="card blk">
+              <div class="blk-h"><span class="d ok"></span><b>Haruka</b><span class="ok-t" style="font-weight:600">Running</span><span class="r">Local · direct</span></div>
+              <div class="row"><span class="k">Sender</span><span class="v">AAC-ELD · 48 kHz · 48 kbps<div class="sub">Unmuted · Speech · SoundIsolation active</div></span></div>
+              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · authenticated</span></div>
+              <div class="row"><span class="k">Decode</span><span class="v num">AAC-ELD · RX <b>100</b>/s · 0 dropped</span></div>
+              <div class="row"><span class="k">Peer Bus</span><span class="v num">Volume 100% · Jitter buffer 24 ms<div class="sub">SoundIsolation bypassed <span class="meter"><i style="width:70%"></i></span></div></span></div>
+            </div>
+            <div class="card blk">
+              <div class="blk-h"><span class="d warn"></span><b>Kenta</b><span class="warn-t" style="font-weight:600">Waiting</span><span class="r">Local · relayed by Haruka</span></div>
+              <div class="row"><span class="k">Sender</span><span class="v">Opus · 24 kHz · 32 kbps <span class="pill">Lower Quality</span><div class="sub">Unmuted · Silence · SoundIsolation bypassed</div></span></div>
+              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · authenticated</span></div>
+              <div class="row"><span class="k">Decode</span><span class="v num">Opus · RX 0/s · Not speaking</span></div>
+              <div class="row"><span class="k">Peer Bus</span><span class="v num">Volume 80% · Jitter buffer 4 ms<div class="sub">SoundIsolation active <span class="meter"></span></div></span></div>
+            </div>
+            <div class="card blk">
+              <div class="blk-h"><span class="d ok"></span><b>Mika</b><span class="ok-t" style="font-weight:600">Running</span><span class="r">Internet</span></div>
+              <div class="row"><span class="k">Sender</span><span class="v">AAC-ELD → PCM 16-bit · 16 kHz <span class="pill warn-t">Fallback</span><div class="sub">Unmuted · Speech · SoundIsolation unsupported · 3 s ago</div></span></div>
+              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · authenticated<div class="sub">Local unavailable</div></span></div>
+              <div class="row"><span class="k">Decode</span><span class="v num">PCM 16-bit · RX <b>100</b>/s · <span class="warn-t">3 dropped</span></span></div>
+              <div class="row"><span class="k">Peer Bus</span><span class="v num">Volume 60% · Jitter buffer 62 ms<div class="sub">SoundIsolation bypassed <span class="meter"><i style="width:45%"></i></span></div></span></div>
+            </div>
+            <div class="card blk off">
+              <div class="blk-h" style="border-bottom:0;margin:0;padding:0"><span class="d idle"></span><b>Yu</b><span class="r">Offline</span></div>
+            </div>
+            <div class="merge"><span>Mix Down</span><span class="r">3 routes → rx-master</span></div>
+          </div>
+          <div class="down">↓</div>
+          <div class="card">
+            <div class="row" style="border-bottom:0"><span class="k"><span class="d ok"></span> RX Master</span><span class="v"><span class="sub mono">rx-master</span> · 3 in · OUT 120% <span class="pill">Boost</span></span><span class="x num"><b>48,000</b> frames/s</span></div>
+            <div class="nest">
+              <div class="sub" style="font-weight:600">Master FX</div>
+              <div class="row"><span class="k">SoundIsolation</span><span class="v"></span><span class="x idle-t">Bypassed</span></div>
+              <div class="row"><span class="k">Master fader</span><span class="v"></span><span class="x num">120% · Unmuted</span></div>
+              <div class="row"><span class="k">PeakLimiter</span><span class="v"><span class="sub mono">rx-output</span></span><span class="x ok-t">Active</span></div>
+            </div>
+            <div class="row" style="border-top:1px solid var(--line)"><span class="k"><span class="d ok"></span> Output</span><span class="v">AirPods Pro · 48 kHz stereo<div class="sub">Buffered 20 ms · 0 resets</div></span><span class="x"><span class="meter"><i style="width:62%"></i></span></span></div>
+          </div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>RX（Live RX Pipeline・スクロール全体）</b>相手ごとに Sender（相手の端末の条件）→ RTC RX → Decode → Peer Bus（自分側の設定）を入れ子で並べ、左の線が Mix Down へ合流し、RX Master → Master FX → Output へ続く。</figcaption>
+    </figure>
+
+    <!-- Network -->
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Diagnostics</div>
+        <div class="pseg"><span>Overview</span><span>TX</span><span>RX</span><span class="on">Network</span><span>Applied</span></div>
+        <div class="pbody">
+          <div class="hd">Local <span>Updated 2 s ago</span></div>
+          <div class="card">
+            <div class="row"><span class="k">RTT</span><span class="v">Not available</span><span class="x"></span></div>
+            <div class="row"><span class="k">Send queue</span><span class="v num">0 B</span><span class="x"></span></div>
+            <div class="row"><span class="k">Event drops</span><span class="v num">Overflow 0 · Expired 0</span><span class="x"></span></div>
+          </div>
+          <div class="hd">Internet <span>Updated 2 s ago</span></div>
+          <div class="card">
+            <div class="row"><span class="k">RTT</span><span class="v num">42 ms</span><span class="x"></span></div>
+            <div class="row"><span class="k">Loss</span><span class="v num">0.4% · Jitter 6 ms</span><span class="x"></span></div>
+            <div class="row"><span class="k">Send queue</span><span class="v num">1.2 KB</span><span class="x"></span></div>
+            <div class="row"><span class="k">Event drops</span><span class="v num">Overflow 0 · <span class="warn-t">Expired 2</span></span><span class="x"></span></div>
+          </div>
+          <div class="hd">Paths</div>
+          <div class="card">
+            <div class="row"><b>Haruka</b><span class="v">Direct group path</span><span class="x sub mono">1a2b3c4d</span></div>
+            <div class="row"><b>Kenta</b><span class="v">Relayed</span><span class="x sub mono">5e6f7a8b → 1a2b3c4d</span></div>
+            <div class="row"><b>Mika</b><span class="v">Direct group path</span><span class="x sub mono">9c0d1e2f</span></div>
+          </div>
+          <div class="foot">RTT measures this device's ICE connection, not audio delay. Event drops occur inside this device. Paths show the last authenticated reception, not guaranteed reachability.</div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>Network</b>現行の1つの長文を、経路（Local・Internet）ごとのカードと相手ごとのPathへ分ける。注記は現行の文をそのまま使う。</figcaption>
+    </figure>
+
+    <!-- Applied -->
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Diagnostics</div>
+        <div class="pseg"><span>Overview</span><span>TX</span><span>RX</span><span>Network</span><span class="on">Applied</span></div>
+        <div class="pbody">
+          <div class="hd">Requested → Applied</div>
+          <div class="card">
+            <div class="row"><span class="k">Codec</span><span class="v">AAC-ELD · 48 kHz · 48 kbps</span><span class="x ok-t">Same</span></div>
+            <div class="row"><span class="k">Session</span><span class="v">Burst mode<div class="sub">playAndRecord · default · echo cancellation</div></span><span class="x ok-t">Same</span></div>
+            <div class="row"><span class="k">IO buffer</span><span class="v num">5 ms → 10 ms</span><span class="x warn-t">⚠ Differs</span></div>
+            <div class="row"><span class="k">Unsupported</span><span class="v">None</span><span class="x"></span></div>
+            <div class="row"><span class="k">Ducking</span><span class="v">Enabled → Active</span><span class="x ok-t">Same</span></div>
+            <div class="row"><span class="k">Isolation</span><span class="v">Transmit on · Master off<div class="sub">Active · Bypassed</div></span><span class="x ok-t">Same</span></div>
+            <div class="row"><span class="k">VAD</span><span class="v">Standard<div class="sub num">Threshold −40 dBFS · Noise floor −52 dBFS</div></span><span class="x"></span></div>
+            <div class="row"><span class="k">Devices</span><span class="v">Auto → AirPods Pro</span><span class="x"></span></div>
+          </div>
+          <div class="hd">Call</div>
+          <div class="card">
+            <div class="row"><span class="k">State</span><span class="v">Connected</span><span class="x"></span></div>
+            <div class="row"><span class="k">Group</span><span class="v">Weekend Touring <span class="sub mono">3f9a…</span></span><span class="x"></span></div>
+            <div class="row"><span class="k">Members</span><span class="v num">4 · 3 connected · 3 authenticated</span><span class="x"></span></div>
+            <div class="row"><span class="k">Invite</span><span class="v">Ready</span><span class="x"></span></div>
+          </div>
+          <div class="hd">Internet Service</div>
+          <div class="card">
+            <div class="row"><span class="k">Status</span><span class="v">Authenticated</span><span class="x"></span></div>
+            <div class="row" style="border-bottom:0"><span class="k"></span><span class="v linkt" style="font-weight:600">Check Internet Service</span><span class="x"></span></div>
+          </div>
+          <div class="foot">Checks configuration and device authorization without starting a call. Audio Check in Settings tests this device's microphone and speaker.</div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>Applied</b>設定の要求値と実際の値を並べ、違う行だけ⚠。Call と Internet Service の確認（現行の文言のまま）もここ。</figcaption>
+    </figure>
+  </div>
+
+  <h2 id="stopped">停止の例</h2>
+  <p class="note">使用中のAirPodsが切断された場合。最初に止まった段だけを赤で示し、下流は Idle として薄くする。下流の0を故障に見せない。</p>
+  <div class="gallery">
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Diagnostics</div>
+        <div class="pseg"><span class="on">Overview</span><span>TX</span><span>RX</span><span>Network</span><span>Applied</span></div>
+        <div class="pbody">
+          <div class="card" style="border-color:var(--err)">
+            <div class="vline"><span class="d err"></span><b>TX: Blocked at Input</b></div>
+            <div class="vline" style="padding-left:14px;color:var(--label2)">Audio device disconnected. Your microphone and playback are paused; the group connection and relay continue. Check your audio device, then resume.</div>
+            <div class="vline"><span class="d idle"></span><b>RX: Idle</b></div>
+            <div class="vline" style="padding-left:14px;color:var(--label2)">Connected / Audio Paused</div>
+          </div>
+          <div class="hd">Pipeline</div>
+          <div class="card">
+            <div class="dots"><span class="lab">TX</span><span><span class="d ok"></span>Session</span><span class="err-t"><span class="d err"></span>Input</span><span class="idle-t"><span class="d idle"></span>VAD</span><span class="idle-t"><span class="d idle"></span>TX Bus</span><span class="idle-t"><span class="d idle"></span>Codec</span><span><span class="d ok"></span>RTC</span></div>
+            <div class="dots" style="border-top:1px solid var(--line);margin-top:3px;padding-top:5px"><span class="lab">RX</span><span><span class="d ok"></span>RTC RX</span><span class="idle-t"><span class="d idle"></span>Decode</span><span class="idle-t"><span class="d idle"></span>Peer Buses</span><span class="idle-t"><span class="d idle"></span>Mix Down</span><span class="idle-t"><span class="d idle"></span>RX Master</span><span class="idle-t"><span class="d idle"></span>Master FX</span><span class="idle-t"><span class="d idle"></span>Output</span></div>
+          </div>
+          <div class="hd">Live TX Pipeline</div>
+          <div class="card">
+            <div class="row"><span class="k"><span class="d ok"></span> Session</span><span class="v">Burst mode · Active</span><span class="x"></span></div>
+            <div class="row cur"><span class="k err-t"><span class="d err"></span> Input</span><span class="v">AirPods Pro disconnected<div class="sub mono">oldDeviceUnavailable</div></span><span class="x err-t">Blocked</span></div>
+            <div class="row dim"><span class="k">VAD</span><span class="v">—</span><span class="x">Idle</span></div>
+            <div class="row dim"><span class="k">TX Bus</span><span class="v">—</span><span class="x">Idle</span></div>
+            <div class="row dim"><span class="k">Codec</span><span class="v">—</span><span class="x num">0 packets/s</span></div>
+            <div class="row"><span class="k"><span class="d ok"></span> RTC</span><span class="v">Local + Internet / Relay · Audio Paused</span><span class="x"></span></div>
+          </div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>機器の切断</b>判定で止まった段（Input）と次の操作が分かる。接続と中継は維持（Connected / Audio Paused）。</figcaption>
+    </figure>
+  </div>
+
+  <h2 id="call">通話・ユーザー・グループ（Advanced）</h2>
+  <p class="note">タブは一般向けと同じく Call／Users／Groups に分け、Diagnostics と Settings を加えた5つにする。中身は詳細表示のまま。通話は相手が1人でも内部ではグループ（kind: direct）なので、Call では常にグループの実体（種類・ID・自分を含むメンバー）として見せる。</p>
+  <div class="gallery">
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Weekend Touring</div>
+        <div class="pbody">
+          <div class="hd">Call status</div>
+          <div class="card">
+            <div class="vline"><span class="d ok"></span><b>Connected</b></div>
+            <div class="vline" style="padding-left:14px;color:var(--label2)">Local + Internet / Relay · 3 connected · 3 authenticated</div>
+            <div class="row" style="margin-top:4px"><span class="k">Group</span><span class="v">Group · 4 members <span class="sub mono">3f9a2c1e</span></span><span class="x"></span></div>
+            <div style="display:flex;gap:6px;margin-top:6px"><div class="btn danger" style="flex:1">Disconnect</div><div class="btn gl" style="flex:1">Add Saved Users</div></div>
+          </div>
+          <div class="hd">Input</div>
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><b>Unmuted</b> <span style="color:var(--label2)">VAD · Speech · Standard</span>
+              <div class="bigmeter"><i style="width:68%"></i><span class="mk" style="left:26%;background:var(--label3)"><span>Noise floor</span></span><span class="mk" style="left:62%;background:var(--warn)"><span>Threshold</span></span></div></div>
+              <span class="circle" aria-label="Mute"><svg class="i"><use href="#mic-slash"/></svg></span></div>
+            <div class="frow"><span class="g">Transmit Voice Isolation Effect</span><span class="toggle"></span></div>
+          </div>
+          <div class="hd">Output</div>
+          <div class="card">
+            <div class="slider"><svg class="i"><use href="#speaker"/></svg><span class="track"><i style="width:60%"></i><u style="left:50%"></u><b style="left:60%"></b></span><span class="num">Output 120%</span></div>
+            <div class="frow"><span class="g">Voice Isolation</span><span class="toggle off"></span></div>
+            <div class="frow"><span class="g">Duck Other Audio</span><span class="tail">Active</span></div>
+          </div>
+          <div class="hd">Participants <span>You + 3</span></div>
+          <div class="card">
+            <div class="row"><b>You</b><span class="v">Naohito · local member</span><span class="x"></span></div>
+            <div class="row"><b>Haruka</b><span class="v">Connected · authenticated · AAC-ELD</span><span class="x num">100%</span></div>
+            <div class="row"><b>Kenta</b><span class="v">Connected · authenticated · Opus</span><span class="x num">80%</span></div>
+            <div class="row"><b>Mika</b><span class="v">Connected · authenticated · PCM 16-bit</span><span class="x num">60%</span></div>
+            <div class="row dim"><b>Yu</b><span class="v">Offline</span><span class="x"></span></div>
+          </div>
+        </div>
+        <div class="tabbar"><span class="tab on"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>Call：グループ通話</b>Call status → Input → Output → Participants。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Haruka</div>
+        <div class="pbody">
+          <div class="hd">Call status</div>
+          <div class="card">
+            <div class="vline"><span class="d ok"></span><b>Connected</b></div>
+            <div class="vline" style="padding-left:14px;color:var(--label2)">Local / Relay available · 1 connected · 1 authenticated</div>
+            <div class="row" style="margin-top:4px"><span class="k">Group</span><span class="v">Direct · 2 members <span class="sub mono">7c1e90ab</span></span><span class="x"></span></div>
+            <div style="display:flex;gap:6px;margin-top:6px"><div class="btn danger" style="flex:1">Disconnect</div><div class="btn gl" style="flex:1">Share Call Invite</div></div>
+          </div>
+          <div class="hd">Input</div>
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><b>Muted</b> <span style="color:var(--label2)">VAD · Silence · Standard</span>
+              <div class="bigmeter"><i style="width:0"></i><span class="mk" style="left:26%;background:var(--label3)"><span>Noise floor</span></span><span class="mk" style="left:62%;background:var(--warn)"><span>Threshold</span></span></div></div>
+              <span class="circle" style="background:var(--err);color:#fff;border-color:var(--err)" aria-label="Mute"><svg class="i"><use href="#mic-slash"/></svg></span></div>
+          </div>
+          <div class="hd">Participants <span>You + 1</span></div>
+          <div class="card">
+            <div class="row"><b>You</b><span class="v">Naohito · local member</span><span class="x"></span></div>
+            <div class="row"><b>Haruka</b><span class="v">Connected · authenticated · AAC-ELD</span><span class="x num">100%</span></div>
+          </div>
+          <div class="foot">This call is a direct group with one saved user. Add Saved Users is not available.</div>
+        </div>
+        <div class="tabbar"><span class="tab on"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>Call：1対1</b>相手が1人でも同じ構成。Group に「Direct · 2 members」と内部グループのIDを出す。操作は現行の direct の契約（Share Call Invite・メンバー追加なし）。</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Users</div>
+        <div class="pbody">
+          <div class="hd">Current Call</div>
+          <div class="card"><div class="row"><b>Weekend Touring</b><span class="v">Group · Connected</span><span class="x linkt">Open</span></div></div>
+          <div class="hd">Saved Users <span>3</span></div>
+          <div class="card">
+            <div class="row"><b>Haruka</b><span class="v">Direct 7c1e90ab · 2 devices · Call requests allowed<div class="sub">Name shared by this person: Haruka</div></span><span class="x"><span class="d ok"></span> Online</span></div>
+            <div class="row"><b>Ken</b><span class="v">Direct 5d22c0f1 · 1 device<div class="sub">Name shared by this person: Kenta</div></span><span class="x"><span class="d idle"></span></span></div>
+            <div class="row"><b>Mika</b><span class="v">No direct group yet<div class="sub">Name shared by this person: Mika</div></span><span class="x"></span></div>
+          </div>
+          <div class="hd">Invited</div>
+          <div class="card"><div class="row"><b>Riku</b><span class="v">Not joined · expires in 6 days</span><span class="x linkt">Share</span></div></div>
+          <div class="foot">Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.</div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab on"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>Users</b>一般向けと同じ一覧に、本人名・内部の direct グループID・端末数・呼び出しの許可などの詳細を足す。行の選択で Call へ（内部グループを解決）。</figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Groups</div>
+        <div class="pbody">
+          <div class="hd">Saved Groups <span>3</span></div>
+          <div class="card">
+            <div class="row"><b>Weekend Touring</b><span class="v">4 members · key ready<div class="sub mono">3f9a2c1e</div></span><span class="x"><span class="d ok"></span> Active</span></div>
+            <div class="row"><b>Hakuba Powder</b><span class="v">6 members · key ready<div class="sub mono">a81b44d0</div></span><span class="x"></span></div>
+            <div class="row"><b>Family Drive</b><span class="v">3 members · <span class="warn-t">key missing</span><div class="sub mono">0c7f3e92</div></span><span class="x"></span></div>
+          </div>
+          <div class="foot">Direct groups for saved users are listed in Users.</div>
+          <div class="card"><div class="frow"><span class="g linkt">Create Talk Group</span></div><div class="frow"><span class="g linkt">Reload Saved Groups</span></div></div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab on"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>Groups</b>通常グループだけを並べ、人数・鍵の状態・短縮ID・通話中を出す。保存の復旧操作（Reload Saved Groups 等）もここ。direct グループは Users 側。</figcaption>
+    </figure>
+  </div>
+
+  <h2 id="settings">設定（Advanced）</h2>
+  <p class="note">リセットまでのスクロール全体。セクション名・項目名は現行コードの語のまま、並びを「アプリと自分 → 通話 → 接続 → 音声（信号の流れの順）→ リセット」のまとまりに整理する。左の色は右の構成図のグループに対応する。</p>
+  <div class="pair">
+    <figure>
+      <div class="phone tall"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
+        <div class="ptitle">Settings</div>
+        <div class="pbody" style="gap:4px">
+          <div class="fhd g1"><span class="gdot"></span>App Layout</div>
+          <div class="card"><div class="seg2"><span class="">Standard</span><span class="on">Advanced</span></div></div>
+          <div class="foot">Advanced includes detailed call information and diagnostics. Switching layouts keeps your call connected.</div>
+          <div class="fhd g1"><span class="gdot"></span>Account</div>
+          <div class="card"><div class="frow"><span class="g">Signed in with Apple</span></div><div class="frow"><span class="g linkt">Sign Out</span></div><div class="frow"><span class="g redtext">Delete Account</span></div></div>
+          <div class="fhd g1"><span class="gdot"></span>Access</div>
+          <div class="card"><div class="frow"><span class="g">Access Status</span><span class="tail">Available</span></div><div class="frow"><span class="g linkt">Restore Purchases</span></div></div>
+          <div class="fhd g1"><span class="gdot"></span>Your Display Name</div>
+          <div class="card"><div class="frow"><span class="g">Naohito</span></div><div class="frow"><span class="g linkt">Save Name</span></div></div>
+          <div class="gsep"></div>
+          <div class="fhd g2"><span class="gdot"></span>Automatic Disconnection</div>
+          <div class="card"><div class="frow"><span class="g">Regular Calls</span><span class="tail">3 hours <span class="chev">⌃</span></span></div><div class="frow"><span class="g">Calls Started from Watch</span><span class="tail">5 minutes <span class="chev">⌃</span></span></div></div>
+          <div class="fhd g2"><span class="gdot"></span>Call Notifications</div>
+          <div class="card"><div class="frow"><span class="g">Notifications are ready on this device.</span></div><div class="frow"><span class="g linkt">Check Notifications</span></div></div>
+          <div class="fhd g2"><span class="gdot"></span>Call status display</div>
+          <div class="card"><div class="frow"><span class="g">Show call status outside the app</span><span class="toggle off"></span></div></div>
+          <div class="gsep"></div>
+          <div class="fhd g3"><span class="gdot"></span>Communication</div>
+          <div class="card"><div class="frow"><span class="g">Local Network</span><span class="toggle"></span></div><div class="frow"><span class="g">Internet</span><span class="toggle"></span></div></div>
+          <div class="fhd g3"><span class="gdot"></span>Internet Connection</div>
+          <div class="card"><div class="frow"><span class="g">Device token configured</span></div><div class="frow"><span class="g linkt">Configure Internet Connection</span></div></div>
+          <div class="gsep"></div>
+          <div class="fhd g4"><span class="gdot"></span>Audio Session</div>
+          <div class="card"><div class="frow"><span class="g">Mode</span><span class="tail">Burst mode <span class="chev">⌃</span></span></div><div class="frow"><span class="g">Use Speaker</span><span class="toggle off"></span></div><div class="frow"><span class="g">Echo Cancellation</span><span class="toggle"></span></div><div class="frow"><span class="g">Duck Other Audio</span><span class="toggle"></span></div></div>
+          <div class="fhd g4"><span class="gdot"></span>Audio I/O</div>
+          <div class="card"><div class="frow"><span class="g">Input</span><span class="tail">Auto <span class="chev">⌃</span></span></div><div class="frow"><span class="g">Output</span><span class="tail">Auto <span class="chev">⌃</span></span></div><div class="frow"><span class="g">Transmit Voice Isolation Effect</span><span class="toggle"></span></div></div>
+          <div class="fhd g4"><span class="gdot"></span>Voice Activity</div>
+          <div class="card"><div style="font-size:11px;padding-top:3px">VAD Sensitivity</div><div class="seg2"><span>Low Noise</span><span class="on">Standard</span><span>Noisy</span></div></div>
+          <div class="fhd g4"><span class="gdot"></span>Transmit Codec</div>
+          <div class="card"><div style="font-size:11px;padding-top:3px">Codec</div><div class="seg2"><span>PCM 16-bit</span><span class="on">AAC-ELD</span><span>Opus</span></div><div style="font-size:11px">Sample Rate</div><div class="seg2"><span class="on">48 kHz</span><span>24 kHz</span><span>16 kHz</span></div><div class="frow"><span class="g">AAC-ELD Bitrate</span><span class="tail">48 kbps <span class="chev">⌃</span></span></div></div>
+          <div class="fhd g4"><span class="gdot"></span>Audio Check</div>
+          <div class="card"><div class="frow"><span class="g">Call</span><span class="tail">Connected</span></div><div class="frow"><span class="g">Audio Check</span><span class="tail">Idle</span></div><div class="frow"><span class="g field">End your call before checking audio.</span></div><div class="frow"><span class="g field">Record 5s and Play</span></div></div>
+          <div class="gsep"></div>
+          <div class="fhd g5"><span class="gdot"></span>Reset Settings</div>
+          <div class="card"><div class="frow"><span class="g redtext">Reset All Settings</span></div></div>
+          <div class="foot">Resets audio and call settings to their default values. Saved groups and members are not changed.</div>
+        </div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab on"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+      </div></div>
+      <figcaption><b>設定（詳細・スクロール全体）</b>グループの切れ目は少し広い余白で区切る。リセットは最後に独立したセクションとして置く。</figcaption>
+    </figure>
+    <div class="outline">
+      <h4>構成（グループ ＞ セクション ＞ 項目）</h4>
+      <div class="og g1"><b>アプリと自分</b><ol>
+        <li>App Layout <span>Standard / Advanced</span></li>
+        <li>Account <span>Signed in with Apple · Sign Out · Delete Account</span></li>
+        <li>Access <span>Access Status · Restore Purchases · View Purchases</span></li>
+        <li>Your Display Name <span>Your name · Save Name</span></li></ol></div>
+      <div class="og g2"><b>通話</b><ol>
+        <li>Automatic Disconnection <span>Regular Calls · Calls Started from Watch</span></li>
+        <li>Call Notifications <span>状態 · Enable／Check／Disable Notifications</span></li>
+        <li>Call status display <span>Show call status outside the app（macOSはmenu bar）</span></li></ol></div>
+      <div class="og g3"><b>接続</b><ol>
+        <li>Communication <span>Local Network · Internet</span></li>
+        <li>Internet Connection <span>状態 · Configure Internet Connection（sheet）</span></li></ol></div>
+      <div class="og g4"><b>音声（信号の流れの順）</b><ol>
+        <li>Audio Session <span>Mode · Use Speaker · Echo Cancellation · Duck Other Audio</span></li>
+        <li>Audio I/O <span>Input · Output · Transmit Voice Isolation Effect</span></li>
+        <li>Voice Activity <span>VAD Sensitivity</span></li>
+        <li>Transmit Codec <span>Codec · Sample Rate · AAC-ELD Bitrate／Opus Bitrate</span></li>
+        <li>Audio Check <span>Call · Audio Check · Recording Input · Playback Output · Record 5s and Play</span></li></ol></div>
+      <div class="og g5"><b>リセット</b><ol>
+        <li>Reset Settings <span>Reset All Settings（確認付き）</span></li></ol></div>
+      <p class="note" style="margin-top:6px">現行の順（App Layout → Account → Access → Call Notifications → Your Display Name → Call status display → Automatic Disconnection → Communication → Internet Connection → Audio Session → Audio I/O → Audio Check → Transmit Codec → Voice Activity → Reset Settings）から、同じ目的のセクションを隣り合わせ、音声は Session → I/O → VAD → Codec の信号順にそろえる。</p>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var root = document.documentElement, buttons = document.querySelectorAll('.seg button');
+  function apply(mode) { root.setAttribute('data-scheme', mode); buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === mode)); }); }
+  var initial = 'light';
+  try { if (window.matchMedia('(prefers-color-scheme: dark)').matches) initial = 'dark'; } catch (e) {}
+  apply(initial);
+  buttons.forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.set); }); });
+})();
+</script>
+</body>
+</html>
