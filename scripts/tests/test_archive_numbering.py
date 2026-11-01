@@ -215,9 +215,25 @@ class ArchiveNumberingTests(unittest.TestCase):
             self.assertEqual(plistlib.loads(output.read_bytes())['CFBundleVersion'], '8')
             self.assertEqual(self.value(), 9)
 
-    def test_missing_invalid_or_future_reservation_fails_without_counter_change(self):
+    def test_consumers_need_only_reservation_and_source_metadata(self):
         reservation = self.root / 'number.plist'
-        for data in [None, b'bad plist', plistlib.dumps({'CFBundleVersion': 'nope'}), plistlib.dumps({'CFBundleVersion': '8'})]:
+        reservation.write_bytes(plistlib.dumps({'CFBundleVersion': '8'}))
+        # Product sandboxes do not need access to the Xcode project directory.
+        self.config.unlink()
+        self.config.parent.rmdir()
+        output = self.root / 'consumer.plist'
+        result = subprocess.run([sys.executable, str(SCRIPT)], env=dict(self.env,
+            RIDEINTERCOM_BUILD_NUMBER_FROM=str(reservation), SCRIPT_OUTPUT_FILE_0=str(output)),
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(plistlib.loads(output.read_bytes())['CFBundleVersion'], '8')
+        self.assertFalse(self.config.parent.exists())
+
+    def test_missing_or_invalid_reservation_fails_without_counter_change(self):
+        reservation = self.root / 'number.plist'
+        invalid = [{}, [], {'CFBundleVersion': 'nope'}, {'CFBundleVersion': '0'},
+                   {'CFBundleVersion': '-1'}, {'CFBundleVersion': 8}]
+        for data in [None, b'bad plist'] + [plistlib.dumps(value) for value in invalid]:
             if data is not None:
                 reservation.write_bytes(data)
             output = self.root / 'consumer.plist'
