@@ -183,3 +183,14 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 最終sourceでRTC 113テスト・Native WebRTC 4テスト・AudioDevice 11テストが成功した。WorkerPairの実サービス1テストはskipで未検証。途中のgroup接続待ち失敗は限定再実行と後続全回帰で成功したが、原因は未確定として保持する。初回AudioDevice実行のsandbox／native AAC環境失敗も保持し、製品コードへ環境回避は入れていない。証跡は`.validation/audio-device-duplex-20261102/`。
 
 これは端末内package経路の成立であり、Watch実AppからのBonjour接続、Watchマイク→iPhoneでの5秒録音→Watchの全量再生、APなし無線や実機受入は未完である。Appの接続方法はこのpackage単位の確定後に変更し、LAN対照の成功を製品通信条件の変更理由にはしない。
+
+
+## 新しい媒体APIを使うWatch Appの接続対照
+
+2026-11-02、`d165fc05`の公開`RTCAudioDeviceLink`を両Appの一時Validation入口から使った。Phoneだけが広告し、新しいsession・鍵・service endpointを実WCSessionで渡し、Watchは自己広告せず接続する。旧plain UDP対照との差は、新しい暗号化媒体と既存のpeer-to-peer許可・cellular禁止条件である。有限の検証packetをPhoneから2件、Watchが受信した後に逆方向へ2件送る条件とし、音声入力・録音・再生は行わない。
+
+初回は通常refresh中の`client.isWaiting`を専用要求の前提に流用したため、要求送信・link生成に至らなかった。実行器の不足として`.validation/watch-rtc-device-public-flow-20261102/`へ保持する。専用`sendMessageData`の入口を実WCSessionのactivation・reachabilityに揃え、両端prefixの静的不一致も補正し、同一bytesとJSON境界を照合して再buildした。
+
+補正後の`.validation/watch-rtc-device-public-flow-ready-20261102/`では、通常refresh待ちのままでも実WCの要求・返信、Phoneの広告取得、Watchのlink生成まで成立した。両端の送信・受信・一致件数は0で、新しい媒体APIでもservice指定の通信は成立しなかった。Phone listenerのreadyと実cancelled、停止後250msの件数不変を確認した。Watchの最終観測ではpackageの失敗処理後にnative outgoing／activeを保持しておらず、nilから準備中・実cancelledを推定しない。先行受話の判定も受信・一致2件を必須として不合格である。
+
+ビルド番号384→386の更新を除く実行前後362ファイルの一致、binaryと診断patchの対応、両App終了・所有Simulatorペア停止、一時2sourceのHEAD完全復元とrunner回収を確認した。観測・AppログへIP・鍵・packet内容は記録していない。同条件の追加試行を止め、通常service経路のApp本統合は保留する。既に往復を確認した実アドレス指定は診断の対照に限り、音声回路の5秒録音・全量再生を切り分ける範囲を次に確認する。製品のLAN必須化やAPなし近距離要求の撤回ではない。
