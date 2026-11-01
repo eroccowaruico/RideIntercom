@@ -19,6 +19,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		C0DE1C010000000000000001 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C0DE1C010000000000000002 /* AppIcon.icon */; };
 		46D1F67273160099EA54F6D1 /* RideIntercomWidgets.appex in Embed Widget Extension */ = {isa = PBXBuildFile; fileRef = 56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		60BF422F1B3694AA5E84F16C /* RideIntercom/Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */; };
 		76FFE8A75AF524B511A8BA4F /* RideIntercom/Shared/WatchControlClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC36A73C65578D5E215505E /* RideIntercom/Shared/WatchControlClient.swift */; };
@@ -116,6 +117,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C0DE1C010000000000000002 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = RideIntercom/AppIcon.icon; sourceTree = SOURCE_ROOT; };
 		24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = RideIntercom/Localizable.xcstrings; sourceTree = SOURCE_ROOT; };
 		56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RideIntercomWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FF1CEF8CC38869E15C83735 /* RideIntercom/Shared/WatchControlMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/WatchControlMessage.swift; sourceTree = SOURCE_ROOT; };
@@ -472,6 +474,7 @@
 		93F300BF2F93829C0046716D = {
 			isa = PBXGroup;
 			children = (
+				C0DE1C010000000000000002 /* AppIcon.icon */,
 				D70000000000000000000001 /* Repository */,
 				D70000000000000000000002 /* .vscode */,
 				D70000000000000000000003 /* .codex */,
@@ -813,6 +816,7 @@
 		E7EB92C43053404206E9EDE7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				C0DE1C010000000000000001 /* AppIcon.icon in Resources */,
 			);
 		};
 /* End PBXResourcesBuildPhase section */
@@ -1285,7 +1289,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 297;
+				CURRENT_PROJECT_VERSION = 300;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1351,7 +1355,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 297;
+				CURRENT_PROJECT_VERSION = 300;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1584,7 +1588,7 @@
 			buildSettings = {
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CURRENT_PROJECT_VERSION = 297;
+				CURRENT_PROJECT_VERSION = 300;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -2063,7 +2067,7 @@
 			buildSettings = {
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CURRENT_PROJECT_VERSION = 297;
+				CURRENT_PROJECT_VERSION = 300;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				CLANG_WARN_INFINITE_RECURSION = YES;

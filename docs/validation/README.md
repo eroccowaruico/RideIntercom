@@ -1,5 +1,7 @@
 # 検証状況と証跡
 
+[正式アイコンとLiquid Glassの検証](history/正式アイコンとLiquid Glassの検証.md)に、指定SVGのレイヤー分離、全画像の統一、各外観の描画とApp・Watchへの組み込みを記録する。インストール後のOS表示と配布受理は別に確認する。
+
 [WebRTC取り込みの中断保全](history/WebRTC取り込みの中断保全.md)で、更新中断時の旧／新pair保持と無関係fileの保全を確認した。統合後のPython119件成功。採用済みbinaryは不変、電源断の耐久性とbuild再現情報は別課題。
 
 [招待の復帰案内とXcode入力宣言](history/招待の復帰案内とXcode入力宣言.md)で、招待失敗からの復帰と両画面の英日表示、通常workspaceで必要なXcodeスクリプト入力を確認した。実機・署名・公開の受入とは区別する。

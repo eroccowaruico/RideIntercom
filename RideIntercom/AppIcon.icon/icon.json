@@ -1,0 +1,43 @@
+{
+  "fill": {
+    "solid": "srgb:0.05490,0.10980,0.21176,1.00000"
+  },
+  "groups": [
+    {
+      "name": "道とシュプール",
+      "layers": [
+        {
+          "name": "道とシュプール",
+          "image-name": "Road.svg",
+          "glass": true,
+          "position-specializations": [
+            { "idiom": "watchOS", "value": { "scale": 0.92, "translation-in-points": [0, 0] } }
+          ]
+        }
+      ],
+      "shadow": { "kind": "neutral", "opacity": 0.3 },
+      "specular": true,
+      "translucency": { "enabled": true, "value": 0.2 }
+    },
+    {
+      "name": "音声波形",
+      "layers": [
+        {
+          "name": "音声波形",
+          "image-name": "Waveform.svg",
+          "glass": true,
+          "position-specializations": [
+            { "idiom": "watchOS", "value": { "scale": 0.92, "translation-in-points": [0, 0] } }
+          ]
+        }
+      ],
+      "shadow": { "kind": "neutral", "opacity": 0.3 },
+      "specular": true,
+      "translucency": { "enabled": true, "value": 0.2 }
+    }
+  ],
+  "supported-platforms": {
+    "circles": ["watchOS"],
+    "squares": "shared"
+  }
+}
