@@ -6,22 +6,22 @@
 	objectVersion = 110;
 	objects = {
 
-/* Begin PBXCopyFilesBuildPhase section */
-		891F8A93F72364F7AE4D8FA9 /* Embed Widget Extension */ = {
-			isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (46D1F67273160099EA54F6D1, ); name = "Embed Widget Extension"; runOnlyForDeploymentPostprocessing = 0;
-		};
-		7C0CE31A0F5385C66529A0C5 /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = "$(CONTENTS_FOLDER_PATH)/Watch"; dstSubfolderSpec = 16; files = (AEECFCC6A30A5A1BC41E5781, ); name = "Embed Watch Content"; runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXAggregateTarget section */
-		1DD2E64085FC59CD179449A3 /* Metadata target */ = {
-			isa = PBXAggregateTarget; buildConfigurationList = E0AC44D9BB20EE394DFB280F; buildPhases = (D8A98154EAD4D884B7CC4D80, ); dependencies = (); name = RideIntercomBuildMetadata; productName = RideIntercomBuildMetadata;
+		1DD2E64085FC59CD179449A3 /* RideIntercomBuildMetadata */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = E0AC44D9BB20EE394DFB280F /* Build configuration list for PBXAggregateTarget "RideIntercomBuildMetadata" */;
+			buildPhases = (
+				D8A98154EAD4D884B7CC4D80 /* ShellScript */,
+			);
+			name = RideIntercomBuildMetadata;
+			productName = RideIntercomBuildMetadata;
 		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		46D1F67273160099EA54F6D1 /* RideIntercomWidgets.appex in Embed Widget Extension */ = {isa = PBXBuildFile; fileRef = 56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		60BF422F1B3694AA5E84F16C /* RideIntercom/Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */; };
+		76FFE8A75AF524B511A8BA4F /* RideIntercom/Shared/WatchControlClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC36A73C65578D5E215505E /* RideIntercom/Shared/WatchControlClient.swift */; };
 		9306F0282FA8DFBA0030B045 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9306F0272FA8DFBA0030B045 /* AVFoundation.framework */; };
 		9306F02A2FA8DFD30030B045 /* AVFAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9306F0292FA8DFD30030B045 /* AVFAudio.framework */; };
 		9306F0932FA8E0D40030B045 /* Codec in Frameworks */ = {isa = PBXBuildFile; productRef = 9306F0922FA8E0D40030B045 /* Codec */; };
@@ -41,24 +41,22 @@
 		9374C4D82FA3670400D259B2 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9374C4D72FA3670400D259B2 /* MultipeerConnectivity.framework */; };
 		93C60CE62FA3B46A00841E64 /* SafetyKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C60CE52FA3B46A00841E64 /* SafetyKit.framework */; platformFilters = (ios, macos, ); };
 		93DCB0832FA3864000B921FA /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93DCB0822FA3864000B921FA /* CryptoKit.framework */; };
-		46D1F67273160099EA54F6D1 /* Embed Widgets */ = {
-			isa = PBXBuildFile; fileRef = 56F6D0BB98E4179BB121F578; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
-		};
-		60BF422F1B3694AA5E84F16C /* Widget localizations */ = {
-			isa = PBXBuildFile; fileRef = 24CAD00D525C7DAC722B6173;
-		};
-		E1FA6A96A55CF6A201DD62BC /* WatchControlMessage compile */ = {
-			isa = PBXBuildFile; fileRef = 7FF1CEF8CC38869E15C83735;
-		};
-		76FFE8A75AF524B511A8BA4F /* WatchControlClient compile */ = {
-			isa = PBXBuildFile; fileRef = 8EC36A73C65578D5E215505E;
-		};
-		AEECFCC6A30A5A1BC41E5781 /* Embed Watch */ = {
-			isa = PBXBuildFile; fileRef = C68FF7D6B2B5F4B5810BDC7E; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
+		AEECFCC6A30A5A1BC41E5781 /* RideIntercomWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E1FA6A96A55CF6A201DD62BC /* RideIntercom/Shared/WatchControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FF1CEF8CC38869E15C83735 /* RideIntercom/Shared/WatchControlMessage.swift */; };
+		B89AEF130DA8CECA89175FDB /* PBXBuildFile */ = {
+			isa = PBXBuildFile;
+			fileRef = 0874A31143C7555BB4D5AC15;
 		};
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		757BA5B80FA8C01DA4832307 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 93F300C02F93829C0046716D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1DD2E64085FC59CD179449A3;
+			remoteInfo = RideIntercomBuildMetadata;
+		};
 		93F300DA2F93829D0046716D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 93F300C02F93829C0046716D /* Project object */;
@@ -73,6 +71,20 @@
 			remoteGlobalIDString = 93F300C72F93829C0046716D;
 			remoteInfo = RideIntercom;
 		};
+		C4C3F8160576A4D73B391304 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 93F300C02F93829C0046716D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4517BC59AC831097FA328DE8;
+			remoteInfo = RideIntercomWidgets;
+		};
+		C88E626BB05596C0CA075A66 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 93F300C02F93829C0046716D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CCFFDBF2F4415059F932F5F;
+			remoteInfo = RideIntercomWatch;
+		};
 		E2E000000000000000000008 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 93F300C02F93829C0046716D /* Project object */;
@@ -80,18 +92,34 @@
 			remoteGlobalIDString = 93F300C72F93829C0046716D;
 			remoteInfo = RideIntercom;
 		};
-		757BA5B80FA8C01DA4832307 /* Metadata proxy */ = {
-			isa = PBXContainerItemProxy; containerPortal = 93F300C02F93829C0046716D; proxyType = 1; remoteGlobalIDString = 1DD2E64085FC59CD179449A3; remoteInfo = RideIntercomBuildMetadata;
-		};
-		C4C3F8160576A4D73B391304 /* Widgets proxy */ = {
-			isa = PBXContainerItemProxy; containerPortal = 93F300C02F93829C0046716D; proxyType = 1; remoteGlobalIDString = 4517BC59AC831097FA328DE8; remoteInfo = RideIntercomWidgets;
-		};
-		C88E626BB05596C0CA075A66 /* Watch proxy */ = {
-			isa = PBXContainerItemProxy; containerPortal = 93F300C02F93829C0046716D; proxyType = 1; remoteGlobalIDString = 0CCFFDBF2F4415059F932F5F; remoteInfo = RideIntercomWatch;
-		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		7C0CE31A0F5385C66529A0C5 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolder = Product;
+			files = (
+				AEECFCC6A30A5A1BC41E5781 /* RideIntercomWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+		};
+		891F8A93F72364F7AE4D8FA9 /* Embed Widget Extension */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				46D1F67273160099EA54F6D1 /* RideIntercomWidgets.appex in Embed Widget Extension */,
+			);
+			name = "Embed Widget Extension";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = RideIntercom/Localizable.xcstrings; sourceTree = SOURCE_ROOT; };
+		56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RideIntercomWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7FF1CEF8CC38869E15C83735 /* RideIntercom/Shared/WatchControlMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/WatchControlMessage.swift; sourceTree = SOURCE_ROOT; };
+		8EC36A73C65578D5E215505E /* RideIntercom/Shared/WatchControlClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/WatchControlClient.swift; sourceTree = SOURCE_ROOT; };
 		9306F0272FA8DFBA0030B045 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		9306F0292FA8DFD30030B045 /* AVFAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFAudio.framework; path = System/Library/Frameworks/AVFAudio.framework; sourceTree = SDKROOT; };
 		931D63253092FBA0004F8BCC /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
@@ -102,10 +130,13 @@
 		935FC89C309482F700BF0812 /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		9374C4C92FA3657700D259B2 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		9374C4D72FA3670400D259B2 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = SDKROOT; };
+		937EE20030948C7A00EBA552 /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		9391C7143088EDA000FDB74A /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		9391E1A43088EE5400FDB74A /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		9391FC3E3088F95B00FDB74A /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
+		93A2387C3096E04600695816 /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
+		93A2CEC73096E06E00695816 /* RideIntercom.xcodeproj */ = {isa = PBXFileReference; explicitFileType = folder; path = RideIntercom.xcodeproj; sourceTree = "<group>"; };
 		93BD72B32FACCD4900CBA553 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
 		93BD72B42FACCD4900CBA553 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		93C60CE32FA3B45100841E64 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -114,46 +145,81 @@
 		93F300C82F93829C0046716D /* RideIntercom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300D92F93829D0046716D /* RideIntercomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93F300E32F93829D0046716D /* RideIntercomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CFDE00000000000000000001 /* Configuration/Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomAudioE2ETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CFDE00000000000000000001 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
-		56F6D0BB98E4179BB121F578 /* Widget product */ = {
-			isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RideIntercomWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR;
+		A6D4C7A089FE51737098F522 /* Configuration/Validation.xcconfig */ = {
+			path = Configuration/Validation.xcconfig;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xcconfig;
+			sourceTree = SOURCE_ROOT;
 		};
-		24CAD00D525C7DAC722B6173 /* Localizable catalog */ = {
-			isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = RideIntercom/Localizable.xcstrings; sourceTree = SOURCE_ROOT;
+		0874A31143C7555BB4D5AC15 /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift */ = {
+			path = RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			sourceTree = SOURCE_ROOT;
 		};
-		C68FF7D6B2B5F4B5810BDC7E /* Watch product */ = {
-			isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercomWatch.app; sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		7FF1CEF8CC38869E15C83735 /* WatchControlMessage file */ = {
-			isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/WatchControlMessage.swift; sourceTree = SOURCE_ROOT;
-		};
-		8EC36A73C65578D5E215505E /* WatchControlClient file */ = {
-			isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/WatchControlClient.swift; sourceTree = SOURCE_ROOT;
+		BE60B15897C9AD9A02BFE7B5 /* Configuration/StoreKitValidation.xcconfig */ = {
+			path = Configuration/StoreKitValidation.xcconfig;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xcconfig;
+			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3D1C16585086C6DAB475DA94 /* Exceptions for "RideIntercomWidgets" folder in "RideIntercomWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4517BC59AC831097FA328DE8 /* RideIntercomWidgets */;
+		};
+		5B818795922C7FF730EE0C2B /* Exceptions for "RideIntercomWatch" folder in "RideIntercomWatch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0CCFFDBF2F4415059F932F5F /* RideIntercomWatch */;
+		};
 		93F300EB2F93829D0046716D /* Exceptions for "RideIntercom" folder in "RideIntercom" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				RideIntercom.entitlements,
-				"RideIntercom-macOS.entitlements",
 				packages,
+				packages/Audio/AudioCore,
+				packages/Audio/AudioMixer,
+				packages/Audio/Codec,
+				packages/Audio/Effectors/DynamicsProcessor,
+				packages/Audio/Effectors/PeakLimiter,
+				packages/Audio/Effectors/SoundIsolation,
+				packages/Audio/Effectors/VADGate,
+				packages/Audio/SessionManager,
+				packages/RTC,
 			);
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
-		};
-		3D1C16585086C6DAB475DA94 /* Widget exceptions */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Info.plist, RideIntercomWidgets.entitlements, ); target = 4517BC59AC831097FA328DE8;
-		};
-		5B818795922C7FF730EE0C2B /* Watch exceptions */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Info.plist, ); target = 0CCFFDBF2F4415059F932F5F;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		3170ECB8255D3C020D7A258B /* RideIntercomWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5B818795922C7FF730EE0C2B /* Exceptions for "RideIntercomWatch" folder in "RideIntercomWatch" target */,
+			);
+			path = RideIntercomWatch;
+			sourceTree = "<group>";
+		};
+		563F9A8ED1BACA026C059AA5 /* RideIntercomWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3D1C16585086C6DAB475DA94 /* Exceptions for "RideIntercomWidgets" folder in "RideIntercomWidgets" target */,
+			);
+			path = RideIntercomWidgets;
+			sourceTree = "<group>";
+		};
 		934630812F9B2B73001548C3 /* .github */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = .github;
@@ -216,18 +282,24 @@
 			path = RideIntercomAudioE2ETests;
 			sourceTree = "<group>";
 		};
-		563F9A8ED1BACA026C059AA5 /* Widget sources */ = {
-			isa = PBXFileSystemSynchronizedRootGroup; exceptions = (3D1C16585086C6DAB475DA94, ); path = RideIntercomWidgets; sourceTree = "<group>";
-		};
-		F2FF24FCC7CD717AC0CF70D8 /* System shared sources */ = {
-			isa = PBXFileSystemSynchronizedRootGroup; path = RideIntercom/SystemSurfaces/Shared; sourceTree = "<group>";
-		};
-		3170ECB8255D3C020D7A258B /* Watch sources */ = {
-			isa = PBXFileSystemSynchronizedRootGroup; exceptions = (5B818795922C7FF730EE0C2B, ); path = RideIntercomWatch; sourceTree = "<group>";
+		F2FF24FCC7CD717AC0CF70D8 /* RideIntercom/SystemSurfaces/Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RideIntercom/SystemSurfaces/Shared;
+			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		48B47375094D79DA4466A5EC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		867B78FE89392B598E01383C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 		93F300C52F93829C0046716D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -266,12 +338,6 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
-		};
-		867B78FE89392B598E01383C /* Widget frameworks */ = {
-			isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;
-		};
-		48B47375094D79DA4466A5EC /* Watch frameworks */ = {
-			isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -332,6 +398,13 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		937EE20130948C7A00EBA552 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		9391AC8E3088ED4400FDB74A /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -351,6 +424,12 @@
 				931DA0FE30936182004F8BCC /* RideIntercom.xcodeproj */,
 				931DBE96309362EA004F8BCC /* RideIntercom.xcodeproj */,
 				935FA9DD3094687B00BF0812 /* RideIntercom.xcodeproj */,
+				935FC89C309482F700BF0812 /* RideIntercom.xcodeproj */,
+				24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */,
+				7FF1CEF8CC38869E15C83735 /* RideIntercom/Shared/WatchControlMessage.swift */,
+				8EC36A73C65578D5E215505E /* RideIntercom/Shared/WatchControlClient.swift */,
+				937EE20030948C7A00EBA552 /* RideIntercom.xcodeproj */,
+				93A2387C3096E04600695816 /* RideIntercom.xcodeproj */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -376,6 +455,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		93A2387D3096E04600695816 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		93A2CEC83096E06E00695816 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		93F300BF2F93829C0046716D = {
 			isa = PBXGroup;
 			children = (
@@ -383,11 +476,11 @@
 				D70000000000000000000002 /* .vscode */,
 				D70000000000000000000003 /* .codex */,
 				D70000000000000000000004 /* .gitignore */,
-				CFDE00000000000000000001 /* Debug.xcconfig */,
+				CFDE00000000000000000001 /* Configuration/Debug.xcconfig */,
 				93F300CA2F93829C0046716D /* RideIntercom */,
-				563F9A8ED1BACA026C059AA5,
-				3170ECB8255D3C020D7A258B,
-				F2FF24FCC7CD717AC0CF70D8,
+				563F9A8ED1BACA026C059AA5 /* RideIntercomWidgets */,
+				3170ECB8255D3C020D7A258B /* RideIntercomWatch */,
+				F2FF24FCC7CD717AC0CF70D8 /* RideIntercom/SystemSurfaces/Shared */,
 				934630812F9B2B73001548C3 /* .github */,
 				93F300DC2F93829D0046716D /* RideIntercomTests */,
 				E2E000000000000000000003 /* RideIntercomAudioE2ETests */,
@@ -400,6 +493,8 @@
 				93BD7A642FACCD5600CBA553 /* server */,
 				93BD7A6E2FACCD5C00CBA553 /* scripts */,
 				9391B9533088EDA000FDB74A /* Recovered References */,
+				A6D4C7A089FE51737098F522,
+				BE60B15897C9AD9A02BFE7B5,
 			);
 			sourceTree = "<group>";
 		};
@@ -407,8 +502,8 @@
 			isa = PBXGroup;
 			children = (
 				93F300C82F93829C0046716D /* RideIntercom.app */,
-				56F6D0BB98E4179BB121F578,
-				C68FF7D6B2B5F4B5810BDC7E,
+				56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */,
+				C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */,
 				93F300D92F93829D0046716D /* RideIntercomTests.xctest */,
 				E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */,
 				93F300E32F93829D0046716D /* RideIntercomUITests.xctest */,
@@ -419,6 +514,51 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0CCFFDBF2F4415059F932F5F /* RideIntercomWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5E38A3781DC3937AD241B271 /* Build configuration list for PBXNativeTarget "RideIntercomWatch" */;
+			buildPhases = (
+				7DBCCE4AE1783610DCAEC931 /* ShellScript */,
+				95D4EA3192569FCBA891B147 /* Sources */,
+				48B47375094D79DA4466A5EC /* Frameworks */,
+				E7EB92C43053404206E9EDE7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				788C588EA4559E5DB1AE5DF4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3170ECB8255D3C020D7A258B /* RideIntercomWatch */,
+			);
+			name = RideIntercomWatch;
+			productName = RideIntercomWatch;
+			productReference = C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4517BC59AC831097FA328DE8 /* RideIntercomWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CDABBCF3E55F02E3C11BFBFD /* Build configuration list for PBXNativeTarget "RideIntercomWidgets" */;
+			buildPhases = (
+				83FD75AEA2E1DD5C40D8CA55 /* ShellScript */,
+				5B31C0880D75768F3D909B2F /* Sources */,
+				867B78FE89392B598E01383C /* Frameworks */,
+				799114B9B7ECDF193B6B5BA2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BF044FD10CFD966F2FC2C89F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				563F9A8ED1BACA026C059AA5 /* RideIntercomWidgets */,
+				F2FF24FCC7CD717AC0CF70D8 /* RideIntercom/SystemSurfaces/Shared */,
+			);
+			name = RideIntercomWidgets;
+			productName = RideIntercomWidgets;
+			productReference = 56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		93F300C72F93829C0046716D /* RideIntercom */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 93F300EC2F93829D0046716D /* Build configuration list for PBXNativeTarget "RideIntercom" */;
@@ -428,11 +568,15 @@
 				93F300C42F93829C0046716D /* Sources */,
 				93F300C52F93829C0046716D /* Frameworks */,
 				93F300C62F93829C0046716D /* Resources */,
-				891F8A93F72364F7AE4D8FA9,
-				7C0CE31A0F5385C66529A0C5,
+				891F8A93F72364F7AE4D8FA9 /* Embed Widget Extension */,
+				7C0CE31A0F5385C66529A0C5 /* Embed Watch Content */,
 			);
-			dependencies = (AC7B1C034C0FD506448BA4D5, 16B23FE152AE34F071AE9B61, 332651C1A76F704BAD4BFCF7, );
 			buildRules = (
+			);
+			dependencies = (
+				AC7B1C034C0FD506448BA4D5 /* PBXTargetDependency */,
+				16B23FE152AE34F071AE9B61 /* PBXTargetDependency */,
+				332651C1A76F704BAD4BFCF7 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				93F300CA2F93829C0046716D /* RideIntercom */,
@@ -524,12 +668,6 @@
 			productReference = E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		4517BC59AC831097FA328DE8 /* Widgets target */ = {
-			isa = PBXNativeTarget; buildConfigurationList = CDABBCF3E55F02E3C11BFBFD; buildPhases = (83FD75AEA2E1DD5C40D8CA55, 5B31C0880D75768F3D909B2F, 867B78FE89392B598E01383C, 799114B9B7ECDF193B6B5BA2, ); buildRules = (); dependencies = (BF044FD10CFD966F2FC2C89F, ); fileSystemSynchronizedGroups = (563F9A8ED1BACA026C059AA5, F2FF24FCC7CD717AC0CF70D8, ); name = RideIntercomWidgets; productName = RideIntercomWidgets; productReference = 56F6D0BB98E4179BB121F578; productType = "com.apple.product-type.app-extension";
-		};
-		0CCFFDBF2F4415059F932F5F /* Watch target */ = {
-			isa = PBXNativeTarget; buildConfigurationList = 5E38A3781DC3937AD241B271; buildPhases = (7DBCCE4AE1783610DCAEC931, 95D4EA3192569FCBA891B147, 48B47375094D79DA4466A5EC, E7EB92C43053404206E9EDE7, ); buildRules = (); dependencies = (788C588EA4559E5DB1AE5DF4, ); fileSystemSynchronizedGroups = (3170ECB8255D3C020D7A258B, ); name = RideIntercomWatch; productName = RideIntercomWatch; productReference = C68FF7D6B2B5F4B5810BDC7E; productType = "com.apple.product-type.application";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -559,6 +697,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ja,
 			);
 			mainGroup = 93F300BF2F93829C0046716D;
 			minimizedProjectReferenceProxies = 1;
@@ -578,6 +717,10 @@
 			productRefGroup = 93F300C92F93829C0046716D /* Products */;
 			projectDirPath = "";
 			projectReferences = (
+				{
+					ProductGroup = 937EE20130948C7A00EBA552 /* Products */;
+					ProjectRef = 937EE20030948C7A00EBA552 /* RideIntercom.xcodeproj */;
+				},
 				{
 					ProductGroup = 935FC89D309482F700BF0812 /* Products */;
 					ProjectRef = 935FC89C309482F700BF0812 /* RideIntercom.xcodeproj */;
@@ -611,6 +754,10 @@
 					ProjectRef = 9391AC8D3088ED4400FDB74A /* RideIntercom.xcodeproj */;
 				},
 				{
+					ProductGroup = 93A2387D3096E04600695816 /* Products */;
+					ProjectRef = 93A2387C3096E04600695816 /* RideIntercom.xcodeproj */;
+				},
+				{
 					ProductGroup = 9391FC3F3088F95B00FDB74A /* Products */;
 					ProjectRef = 9391FC3E3088F95B00FDB74A /* RideIntercom.xcodeproj */;
 				},
@@ -618,13 +765,17 @@
 					ProductGroup = 931D63263092FBA0004F8BCC /* Products */;
 					ProjectRef = 931D63253092FBA0004F8BCC /* RideIntercom.xcodeproj */;
 				},
+				{
+					ProductGroup = 93A2CEC83096E06E00695816 /* Products */;
+					ProjectRef = 93A2CEC73096E06E00695816 /* RideIntercom.xcodeproj */;
+				},
 			);
 			projectRoot = "";
 			targets = (
 				93F300C72F93829C0046716D /* RideIntercom */,
-				1DD2E64085FC59CD179449A3,
-				4517BC59AC831097FA328DE8,
-				0CCFFDBF2F4415059F932F5F,
+				1DD2E64085FC59CD179449A3 /* RideIntercomBuildMetadata */,
+				4517BC59AC831097FA328DE8 /* RideIntercomWidgets */,
+				0CCFFDBF2F4415059F932F5F /* RideIntercomWatch */,
 				93F300D82F93829D0046716D /* RideIntercomTests */,
 				E2E000000000000000000001 /* RideIntercomAudioE2ETests */,
 				93F300E22F93829D0046716D /* RideIntercomUITests */,
@@ -633,6 +784,12 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		799114B9B7ECDF193B6B5BA2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				60BF422F1B3694AA5E84F16C /* RideIntercom/Localizable.xcstrings in Resources */,
+			);
+		};
 		93F300C62F93829C0046716D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -653,15 +810,50 @@
 			files = (
 			);
 		};
-		799114B9B7ECDF193B6B5BA2 /* Widget resources */ = {
-			isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (60BF422F1B3694AA5E84F16C, ); runOnlyForDeploymentPostprocessing = 0;
-		};
-		E7EB92C43053404206E9EDE7 /* Watch resources */ = {
-			isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;
+		E7EB92C43053404206E9EDE7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		7DBCCE4AE1783610DCAEC931 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			inputPaths = (
+				"$(SRCROOT)/scripts/prepare_archive_info.py",
+				"$(SRCROOT)/RideIntercomWatch/Info.plist",
+				"$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist",
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"python3 \"$SRCROOT/scripts/prepare_archive_info.py\"",
+				"",
+			);
+			showEnvVarsInLog = 0;
+		};
+		83FD75AEA2E1DD5C40D8CA55 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			inputPaths = (
+				"$(SRCROOT)/scripts/prepare_archive_info.py",
+				"$(SRCROOT)/RideIntercomWidgets/Info.plist",
+				"$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist",
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"python3 \"$SRCROOT/scripts/prepare_archive_info.py\"",
+				"",
+			);
+			showEnvVarsInLog = 0;
+		};
 		B17000000000000000000021 /* Prepare Build Number */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -699,21 +891,32 @@
 			);
 			showEnvVarsInLog = 0;
 		};
-		D8A98154EAD4D884B7CC4D80 /* Reserve common build number */ = {
-			isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; shellPath = /bin/sh; shellScript = "python3 \"$SRCROOT/scripts/prepare_archive_info.py\"\n"; showEnvVarsInLog = 0; runOnlyForDeploymentPostprocessing = 0;
-			inputPaths = ("$(SRCROOT)/scripts/prepare_archive_info.py", ); outputPaths = ("$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist", "$(PROJECT_FILE_PATH)/project.pbxproj", "$(PROJECT_FILE_PATH)/.build-number.tmp", );
-		};
-		83FD75AEA2E1DD5C40D8CA55 /* Prepare Widget Info */ = {
-			isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; shellPath = /bin/sh; shellScript = "python3 \"$SRCROOT/scripts/prepare_archive_info.py\"\n"; showEnvVarsInLog = 0; runOnlyForDeploymentPostprocessing = 0;
-			inputPaths = ("$(SRCROOT)/scripts/prepare_archive_info.py", "$(SRCROOT)/RideIntercomWidgets/Info.plist", "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist", ); outputPaths = ("$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist", );
-		};
-		7DBCCE4AE1783610DCAEC931 /* Prepare Watch Info */ = {
-			isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; shellPath = /bin/sh; shellScript = "python3 \"$SRCROOT/scripts/prepare_archive_info.py\"\n"; showEnvVarsInLog = 0; runOnlyForDeploymentPostprocessing = 0;
-			inputPaths = ("$(SRCROOT)/scripts/prepare_archive_info.py", "$(SRCROOT)/RideIntercomWatch/Info.plist", "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist", ); outputPaths = ("$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist", );
+		D8A98154EAD4D884B7CC4D80 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			inputPaths = (
+				"$(SRCROOT)/scripts/prepare_archive_info.py",
+			);
+			outputPaths = (
+				"$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist",
+				"$(PROJECT_FILE_PATH)/project.pbxproj",
+				"$(PROJECT_FILE_PATH)/.build-number.tmp",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"python3 \"$SRCROOT/scripts/prepare_archive_info.py\"",
+				"",
+			);
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5B31C0880D75768F3D909B2F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		93F300C42F93829C0046716D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -729,20 +932,38 @@
 			files = (
 			);
 		};
+		95D4EA3192569FCBA891B147 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				E1FA6A96A55CF6A201DD62BC /* RideIntercom/Shared/WatchControlMessage.swift in Sources */,
+				76FFE8A75AF524B511A8BA4F /* RideIntercom/Shared/WatchControlClient.swift in Sources */,
+				B89AEF130DA8CECA89175FDB,
+			);
+		};
 		E2E000000000000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
 		};
-		5B31C0880D75768F3D909B2F /* Widget compile */ = {
-			isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;
-		};
-		95D4EA3192569FCBA891B147 /* Watch compile */ = {
-			isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (E1FA6A96A55CF6A201DD62BC, 76FFE8A75AF524B511A8BA4F, ); runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		16B23FE152AE34F071AE9B61 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4517BC59AC831097FA328DE8 /* RideIntercomWidgets */;
+			targetProxy = C4C3F8160576A4D73B391304 /* PBXContainerItemProxy */;
+		};
+		332651C1A76F704BAD4BFCF7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = 0CCFFDBF2F4415059F932F5F /* RideIntercomWatch */;
+			targetProxy = C88E626BB05596C0CA075A66 /* PBXContainerItemProxy */;
+		};
+		788C588EA4559E5DB1AE5DF4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1DD2E64085FC59CD179449A3 /* RideIntercomBuildMetadata */;
+			targetProxy = 757BA5B80FA8C01DA4832307 /* PBXContainerItemProxy */;
+		};
 		93F300DB2F93829D0046716D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
@@ -753,39 +974,143 @@
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
 			targetProxy = 93F300E42F93829D0046716D /* PBXContainerItemProxy */;
 		};
+		AC7B1C034C0FD506448BA4D5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1DD2E64085FC59CD179449A3 /* RideIntercomBuildMetadata */;
+			targetProxy = 757BA5B80FA8C01DA4832307 /* PBXContainerItemProxy */;
+		};
+		BF044FD10CFD966F2FC2C89F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1DD2E64085FC59CD179449A3 /* RideIntercomBuildMetadata */;
+			targetProxy = 757BA5B80FA8C01DA4832307 /* PBXContainerItemProxy */;
+		};
 		E2E000000000000000000007 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
 			targetProxy = E2E000000000000000000008 /* PBXContainerItemProxy */;
 		};
-		AC7B1C034C0FD506448BA4D5 /* App metadata dependency */ = {
-			isa = PBXTargetDependency; target = 1DD2E64085FC59CD179449A3; targetProxy = 757BA5B80FA8C01DA4832307;
-		};
-		BF044FD10CFD966F2FC2C89F /* Widgets metadata dependency */ = {
-			isa = PBXTargetDependency; target = 1DD2E64085FC59CD179449A3; targetProxy = 757BA5B80FA8C01DA4832307;
-		};
-		16B23FE152AE34F071AE9B61 /* App widgets dependency */ = {
-			isa = PBXTargetDependency; target = 4517BC59AC831097FA328DE8; targetProxy = C4C3F8160576A4D73B391304;
-		};
-		332651C1A76F704BAD4BFCF7 /* App watch dependency */ = {
-			isa = PBXTargetDependency; target = 0CCFFDBF2F4415059F932F5F; targetProxy = C88E626BB05596C0CA075A66; platformFilter = ios;
-		};
-		788C588EA4559E5DB1AE5DF4 /* Watch metadata dependency */ = {
-			isa = PBXTargetDependency; target = 1DD2E64085FC59CD179449A3; targetProxy = 757BA5B80FA8C01DA4832307;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		226B0A6043DF86442317F630 /* Debug configuration for PBXNativeTarget "RideIntercomWatch" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWatch/Info.plist;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		2418A49621F4F809C47068D0 /* Release configuration for PBXNativeTarget "RideIntercomWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = RideIntercomWidgets/RideIntercomWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.Widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWidgets/Info.plist;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		32DEB5EEA2498D768AF8F629 /* Release configuration for PBXNativeTarget "RideIntercomWatch" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWatch/Info.plist;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		78E49A5AAFCB45AF4D9336CC /* Debug configuration for PBXAggregateTarget "RideIntercomBuildMetadata" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				RIDEINTERCOM_RESERVE_BUILD_NUMBER = YES;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = Debug;
+		};
 		93F300ED2F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = CFDE00000000000000000001 /* Debug.xcconfig */;
+			baseConfigurationReference = CFDE00000000000000000001 /* Configuration/Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "RideIntercom/RideIntercom-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				RIDEINTERCOM_APNS_ENVIRONMENT = development;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				ENABLE_APP_SANDBOX = YES;
@@ -827,6 +1152,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				RIDEINTERCOM_APNS_ENVIRONMENT = development;
 				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
 				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				SDKROOT = auto;
@@ -851,7 +1177,6 @@
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "RideIntercom/RideIntercom-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				RIDEINTERCOM_APNS_ENVIRONMENT = production;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				ENABLE_APP_SANDBOX = YES;
@@ -893,6 +1218,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				RIDEINTERCOM_APNS_ENVIRONMENT = production;
 				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
 				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 				SDKROOT = auto;
@@ -943,7 +1269,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 284;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -971,6 +1297,7 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 			};
 			name = Debug;
 		};
@@ -1008,7 +1335,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 284;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1028,6 +1355,7 @@
 				MTL_FAST_MATH = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				RIDEINTERCOM_STORAGE_NAMESPACE = RideIntercom;
 			};
 			name = Release;
 		};
@@ -1133,6 +1461,47 @@
 			};
 			name = Release;
 		};
+		9434D354798C68C6DA1B5694 /* Debug configuration for PBXNativeTarget "RideIntercomWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = RideIntercomWidgets/RideIntercomWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.Widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWidgets/Info.plist;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		E2E00000000000000000000A /* Debug configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1185,132 +1554,609 @@
 			};
 			name = Release;
 		};
-		9434D354798C68C6DA1B5694 /* Widget Debug */ = {
-			isa = XCBuildConfiguration; name = Debug; buildSettings = {
-                APPLICATION_EXTENSION_API_ONLY = YES;
-                CODE_SIGN_ENTITLEMENTS = RideIntercomWidgets/RideIntercomWidgets.entitlements;
-                CODE_SIGN_STYLE = Automatic;
-                DEVELOPMENT_TEAM = UAY8FH5FF8;
-                ENABLE_APP_SANDBOX = YES;
-                ENABLE_HARDENED_RUNTIME = YES;
-                GENERATE_INFOPLIST_FILE = NO;
-                INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist";
-                IPHONEOS_DEPLOYMENT_TARGET = 26.4;
-                MACOSX_DEPLOYMENT_TARGET = 26.4;
-                LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-                "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-                MARKETING_VERSION = 1.0.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.Widgets";
-                PRODUCT_NAME = "$(TARGET_NAME)";
-                RIDEINTERCOM_INFO_SOURCE = RideIntercomWidgets/Info.plist;
-                RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
-                SDKROOT = auto;
-                SKIP_INSTALL = YES;
-                STRING_CATALOG_GENERATE_SYMBOLS = NO;
-                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-                SUPPORTS_MACCATALYST = NO;
-                SWIFT_APPROACHABLE_CONCURRENCY = YES;
-                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-                SWIFT_EMIT_LOC_STRINGS = NO;
-                SWIFT_VERSION = 5.0;
-                TARGETED_DEVICE_FAMILY = "1,2";
-            };
+		F269D3DC119EA9986ED6D9E5 /* Release configuration for PBXAggregateTarget "RideIntercomBuildMetadata" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				RIDEINTERCOM_RESERVE_BUILD_NUMBER = YES;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = Release;
 		};
-		78E49A5AAFCB45AF4D9336CC /* Metadata Debug */ = {
-			isa = XCBuildConfiguration; name = Debug; buildSettings = { RIDEINTERCOM_RESERVE_BUILD_NUMBER = YES; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; };
+		68530E56602EDB03C185E899 /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CURRENT_PROJECT_VERSION = 284;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				COPY_PHASE_STRIP = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				DEAD_CODE_STRIPPING = YES;
+				CLANG_ENABLE_MODULES = YES;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ENABLE_TESTABILITY = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+			};
+			name = "Debug-StoreKitValidation";
+			baseConfigurationReference = BE60B15897C9AD9A02BFE7B5;
 		};
-		2418A49621F4F809C47068D0 /* Widget Release */ = {
-			isa = XCBuildConfiguration; name = Release; buildSettings = {
-                APPLICATION_EXTENSION_API_ONLY = YES;
-                CODE_SIGN_ENTITLEMENTS = RideIntercomWidgets/RideIntercomWidgets.entitlements;
-                CODE_SIGN_STYLE = Automatic;
-                DEVELOPMENT_TEAM = UAY8FH5FF8;
-                ENABLE_APP_SANDBOX = YES;
-                ENABLE_HARDENED_RUNTIME = YES;
-                GENERATE_INFOPLIST_FILE = NO;
-                INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist";
-                IPHONEOS_DEPLOYMENT_TARGET = 26.4;
-                MACOSX_DEPLOYMENT_TARGET = 26.4;
-                LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-                "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-                MARKETING_VERSION = 1.0.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.Widgets";
-                PRODUCT_NAME = "$(TARGET_NAME)";
-                RIDEINTERCOM_INFO_SOURCE = RideIntercomWidgets/Info.plist;
-                RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
-                SDKROOT = auto;
-                SKIP_INSTALL = YES;
-                STRING_CATALOG_GENERATE_SYMBOLS = NO;
-                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-                SUPPORTS_MACCATALYST = NO;
-                SWIFT_APPROACHABLE_CONCURRENCY = YES;
-                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-                SWIFT_EMIT_LOC_STRINGS = NO;
-                SWIFT_VERSION = 5.0;
-                TARGETED_DEVICE_FAMILY = "1,2";
-            };
+		C94DD52F646C5ED27A2BEE21 /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				SUPPORTS_MACCATALYST = NO;
+				ENABLE_APP_SANDBOX = "$(RIDEINTERCOM_VALIDATION_SANDBOX)";
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercom-Info.plist";
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				SDKROOT = auto;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				CODE_SIGN_STYLE = Automatic;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				REGISTER_APP_GROUPS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				GENERATE_INFOPLIST_FILE = NO;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)";
+				DEAD_CODE_STRIPPING = YES;
+				RIDEINTERCOM_APNS_ENVIRONMENT = development;
+				MARKETING_VERSION = 1.0.0;
+				ENABLE_HARDENED_RUNTIME = YES;
+				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover and connect nearby riders in your group.";
+				ENABLE_USER_SELECTED_FILES = readonly;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone so riders in your group can hear your voice.";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_PREVIEWS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+			};
+			name = "Debug-StoreKitValidation";
 		};
-		F269D3DC119EA9986ED6D9E5 /* Metadata Release */ = {
-			isa = XCBuildConfiguration; name = Release; buildSettings = { RIDEINTERCOM_RESERVE_BUILD_NUMBER = YES; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; };
+		B98630F9FCFAF03D83091277 /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = NO;
+				MARKETING_VERSION = 1.0.0;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.watchkitapp";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				TARGETED_DEVICE_FAMILY = 4;
+				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+				SDKROOT = watchos;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWatch/Info.plist;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+			};
+			name = "Debug-Validation";
 		};
-		226B0A6043DF86442317F630 /* Watch Debug */ = {
-			isa = XCBuildConfiguration; name = Debug; buildSettings = {
-                CODE_SIGN_STYLE = Automatic;
-                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-                DEVELOPMENT_TEAM = UAY8FH5FF8;
-                GENERATE_INFOPLIST_FILE = NO;
-                INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist";
-                LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-                MARKETING_VERSION = 1.0.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.watchkitapp";
-                PRODUCT_NAME = "$(TARGET_NAME)";
-                RIDEINTERCOM_INFO_SOURCE = RideIntercomWatch/Info.plist;
-                RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
-                SDKROOT = watchos;
-                SKIP_INSTALL = YES;
-                STRING_CATALOG_GENERATE_SYMBOLS = NO;
-                SUPPORTED_PLATFORMS = "watchos watchsimulator";
-                SWIFT_APPROACHABLE_CONCURRENCY = YES;
-                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-                SWIFT_EMIT_LOC_STRINGS = NO;
-                SWIFT_VERSION = 5.0;
-                TARGETED_DEVICE_FAMILY = 4;
-                WATCHOS_DEPLOYMENT_TARGET = 26.4;
-            };
+		28B5BB1C4B20901567CEC808 /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SWIFT_VERSION = 5.0;
+				MARKETING_VERSION = 1.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = RideIntercom;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				GENERATE_INFOPLIST_FILE = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				CODE_SIGN_STYLE = Automatic;
+				SDKROOT = auto;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomUITests";
+				DEAD_CODE_STRIPPING = YES;
+			};
+			name = "Debug-Validation";
 		};
-		32DEB5EEA2498D768AF8F629 /* Watch Release */ = {
-			isa = XCBuildConfiguration; name = Release; buildSettings = {
-                CODE_SIGN_STYLE = Automatic;
-                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-                DEVELOPMENT_TEAM = UAY8FH5FF8;
-                GENERATE_INFOPLIST_FILE = NO;
-                INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist";
-                LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-                MARKETING_VERSION = 1.0.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.watchkitapp";
-                PRODUCT_NAME = "$(TARGET_NAME)";
-                RIDEINTERCOM_INFO_SOURCE = RideIntercomWatch/Info.plist;
-                RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
-                SDKROOT = watchos;
-                SKIP_INSTALL = YES;
-                STRING_CATALOG_GENERATE_SYMBOLS = NO;
-                SUPPORTED_PLATFORMS = "watchos watchsimulator";
-                SWIFT_APPROACHABLE_CONCURRENCY = YES;
-                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-                SWIFT_EMIT_LOC_STRINGS = NO;
-                SWIFT_VERSION = 5.0;
-                TARGETED_DEVICE_FAMILY = 4;
-                WATCHOS_DEPLOYMENT_TARGET = 26.4;
-            };
+		52AAD5C5B3816AF2261C64C5 /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				MARKETING_VERSION = 1.0;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomTests";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RideIntercom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RideIntercom";
+				DEAD_CODE_STRIPPING = YES;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				CODE_SIGN_STYLE = Automatic;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				SDKROOT = auto;
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+			};
+			name = "Debug-Validation";
+		};
+		0C1B5AAACE6C9DC7D84AC9EA /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = NO;
+				MARKETING_VERSION = 1.0.0;
+				CODE_SIGN_ENTITLEMENTS = RideIntercomWidgets/RideIntercomWidgets.entitlements;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.Widgets";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_STYLE = Automatic;
+				SDKROOT = auto;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWidgets/Info.plist;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+			};
+			name = "Debug-Validation";
+		};
+		15AA8BD63C5F4135CACAB2B6 /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = macosx;
+				RIDEINTERCOM_RESERVE_BUILD_NUMBER = YES;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = "Debug-Validation";
+		};
+		501B1529D2511B4B750152B5 /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				MARKETING_VERSION = 1.0;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomAudioE2ETests";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RideIntercom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RideIntercom";
+				DEAD_CODE_STRIPPING = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_STYLE = Automatic;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				SDKROOT = auto;
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+			};
+			name = "Debug-Validation";
+		};
+		AE4B0449458DCD1AE5246CE2 /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SWIFT_VERSION = 5.0;
+				MARKETING_VERSION = 1.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = RideIntercom;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				GENERATE_INFOPLIST_FILE = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				CODE_SIGN_STYLE = Automatic;
+				SDKROOT = auto;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomUITests";
+				DEAD_CODE_STRIPPING = YES;
+			};
+			name = "Debug-StoreKitValidation";
+		};
+		896B4DE610B64B5309F95631 /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				SUPPORTS_MACCATALYST = NO;
+				ENABLE_APP_SANDBOX = "$(RIDEINTERCOM_VALIDATION_SANDBOX)";
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercom-Info.plist";
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				SDKROOT = auto;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				CODE_SIGN_STYLE = Automatic;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				REGISTER_APP_GROUPS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				GENERATE_INFOPLIST_FILE = NO;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)";
+				DEAD_CODE_STRIPPING = YES;
+				RIDEINTERCOM_APNS_ENVIRONMENT = development;
+				MARKETING_VERSION = 1.0.0;
+				ENABLE_HARDENED_RUNTIME = YES;
+				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "RideIntercom uses the local network to discover and connect nearby riders in your group.";
+				ENABLE_USER_SELECTED_FILES = readonly;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "RideIntercom uses the microphone so riders in your group can hear your voice.";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_PREVIEWS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = RideCom;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom";
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+			};
+			name = "Debug-Validation";
+		};
+		F1F24C37FB91698D0CFD7CD2 /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = NO;
+				MARKETING_VERSION = 1.0.0;
+				CODE_SIGN_ENTITLEMENTS = RideIntercomWidgets/RideIntercomWidgets.entitlements;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.Widgets";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_STYLE = Automatic;
+				SDKROOT = auto;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWidgets/Info.plist;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+			};
+			name = "Debug-StoreKitValidation";
+		};
+		1D7301EABFB2ABF0251A0FD7 /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				MARKETING_VERSION = 1.0;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomAudioE2ETests";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RideIntercom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RideIntercom";
+				DEAD_CODE_STRIPPING = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_STYLE = Automatic;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				SDKROOT = auto;
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+			};
+			name = "Debug-StoreKitValidation";
+		};
+		0876AC32F59E56D519E6F93F /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				MARKETING_VERSION = 1.0;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomTests";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RideIntercom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RideIntercom";
+				DEAD_CODE_STRIPPING = YES;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				CODE_SIGN_STYLE = Automatic;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+				SDKROOT = auto;
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+			};
+			name = "Debug-StoreKitValidation";
+		};
+		6633FDCB65DDDC624390F53D /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = macosx;
+				RIDEINTERCOM_RESERVE_BUILD_NUMBER = YES;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = "Debug-StoreKitValidation";
+		};
+		4DB3F0863F7FDFB75B62EB91 /* Debug-Validation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CURRENT_PROJECT_VERSION = 284;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				COPY_PHASE_STRIP = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				DEAD_CODE_STRIPPING = YES;
+				CLANG_ENABLE_MODULES = YES;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ENABLE_TESTABILITY = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+			};
+			name = "Debug-Validation";
+			baseConfigurationReference = A6D4C7A089FE51737098F522;
+		};
+		BEC20D7DA7FA4EE26D3B6DAC /* Debug-StoreKitValidation */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = NO;
+				MARKETING_VERSION = 1.0.0;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercom.watchkitapp";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				TARGETED_DEVICE_FAMILY = 4;
+				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+				SDKROOT = watchos;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				RIDEINTERCOM_INFO_SOURCE = RideIntercomWatch/Info.plist;
+				INFOPLIST_FILE = "$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist";
+				RIDEINTERCOM_BUILD_NUMBER_FROM = "$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist";
+			};
+			name = "Debug-StoreKitValidation";
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		5E38A3781DC3937AD241B271 /* Build configuration list for PBXNativeTarget "RideIntercomWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				226B0A6043DF86442317F630 /* Debug configuration for PBXNativeTarget "RideIntercomWatch" */,
+				32DEB5EEA2498D768AF8F629 /* Release configuration for PBXNativeTarget "RideIntercomWatch" */,
+				B98630F9FCFAF03D83091277,
+				BEC20D7DA7FA4EE26D3B6DAC,
+			);
+			defaultConfigurationName = Release;
+		};
 		93F300C32F93829C0046716D /* Build configuration list for PBXProject "RideIntercom" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				93F300EF2F93829D0046716D /* Debug configuration for PBXProject "RideIntercom" */,
 				93F300F02F93829D0046716D /* Release configuration for PBXProject "RideIntercom" */,
+				4DB3F0863F7FDFB75B62EB91,
+				68530E56602EDB03C185E899,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -1319,6 +2165,8 @@
 			buildConfigurations = (
 				93F300ED2F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercom" */,
 				93F300EE2F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercom" */,
+				896B4DE610B64B5309F95631,
+				C94DD52F646C5ED27A2BEE21,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -1327,6 +2175,8 @@
 			buildConfigurations = (
 				93F300F22F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercomTests" */,
 				93F300F32F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercomTests" */,
+				52AAD5C5B3816AF2261C64C5,
+				0876AC32F59E56D519E6F93F,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -1335,6 +2185,28 @@
 			buildConfigurations = (
 				93F300F52F93829D0046716D /* Debug configuration for PBXNativeTarget "RideIntercomUITests" */,
 				93F300F62F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercomUITests" */,
+				28B5BB1C4B20901567CEC808,
+				AE4B0449458DCD1AE5246CE2,
+			);
+			defaultConfigurationName = Release;
+		};
+		CDABBCF3E55F02E3C11BFBFD /* Build configuration list for PBXNativeTarget "RideIntercomWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9434D354798C68C6DA1B5694 /* Debug configuration for PBXNativeTarget "RideIntercomWidgets" */,
+				2418A49621F4F809C47068D0 /* Release configuration for PBXNativeTarget "RideIntercomWidgets" */,
+				0C1B5AAACE6C9DC7D84AC9EA,
+				F1F24C37FB91698D0CFD7CD2,
+			);
+			defaultConfigurationName = Release;
+		};
+		E0AC44D9BB20EE394DFB280F /* Build configuration list for PBXAggregateTarget "RideIntercomBuildMetadata" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				78E49A5AAFCB45AF4D9336CC /* Debug configuration for PBXAggregateTarget "RideIntercomBuildMetadata" */,
+				F269D3DC119EA9986ED6D9E5 /* Release configuration for PBXAggregateTarget "RideIntercomBuildMetadata" */,
+				15AA8BD63C5F4135CACAB2B6,
+				6633FDCB65DDDC624390F53D,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -1343,17 +2215,10 @@
 			buildConfigurations = (
 				E2E00000000000000000000A /* Debug configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */,
 				E2E00000000000000000000B /* Release configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */,
+				501B1529D2511B4B750152B5,
+				1D7301EABFB2ABF0251A0FD7,
 			);
 			defaultConfigurationName = Release;
-		};
-		CDABBCF3E55F02E3C11BFBFD /* Widget configurations */ = {
-			isa = XCConfigurationList; buildConfigurations = (9434D354798C68C6DA1B5694, 2418A49621F4F809C47068D0, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;
-		};
-		E0AC44D9BB20EE394DFB280F /* Metadata configurations */ = {
-			isa = XCConfigurationList; buildConfigurations = (78E49A5AAFCB45AF4D9336CC, F269D3DC119EA9986ED6D9E5, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;
-		};
-		5E38A3781DC3937AD241B271 /* Watch configurations */ = {
-			isa = XCConfigurationList; buildConfigurations = (226B0A6043DF86442317F630, 32DEB5EEA2498D768AF8F629, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 

@@ -15,6 +15,16 @@ enum AppleAccountFixture {
               environment["RIDEINTERCOM_LOCAL_TESTING"] == "1",
               let mode = environment["RIDEINTERCOM_ACCOUNT_FIXTURE"],
               mode == "signed-in" || mode == "signed-out" else { return nil }
+        if let recovery = environment["RIDEINTERCOM_GROUP_RECOVERY_FIXTURE"] {
+            do {
+                try processGroupRecovery(recovery, namespace: namespace,
+                    applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
+            } catch {
+                // This code is absent from normal Debug/Release products. An
+                // invalid local fixture must fail the UI launch, not pass silently.
+                preconditionFailure("Local saved-group recovery fixture failed: \(error)")
+            }
+        }
         if let raw = environment["RIDEINTERCOM_INTERFACE_FIXTURE"], let layout = InterfaceMode(rawValue: raw) {
             UserDefaults(suiteName: AppleAccountSession.storageNamespace(base: namespace, userID: userID))!
                 .set(layout.rawValue, forKey: "RideIntercom.settings.interfaceMode")
@@ -36,6 +46,38 @@ enum AppleAccountFixture {
             session.signOut()
         }
         return session
+    }
+
+    enum RecoveryFailure: Error { case invalidScope, unsafePath, verificationFailed }
+
+    /// Only the validation account's real group manifest is prepared. No test
+    /// state is persisted: the UI test explicitly selects prepare or verify.
+    static func processGroupRecovery(_ mode: String, namespace: String, applicationSupport: URL) throws {
+        let parts = mode.split(separator: ":")
+        guard namespace.range(of: #"^RideIntercom\.Validation\.[A-Za-z0-9._-]+$"#, options: .regularExpression) != nil,
+              parts.count == 2, parts[0] == "prepare" || parts[0] == "verify",
+              let fixtureID = UUID(uuidString: String(parts[1])) else { throw RecoveryFailure.invalidScope }
+        let corruptGroupBytes = Data("{broken-recovery-fixture:\(fixtureID.uuidString)".utf8)
+        let root = applicationSupport.resolvingSymlinksInPath()
+        let account = root.appending(path: AppleAccountSession.storageNamespace(base: namespace, userID: userID), directoryHint: .isDirectory)
+        let directory = account.appending(path: "Groups", directoryHint: .isDirectory)
+        let manifest = directory.appending(path: "groups.json")
+        for path in [account, directory, manifest] {
+            guard path.resolvingSymlinksInPath().standardizedFileURL.path == path.standardizedFileURL.path else { throw RecoveryFailure.unsafePath }
+        }
+        if parts[0] == "prepare" {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try corruptGroupBytes.write(to: manifest, options: .atomic)
+        } else {
+            let snapshot = try GroupSnapshot.decode(Data(contentsOf: manifest))
+            let archives = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            guard snapshot.version == 8, snapshot.groups.isEmpty,
+                  try archives.contains(where: { path in
+                      guard path.lastPathComponent.hasPrefix("groups-corrupt-"), path.pathExtension == "json",
+                            path.resolvingSymlinksInPath().standardizedFileURL.path == path.standardizedFileURL.path else { return false }
+                      return try Data(contentsOf: path) == corruptGroupBytes
+                  }) else { throw RecoveryFailure.verificationFailed }
+        }
     }
 
     private final class FixtureKeychain: KeychainSecretStoring {

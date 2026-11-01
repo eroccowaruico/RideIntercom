@@ -72,7 +72,8 @@ extension IntercomViewModel {
     /// Resolve a durable destination again when the action runs, not when a screen
     /// or external control originally displayed it.
     @discardableResult
-    func startCall(to destination: CallDestination, accountAccessID requestedAccess: UUID, allowSwitchingCall: Bool = true) -> Bool {
+    func startCall(to destination: CallDestination, accountAccessID requestedAccess: UUID, allowSwitchingCall: Bool = true, usingWatch: Bool = false) -> Bool {
+        guard !disconnectIfTimerExpired(now: callAccessNow().timeIntervalSince1970) else { return false }
         guard canStartCalls, requestedAccess == accountAccessID else {
             groupErrorMessage = groupStorageNotice ?? "This sign-in has ended. Open your current account to continue."
             return false
@@ -101,7 +102,7 @@ extension IntercomViewModel {
             return false
         }
         if activeGroupID == selectedGroup.id, hasAnyActiveGroupConnection { return true }
-        connectSelectedGroup()
+        connectSelectedGroup(usingWatch: usingWatch)
         return activeGroupID == selectedGroup.id && hasAnyActiveGroupConnection
     }
 
@@ -114,6 +115,7 @@ extension IntercomViewModel {
 
     @discardableResult
     func setCallMuted(_ muted: Bool, for reference: CallReference) -> Bool {
+        guard !disconnectIfTimerExpired(now: callAccessNow().timeIntervalSince1970) else { return false }
         guard canStartCalls, matchesCurrentCall(reference) else { return false }
         applyLocalMute(muted)
         return true

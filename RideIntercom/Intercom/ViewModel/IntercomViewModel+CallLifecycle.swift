@@ -11,7 +11,7 @@ extension IntercomViewModel {
     }
 
     /// Internal lifecycle after the destination and account have been resolved.
-    func connectSelectedGroup() {
+    func connectSelectedGroup(usingWatch: Bool = false) {
         guard canStartCalls else {
             groupErrorMessage = groupStorageNotice ?? "Sign in with Apple to start a call."
             return
@@ -39,6 +39,8 @@ extension IntercomViewModel {
             activeGroupID = selectedGroup.id
             resetConnectionRuntimeState()
             bindConnectionEvents()
+            let interval = usingWatch ? watchCallDisconnectInterval : callDisconnectInterval
+            callDisconnectDeadline = callAccessNow().addingTimeInterval(interval.seconds)
         }
 
         connectionState = isInternetOnlyCall
@@ -55,8 +57,8 @@ extension IntercomViewModel {
             group.accessSecret = credential.secret
             callSession.setAudioPolicy(currentCallAudioPolicy())
             publishRuntimePackageReports(force: true)
+            callTicker.start()
             callSession.connect(group: group)
-            if enforceCallAccess { callTicker.start() }
         }
         if !authenticatedPeerIDs.isEmpty {
             startActiveCallAfterAuthenticatedPeer()
@@ -74,7 +76,8 @@ extension IntercomViewModel {
     }
 
     func startAudioPipelineIfNeeded() -> Bool {
-        guard canStartCalls, canPrepareCallMedia else { return false }
+        guard !disconnectIfTimerExpired(now: callAccessNow().timeIntervalSince1970),
+              callDisconnectDeadline != nil, canStartCalls, canPrepareCallMedia else { return false }
         if isAudioReady {
             return true
         }
@@ -120,7 +123,7 @@ extension IntercomViewModel {
         audioPipeline.stop()
         _ = audioInputCapture.stop()
         _ = audioOutputRenderer.stop()
-        if !enforceCallAccess || activeGroupID == nil { callTicker.stop() }
+        if callDisconnectDeadline == nil && (!enforceCallAccess || activeGroupID == nil) { callTicker.stop() }
         if deactivateSession {
             _ = try? audioSessionManager.setActive(false)
         }
@@ -136,7 +139,17 @@ extension IntercomViewModel {
         }
     }
 
+    /// Uses the existing call ticker; reconnection and microphone changes never extend this deadline.
+    @discardableResult
+    func disconnectIfTimerExpired(now: TimeInterval) -> Bool {
+        guard let deadline = callDisconnectDeadline, now >= deadline.timeIntervalSince1970 else { return false }
+        disconnect()
+        groupErrorMessage = "The call ended because its automatic disconnection timer expired."
+        return true
+    }
+
     func disconnect() {
+        callDisconnectDeadline = nil
         callTicker.stop()
         callAccessState = CallAccessState()
         lastCallAccessSaveAttempt = nil

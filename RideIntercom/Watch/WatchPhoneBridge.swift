@@ -15,7 +15,7 @@ final class WatchPhoneBridge: NSObject, WCSessionDelegate {
         super.init()
     }
     func activate() {
-        guard WCSession.isSupported(), !started else { return }
+        guard SystemSurfaceScope.permitsSystemAccess, WCSession.isSupported(), !started else { return }
         started = true
         session.delegate = self
         session.activate()
@@ -30,7 +30,7 @@ final class WatchPhoneBridge: NSObject, WCSessionDelegate {
         publish(value)
     }
     private func publish(_ value: WatchCallSnapshot) {
-        guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
+        guard SystemSurfaceScope.permitsSystemAccess, session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
               let data = try? JSONEncoder().encode(value) else { return }
         try? session.updateApplicationContext(["rideintercom.watch.v1": data])
     }
@@ -47,11 +47,14 @@ final class WatchPhoneBridge: NSObject, WCSessionDelegate {
         }
     }
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
-    nonisolated func sessionDidDeactivate(_ session: WCSession) { session.activate() }
+    nonisolated func sessionDidDeactivate(_ session: WCSession) {
+        guard SystemSurfaceScope.permitsSystemAccess else { return }
+        session.activate()
+    }
     nonisolated func session(_ session: WCSession, didReceiveMessageData messageData: Data, replyHandler: @escaping (Data) -> Void) {
         let response = Reply(send: replyHandler)
         Task { @MainActor [weak self] in
-            guard let self, let owner, messageData.count <= 32_768,
+            guard SystemSurfaceScope.permitsSystemAccess, let self, let owner, messageData.count <= 32_768,
                   let request = try? JSONDecoder().decode(WatchControlRequest.self, from: messageData),
                   let data = try? JSONEncoder().encode(await owner.handleWatchRequest(request)) else {
                 response.send(Data()); return

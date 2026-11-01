@@ -18,7 +18,8 @@ enum NotificationSystem {
     }
     static var permitsSystemAccess: Bool {
         let environment = ProcessInfo.processInfo.environment
-        return environment["RIDEINTERCOM_LOCAL_TESTING"] != "1" && environment["XCTestConfigurationFilePath"] == nil && environment["XCTestBundlePath"] == nil
+        return SystemSurfaceScope.permitsSystemAccess && environment["RIDEINTERCOM_LOCAL_TESTING"] != "1"
+            && environment["XCTestConfigurationFilePath"] == nil && environment["XCTestBundlePath"] == nil
     }
     static func requestAuthorization() async throws -> Bool {
         guard permitsSystemAccess else { return false }

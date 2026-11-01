@@ -372,17 +372,23 @@ struct AudioPipelineTests {
         if inputFails { harness.inputBackend.startError = AudioStreamError.engineOperationFailed("input") }
         else { harness.outputBackend.startError = AudioStreamError.engineOperationFailed("output") }
         harness.viewModel.selectGroup(IntercomSeedData.recentGroups[0])
+        let deadline = harness.viewModel.callDisconnectDeadline
+        #expect(deadline != nil)
         harness.callSession.authenticate(["member-108"])
         await AppTestSupport.waitUntil { harness.viewModel.audioErrorMessage != nil }
         #expect(!harness.viewModel.isAudioReady)
         #expect(harness.inputBackend.stopCount == 1)
         #expect(harness.viewModel.audioPipeline.snapshot.busIDs.isEmpty)
-        #expect(!(harness.viewModel.callTicker as! NoOpCallTicker).isRunning)
+        // Audio resources stop, while the waiting call must still expire.
+        #expect((harness.viewModel.callTicker as! NoOpCallTicker).isRunning)
+        #expect(harness.viewModel.callDisconnectDeadline == deadline)
         harness.inputBackend.startError = nil
         harness.outputBackend.startError = nil
         harness.viewModel.startActiveCallAfterAuthenticatedPeer()
         #expect(harness.viewModel.isAudioReady)
+        #expect(harness.viewModel.callDisconnectDeadline == deadline)
         harness.viewModel.disconnect()
+        #expect(!(harness.viewModel.callTicker as! NoOpCallTicker).isRunning)
     }
 
     @Test func audioCheckIsCancelledBeforeCallStartsAndCannotStopCallLater() async {

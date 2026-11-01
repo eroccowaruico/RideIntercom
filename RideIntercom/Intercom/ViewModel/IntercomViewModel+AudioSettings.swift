@@ -375,7 +375,15 @@ extension IntercomViewModel {
         publishRuntimePackageReports(force: true)
     }
 
+    func setCallDisconnectInterval(_ interval: CallDisconnectInterval, usingWatch: Bool = false) {
+        if usingWatch { watchCallDisconnectInterval = interval }
+        else { callDisconnectInterval = interval }
+        saveAppSettings()
+    }
+
     func resetAllSettings() {
+        setCallDisconnectInterval(.threeHours)
+        setCallDisconnectInterval(.fiveMinutes, usingWatch: true)
         setInputPort(.systemDefault)
         setOutputPort(.systemDefault)
         setAudioSessionProfile(Self.defaultAudioSessionProfile)
@@ -412,6 +420,8 @@ extension IntercomViewModel {
         guard canStartCalls else { return }
         var settings = AppSettings(
             recentCallDestination: storedRecentCallDestination,
+            callDisconnectInterval: callDisconnectInterval,
+            watchCallDisconnectInterval: watchCallDisconnectInterval,
             audioSessionProfile: audioSessionProfile,
             vadSensitivity: vadSensitivity,
             preferredTransmitCodec: preferredTransmitCodec,

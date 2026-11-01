@@ -44,10 +44,15 @@ final class AppleAccountSession {
     }
 
     static func makeForCurrentProcess() -> AppleAccountSession {
-        let namespace = Bundle.main.object(forInfoDictionaryKey: "StorageNamespace") as? String ?? "RideIntercom"
+        let configuredNamespace = Bundle.main.object(forInfoDictionaryKey: "StorageNamespace") as? String
         #if DEBUG && RIDEINTERCOM_VALIDATION
-        if let fixture = AppleAccountFixture.makeForCurrentProcess(namespace: namespace) { return fixture }
-        #endif
+        guard let configuredNamespace,
+              let fixture = AppleAccountFixture.makeForCurrentProcess(namespace: configuredNamespace) else {
+            preconditionFailure("Local validation requires an isolated StorageNamespace and explicit account fixture environment.")
+        }
+        return fixture
+        #else
+        let namespace = configuredNamespace ?? "RideIntercom"
         return AppleAccountSession(keychain: SystemKeychainSecretStore(),
             defaults: UserDefaults(suiteName: namespace)!, namespace: namespace) { userID in
                 switch try await ASAuthorizationAppleIDProvider().credentialState(forUserID: userID) {
@@ -58,6 +63,7 @@ final class AppleAccountSession {
                 @unknown default: return .notFound
                 }
             }
+        #endif
     }
 
     static func storageNamespace(base: String, userID: String) -> String {

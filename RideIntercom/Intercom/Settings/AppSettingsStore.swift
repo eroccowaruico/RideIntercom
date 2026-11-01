@@ -7,11 +7,40 @@ enum InterfaceMode: String, CaseIterable, Identifiable {
     var id: Self { self }
 }
 
+nonisolated enum CallDisconnectInterval: Int, CaseIterable, Identifiable, Sendable {
+    case oneMinute = 60, threeMinutes = 180, fiveMinutes = 300, tenMinutes = 600
+    case fifteenMinutes = 900, thirtyMinutes = 1800
+    case oneHour = 3600, twoHours = 7200, threeHours = 10800, sixHours = 21600
+    case eightHours = 28800, twelveHours = 43200, twentyFourHours = 86400
+
+    var id: Self { self }
+    var seconds: TimeInterval { TimeInterval(rawValue) }
+    var title: String {
+        switch self {
+        case .oneMinute: String(localized: "1 minute")
+        case .threeMinutes: String(localized: "3 minutes")
+        case .fiveMinutes: String(localized: "5 minutes")
+        case .tenMinutes: String(localized: "10 minutes")
+        case .fifteenMinutes: String(localized: "15 minutes")
+        case .thirtyMinutes: String(localized: "30 minutes")
+        case .oneHour: String(localized: "1 hour")
+        case .twoHours: String(localized: "2 hours")
+        case .threeHours: String(localized: "3 hours")
+        case .sixHours: String(localized: "6 hours")
+        case .eightHours: String(localized: "8 hours")
+        case .twelveHours: String(localized: "12 hours")
+        case .twentyFourHours: String(localized: "24 hours")
+        }
+    }
+}
+
 struct AppSettings: Equatable {
     var menuBarEnabled = false
     var liveActivityEnabled = false
     var interfaceMode: InterfaceMode = .standard
     var recentCallDestination: CallDestination?
+    var callDisconnectInterval: CallDisconnectInterval
+    var watchCallDisconnectInterval: CallDisconnectInterval
     var audioSessionProfile: AudioSessionProfile
     var vadSensitivity: VoiceActivitySensitivity
     var preferredTransmitCodec: AudioCodecIdentifier
@@ -22,6 +51,8 @@ struct AppSettings: Equatable {
 
     init(
         recentCallDestination: CallDestination? = nil,
+        callDisconnectInterval: CallDisconnectInterval = .threeHours,
+        watchCallDisconnectInterval: CallDisconnectInterval = .fiveMinutes,
         audioSessionProfile: AudioSessionProfile = IntercomViewModel.defaultAudioSessionProfile,
         vadSensitivity: VoiceActivitySensitivity = IntercomViewModel.defaultVADSensitivity,
         preferredTransmitCodec: AudioCodecIdentifier = IntercomViewModel.defaultTransmitCodec,
@@ -31,6 +62,8 @@ struct AppSettings: Equatable {
         enabledRTCTransportRoutes: Set<RTC.RouteKind> = IntercomViewModel.defaultEnabledRTCTransportRoutes
     ) {
         self.recentCallDestination = recentCallDestination
+        self.callDisconnectInterval = callDisconnectInterval
+        self.watchCallDisconnectInterval = watchCallDisconnectInterval
         self.audioSessionProfile = audioSessionProfile
         self.vadSensitivity = vadSensitivity
         self.preferredTransmitCodec = preferredTransmitCodec
@@ -52,6 +85,8 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     private let menuBarKey = "RideIntercom.settings.menuBarEnabled"
     private let liveActivityKey = "RideIntercom.settings.liveActivityEnabled"
     private let interfaceModeKey = "RideIntercom.settings.interfaceMode"
+    private let callDisconnectIntervalKey = "RideIntercom.settings.callDisconnectInterval"
+    private let watchCallDisconnectIntervalKey = "RideIntercom.settings.watchCallDisconnectInterval"
     private let recentCallDestinationKey = "RideIntercom.history.recentCallDestination"
     private let audioSessionProfileKey = "RideIntercom.settings.audioSessionProfile"
     private let vadSensitivityKey = "RideIntercom.settings.vadSensitivity"
@@ -70,6 +105,8 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     func load() -> AppSettings {
         var settings = AppSettings(
             recentCallDestination: defaults.data(forKey: recentCallDestinationKey).flatMap { try? JSONDecoder().decode(CallDestination.self, from: $0) },
+            callDisconnectInterval: CallDisconnectInterval(rawValue: defaults.integer(forKey: callDisconnectIntervalKey)) ?? .threeHours,
+            watchCallDisconnectInterval: CallDisconnectInterval(rawValue: defaults.integer(forKey: watchCallDisconnectIntervalKey)) ?? .fiveMinutes,
             audioSessionProfile: loadAudioSessionProfile(),
             vadSensitivity: loadVADSensitivity(),
             preferredTransmitCodec: loadPreferredTransmitCodec(),
@@ -95,6 +132,8 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
         defaults.set(settings.liveActivityEnabled, forKey: liveActivityKey)
         defaults.set(settings.interfaceMode.rawValue, forKey: interfaceModeKey)
         defaults.set(settings.recentCallDestination.flatMap { try? JSONEncoder().encode($0) }, forKey: recentCallDestinationKey)
+        defaults.set(settings.callDisconnectInterval.rawValue, forKey: callDisconnectIntervalKey)
+        defaults.set(settings.watchCallDisconnectInterval.rawValue, forKey: watchCallDisconnectIntervalKey)
         defaults.set(settings.audioSessionProfile.rawValue, forKey: audioSessionProfileKey)
         defaults.set(settings.vadSensitivity.rawValue, forKey: vadSensitivityKey)
         defaults.set(settings.preferredTransmitCodec.rawValue, forKey: preferredTransmitCodecKey)

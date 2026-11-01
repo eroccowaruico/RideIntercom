@@ -59,6 +59,16 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 
 Standard/Advancedで同じモデルを使用する。SavedUserの編集には相手ごとのAllow Call Requests、Send Call Request、Cancel Call Requestを置く。許可は相手と1対1で接続すると共有する。group内だけの相手や自分の別端末を候補へ昇格させず、通知の受付を通話成立と表示しない。詳細は[通知仕様](../通知仕様.md)を参照する。
 
+## 自動切断
+
+| 項目 | ID | 操作・状態 |
+|---|---|---|
+| Automatic Disconnection | `callDisconnectTimerSection` | Standard／Advancedの共通Section。次の開始から適用し、相手待ちと再接続の時間も含むことを説明 |
+| Regular Calls | `callDisconnectIntervalPicker` | 通常利用の時間。初期値3時間 |
+| Calls Started from Watch | `watchCallDisconnectIntervalPicker` | Watchから開始した通話の時間。初期値5分。Watch自身の音声の提供状況は変更しない |
+
+どちらも標準menu Pickerで1・3・5・10・15・30分、1・2・3・6・8・12・24時間を選ぶ。無制限はなく、アカウント別の端末内設定として個別に保持する。現在の通話の期限は変更せず、期限で終話した後も利用者の操作で再開始できる。
+
 ## Communication
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 異常系の考え方 |

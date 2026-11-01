@@ -88,5 +88,44 @@ class DevelopmentSetupTests(unittest.TestCase):
             self.assertEqual(self.setup.check(ROOT), [])
 
 
+    def test_package_roots_are_valid_without_parent_exception(self):
+        project = copy.deepcopy(self.project)
+        app_id = next(key for key, obj in project['objects'].items()
+                      if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == 'RideIntercom')
+        exception = next(obj for obj in project['objects'].values()
+                         if obj.get('isa') == 'PBXFileSystemSynchronizedBuildFileExceptionSet' and obj.get('target') == app_id)
+        exception['membershipExceptions'] = [path for path in exception['membershipExceptions'] if path != 'packages']
+        with patch.object(self.setup, 'load_project', return_value=project):
+            self.assertEqual(self.setup.check(ROOT), [])
+
+    def test_parent_exception_does_not_hide_missing_package_roots(self):
+        roots = [obj['relativePath'].removeprefix('RideIntercom/') for obj in self.project['objects'].values()
+                 if obj.get('isa') == 'XCLocalSwiftPackageReference']
+        for root in roots:
+            with self.subTest(root=root):
+                project = copy.deepcopy(self.project)
+                app_id = next(key for key, obj in project['objects'].items()
+                              if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == 'RideIntercom')
+                exception = next(obj for obj in project['objects'].values()
+                                 if obj.get('isa') == 'PBXFileSystemSynchronizedBuildFileExceptionSet' and obj.get('target') == app_id)
+                exception['membershipExceptions'].remove(root)
+                with patch.object(self.setup, 'load_project', return_value=project):
+                    self.assertTrue(any(root in error for error in self.setup.check(ROOT)))
+
+    def test_only_attached_app_exceptions_exclude_package_roots(self):
+        for failure in ('detached', 'other-target'):
+            with self.subTest(failure=failure):
+                project = copy.deepcopy(self.project)
+                app = next(obj for obj in project['objects'].values()
+                           if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == 'RideIntercom')
+                group = project['objects'][app['fileSystemSynchronizedGroups'][0]]
+                if failure == 'detached':
+                    group['exceptions'] = []
+                else:
+                    project['objects'][group['exceptions'][0]]['target'] = 'another-target'
+                with patch.object(self.setup, 'load_project', return_value=project):
+                    self.assertTrue(any('local Swift package root' in error for error in self.setup.check(ROOT)))
+
+
 if __name__ == '__main__':
     unittest.main()

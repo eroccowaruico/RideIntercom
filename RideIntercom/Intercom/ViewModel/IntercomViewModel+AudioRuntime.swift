@@ -13,6 +13,7 @@ extension IntercomViewModel {
     }
 
     func handleCallTick(now: TimeInterval) {
+        guard !disconnectIfTimerExpired(now: now) else { return }
         sendPeerProfileChallenges(now: now)
         refreshCallAccess(retryMedia: false)
         expireRemoteTalkers(now: now)

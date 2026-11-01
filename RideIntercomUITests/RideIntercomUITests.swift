@@ -19,6 +19,9 @@ final class RideIntercomUITests: XCTestCase {
         app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
         app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
         app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "advanced"
+        if name.contains("CorruptGroupStoreRecovery") {
+            app.launchEnvironment["RIDEINTERCOM_GROUP_RECOVERY_FIXTURE"] = "prepare:\(UUID())"
+        }
         if name.contains("InternetEnrollmentThrottle") {
             app.launchEnvironment["RIDEINTERCOM_INTERNET_ACCOUNT_FIXTURE"] = "throttled"
         }
@@ -436,9 +439,43 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testCallDisconnectTimersPersistIndependently() {
+        openSettingsTab()
+        let regular = app.buttons["callDisconnectIntervalPicker"].firstMatch
+        let watch = app.buttons["watchCallDisconnectIntervalPicker"].firstMatch
+        func expect(_ picker: XCUIElement, _ title: String) {
+            revealSettingsControl(picker)
+            XCTAssertTrue(picker.label.contains(title) || (picker.value as? String)?.contains(title) == true)
+        }
+        func select(_ picker: XCUIElement, _ title: String) {
+            revealSettingsControl(picker)
+            picker.tap()
+            let option = app.buttons[title].firstMatch
+            XCTAssertTrue(option.waitForExistence(timeout: 3))
+            option.tap()
+            expect(picker, title)
+        }
+        expect(regular, "3 hours")
+        expect(watch, "5 minutes")
+        select(regular, "15 minutes")
+        expect(watch, "5 minutes")
+        select(watch, "1 minute")
+        openGroupsTab(); openSettingsTab()
+        expect(regular, "15 minutes")
+        expect(watch, "1 minute")
+        app.terminate(); app.launch(); app.activate()
+        openSettingsTab()
+        expect(regular, "15 minutes")
+        expect(watch, "1 minute")
+        attachScreen("Independent call disconnection timers")
+        select(regular, "3 hours")
+        select(watch, "5 minutes")
+    }
+
+    @MainActor
     func testCorruptGroupStoreRecovery() throws {
-        // validate.py supplies corrupt bytes only after the ordinary UI suite,
-        // inside its own Simulator and build-specific storage namespace.
+        // The compile-isolated fixture seeds the actual manifest before launch.
+        // Cmd-U uses the same recovery UI and checks the resulting disk files.
         let status = app.descendants(matching: .any)["groupStorageStatus"].firstMatch
         XCTAssertTrue(status.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["createGroupButton"].isEnabled)
@@ -457,6 +494,12 @@ final class RideIntercomUITests: XCTestCase {
         app.alerts.buttons["confirmResetSavedGroupsButton"].firstMatch.tap()
         XCTAssertTrue(status.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["createGroupButton"].isEnabled)
+        app.terminate()
+        app.launchEnvironment["RIDEINTERCOM_GROUP_RECOVERY_FIXTURE"] = try XCTUnwrap(app.launchEnvironment["RIDEINTERCOM_GROUP_RECOVERY_FIXTURE"])
+            .replacingOccurrences(of: "prepare:", with: "verify:")
+        app.launch()
+        XCTAssertTrue(waitForVisibleRoot(in: app), "Expected the empty manifest and exact archived corrupt bytes to pass verification")
+        XCTAssertFalse(app.descendants(matching: .any)["groupStorageStatus"].exists)
         createTalkGroupAndOpenCall()
         try checkGroupDeletionCanBeExercisedFromUI()
         attachScreen("Saved Groups Recovered")

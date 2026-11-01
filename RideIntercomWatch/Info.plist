@@ -2,6 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+<key>StorageNamespace</key><string>$(RIDEINTERCOM_STORAGE_NAMESPACE)</string>
     <key>WKApplication</key><true/>
     <key>CFBundleDisplayName</key><string>RideIntercom</string>
     <key>WKCompanionAppBundleIdentifier</key><string>com.yowamushi-inc.RideIntercom.RideIntercom</string>

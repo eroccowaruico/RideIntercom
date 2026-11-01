@@ -25,6 +25,7 @@ extension IntercomViewModel {
     }
 
     func handleTransportEvent(_ event: TransportEvent) {
+        guard !disconnectIfTimerExpired(now: callAccessNow().timeIntervalSince1970) else { return }
         switch event {
         case .routesChanged(let snapshot):
             availableCallRoutes = snapshot.availableRoutes
@@ -107,6 +108,9 @@ extension IntercomViewModel {
                 sendNotificationPermissions()
             }
         case .disconnected:
+            connectionGeneration = UUID()
+            callSession.onEvent = nil
+            callDisconnectDeadline = nil
             networkDiagnostics = nil
             callTicker.stop()
             stopAudioPipeline()
@@ -120,7 +124,12 @@ extension IntercomViewModel {
             publishRuntimePackageReports(force: true)
         case .linkFailed(let willRetry):
             networkDiagnostics = nil
-            if !willRetry { callTicker.stop() }
+            if !willRetry {
+                connectionGeneration = UUID()
+                callSession.onEvent = nil
+                callDisconnectDeadline = nil
+                callTicker.stop()
+            }
             AppLoggers.rtc.error(
                 "rtc.connection.failed",
                 metadata: .event("rtc.connection.failed", [

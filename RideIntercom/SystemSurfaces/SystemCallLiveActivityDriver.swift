@@ -10,6 +10,7 @@ import ActivityKit
     deinit { observation?.cancel() }
 
     func start(_ value: CallLivePresentation) async throws {
+        guard SystemSurfaceScope.permitsSystemAccess else { throw Failure.unavailable }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw Failure.unavailable }
         let activity = try Activity.request(attributes: RideCallActivityAttributes(reference: value.reference),
             content: content(value), pushType: nil)
@@ -26,6 +27,7 @@ import ActivityKit
         }
     }
     func update(_ value: CallLivePresentation) async {
+        guard SystemSurfaceScope.permitsSystemAccess else { return }
         guard let activity, activity.attributes.reference == value.reference else { return }
         guard activity.activityState == .active || activity.activityState == .stale else {
             onDismissed?(value.reference); return
@@ -33,6 +35,7 @@ import ActivityKit
         await activity.update(content(value))
     }
     func end() async {
+        guard SystemSurfaceScope.permitsSystemAccess else { return }
         observation?.cancel(); observation = nil
         activity = nil
         for previous in Activity<RideCallActivityAttributes>.activities {

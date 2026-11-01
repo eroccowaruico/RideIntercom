@@ -20,12 +20,13 @@ final class AppNotificationBridge: NSObject, UNUserNotificationCenterDelegate {
         }
     }
     func receivedDeviceToken(_ token: Data) {
-        guard let model = owner?.viewModel, model.hasCurrentAccountAccess, let topic = Bundle.main.bundleIdentifier else { return }
+        guard NotificationSystem.permitsSystemAccess, let model = owner?.viewModel, model.hasCurrentAccountAccess, let topic = Bundle.main.bundleIdentifier else { return }
         Task { await model.notifications.receivedDeviceToken(token, environment: NotificationSystem.environment, topic: topic) }
     }
     func registrationFailed() { owner?.viewModel?.notifications.registrationFailed() }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let tap = CallNotificationTap(payload: response.notification.request.content.userInfo) else { return }
+        guard SystemSurfaceScope.permitsSystemAccess,
+              let tap = CallNotificationTap(payload: response.notification.request.content.userInfo) else { return }
         _ = await respond(to: tap, actionIdentifier: response.actionIdentifier,
                           categoryIdentifier: response.notification.request.content.categoryIdentifier)
     }
@@ -38,7 +39,8 @@ final class AppNotificationBridge: NSObject, UNUserNotificationCenterDelegate {
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        guard let tap = CallNotificationTap(payload: notification.request.content.userInfo) else { return [] }
+        guard SystemSurfaceScope.permitsSystemAccess,
+              let tap = CallNotificationTap(payload: notification.request.content.userInfo) else { return [] }
         return await shouldPresent(tap) ? [.banner, .sound] : []
     }
     private func shouldPresent(_ tap: CallNotificationTap) -> Bool {

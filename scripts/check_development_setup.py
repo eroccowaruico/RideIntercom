@@ -58,10 +58,18 @@ def check(root):
                    for obj in objects.values()):
             errors.append(f'{folder} must remain a filesystem-synchronized folder.')
     app_id = next(key for key,obj in objects.items() if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == 'RideIntercom')
-    exceptions = [obj for obj in objects.values() if obj.get('isa') == 'PBXFileSystemSynchronizedBuildFileExceptionSet'
-                  and obj.get('target') == app_id]
-    if not any('packages' in obj.get('membershipExceptions', []) for obj in exceptions):
-        errors.append('App must exclude packages from automatic target membership (SwiftPM owns them).')
+    for group_id in objects[app_id].get('fileSystemSynchronizedGroups', []):
+        group = objects[group_id]
+        directory = (root / group.get('path', '')).resolve()
+        exceptions = [objects[key] for key in group.get('exceptions', [])
+                      if objects[key].get('target') == app_id]
+        excluded = {path for obj in exceptions for path in obj.get('membershipExceptions', [])}
+        for package in sorted(package_paths):
+            package_directory = (root / package).resolve()
+            if package_directory.is_relative_to(directory):
+                relative = package_directory.relative_to(directory).as_posix()
+                if relative not in excluded:
+                    errors.append(f'App must exclude local Swift package root {relative} from synchronized target membership (SwiftPM owns it).')
     main = objects[objects[project['rootObject']]['mainGroup']]
     visible_paths = {objects[key].get('path') for key in main['children']}
     for path in ['.vscode', '.codex', '.github', '.gitignore']:

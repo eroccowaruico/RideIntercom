@@ -40,7 +40,7 @@ def run(output, derived):
     (runner.out / 'derived-data.txt').write_text(str(derived) + '\n')
     before = manifest()
     (runner.out / 'source-before.json').write_text(json.dumps(before, indent=2) + '\n')
-    runner.xcode('storekit', 'platform=macOS', scheme='RideIntercom-StoreKitTests', derived_data=derived,
+    runner.xcode('storekit', 'platform=macOS,arch=arm64', scheme='RideIntercom-StoreKitTests', derived_data=derived,
                  extra_conditions=['RIDEINTERCOM_STOREKIT_TESTING'],
                  only=['RideIntercomTests/' + name for name in [
                      'StoreEntitlementTests', 'StoreKitAccessTests', 'StoreDistributionAccessTests', 'LocalStoreKitTests']])

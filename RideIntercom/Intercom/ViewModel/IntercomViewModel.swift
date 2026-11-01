@@ -66,6 +66,9 @@ final class IntercomViewModel {
     var savedUsers: [SavedUser] = []
     var selectedGroup: IntercomGroup?
     var activeGroupID: UUID?
+    var callDisconnectInterval: CallDisconnectInterval = .threeHours
+    var watchCallDisconnectInterval: CallDisconnectInterval = .fiveMinutes
+    var callDisconnectDeadline: Date?
     var connectionState: CallConnectionState = .idle
     var isMuted = false
     var isVoiceActive = false
@@ -301,6 +304,8 @@ final class IntercomViewModel {
         self.audioSessionSnapshot = (try? sessionManager.snapshot()) ?? Self.defaultAudioSessionSnapshot()
         self.remoteTalkerTimeout = remoteTalkerTimeout
         self.storedRecentCallDestination = appSettings.recentCallDestination
+        self.callDisconnectInterval = appSettings.callDisconnectInterval
+        self.watchCallDisconnectInterval = appSettings.watchCallDisconnectInterval
         self.audioSessionProfile = appSettings.audioSessionProfile
         self.vadSensitivity = appSettings.vadSensitivity
         self.preferredTransmitCodec = appSettings.preferredTransmitCodec

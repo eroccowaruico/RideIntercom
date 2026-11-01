@@ -25,12 +25,13 @@ nonisolated struct WidgetDestinationStore: Sendable {
     static let groupIdentifier = "group.com.yowamushi-inc.RideIntercom.CallWidgets"
     let fileURL: URL?
     static var system: Self {
-        #if DEBUG && RIDEINTERCOM_VALIDATION
-        .init(fileURL: nil)
-        #else
-        .init(fileURL: FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)?
-            .appending(path: "call-destinations.json"))
-        #endif
+        system(storageNamespace: Bundle.main.object(forInfoDictionaryKey: "StorageNamespace") as? String) {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)
+        }
+    }
+    static func system(storageNamespace: String?, containerURL: () -> URL?) -> Self {
+        guard SystemSurfaceScope.permitsSystemAccess(storageNamespace: storageNamespace) else { return .init(fileURL: nil) }
+        return .init(fileURL: containerURL()?.appending(path: "call-destinations.json"))
     }
     func read() -> [WidgetCallDestination] {
         readSnapshot()?.destinations ?? []

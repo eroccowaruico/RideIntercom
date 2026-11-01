@@ -386,16 +386,8 @@ def main():
                         recovery = 'RideIntercomUITests/RideIntercomUITests/testCorruptGroupStoreRecovery'
                         runner.xcode('ios-tests', 'platform=iOS Simulator,id=' + sim, only='RideIntercomUITests' if mode == 'ios-ui' else None,
                                      needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'], skip=recovery)
-                        runner.run('recovery-container', ['xcrun', 'simctl', 'get_app_container', sim,
-                                   'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-tests-acceptance'], timeout=60)
-                        fixture = [python, '-m', 'scripts.group_recovery_fixture', str(runner.out)]
-                        runner.run('recovery-prepare', fixture + ['prepare'], needs=['recovery-container'])
                         runner.xcode('ios-recovery', 'platform=iOS Simulator,id=' + sim, only=recovery,
-                                     needs=['recovery-prepare'], reuse_build='ios-tests')
-                        # Xcode may reinstall the app and relocate its retained data.
-                        runner.run('recovery-container-after', ['xcrun', 'simctl', 'get_app_container', sim,
-                                   'com.yowamushi-inc.RideIntercom.RideIntercom', 'data'], needs=['ios-recovery-acceptance'], timeout=60)
-                        runner.run('recovery-verify', fixture + ['verify'], needs=['recovery-container-after'])
+                                     needs=['ios-tests-acceptance'], reuse_build='ios-tests')
                 finally:
                     if lease.acquired:
                         lease.cleanup('simulator-final')

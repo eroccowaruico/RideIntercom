@@ -55,7 +55,7 @@ extension IntercomViewModel {
         }
         guard isAudioReady else { return }
         stopAudioPipeline()
-        if !startAudioPipelineIfNeeded() {
+        if !startAudioPipelineIfNeeded(), hasAnyActiveGroupConnection {
             isAudioPausedForDeviceChange = true
             audioRouteNotice = "Audio could not restart on the selected device. The group connection and relay continue. Check your device, then resume."
         }

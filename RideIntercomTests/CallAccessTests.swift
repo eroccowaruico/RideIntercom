@@ -173,7 +173,15 @@ extension CallAccessTests {
         let f = try CallAccessPair(); defer { f.close() }; f.connect()
         let original = try #require(f.a.viewModel.callAccessState.lastSponsoredStart)
         f.sourceA.value = .init(status: .notPurchased); f.sourceB.value = .init(status: .revoked)
+        // Resume near the end of the access window. The new call's timer still has time
+        // left when the older sponsored window ends, so only access policy is exercised.
+        f.close()
+        f.sourceA.now = Date(timeIntervalSince1970: original + 86_340); f.sourceB.now = f.sourceA.now
+        f.connect()
+        #expect(f.a.viewModel.callAccessState.isEstablished && f.b.viewModel.callAccessState.isEstablished)
+        #expect(f.a.viewModel.callAccessState.lastSponsoredStart == original)
         f.sourceA.now = Date(timeIntervalSince1970: original + 86_401); f.sourceB.now = f.sourceA.now
+        #expect(try #require(f.a.viewModel.callDisconnectDeadline) > f.sourceA.now)
         f.a.viewModel.stopAudioPipeline(); f.a.viewModel.refreshCallAccess(); f.b.viewModel.refreshCallAccess(); f.pump()
         #expect(f.a.viewModel.callAccessState.isEstablished && f.a.viewModel.isAudioReady)
         #expect(f.a.viewModel.callAccessState.lastSponsoredStart == original)

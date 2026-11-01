@@ -14,6 +14,7 @@ struct SettingsView: View {
             CallNotificationSettingsSection(notifications: viewModel.notifications)
             LocalDisplayNameSection(viewModel: viewModel)
             CallStatusDisplaySection(viewModel: viewModel)
+            CallDisconnectTimerSection(viewModel: viewModel)
             if viewModel.interfaceMode == .advanced {
                 CommunicationPanel(viewModel: viewModel)
                 InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
@@ -58,6 +59,33 @@ struct SettingsView: View {
         TransmitCodecPanel(viewModel: viewModel)
         VoiceActivityPanel(viewModel: viewModel)
         ResetSettingsPanel(viewModel: viewModel)
+    }
+}
+
+struct CallDisconnectTimerSection: View {
+    let viewModel: IntercomViewModel
+
+    var body: some View {
+        Section {
+            Picker("Regular Calls", selection: Binding(get: { viewModel.callDisconnectInterval },
+                                                       set: { viewModel.setCallDisconnectInterval($0) })) {
+                ForEach(CallDisconnectInterval.allCases) { interval in Text(interval.title).tag(interval) }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("callDisconnectIntervalPicker")
+            Picker("Calls Started from Watch", selection: Binding(get: { viewModel.watchCallDisconnectInterval },
+                                                                 set: { viewModel.setCallDisconnectInterval($0, usingWatch: true) })) {
+                ForEach(CallDisconnectInterval.allCases) { interval in Text(interval.title).tag(interval) }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("watchCallDisconnectIntervalPicker")
+        } header: {
+            Label("Automatic Disconnection", systemImage: "timer")
+        } footer: {
+            Text("Applies when starting a new call. Waiting and reconnecting count toward this time. You can start another call after the timer ends it.")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("callDisconnectTimerSection")
     }
 }
 

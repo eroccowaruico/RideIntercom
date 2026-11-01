@@ -46,7 +46,7 @@ extension AppCallOwner {
         case .refresh: return reply()
         case .start(let id):
             guard let target = callTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
-            succeeded = vm.startCall(to: target.destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false)
+            succeeded = vm.startCall(to: target.destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false, usingWatch: true)
         case .end: succeeded = vm.endCall(vm.currentCallReference)
         case .setMuted(let value): succeeded = vm.setCallMuted(value, for: vm.currentCallReference)
         case .requestCall(let id):

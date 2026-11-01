@@ -70,9 +70,22 @@ class PlatformConfigurationTests(unittest.TestCase):
 
     def test_embed_product_cannot_be_removed(self):
         project = copy.deepcopy(self.project)
-        for obj in project['objects'].values():
-            if obj.get('isa') == 'PBXCopyFilesBuildPhase' and obj.get('dstSubfolderSpec') == '13':
-                obj['files'] = []
+        objects = project['objects']
+        widget_refs = {key for key, obj in objects.items()
+                       if obj.get('isa') == 'PBXFileReference' and obj.get('path') == 'RideIntercomWidgets.appex'}
+        self.assertEqual(len(widget_refs), 1)
+        widget_build_files = {key for key, obj in objects.items()
+                              if obj.get('isa') == 'PBXBuildFile' and obj.get('fileRef') in widget_refs}
+        app = next(obj for obj in objects.values()
+                   if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == 'RideIntercom')
+        removed = 0
+        for phase_id in app['buildPhases']:
+            phase = objects[phase_id]
+            if phase.get('isa') == 'PBXCopyFilesBuildPhase':
+                original = phase.get('files', [])
+                phase['files'] = [key for key in original if key not in widget_build_files]
+                removed += len(original) - len(phase['files'])
+        self.assertEqual(removed, 1, 'The fixture must remove exactly one Widget embed entry.')
         self.assertTrue(any('embed Widget' in e for e in self.checker.check(ROOT, project)))
 
 
