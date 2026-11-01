@@ -15,6 +15,8 @@ public final class AudioFrameProcessor {
     private let suspendsDuringSilence: Bool
     private var silentInputDuration: TimeInterval = 0
     private var silentOutputDuration: TimeInterval = 0
+    private var inputEnd: TimeInterval?
+    private var inputFormat: AudioFormat?
 
     public init(format: AudioFormat, outputFormat: AudioFormat, busID: String = "processor",
                 packetDuration: TimeInterval = 0.01,
@@ -49,12 +51,22 @@ public final class AudioFrameProcessor {
     }
 
     public func process(_ frame: PCMFrame) throws {
+        _ = try frame.validated()
+        guard frame.frameCount > 0 else { return }
+        if let inputEnd, inputFormat != frame.format || abs(frame.capturedAt - inputEnd) > 2 / frame.format.sampleRate {
+            bus.resetProcessingState()
+            normalizer.reset()
+            silentInputDuration = 0; silentOutputDuration = 0
+        }
+        // Observed input advances even while exact digital silence sleeps.
+        // Only absence/discontinuity, not suppressed rendering, starts a stream.
+        inputEnd = frame.capturedAt + Double(frame.frameCount) / frame.format.sampleRate
+        inputFormat = frame.format
         // Only exact digital silence can sleep. Drain declared native delay/tail
         // as well as 250 ms of zero output, so downstream codecs can flush their
         // partial packets. An audible first sample resumes in this same call.
         let silent = suspendsDuringSilence && frame.samples.allSatisfy { $0 == 0 }
         if silent {
-            _ = try frame.validated()
             let drained = max(0.25, bus.processingLatency + bus.processingTailTime)
             if silentInputDuration >= drained && silentOutputDuration >= 0.25 { return }
             silentInputDuration += Double(frame.frameCount) / frame.format.sampleRate

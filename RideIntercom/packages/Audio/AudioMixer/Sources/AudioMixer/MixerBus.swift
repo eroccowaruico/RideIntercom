@@ -401,6 +401,17 @@ public final class MixerBus {
 		rebuildChain()
 	}
 
+    /// Reset the caller-driven processor's owned state without reconnecting
+    /// the graph, reallocating units or restarting the native sample clock.
+    func resetProcessingState() {
+        metadataLock.withLock {
+            inputMixer.reset()
+            for effect in effects { effect.reset() }
+            faderMixer.reset()
+            sinksByID.values.forEach { $0.resetStream() }
+        }
+    }
+
     func resetPCMSourceClocks() {
         for source in pcmSourceByNodeID.values { source.invalidatePlayout() }
     }

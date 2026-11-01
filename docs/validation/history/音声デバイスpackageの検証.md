@@ -14,3 +14,11 @@
 証跡は`.validation/audio-device-package-20261101/final/`。`input-boundary.json`と`watch-summary.json`、nativeログ、cleanup結果を保持した。元のHEADは`adea0a73`、終了時HEADは`0013462e`。HEADだけの相違をsource一致の結果へ書き換えていない。
 
 初回点検ではcodecと端末媒体の差し替え境界を整理し、再点検ではrendererのschedule／stopの競合と停止失敗後の再試行を修正した。二重のmix・VAD・通話sessionを追加していない。Appへの接続、WatchConnectivityの実配送、実Watchの背景・ロック中の開始・無線・電池はこのpackage試験の保証範囲に含めない。
+
+## 入力が途切れた後の音声履歴
+
+App追従後の再点検で、WatchからPCMが来ない間にVADとDSPの履歴が残る経路を見つけた。AppをfreezeしてAudioMixerの独立工程へ戻し、実native Delayとpartial packetで旧音声の再放出をREDとして確認した。
+
+AudioFrameProcessorの入力時刻・形式が不連続なら、所有するnative履歴・変換履歴・未送出端数を破棄する。graph・effectのidentity、設定値、native clockは保持し、一般の受信sinkのgap処理やcodec切替の契約は変更しない。bypass中のeffectも古い履歴を後で復活させず、未割当effectのrender resourcesも新規に確保しない。
+
+最終検証はSwift Testing 63件＋XCTest 7件、iOS SDK成功、warning・error 0、対象package hash一致。次発話はfresh native効果の波形と一致し、既存の無音休止と小声の語頭も維持した。証跡は`.validation/audio-mixer-discontinuity-20261101/review-final/`。AppのVAD保留破棄はこの後のApp工程で確認する。

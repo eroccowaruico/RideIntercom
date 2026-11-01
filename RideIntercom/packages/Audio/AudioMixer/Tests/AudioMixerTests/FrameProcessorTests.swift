@@ -146,3 +146,119 @@ import Testing
     }
     #expect(processor.mixer.engine.isRunning)
 }
+
+@Test func inputGapDiscardsNativeTailWithoutRebuildingTheProcessorClock() throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init(),
+        suspendsDuringSilence: true) { frame, _ in frames.append(frame) }
+    let delay = AVAudioUnitDelay()
+    delay.delayTime = 0.05; delay.feedback = 0; delay.wetDryMix = 100
+    try processor.bus.addEffect(delay, id: "native-delay")
+    try processor.start()
+    defer { processor.stop() }
+    for index in 0..<2 {
+        try processor.process(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) * 0.01,
+            samples: (0..<480).map { Float(sin(Double(index * 480 + $0) * 0.07) * 0.2) }))
+    }
+    let beforeGapClock = processor.mixer.engine.manualRenderingSampleTime
+    for index in 0..<10 {
+        try processor.process(.init(sequenceNumber: UInt64(index + 2), capturedAt: 1 + Double(index) * 0.01,
+            samples: Array(repeating: 0, count: 480)))
+    }
+    #expect(frames.filter { $0.capturedAt >= 1 }.flatMap(\.samples).allSatisfy { abs($0) < 0.000001 },
+        "No samples from before the input gap may emerge on later silence")
+    #expect(processor.mixer.engine.manualRenderingSampleTime == beforeGapClock + 4800)
+    #expect(processor.mixer.engine.isRunning && processor.bus.effects.first === delay)
+    #expect(abs(delay.delayTime - 0.05) < 0.000001 && delay.wetDryMix == 100)
+    for index in 0..<10 {
+        let samples = (0..<480).map { sample in
+            index < 2 ? Float(sin(Double(index * 480 + sample) * 0.09) * 0.2) : 0
+        }
+        try processor.process(.init(sequenceNumber: UInt64(index + 12), capturedAt: 1.1 + Double(index) * 0.01, samples: samples))
+    }
+    #expect(frames.filter { $0.capturedAt >= 1.14 }.flatMap(\.samples).contains { abs($0) > 0.05 },
+        "The same native effect must still process the next utterance")
+}
+
+@Test(arguments: [false, true])
+func inputDiscontinuityDiscardsOwnedPartialPackets(_ formatChanges: Bool) throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { frame, _ in frames.append(frame) }
+    try processor.start()
+    defer { processor.stop() }
+    let firstFormat = AudioFormat(sampleRate: formatChanges ? 24_000 : 48_000, channelCount: 1)
+    try processor.process(.init(sequenceNumber: 0, format: firstFormat, capturedAt: 0,
+        samples: Array(repeating: 0.3, count: 120)))
+    #expect(frames.isEmpty)
+    let nextTime = formatChanges ? 120.0 / 24_000 : 1
+    try processor.process(.init(sequenceNumber: 1, capturedAt: nextTime,
+        samples: Array(repeating: 0, count: 480)))
+    #expect(frames.count == 1, "Old partial audio must be discarded, not emitted or prepended")
+    #expect(frames.allSatisfy { abs($0.capturedAt - nextTime) < 1e-9 })
+    #expect(frames.flatMap(\.samples).allSatisfy { $0 == 0 })
+}
+
+@Test(arguments: [false, true])
+func nextUtteranceAfterDiscontinuityMatchesAFreshNativeEffect(_ formatChanges: Bool) throws {
+    var resumed: [PCMFrame] = [], fresh: [PCMFrame] = []
+    func make(_ receive: @escaping (PCMFrame) -> Void) throws -> AudioFrameProcessor {
+        let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { frame, _ in receive(frame) }
+        let delay = AVAudioUnitDelay()
+        delay.delayTime = 0.05; delay.feedback = 0; delay.wetDryMix = 100
+        try processor.bus.addEffect(delay, id: "delay")
+        try processor.start()
+        return processor
+    }
+    let previous = try make { resumed.append($0) }, reference = try make { fresh.append($0) }
+    defer { previous.stop(); reference.stop() }
+    for index in 0..<2 {
+        try previous.process(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100,
+            samples: Array(repeating: 0.4, count: 480)))
+    }
+    let nextTime = formatChanges ? 0.02 : 2
+    let nextFormat = AudioFormat(sampleRate: formatChanges ? 24_000 : 48_000, channelCount: 1)
+    let count = Int(nextFormat.sampleRate / 100)
+    for index in 0..<12 {
+        let frame = PCMFrame(sequenceNumber: UInt64(index + 2), format: nextFormat,
+            capturedAt: nextTime + Double(index) / 100,
+            samples: (0..<count).map { sample in
+                index < 2 ? Float(sin(Double(index * count + sample) * 0.09) * 0.2) : 0
+            })
+        try previous.process(frame)
+        try reference.process(frame)
+    }
+    let actual = resumed.filter { $0.capturedAt >= nextTime }.flatMap(\.samples)
+    let expected = fresh.flatMap(\.samples)
+    #expect(actual.count == expected.count)
+    #expect(zip(actual, expected).allSatisfy { abs($0 - $1) < 0.000001 },
+        "Input discontinuity must discard previous native history without altering the next utterance")
+    #expect(expected.contains { abs($0) > 0.05 })
+}
+
+@Test func inputGapDiscardsBypassedNativeHistoryWithoutAllocatingUnusedUnits() throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { frame, _ in frames.append(frame) }
+    let delay = AVAudioUnitDelay(), unused = AVAudioUnitDelay()
+    delay.delayTime = 0.05; delay.feedback = 0; delay.wetDryMix = 100
+    try processor.bus.addEffect(delay, id: "delay")
+    try processor.bus.addEffect(unused, id: "unused", bypassed: true)
+    try processor.start()
+    defer { processor.stop() }
+    for index in 0..<2 {
+        try processor.process(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100,
+            samples: Array(repeating: 0.3, count: 480)))
+    }
+    try processor.bus.setEffectBypassed(id: "delay", bypassed: true)
+    try processor.bus.prepareEffect(id: "delay")
+    #expect(delay.auAudioUnit.renderResourcesAllocated)
+    #expect(!unused.auAudioUnit.renderResourcesAllocated)
+    try processor.process(.init(sequenceNumber: 2, capturedAt: 1, samples: Array(repeating: 0, count: 480)))
+    #expect(delay.auAudioUnit.renderResourcesAllocated, "Reset retains prepared native resources")
+    #expect(!unused.auAudioUnit.renderResourcesAllocated, "Reset does not allocate an unused effect")
+    try processor.bus.setEffectBypassed(id: "delay", bypassed: false)
+    for index in 0..<10 {
+        try processor.process(.init(sequenceNumber: UInt64(index + 3), capturedAt: 1.01 + Double(index) / 100,
+            samples: Array(repeating: 0, count: 480)))
+    }
+    #expect(frames.filter { $0.capturedAt >= 1 }.flatMap(\.samples).allSatisfy { abs($0) < 0.000001 })
+}

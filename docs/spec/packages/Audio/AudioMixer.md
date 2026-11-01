@@ -437,7 +437,8 @@ capture時刻を持つ予約は、連続frameを含めて`AVAudioPlayerNode.sche
 | API / 境界 | 契約 |
 |---|---|
 | AudioFrameProcessor | 単一の直列ownerからprocessを呼ぶ。graph構築前にoffline manual renderingへ入り、AVAudioSourceNodeが現在の入力bufferを同期供給する。native Audio Unit chainをoffline renderし、hardware出力・playerの非同期queueを持たない。software node検査はengineのinputNode/outputNodeを取得せず、不要なdevice I/O初期化を避ける |
-| suspendsDuringSilence | 既定false。trueでは入力が完全な0で、active effectのlatency＋tailTime以上を流し、さらに出力の完全な0が250ms続いた場合にnative描画とbuffer生成を休止する。閾値で小声を削らない。次の非無音入力を同じprocess呼出しで処理し、音声時刻の間隔を保持する |
+| AudioFrameProcessorの入力不連続 | 入力format変更、または前の入力末尾から2sampleを超える時刻差を検出したら、所有するnative処理履歴・入力変換履歴・未送出sink端数とtransitionを破棄する。古い発話をgap後へemitしない。graph・Audio Unit identity・設定値・native sample clockは維持する。一般の受信sinkや出力format切替の契約は変更しない |
+| suspendsDuringSilence | 既定false。trueでは入力が完全な0で、active effectのlatency＋tailTime以上を流し、さらに出力の完全な0が250ms続いた場合にnative描画とbuffer生成を休止する。閾値で小声を削らない。次の非無音入力を同じprocess呼出しで処理し、音声時刻の間隔を保持する。休止しても観測した入力末尾を進め、連続無音を毎回gapとして起こさない |
 | processingTailTime | active native effectのtailTime合計。無効effectはlatency・tailTime・render resource allocationの対象外。休止前にはCodecの100ms排出より長い250msの無音出力を渡す |
 | installPCMSink(packetDuration:) | 指定時間までだけ蓄積して送る。入力formatで先にpacket化してから変換し、任意hardware quantumごとの丸めでsample数を増減させない |
 | installPCMSink(maximumFrameDuration:) | 蓄積を待たず即時配送し、長過ぎるframeだけ分割する |

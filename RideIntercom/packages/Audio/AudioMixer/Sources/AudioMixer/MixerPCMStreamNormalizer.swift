@@ -15,6 +15,13 @@ final class MixerPCMStreamNormalizer {
     private var previous: [Float] = []
     private var converter: AVAudioConverter?
 
+    /// Discard one source stream while retaining reusable native resources.
+    func reset() {
+        converter?.reset()
+        inputEnd = nil
+        previous.removeAll(keepingCapacity: true)
+    }
+
     func normalize(_ frame: PCMFrame, to target: AudioFormat, operation: AudioProcessingOperation)
         throws -> (frame: PCMFrame, report: AudioProcessingReport) {
         _ = try frame.validated()
@@ -22,7 +29,7 @@ final class MixerPCMStreamNormalizer {
         if frame.format == target || frame.samples.isEmpty {
             return try MixerPCMNormalizer.normalize(frame, to: target, operation: operation)
         }
-        if sourceFormat != frame.format || targetFormat != target
+        if sourceFormat != frame.format || targetFormat != target || inputEnd == nil
             || inputEnd.map({ abs(frame.capturedAt - $0) > 2 / frame.format.sampleRate }) == true {
             if sourceFormat != frame.format || targetFormat != target {
                 var replacement: AVAudioConverter?

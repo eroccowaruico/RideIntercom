@@ -267,6 +267,13 @@ public final class MixerPCMSink {
 	private var pendingCapturedAt: TimeInterval = 0
     private var transition = PCMStreamTransition()
 
+    /// An upstream stream reset discards unsent audio, never flushes it late.
+    func resetStream() {
+        pendingSamples.removeAll(keepingCapacity: true)
+        streamingNormalizer.reset()
+        transition.reset()
+    }
+
     func beginTransition(settlingDuration: TimeInterval, holding: Bool = false) {
         transition.begin(settlingDuration: settlingDuration, holding: holding)
     }
