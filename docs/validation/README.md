@@ -1,5 +1,7 @@
 # 検証状況と証跡
 
+[検証アプリの起動前確認](history/検証アプリの起動前確認.md)では、生成hostの保存先・開発資格不在を実行前に検査するCLI入口を追加した。Python 110件、Mac選択6件、iOS選択6件と同じbuildの別suite 7件、ローカルStoreKit 39件が成功。全App回帰・実音声・実機の成功を置き換える結果ではない。
+
 [公開通話APIの頻度制限](history/公開通話APIの頻度制限.md)で、認証済みaccount単位のrooms/status制限とcleanupの維持を確認した。Worker全78件・型検査・dry-runが成功し、実egress／請求監視／配置後の効果は別に残す。
 
 [検証プロセスの終了と回収](history/検証プロセスの終了と回収.md)で、別process groupの所有子孫回収を確認した。Python 105件・Node 4件成功。音声packageのCoreAudio待ち解消とは区別する。

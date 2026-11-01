@@ -3,7 +3,6 @@
 import argparse
 import json
 import os
-import subprocess
 from pathlib import Path
 import sys
 import time
@@ -11,8 +10,8 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.audio_e2e import source_manifest
-from scripts.test_lifecycle import exclusive_run, stop_executable
-from scripts.validate import Runner, file_fingerprint, fingerprints_match, xcode_tests_passed
+from scripts.test_lifecycle import exclusive_run
+from scripts.validate import Runner, file_fingerprint, fingerprints_match
 
 
 def manifest():
@@ -41,37 +40,10 @@ def run(output, derived):
     (runner.out / 'derived-data.txt').write_text(str(derived) + '\n')
     before = manifest()
     (runner.out / 'source-before.json').write_text(json.dumps(before, indent=2) + '\n')
-    bundle = runner.out / 'storekit.xcresult'
-    command = [
-        'xcodebuild', 'test', '-project', 'RideIntercom.xcodeproj', '-scheme', 'RideIntercom-StoreKitTests',
-        '-destination', 'platform=macOS', '-parallel-testing-enabled', 'NO',
-        '-derivedDataPath', str(derived), '-resultBundlePath', str(bundle),
-        '-only-testing:RideIntercomTests/StoreEntitlementTests',
-        '-only-testing:RideIntercomTests/StoreKitAccessTests',
-        '-only-testing:RideIntercomTests/StoreDistributionAccessTests',
-        '-only-testing:RideIntercomTests/LocalStoreKitTests',
-        'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION RIDEINTERCOM_STOREKIT_TESTING',
-        'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.StoreKit.' + runner.out.name,
-        'ENABLE_APP_SANDBOX=NO', 'CODE_SIGN_ENTITLEMENTS='
-    ]
-    try:
-        runner.run('storekit', command)
-    finally:
-        started = time.monotonic()
-        try:
-            stop_executable(derived / 'Build/Products/Debug/RideIntercom.app/Contents/MacOS/RideIntercom')
-            runner.record('owned-host-cleanup', [], 'passed', 0, started)
-        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-            runner.record('owned-host-cleanup', [], 'failed', 1, started, str(error))
-    runner.run('storekit-summary', ['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)], timeout=60)
-    started = time.monotonic()
-    try:
-        summary = json.loads((runner.out / 'storekit-summary.log').read_text())
-        passed = xcode_tests_passed(summary)
-    except (OSError, ValueError):
-        passed = False
-    runner.record('storekit-acceptance', [], 'passed' if passed else 'failed', 0 if passed else 1, started,
-                  'requires nonzero tests, no failures/skips/runtime warnings, and readable results')
+    runner.xcode('storekit', 'platform=macOS', scheme='RideIntercom-StoreKitTests', derived_data=derived,
+                 extra_conditions=['RIDEINTERCOM_STOREKIT_TESTING'],
+                 only=['RideIntercomTests/' + name for name in [
+                     'StoreEntitlementTests', 'StoreKitAccessTests', 'StoreDistributionAccessTests', 'LocalStoreKitTests']])
     after = manifest()
     (runner.out / 'source-after.json').write_text(json.dumps(after, indent=2) + '\n')
     same = before['head'] == after['head'] and fingerprints_match(before['files'], after['files'])

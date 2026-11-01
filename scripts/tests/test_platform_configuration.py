@@ -18,6 +18,32 @@ class PlatformConfigurationTests(unittest.TestCase):
     def test_repository_has_complete_minimum_platform_inputs(self):
         self.assertEqual(self.checker.check(ROOT, self.project), [])
 
+    def test_named_validation_configurations_allow_mac_fixture_settings(self):
+        for name in ('Debug-Validation', 'Debug-StoreKitValidation'):
+            with self.subTest(configuration=name):
+                project = copy.deepcopy(self.project)
+                objects = project['objects']
+                target = next(o for o in objects.values() if o.get('isa') == 'PBXNativeTarget' and o.get('name') == 'RideIntercom')
+                keys = objects[target['buildConfigurationList']]['buildConfigurations']
+                config = copy.deepcopy(objects[keys[0]])
+                config['name'] = name
+                config['buildSettings']['ENABLE_APP_SANDBOX'] = '$(RIDEINTERCOM_VALIDATION_SANDBOX)'
+                config['buildSettings']['CODE_SIGN_ENTITLEMENTS[sdk=macosx*]'] = '$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)'
+                objects['TEST_VALIDATION_CONFIG'] = config
+                keys.append('TEST_VALIDATION_CONFIG')
+                self.assertEqual(self.checker.check(ROOT, project), [])
+                config['buildSettings']['ENABLE_APP_SANDBOX'] = 'NO'
+                self.assertTrue(any('sandbox network' in e for e in self.checker.check(ROOT, project)))
+
+    def test_shipping_configurations_cannot_borrow_validation_exceptions(self):
+        project = copy.deepcopy(self.project)
+        for settings in self.checker.target_settings(project, 'RideIntercom'):
+            settings['ENABLE_APP_SANDBOX'] = '$(RIDEINTERCOM_VALIDATION_SANDBOX)'
+            settings['CODE_SIGN_ENTITLEMENTS[sdk=macosx*]'] = '$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)'
+        errors = self.checker.check(ROOT, project)
+        self.assertTrue(any('macOS entitlement' in e for e in errors))
+        self.assertTrue(any('sandbox network' in e for e in errors))
+
     def test_watch_icon_omission_is_rejected(self):
         project = copy.deepcopy(self.project)
         for settings in self.checker.target_settings(project, 'RideIntercomWatch'):

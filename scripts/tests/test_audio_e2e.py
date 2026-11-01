@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import plistlib
 import subprocess
 import sys
 import tempfile
@@ -11,10 +12,30 @@ from unittest.mock import patch
 from scripts.test_lifecycle import exclusive_run, stop_executable, SimulatorLease
 from scripts.validate import Runner, file_fingerprint, fingerprints_match
 from scripts.audio_e2e_matrix import scenarios
-from scripts.audio_e2e import measurements, duplex_latencies, run_pair
+from scripts.audio_e2e import measurements, duplex_latencies, run_pair, configure_test_run
 
 
 class AudioE2ELifecycleTests(unittest.TestCase):
+    def test_configuring_audio_hosts_requires_isolated_real_products(self):
+        for platform in ('mac', 'ios'):
+            products = self.root / platform
+            app = products / ('Release' if platform == 'mac' else 'Release-iphonesimulator') / 'RideIntercom.app'
+            info = app / ('Contents/Info.plist' if platform == 'mac' else 'Info.plist')
+            info.parent.mkdir(parents=True)
+            source, output = products / 'source.xctestrun', products / 'configured.xctestrun'
+            target = {'BlueprintName': 'RideIntercomAudioE2ETests',
+                      'TestHostPath': '__TESTROOT__/' + str(app.relative_to(products))}
+            source.write_bytes(plistlib.dumps({'TestConfigurations': [{'TestTargets': [target]}]}))
+            info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom'}))
+            with self.assertRaises(ValueError):
+                configure_test_run(source, output, {})
+            self.assertFalse(output.exists())
+            info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom.AudioE2E.Host'}))
+            configure_test_run(source, output, {'AUDIO_E2E_ROLE': 'a'})
+            configured = plistlib.loads(output.read_bytes())['TestConfigurations'][0]['TestTargets'][0]
+            self.assertEqual(configured['EnvironmentVariables']['AUDIO_E2E_ROLE'], 'a')
+            self.assertEqual(configured['OnlyTestIdentifiers'], ['AudioE2ETests/testDuplexSpeechOverNetwork'])
+
     def test_source_gate_includes_new_surface_code_and_signing_configuration(self):
         from scripts.audio_e2e import source_manifest
         names = ['RideIntercomWatch/WatchApp.swift', 'RideIntercomWidgets/Widget.swift',

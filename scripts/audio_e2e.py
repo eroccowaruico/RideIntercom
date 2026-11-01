@@ -15,7 +15,7 @@ import time
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scripts.validate import ROOT, Runner, xcode_tests_passed, file_fingerprint, fingerprints_match
+from scripts.validate import ROOT, Runner, xcode_tests_passed, file_fingerprint, fingerprints_match, test_host_metadata
 from scripts.test_lifecycle import exclusive_run, SimulatorLease, simulator_resource_root
 from scripts.audio_e2e_matrix import scenarios
 
@@ -35,6 +35,7 @@ def configure_test_run(source, destination, environment, identifiers=None):
     targets = [target for config in data['TestConfigurations'] for target in config['TestTargets']]
     if len(targets) != 1 or targets[0]['BlueprintName'] != 'RideIntercomAudioE2ETests':
         raise ValueError('Expected the dedicated audio E2E test target')
+    test_host_metadata(source, 'RideIntercom.AudioE2E.Host')
     targets[0].setdefault('EnvironmentVariables', {}).update(environment)
     targets[0]['OnlyTestIdentifiers'] = identifiers or ['AudioE2ETests/testDuplexSpeechOverNetwork']
     # __TESTROOT__ is relative to the xctestrun, which we keep beside its products.
@@ -215,6 +216,8 @@ def execute(args, runner, resource_root):
             runs = sorted(products.glob('RideIntercomAudioE2E_*.xctestrun'), key=lambda p: p.stat().st_mtime, reverse=True)
             if not runs:
                 raise ValueError('Missing generated xctestrun')
+            if not runner.check_test_host('host-preflight-' + platform, runs[0], 'RideIntercom.AudioE2E.Host'):
+                raise RuntimeError('Audio E2E host isolation check failed')
             products_by_platform[platform] = (products, runs[0])
         command('microphone-permission', ['xcrun', 'simctl', 'privacy', simulator, 'grant', 'microphone',
                 'com.yowamushi-inc.RideIntercom.RideIntercom'], 60)

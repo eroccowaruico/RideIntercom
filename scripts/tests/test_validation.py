@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import plistlib
 import signal
 import shutil
 import subprocess
@@ -151,28 +152,103 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(saved['bad']['status'], 'failed')
         self.assertIn('command', saved['bad'])
 
-    def test_recovery_reuses_build_and_its_isolated_storage_namespace(self):
+    def xcode_fixture(self, name, destination, *, fault=None, reuse_build=None, scheme='RideIntercom', only_tests=None, extra_conditions=()):
+        """Run the real dependency gate with local commands, never Xcode or a host."""
         commands = {}
+        original_run = self.runner.run
+        marker = self.runner.out / (name + '-host-started')
         def run(name, command, **kwargs):
             commands[name] = command
-            self.runner.results[name] = {'status': 'passed'}
-            if name.endswith('-summary'):
-                (self.runner.out / (name + '.log')).write_text(json.dumps({'totalTestCount': 1, 'passedTests': 1}))
-            return True
+            code = 'pass'
+            if 'build-for-testing' in command:
+                derived = Path(command[command.index('-derivedDataPath') + 1])
+                namespace = next(v.split('=', 1)[1] for v in command if v.startswith('RIDEINTERCOM_STORAGE_NAMESPACE='))
+                products = derived / 'Build/Products'
+                app = products / ('Validation' if destination.startswith('platform=macOS') else 'Debug-iphonesimulator') / 'RideIntercom.app'
+                info = app / ('Contents/Info.plist' if destination.startswith('platform=macOS') else 'Info.plist')
+                info.parent.mkdir(parents=True, exist_ok=True)
+                values = {'StorageNamespace': namespace, 'CFBundleVersion': '1'}
+                if fault in ('RideIntercom', 'RideIntercom.Validation.other.run', '$(RIDEINTERCOM_STORAGE_NAMESPACE)', ''):
+                    values['StorageNamespace'] = fault
+                elif fault == 'missing-namespace':
+                    values.pop('StorageNamespace')
+                elif fault == 'credential':
+                    values['DevelopmentInternetConnection'] = {'accessToken': 'must-not-appear-in-diagnostics'}
+                info.write_bytes(b'broken' if fault == 'broken' else plistlib.dumps(values))
+                if fault == 'missing-info':
+                    info.unlink()
+                host = '__TESTROOT__/' + str(app.relative_to(products))
+                targets = [{'TestHostPath': host}, {'TestHostPath': '__TESTROOT__/Debug/UITests-Runner.app', 'UITargetAppPath': host}]
+                if fault == 'outside-host':
+                    targets[0]['TestHostPath'] = str(self.runner.out / 'RideIntercom.app')
+                if fault != 'missing-run':
+                    (products / (scheme + '_fixture.xctestrun')).write_bytes(plistlib.dumps({'TestConfigurations': [{'TestTargets': targets}]}))
+                if fault == 'build-failure':
+                    code = 'raise SystemExit(3)'
+            elif name.endswith('-summary'):
+                code = 'print(' + repr(json.dumps({'totalTestCount': 1, 'passedTests': 1})) + ')'
+            else:
+                code = 'from pathlib import Path; Path(' + repr(str(marker)) + ').touch()'
+            return original_run(name, [sys.executable, '-c', code], **kwargs)
         with patch.object(self.runner, 'run', side_effect=run):
-            self.runner.xcode('ios-tests', 'owned-device', skip='Recovery')
-            self.runner.xcode('ios-recovery', 'owned-device', only='Recovery', reuse_build='ios-tests')
+            self.runner.xcode(name, destination, only=only_tests or ('Recovery' if reuse_build else None),
+                              skip=None if reuse_build or only_tests else 'Recovery', reuse_build=reuse_build,
+                              scheme=scheme, extra_conditions=extra_conditions)
+        return commands, marker
+
+    def test_recovery_reuses_build_and_checks_its_actual_host(self):
+        with patch.dict(os.environ, {'VALIDATION_DERIVED_DATA': self.temporary.name}):
+            commands, marker = self.xcode_fixture('ios-tests', 'platform=iOS Simulator,id=owned')
+            self.assertTrue(marker.exists())
+            commands2, marker2 = self.xcode_fixture('ios-recovery', 'platform=iOS Simulator,id=owned', reuse_build='ios-tests')
+            self.assertTrue(marker2.exists())
         original = commands['ios-tests']
-        recovery = commands['ios-recovery']
+        recovery = commands2['ios-recovery']
         self.assertIn('test-without-building', recovery)
         self.assertIn('-skip-testing:Recovery', original)
         self.assertIn('-only-testing:Recovery', recovery)
-        self.assertEqual(original[original.index('-derivedDataPath') + 1], recovery[recovery.index('-derivedDataPath') + 1])
+        self.assertEqual(original[original.index('-xctestrun') + 1], recovery[recovery.index('-xctestrun') + 1])
         namespace = 'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.run.ios-tests'
-        self.assertIn(namespace, original)
-        self.assertIn(namespace, recovery)
-        self.assertIn('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION', original)
-        self.assertFalse(any('SWIFT_ACTIVE_COMPILATION_CONDITIONS=' in value for value in recovery))
+        self.assertIn(namespace, commands['ios-tests-build'])
+        self.assertNotIn('ios-recovery-build', commands2)
+        self.assertEqual(self.runner.results['ios-recovery-host-preflight']['status'], 'passed')
+        with self.assertRaisesRegex(ValueError, 'isolated test namespace'):
+            self.module.test_host_metadata(Path(original[original.index('-xctestrun') + 1]), 'RideIntercom')
+        products = Path(original[original.index('-xctestrun') + 1]).parent
+        info = products / 'Debug-iphonesimulator/RideIntercom.app/Info.plist'
+        info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom'}))
+        _, marker3 = self.xcode_fixture('stale-recovery', 'platform=iOS Simulator,id=owned', reuse_build='ios-tests')
+        self.assertFalse(marker3.exists())
+        self.assertEqual(self.runner.results['stale-recovery']['status'], 'blocked')
+
+    def test_invalid_generated_hosts_never_launch(self):
+        faults = ['RideIntercom', 'RideIntercom.Validation.other.run', '$(RIDEINTERCOM_STORAGE_NAMESPACE)', '',
+                  'missing-namespace', 'missing-info', 'broken', 'credential', 'outside-host', 'missing-run', 'build-failure']
+        with patch.dict(os.environ, {'VALIDATION_DERIVED_DATA': self.temporary.name}):
+            for index, fault in enumerate(faults):
+                with self.subTest(fault=fault):
+                    name = 'invalid-' + str(index)
+                    _, marker = self.xcode_fixture(name, 'platform=iOS Simulator,id=owned', fault=fault)
+                    self.assertFalse(marker.exists())
+                    self.assertEqual(self.runner.results[name]['status'], 'blocked')
+            with patch.object(self.module, 'stop_executable', return_value=[]) as cleanup:
+                _, marker = self.xcode_fixture('macos-tests', 'platform=macOS')
+                self.assertTrue(marker.exists())
+                cleanup.assert_called_once_with((Path(self.temporary.name) / 'DerivedData-macos-tests/Build/Products/Validation/RideIntercom.app/Contents/MacOS/RideIntercom').resolve())
+        diagnostics = (self.runner.out / 'results.json').read_text()
+        self.assertNotIn('must-not-appear-in-diagnostics', diagnostics)
+
+    def test_specialized_scheme_uses_the_same_host_gate(self):
+        with patch.dict(os.environ, {'VALIDATION_DERIVED_DATA': self.temporary.name}):
+            commands, marker = self.xcode_fixture('storekit', 'platform=macOS', scheme='RideIntercom-StoreKitTests',
+                only_tests=['RideIntercomTests/LocalStoreKitTests', 'RideIntercomTests/StoreKitAccessTests'],
+                extra_conditions=['RIDEINTERCOM_STOREKIT_TESTING'])
+        self.assertTrue(marker.exists())
+        self.assertIn('RideIntercom-StoreKitTests', commands['storekit-build'])
+        self.assertIn('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION RIDEINTERCOM_STOREKIT_TESTING', commands['storekit-build'])
+        self.assertIn('-only-testing:RideIntercomTests/LocalStoreKitTests', commands['storekit'])
+        self.assertIn('-only-testing:RideIntercomTests/StoreKitAccessTests', commands['storekit'])
+        self.assertEqual(self.runner.results['storekit-host-preflight']['status'], 'passed')
 
     def test_launch_verification_matches_physical_path_with_spaces(self):
         root = Path(self.temporary.name)

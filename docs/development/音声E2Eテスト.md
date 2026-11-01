@@ -11,6 +11,8 @@ python3 scripts/audio_e2e.py
 python3 scripts/audio_e2e.py --matrix full
 ```
 
+生成されたxctestrunが参照するAppのInfo.plistを起動前に読み、保存先が`RideIntercom.AudioE2E.Host`と一致し、開発用接続資格を含まないことを確認する。build引数だけを証拠にせず、通常のApp／StoreKit検証と[同じhost検査](自動検証.md#xcodeテストの起動前検査)を使う。不一致の場合は音声hostを起動しない。
+
 通常は両通信経路の`quick`を実行する。`--transport local`はMultipeerによる認証・制御と別のUDP音声経路、`--transport webrtc`はローカルのサーバーモックと実WebRTCに絞る。切り分け用の`--matrix smoke`は既定設定だけを測る。`--codec pcm16` / `--codec opus`と`--isolation off`は診断用の上書きであり、全設定を検証した実績にはしない。`--seconds`は各発話区間の秒数で、既定8秒。無音を測る区間は2秒。
 
 この開発機での両経路の実測は、build cache再利用時のquickが約3分54秒、fullが約17分30秒。初回buildやOS・機材の違いにより所要時間は変わる。測定結果は[検証記録](../validation/history/iOS音声E2Eと通話障害修復.md)を参照する。

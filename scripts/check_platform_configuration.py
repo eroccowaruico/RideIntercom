@@ -15,10 +15,14 @@ def load_project(root):
         str(root / 'RideIntercom.xcodeproj/project.pbxproj')]))
 
 
-def target_settings(project, name):
+def target_configurations(project, name):
     objects = project['objects']
     target = next(obj for obj in objects.values() if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == name)
-    return [objects[key]['buildSettings'] for key in objects[target['buildConfigurationList']]['buildConfigurations']]
+    return [objects[key] for key in objects[target['buildConfigurationList']]['buildConfigurations']]
+
+
+def target_settings(project, name):
+    return [config['buildSettings'] for config in target_configurations(project, name)]
 
 
 def check(root, project=None):
@@ -31,10 +35,14 @@ def check(root, project=None):
         except (OSError, plistlib.InvalidFileException):
             errors.append(f'Missing or invalid platform plist: {path}'); return {}
     app_settings = target_settings(project, 'RideIntercom')
-    for settings in app_settings:
+    for config in target_configurations(project, 'RideIntercom'):
+        settings = config['buildSettings']
+        validation = config['name'] in ('Debug-Validation', 'Debug-StoreKitValidation')
+        mac_entitlements = '$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)' if validation else 'RideIntercom/RideIntercom-macOS.entitlements'
+        sandbox = '$(RIDEINTERCOM_VALIDATION_SANDBOX)' if validation else 'YES'
         require(settings.get('RIDEINTERCOM_APNS_ENVIRONMENT') in ('development', 'production'), 'APNs environment must use development or production and feed both Info and entitlement.')
-        require(settings.get('CODE_SIGN_ENTITLEMENTS[sdk=macosx*]') == 'RideIntercom/RideIntercom-macOS.entitlements', 'App needs its macOS entitlement file, separate from the iOS APNs key.')
-        require(settings.get('ENABLE_APP_SANDBOX') == 'YES' and settings.get('ENABLE_INCOMING_NETWORK_CONNECTIONS') == 'YES' and settings.get('ENABLE_OUTGOING_NETWORK_CONNECTIONS') == 'YES', 'App sandbox network must allow both incoming and outgoing audio connections.')
+        require(settings.get('CODE_SIGN_ENTITLEMENTS[sdk=macosx*]') == mac_entitlements, 'App needs its macOS entitlement file, separate from the iOS APNs key.')
+        require(settings.get('ENABLE_APP_SANDBOX') == sandbox and settings.get('ENABLE_INCOMING_NETWORK_CONNECTIONS') == 'YES' and settings.get('ENABLE_OUTGOING_NETWORK_CONNECTIONS') == 'YES', 'App sandbox network must allow both incoming and outgoing audio connections.')
         require(settings.get('TARGETED_DEVICE_FAMILY') == '1,2', 'App must include iPhone and iPad device families.')
         require(not any('remote-notification' in str(v) for k,v in settings.items() if k.startswith('INFOPLIST_KEY_UIBackgroundModes')), 'Alert/tap notifications must not request unused remote-notification background execution.')
     for path, required, forbidden in [

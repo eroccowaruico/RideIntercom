@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import signal
 import subprocess
@@ -62,6 +63,48 @@ def xcode_tests_passed(summary):
     return (count > 0 and summary.get('passedTests') == count
             and summary.get('failedTests', 0) == 0 and summary.get('skippedTests', 0) == 0
             and not summary.get('runtimeWarnings') and not summary.get('testFailures'))
+
+
+def test_host_metadata(test_run, expected_namespace):
+    """Validate the product actually referenced by Xcode, before it can start."""
+    if not (expected_namespace == 'RideIntercom.AudioE2E.Host'
+            or (expected_namespace.startswith('RideIntercom.Validation.')
+                and len(expected_namespace) > len('RideIntercom.Validation.'))):
+        raise ValueError('An isolated test namespace is required')
+    if test_run is None:
+        raise ValueError('Missing generated xctestrun')
+    test_run = Path(test_run)
+    products = test_run.parent.resolve()
+    if not test_run.resolve().is_relative_to(products):
+        raise ValueError('Test run must remain inside its build products')
+    data = plistlib.loads(test_run.read_bytes())
+    targets = [target for config in data['TestConfigurations'] for target in config['TestTargets']]
+    if not targets:
+        raise ValueError('Missing test targets')
+    hosts = set()
+    for target in targets:
+        resolved = {}
+        for key in ('TestHostPath', 'UITargetAppPath'):
+            if key not in target:
+                continue
+            value = target[key].replace('__TESTROOT__', str(products))
+            path = Path(value).resolve()
+            if '__' in value or not path.is_relative_to(products) or path.suffix != '.app':
+                raise ValueError('Test host must be an app inside its build products')
+            resolved[key] = path
+        app = resolved.get('UITargetAppPath', resolved.get('TestHostPath'))
+        if app is None or app.name != 'RideIntercom.app':
+            raise ValueError('Missing RideIntercom test host')
+        info = app / ('Contents/Info.plist' if (app / 'Contents').is_dir() else 'Info.plist')
+        if not info.resolve().is_relative_to(products):
+            raise ValueError('Test host Info must remain inside its build products')
+        metadata = plistlib.loads(info.read_bytes())
+        if metadata.get('StorageNamespace') != expected_namespace:
+            raise ValueError('Generated host storage namespace does not match this test run')
+        if 'DevelopmentInternetConnection' in metadata:
+            raise ValueError('Generated test host contains development connection settings')
+        hosts.add(str(info))
+    return {'testRun': str(test_run), 'namespace': expected_namespace, 'hostInfoPaths': sorted(hosts)}
 
 
 class Runner:
@@ -147,40 +190,66 @@ class Runner:
             print('\n'.join(path.read_text(errors='replace').splitlines()[-12:]), flush=True)
         return passed
 
-    def xcode(self, name, destination, only=None, needs=(), skip=None, reuse_build=None):
+    def check_test_host(self, name, test_run, namespace, needs=()):
+        started = time.monotonic()
+        blocked = [n for n in needs if self.results.get(n, {}).get('status') != 'passed']
+        if blocked:
+            return self.record(name, [], 'blocked', None, started, 'requires ' + ', '.join(blocked))
+        try:
+            metadata = test_host_metadata(test_run, namespace)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+            return self.record(name, [], 'failed', 1, started, str(error))
+        (self.out / (name + '.json')).write_text(json.dumps(metadata, indent=2) + '\n')
+        return self.record(name, [], 'passed', 0, started, 'Generated host isolation verified before launch')
+
+    def xcode(self, name, destination, only=None, needs=(), skip=None, reuse_build=None,
+              scheme='RideIntercom', derived_data=None, extra_conditions=()):
         bundle = self.out / f'{name}.xcresult'
         # Xcode's live Repository group must not recursively discover its own
         # generated package checkout/build tree while constructing the graph.
         if reuse_build:
             derived = Path((self.out / f'{reuse_build}-derived-data.txt').read_text().strip())
+        elif derived_data is not None:
+            derived = Path(derived_data).resolve()
         else:
             parent = os.environ.get('VALIDATION_DERIVED_DATA') or tempfile.mkdtemp(prefix='RideIntercom-validation-')
             derived = Path(parent).resolve() / f'DerivedData-{name}'
         if derived.is_relative_to(ROOT):
             return self.record(name, [], 'blocked', None, time.monotonic(), 'DerivedData must be outside the synchronized repository')
         (self.out / f'{name}-derived-data.txt').write_text(str(derived) + '\n')
-        command = ['xcodebuild', 'test-without-building' if reuse_build else 'test', '-project', 'RideIntercom.xcodeproj', '-scheme', 'RideIntercom',
-                   '-destination', destination, '-parallel-testing-enabled', 'NO',
-                   '-derivedDataPath', str(derived), '-resultBundlePath', str(bundle),
-                   'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.Validation.' + self.out.name + '.' + (reuse_build or name)]
-        if not reuse_build:
-            command.append('SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION')
-            if destination.startswith('platform=macOS'):
-                # Local provider fixtures do not contact Apple. Keep this build
-                # independent of portal profiles; real capability acceptance is separate.
-                command.append('CODE_SIGN_ENTITLEMENTS=')
-        if only:
-            command.append(f'-only-testing:{only}')
-        if skip:
-            command.append(f'-skip-testing:{skip}')
+        namespace = 'RideIntercom.Validation.' + self.out.name + '.' + (reuse_build or name)
+        mac_executables = []
         try:
-            self.run(name, command, needs=needs)
+            if not reuse_build:
+                command = ['xcodebuild', 'build-for-testing', '-project', 'RideIntercom.xcodeproj', '-scheme', scheme,
+                           '-destination', destination, '-derivedDataPath', str(derived),
+                           'RIDEINTERCOM_STORAGE_NAMESPACE=' + namespace,
+                           'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION'
+                           + ''.join(' ' + condition for condition in extra_conditions)]
+                if destination.startswith('platform=macOS'):
+                    # Local fixtures do not contact Apple; real signing is a separate gate.
+                    command.extend(['CODE_SIGN_ENTITLEMENTS=', 'ENABLE_APP_SANDBOX=NO'])
+                self.run(name + '-build', command, needs=needs)
+                needs = [name + '-build']
+            products = derived / 'Build/Products'
+            runs = sorted(products.glob(scheme + '_*.xctestrun'), key=lambda p: p.stat().st_mtime, reverse=True)
+            test_run = runs[0] if runs else None
+            preflight = name + '-host-preflight'
+            if self.check_test_host(preflight, test_run, namespace, needs=needs) and destination.startswith('platform=macOS'):
+                metadata = json.loads((self.out / (preflight + '.json')).read_text())
+                mac_executables = [Path(info).parent / 'MacOS/RideIntercom' for info in metadata['hostInfoPaths']]
+            command = ['xcodebuild', 'test-without-building', '-xctestrun', str(test_run or ''),
+                       '-destination', destination, '-parallel-testing-enabled', 'NO', '-resultBundlePath', str(bundle)]
+            for identifier in ([only] if isinstance(only, str) else only or []):
+                command.append(f'-only-testing:{identifier}')
+            if skip:
+                command.append(f'-skip-testing:{skip}')
+            self.run(name, command, needs=[preflight])
         finally:
             if destination.startswith('platform=macOS'):
                 started = time.monotonic()
-                executable = derived / 'Build/Products/Debug/RideIntercom.app/Contents/MacOS/RideIntercom'
                 try:
-                    stopped = stop_executable(executable)
+                    stopped = [pid for executable in mac_executables for pid in stop_executable(executable)]
                     self.record(name + '-host-cleanup', [], 'passed', 0, started, f'Terminated owned PIDs: {stopped}')
                 except (OSError, RuntimeError, subprocess.SubprocessError) as error:
                     self.record(name + '-host-cleanup', [], 'failed', 1, started, str(error))
