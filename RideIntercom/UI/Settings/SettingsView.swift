@@ -361,6 +361,29 @@ struct AudioCheckPanel: View {
 
     var body: some View {
         Section {
+            Button {
+                if viewModel.audioCheckPhase.isInProgress {
+                    viewModel.cancelAudioCheck()
+                } else {
+                    viewModel.startAudioCheck()
+                }
+            } label: {
+                if viewModel.audioCheckPhase.isInProgress {
+                    Label("Stop Audio Check", systemImage: "stop.fill")
+                } else {
+                    Label("Record 5s and Play", systemImage: "record.circle.fill")
+                }
+            }
+            .disabled(!viewModel.audioCheckPhase.isInProgress && !viewModel.canStartAudioCheck)
+            .accessibilityValue(Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue)))
+            .accessibilityIdentifier("audioCheckButton")
+
+            Text(LocalizedStringKey(viewModel.audioCheckStatusMessage))
+                .font(AppTypography.footnote)
+                .foregroundStyle(AppColorPalette.textSecondary)
+                .lineLimit(nil)
+                .accessibilityIdentifier("audioCheckStatusLabel")
+
             if viewModel.interfaceMode == .advanced {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Call")
@@ -400,12 +423,6 @@ struct AudioCheckPanel: View {
             if viewModel.interfaceMode == .standard && viewModel.hasAnyActiveGroupConnection {
                 Text("End your call before checking audio.")
             }
-            Text(LocalizedStringKey(viewModel.audioCheckStatusMessage))
-                .font(AppTypography.footnote)
-                .foregroundStyle(AppColorPalette.textSecondary)
-                .lineLimit(nil)
-                .accessibilityIdentifier("audioCheckStatusLabel")
-
             LabeledContent("Recording Input") {
                 Text(viewModel.isUsingWatchAudio ? "Watch Microphone" : "This Device: \(viewModel.audioCheckInputPortName)")
             }
@@ -420,21 +437,6 @@ struct AudioCheckPanel: View {
                 Text(viewModel.isMuted ? "Microphone mute: On" : "Microphone mute: Off")
                     .accessibilityIdentifier("audioCheckMuteState")
             }
-            if viewModel.audioCheckPhase.isInProgress {
-                Button("Stop Audio Check") { viewModel.cancelAudioCheck() }
-                    .accessibilityIdentifier("stopAudioCheckButton")
-            }
-
-            Button {
-                viewModel.startAudioCheck()
-            } label: {
-                Label("Record 5s and Play", systemImage: "record.circle.fill")
-            }
-            .appProminentButtonStyle()
-            .controlSize(.large)
-            .disabled(!viewModel.canStartAudioCheck)
-            .accessibilityValue(Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue)))
-            .accessibilityIdentifier("audioCheckButton")
         } header: {
             Label("Audio Check", systemImage: "waveform")
                 .accessibilityIdentifier("audioCheckPanel")

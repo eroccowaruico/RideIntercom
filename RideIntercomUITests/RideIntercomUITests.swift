@@ -608,6 +608,31 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     #if os(iOS)
+    /// Layout/localization coverage only; native recording has separate acceptance.
+    @MainActor
+    func testAudioCheckShowsOneStartButtonInBothLayoutsAndLanguages() {
+        for (mode, japanese) in [("standard", false), ("advanced", false),
+                                  ("standard", true), ("advanced", true)] {
+            app.terminate()
+            app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = mode
+            app.launchArguments = ["-AppleLanguages", japanese ? "(ja)" : "(en)",
+                                   "-AppleLocale", japanese ? "ja_JP" : "en_US"]
+            app.launch()
+            app.activate()
+            let settings = app.tabBars.buttons[japanese ? "設定" : "Settings"].firstMatch
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            settings.tap()
+            let button = app.buttons["audioCheckButton"].firstMatch
+            revealSettingsControl(button)
+            XCTAssertEqual(button.label, japanese ? "5秒録音して再生" : "Record 5s and Play")
+            XCTAssertTrue(button.isEnabled)
+            XCTAssertEqual(app.buttons.matching(identifier: "audioCheckButton").count, 1)
+            XCTAssertFalse(app.buttons["stopAudioCheckButton"].exists)
+            XCTAssertFalse(app.buttons[japanese ? "音声チェックを停止" : "Stop Audio Check"].exists)
+            attachScreen("Single recording control \(mode) \(japanese ? "Japanese" : "English")")
+        }
+    }
+
     @MainActor
     func testPhoneAudioCheckRecordsAndPlaysFromSettings() {
         let permissionMonitor = addUIInterruptionMonitor(withDescription: "Microphone access") { alert in

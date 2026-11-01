@@ -1,5 +1,7 @@
 # RideCom ドキュメント
 
+[画面デザインと録音操作の整理](validation/history/画面デザインと録音操作の整理.md)に、Standard／Advancedの録音ボタン表示と画面改修の検証・未確認境界を記録する。
+
 [音声デバイスpackageの検証](validation/history/音声デバイスpackageの検証.md)に、backend抽出とWatch Simulatorでの実行結果を記録する。
 
 [Watch音声のApp接続とデバイス分離](validation/history/Watch音声のApp接続とデバイス分離.md)に、ローカル媒体往復・Mac全体の基準検証と、音声デバイスへの分離／Watch Simulatorの後続工程を記録する。

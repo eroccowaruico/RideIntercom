@@ -109,15 +109,17 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 状態 |
 |---|---|---|---|---|---|---|---|
-| 通話状態表示 | `audioCheckPanel` | `liveAudioStateLabel` | `Call` | `connectionLabel` | 常時 | 右寄せ表示 | RTCの実状態を表示。準備済みだけでLiveとしない |
-| チェック状態表示 | `audioCheckPanel` | `audioCheckPhaseLabel` | `Audio Check` | `audioCheckPhase` | 常時 | 右寄せ表示 | idle / recording / playing / completed / failed |
-| マイク入力確認 | `audioCheckPanel` | `audioCheckInputMeter` | `Microphone Input` | `diagnosticsInputLevel`, `diagnosticsInputPeakLevel` | 常時 | 入力メーター | 権限未許可時は上がらない |
-| スピーカー出力確認 | `audioCheckPanel` | `audioCheckOutputMeter` | `Speaker Output` | `diagnosticsOutputLevel`, `diagnosticsOutputPeakLevel` | 常時 | 出力メーター | 最終出力へ回した音声を示す |
+| 通話状態表示 | `audioCheckPanel` | `liveAudioStateLabel` | `Call` | `connectionLabel` | Advanced | 右寄せ表示 | RTCの実状態を表示。準備済みだけでLiveとしない |
+| チェック状態表示 | `audioCheckPanel` | `audioCheckPhaseLabel` | `Audio Check` | `audioCheckPhase` | Advanced | 右寄せ表示 | idle / recording / playing / completed / failed |
+| マイク入力確認 | `audioCheckPanel` | `audioCheckInputMeter` | `Microphone Input` | `diagnosticsInputLevel`, `diagnosticsInputPeakLevel` | Advanced | 入力メーター | 権限未許可時は上がらない |
+| スピーカー出力確認 | `audioCheckPanel` | `audioCheckOutputMeter` | `Speaker Output` | `diagnosticsOutputLevel`, `diagnosticsOutputPeakLevel` | Advanced | 出力メーター | 最終出力へ回した音声を示す |
 | チェック状態メッセージ | `audioCheckPanel` | `audioCheckStatusLabel` | 状態文言 | `String` | 常時 | footnote | 実行中、完了、失敗 |
 | 録音入力元 | `audioCheckPanel` | `audioCheckInputSource` | `Recording Input` | `isUsingWatchAudio`, `audioCheckInputPortName` | 常時 | `LabeledContent` | Watch音声使用中は`Watch Microphone`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実入力ポート、それ以外は選択済み入力ポートを表示 |
 | 再生出力先 | `audioCheckPanel` | `audioCheckOutputDestination` | `Playback Output` | `isUsingWatchAudio`, `audioCheckOutputPortName` | 常時 | `LabeledContent` | Watch音声使用中は`Watch Speaker`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実出力ポート、それ以外は選択済み出力ポートを表示 |
 | マイクミュート状態 | `audioCheckPanel` | `audioCheckMuteState` | `Microphone mute: On` / `Off` | `isMuted` | `isUsingWatchAudio == false` | 状態テキスト | 現在のマイクミュート状態を表示。Watch音声使用中は、Watch音声を停止してからこの端末のチェックを開始する案内を表示 |
-| チェック実行ボタン | `audioCheckPanel` | `audioCheckButton` | `Record 5s and Play` | Action | 常時 | 録音/再生中は disabled | 二重起動と通話中の競合を防ぐ。録音・再生中はStop Audio Checkを表示 |
+| チェック実行・停止ボタン | `audioCheckPanel` | `audioCheckButton` | `Record 5s and Play` / `Stop Audio Check` | Action | 常時 | 同じボタンで開始と停止を切り替える。進行中以外は開始不可条件で disabled | 二重起動と通話中の競合を防ぐ。準備・録音・再生中は停止可能 |
+
+音声チェックの実行・停止と状態文はSectionの先頭に置き、その後に機器・ミュートの情報を示す。操作は標準Formのボタン行とし、使用不可の理由やWatch所有中の案内を残す。
 
 ## Transmit Codec
 
@@ -175,7 +177,7 @@ Apple認証の登録入口はserver側で有効化されている必要があり
 |---|---|
 | Local / 停止中 | packageのcodec、VAD、effect、volumeを設定可能 |
 | Internet / 混在 | Localと同じCodec / VAD / effects / device設定を使う。Internet OFFでも近くの参加者が中継できることと電池・通信量を説明 |
-| Audio Check | 通話接続中・接続開始中は開始不可。録音/再生中は `stopAudioCheckButton` で停止可能。Settingsからの開始はこの端末の入力・出力を使用し、選択した機器とミュート設定を尊重する。Watch所有中は通常開始を拒否する |
+| Audio Check | 通話接続中・接続開始中は開始不可。準備・録音・再生中は `audioCheckButton` で停止可能。Settingsからの開始はこの端末の入力・出力を使用し、選択した機器とミュート設定を尊重する。Watch所有中は通常開始を拒否する |
 | 通話への移行 | Connect開始時にAudio Checkを停止。古い完了処理は通話を停止しない |
 | 資格保存 | ViewModelが入力検証・Keychain保存・切断・RTC設定適用を担当。Viewは入力と表示だけ |
 | 資格保存失敗 | 現在の通話・保存済み設定を維持 |
