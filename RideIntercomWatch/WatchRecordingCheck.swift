@@ -18,8 +18,10 @@ struct WatchRecordingCheckView: View {
             Text("Recorded on iPhone. Played on Watch.")
             if let check = connection.client.snapshot?.audioCheck {
                 Text(LocalizedStringKey(check.phase.rawValue))
-                Text("\(check.recordedFrames) frames")
-                Text(check.nonzeroSamples > 0 ? "Signal received" : "No signal received")
+                if check.phase != .recording {
+                    Text("\(check.recordedFrames) frames")
+                    Text(check.nonzeroSamples > 0 ? "Signal received" : "No signal received")
+                }
             }
             if let problem = connection.audio.problem { Text(problem) }
             if !connection.client.isReachable { Text("iPhone unavailable") }

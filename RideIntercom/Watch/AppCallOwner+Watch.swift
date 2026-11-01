@@ -33,8 +33,14 @@ extension AppCallOwner {
                      },
                      title: vm.groups.first { $0.id == vm.activeGroupID }.map(vm.callTitle),
                      hasCall: hasCall, isMuted: vm.isMuted, state: state, notification: notification,
-                     audioCheck: vm.audioCheckWatchSessionID.map { .init(sessionID: $0, phase: vm.audioCheckPhase,
-                        recordedFrames: vm.audioCheckRecordedFrameCount, nonzeroSamples: vm.audioCheckRecordedNonzeroSamples) })
+                     audioCheck: vm.audioCheckWatchSessionID.map { sessionID in
+                         let phase = vm.audioCheckPhase
+                         if phase == .recording {
+                             return .init(sessionID: sessionID, phase: phase, recordedFrames: 0, nonzeroSamples: 0)
+                         }
+                         return .init(sessionID: sessionID, phase: phase,
+                             recordedFrames: vm.audioCheckRecordedFrameCount, nonzeroSamples: vm.audioCheckRecordedNonzeroSamples)
+                     })
     }
 
     func handleWatchRequest(_ request: WatchControlRequest, now: Date = Date()) async -> WatchControlReply {

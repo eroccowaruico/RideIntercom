@@ -260,6 +260,12 @@ Phoneは録音完了後のpreparingへ進み、約5.32秒後にfailedとなっ�
 
 証跡は`.validation/watch-audio-file-bootstrap-first-input-20261102/manifest.json`。実行前後363入力とbinary対応を照合し、一時6ソースをHEADへ完全復元、録音期限・マイク意図の修正を維持した。秘密一時入出力4ファイルを削除し、両端の音声設定・音量を完全復元して停止、実行用runnerとcacheを撤去した。Build番号は402→404へ進んだ。
 
+## 録音進捗とWatch制御通知の分離
+
+2026-11-02、実`AppCallOwner.watchSnapshot()`を`withObservationTracking`で取得する先行回帰により、録音中のframe進捗で観測と再公開判定が発火することを再現した。recording中は進捗counterを読み取らず、phase／sessionなどの制御状態だけを投影するよう修正した。録音終了後は実counterを公開し、Watchの録音画面では録音中の未確定数値・無音判定を隠す。Phone内の入力バー・実counter、codec、送話gate、録音・再生期限は変えていない。
+
+先行1件の期待失敗後、関連2suiteの11関数・パラメータを含む12ケースが成功し、失敗・skip・runtime warningは0。Watch buildも成功した。証跡は`.validation/watch-recording-snapshot-20261102/manifest.json`。最終5ファイルhashと実行前後の入力を照合し、専用Simulator停止・共有lock解放・一時runner回収を確認した。build warningは7件保持、Build番号は404→407。不要な観測・公開判定の修正であり、過去に毎フレーム実送信されたという計測や、実Appのphase不達の原因確定ではない。配送・再生への効果は次の同条件比較で確かめる。
+
 ## iPadの5秒録音と送信処理の回帰
 
 2026-11-02、Watchの返信境界の読取確認と並行し、既存のiPad録音チェック回帰を実行した。所有専用iPadはOS 26.4で現最低27.0を満たさなかったため、所有記録・停止状態とValidation名前空間だけの保存を確認して退役し、同じ用途のiPad Pro 13-inch (M5)／iPadOS 27.2を1台作成した。一般・所有不明のSimulatorは変更していない。
