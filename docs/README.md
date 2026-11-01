@@ -161,6 +161,7 @@
 | [validation/history/WebRTCマニフェスト配置の修正.md](<validation/history/WebRTCマニフェスト配置の修正.md>) | Mac用SDKリソースの配置修正・全payload保持・RTC単独検証 |
 | [validation/history/OS設定と埋込productの監査.md](<validation/history/OS設定と埋込productの監査.md>) | 設定不足・署名入力・埋込productの読取監査とbuild検証 |
 | [validation/history/Widget表示と共通採番のローカル検証.md](<validation/history/Widget表示と共通採番のローカル検証.md>) | Widget表示・古い操作・3product共通採番の検証 |
+| [validation/history/複数端末の経路断と自動復旧.md](<validation/history/複数端末の経路断と自動復旧.md>) | 仮想4端末の経路同時断・異なる復帰順・残存音声の回帰 |
 | [validation/history/検証アプリの起動前確認.md](<validation/history/検証アプリの起動前確認.md>) | 生成hostの保存先確認・起動拒否・CLI共通化の検証 |
 | [validation/history/検証プロセスの終了と回収.md](<validation/history/検証プロセスの終了と回収.md>) | timeout・中断時の所有子孫回収と結果保持 |
 | [validation/history/公開通話APIの頻度制限.md](<validation/history/公開通話APIの頻度制限.md>) | 通話APIの近似頻度制限・cleanup維持・ローカル回帰 |
