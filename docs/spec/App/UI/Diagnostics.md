@@ -10,6 +10,8 @@
 | PipelineComponents / ReceiveTransportViews / ReceiveMixViews | 必要な表示値だけ受け取る描画部品。色とアイコンの対応も描画側に置く |
 
 
+各pipeline行とeffect stageは、既存状態を色と記号で示し、VoiceOverの値に状態語と既存の詳細を含める。`passing`はPassing（checkmark）、`waiting`はWaiting（pause）、`blocked`はBlocked（octagon）、`idle`はIdle（dashed circle）とする。Passingには累計のpacket・frame数に基づく状態も含まれ、現在の流量を証明しない。特大文字では行の名前・package・詳細を折り返す。
+
 ## 目的
 
 本書は Diagnostics タブの UI 項目を定義する。

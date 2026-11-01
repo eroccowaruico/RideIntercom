@@ -749,6 +749,19 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
+    func testAdaptivePipelineStateIsReadableWithoutColor() {
+        openDiagnosticsTab()
+        let row = app.descendants(matching: .any)["pipeline-session-step"].firstMatch
+        for _ in 0..<30 where !row.isHittable { app.swipeUp() }
+        XCTAssertTrue(row.isHittable)
+        XCTAssertTrue(row.label.contains("Session"))
+        let value = row.value as? String ?? ""
+        XCTAssertTrue(["Idle, ", "Waiting, ", "Passing, ", "Blocked, "].contains { value.hasPrefix($0) }, value)
+        XCTAssertGreaterThan(value.split(separator: ",", maxSplits: 1).last?.count ?? 0, 0)
+        attachScreen("Pipeline state at accessibility text size")
+    }
+
+    @MainActor
     func testAdaptiveDiagnosticsAndConfigurationRemainReachable() {
         openDiagnosticsTab()
         let status = app.staticTexts["internetServiceCheckStatus"]

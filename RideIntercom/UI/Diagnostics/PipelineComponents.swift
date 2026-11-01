@@ -5,6 +5,24 @@ import RTC
 import SessionManager
 
 extension PipelineStepState {
+    var statusSymbol: String {
+        switch self {
+        case .passing: "checkmark.circle.fill"
+        case .waiting: "pause.circle.fill"
+        case .blocked: "xmark.octagon.fill"
+        case .idle: "circle.dashed"
+        }
+    }
+
+    var statusText: String {
+        switch self {
+        case .passing: "Passing"
+        case .waiting: "Waiting"
+        case .blocked: "Blocked"
+        case .idle: "Idle"
+        }
+    }
+
     var color: Color {
         switch self {
         case .passing:
@@ -36,7 +54,7 @@ struct CompactPipelineHeader: View {
 
             VStack(alignment: .leading, spacing: AppSpacing.xxs) {
                 titleLabel
-                detailText(lineLimit: 2, fixedHorizontal: false)
+                detailText(lineLimit: nil, fixedHorizontal: false)
             }
         }
     }
@@ -46,7 +64,7 @@ struct CompactPipelineHeader: View {
             .font(AppTypography.sectionTitle)
     }
 
-    private func detailText(lineLimit: Int, fixedHorizontal: Bool) -> some View {
+    private func detailText(lineLimit: Int?, fixedHorizontal: Bool) -> some View {
         Text(detail)
             .font(AppTypography.caption2Mono)
             .foregroundStyle(AppColorPalette.textSecondary)
@@ -56,6 +74,7 @@ struct CompactPipelineHeader: View {
 }
 
 struct CompactPipelineStepRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let step: PipelineStep
     let accessibilityIdentifier: String
 
@@ -65,20 +84,26 @@ struct CompactPipelineStepRow: View {
     }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            wideRow
-            narrowRow
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                narrowRow
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    wideRow
+                    narrowRow
+                }
+            }
         }
         .padding(.vertical, AppSpacing.xs)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(step.package) \(step.title)")
-        .accessibilityValue(step.detail)
+        .accessibilityValue("\(step.state.statusText), \(step.detail)")
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private var wideRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: AppSpacing.m) {
-            statusDot(size: 8, topPadding: 0)
+            statusSymbol(topPadding: 0)
 
             Image(systemName: step.icon)
                 .font(AppTypography.caption)
@@ -111,42 +136,38 @@ struct CompactPipelineStepRow: View {
 
     private var narrowRow: some View {
         HStack(alignment: .top, spacing: AppSpacing.s) {
-            statusDot(size: 8, topPadding: 5)
+            statusSymbol(topPadding: 5)
 
             Image(systemName: step.icon)
                 .font(AppTypography.caption)
                 .foregroundStyle(step.state.color)
-                .frame(width: AppSize.iconS, alignment: .center)
                 .padding(.top, 1)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.s) {
-                    Text(step.title)
-                        .font(AppTypography.captionStrong)
-                        .foregroundStyle(AppColorPalette.textPrimary)
-                        .lineLimit(1)
+                Text(step.title)
+                    .font(AppTypography.captionStrong)
+                    .foregroundStyle(AppColorPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                    Text(step.package)
-                        .font(AppTypography.caption2)
-                        .foregroundStyle(AppColorPalette.textTertiary)
-                        .lineLimit(1)
-                }
+                Text(step.package)
+                    .font(AppTypography.caption2)
+                    .foregroundStyle(AppColorPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(step.detail)
                     .font(AppTypography.caption2Mono)
                     .foregroundStyle(step.state.color)
-                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func statusDot(size: CGFloat, topPadding: CGFloat) -> some View {
-        Circle()
-            .fill(step.state.color)
-            .frame(width: size, height: size)
+    private func statusSymbol(topPadding: CGFloat) -> some View {
+        Image(systemName: step.state.statusSymbol)
+            .font(AppTypography.caption)
+            .foregroundStyle(step.state.color)
             .padding(.top, topPadding)
             .accessibilityHidden(true)
     }
@@ -206,9 +227,9 @@ struct EffectChainStageChip: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: AppSpacing.s) {
-            Circle()
-                .fill(stage.state.color)
-                .frame(width: 6, height: 6)
+            Image(systemName: stage.state.statusSymbol)
+                .font(AppTypography.caption)
+                .foregroundStyle(stage.state.color)
                 .padding(.top, 4)
                 .accessibilityHidden(true)
 
@@ -216,14 +237,12 @@ struct EffectChainStageChip: View {
                 Text(stage.name)
                     .font(AppTypography.captionStrong)
                     .foregroundStyle(AppColorPalette.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(stage.detail)
                     .font(AppTypography.caption2Mono)
                     .foregroundStyle(stage.state.color)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.68)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -233,6 +252,6 @@ struct EffectChainStageChip: View {
         .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.card))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(stage.name)
-        .accessibilityValue("\(stage.package), \(stage.detail)")
+        .accessibilityValue("\(stage.state.statusText), \(stage.package), \(stage.detail)")
     }
 }
