@@ -1,5 +1,6 @@
 import AudioCore
-import AudioToolbox
+import CoreAudioTypes
+import CoreMedia
 @preconcurrency import AVFAudio
 import Foundation
 
@@ -492,7 +493,9 @@ enum AudioConverterBridge {
         compressedFormat.magicCookie = envelope.magicCookie
         let key = AudioConverterPool.Key(encoding: false, codec: codec, format: format, bitRate: nil, cookie: envelope.magicCookie)
         guard let converter = AudioConverterPool.shared.take(key: key, make: {
-            AVAudioConverter(from: compressedFormat, to: pcmFormat)
+            let native = AVAudioConverter(from: compressedFormat, to: pcmFormat)
+            native?.magicCookie = envelope.magicCookie
+            return native
         }) else { throw CodecError.decoderUnavailable(codec) }
         defer { AudioConverterPool.shared.put(converter, key: key) }
 
@@ -546,17 +549,28 @@ enum AudioConverterBridge {
     }
 
     static func makeDecodeFormat(codec: CodecIdentifier, format: AudioFormat, cookie: Data?) -> AVAudioFormat? {
-        guard codec == .mpeg4AACELD || codec == .mpeg4AACELDv2, let cookie else {
-            return makeCompressedFormat(codec: codec, format: format, bitRate: nil)
-        }
-        var description = AudioStreamBasicDescription()
-        description.mFormatID = codec.audioFormatID
-        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        guard let initial = makeCompressedFormat(codec: codec, format: format, bitRate: nil) else { return nil }
+        guard codec == .mpeg4AACELD || codec == .mpeg4AACELDv2 else { return initial }
+        guard let cookie, !cookie.isEmpty else { return nil }
+        var description = withExtendedLifetime(initial) { initial.streamDescription.pointee }
+        var result: CMAudioFormatDescription?
         let status = cookie.withUnsafeBytes {
-            AudioFormatGetProperty(kAudioFormatProperty_FormatInfo, UInt32(cookie.count), $0.baseAddress, &size, &description)
+            CMAudioFormatDescriptionCreate(allocator: nil, asbd: &description, layoutSize: 0, layout: nil,
+                magicCookieSize: cookie.count, magicCookie: $0.baseAddress, extensions: nil, formatDescriptionOut: &result)
         }
-        guard status == noErr else { return nil }
-        return AVAudioFormat(streamDescription: &description)
+        guard status == noErr, let result else { return nil }
+        // CoreMedia interprets the native cookie on every supported OS. The
+        // basic description alone can still contain zero/default packet frames;
+        // the format list preserves AAC's 480/512 frames and ELDv2 core format.
+        return withExtendedLifetime(result) {
+            guard let compatible = CMAudioFormatDescriptionGetMostCompatibleFormat(result) else { return nil }
+            var native = compatible.pointee.mASBD
+            // CoreMedia may preserve the caller's incomplete ASBD for an
+            // unrecognized cookie. Do not silently decode with that fallback.
+            guard native.mFramesPerPacket > 0, native.mSampleRate.isFinite,
+                  native.mSampleRate > 0, native.mChannelsPerFrame > 0 else { return nil }
+            return AVAudioFormat(streamDescription: &native)
+        }
     }
 
     static func makePCMFormat(_ format: AudioFormat) -> AVAudioFormat? {
@@ -782,7 +796,7 @@ struct CompressedPayloadEnvelope: Codable, Equatable, Sendable {
             // Validate every size before AVAudioCompressedBuffer allocation and memcpy.
             let count = Int(envelope.packetCount)
             guard envelope.sourceFrameCount <= CodecDecoder.maximumDecodedFrameCount,
-                  (envelope.packetizationJitterFrames ?? 0) <= 480,
+                  (envelope.packetizationJitterFrames ?? 0) <= (expectedCodec == .mpeg4AACELDv2 ? 1024 : 480),
                   envelope.primingFrameCount <= 8_192,
                   (envelope.magicCookie?.count ?? 0) <= 16_384,
                   envelope.sourceSampleCount >= 0,

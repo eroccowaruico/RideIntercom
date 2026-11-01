@@ -1,3 +1,4 @@
+#if canImport(MultipeerConnectivity)
 import CFNetwork
 import Darwin
 import Foundation
@@ -34,3 +35,4 @@ enum MultipeerStreamRuntime {
         return CFReadStreamOpen(input) && CFWriteStreamOpen(output)
     }()
 }
+#endif

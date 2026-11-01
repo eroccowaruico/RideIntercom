@@ -1,5 +1,5 @@
 import AudioCore
-import AudioToolbox
+import CoreAudioTypes
 import Foundation
 import Testing
 @testable import Codec

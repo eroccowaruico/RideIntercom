@@ -16,9 +16,12 @@ final class LocalDatagramTransport: @unchecked Sendable {
         return parameters
     }
     private let queue = DispatchQueue(label: "rtc.local.datagrams", qos: .userInteractive)
+    private let queueKey = DispatchSpecificKey<Bool>()
     private let peerID: PeerID
     private let prefix: String
     private let onReceive: @Sendable (PeerID, Data) -> Void
+    var onAvailabilityChange: (@Sendable () -> Void)?
+    var onServiceChange: (@Sendable (NWEndpoint?) -> Void)?
     var onFailure: (@Sendable (String) -> Void)?
     private var listener: NWListener?
     private var generation = UUID()
@@ -37,6 +40,14 @@ final class LocalDatagramTransport: @unchecked Sendable {
         self.peerID = peerID
         prefix = Self.digest(groupHash, length: 12)
         self.onReceive = onReceive
+        queue.setSpecific(key: queueKey, value: true)
+    }
+
+    // Native callbacks run on this queue. Reentrant send/stop must not sync
+    // onto the same queue; pair cipher state uses this owner as well.
+    func synchronized<T>(_ operation: () throws -> T) rethrows -> T {
+        if DispatchQueue.getSpecific(key: queueKey) == true { return try operation() }
+        return try queue.sync(execute: operation)
     }
 
     func serviceName(for peer: PeerID) -> String {
@@ -48,12 +59,12 @@ final class LocalDatagramTransport: @unchecked Sendable {
     private func advertisedName(for peer: PeerID, nonce: String) -> String {
         serviceName(for: peer) + "-" + Self.digest(nonce, length: 12)
     }
-    var serviceNonce: String { queue.sync { generation.uuidString } }
-    var port: NWEndpoint.Port? { queue.sync { listener?.port.flatMap { $0.rawValue == 0 ? nil : $0 } } }
-    func isReady(for peer: PeerID) -> Bool { queue.sync { ready.contains(serviceName(for: peer)) } }
+    var serviceNonce: String { synchronized { generation.uuidString } }
+    var port: NWEndpoint.Port? { synchronized { listener?.port.flatMap { $0.rawValue == 0 ? nil : $0 } } }
+    func isReady(for peer: PeerID) -> Bool { synchronized { ready.contains(serviceName(for: peer)) } }
 
     var statistics: RTCNetworkStatistics {
-        queue.sync {
+        synchronized {
             var result = RTCNetworkStatistics(bufferedBytes: UInt64(inFlight.values.reduce(0, +)),
                 unavailableReason: "UDP media has no acknowledgement-based RTT or network loss estimate; registered endpoints: \(endpoints.count), ready: \(ready.count)")
             result.sentMediaDatagrams = sent; result.receivedMediaDatagrams = received
@@ -62,12 +73,20 @@ final class LocalDatagramTransport: @unchecked Sendable {
     }
 
     func start() throws {
-        try queue.sync {
+        try synchronized {
             stopOnQueue()
             let token = generation
             let parameters = Self.parameters()
             let listener = try NWListener(using: parameters)
             listener.service = .init(name: advertisedName(for: peerID, nonce: token.uuidString), type: Self.serviceType)
+            listener.serviceRegistrationUpdateHandler = { [weak self] change in
+                guard let self, self.generation == token else { return }
+                switch change {
+                case .add(let endpoint): self.onServiceChange?(endpoint)
+                case .remove: self.onServiceChange?(nil)
+                @unknown default: break
+                }
+            }
             listener.stateUpdateHandler = { [weak self] state in
                 guard let self, self.generation == token else { return }
                 if case .failed(let error) = state { self.onFailure?("Local UDP listener unavailable: \(error)") }
@@ -101,7 +120,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
     func connect(to peer: PeerID, nonce: String) {
         guard peer != peerID else { return }
         let name = serviceName(for: peer)
-        queue.sync {
+        synchronized {
             // Fresh authentication is reachability evidence for a new session;
             // ordinary audio packets never clear a failed connection's backoff.
             retryAfter[name] = nil
@@ -117,7 +136,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
     }
 
     func remove(_ peer: PeerID) {
-        queue.sync {
+        synchronized {
             let name = serviceName(for: peer)
             removeOutgoing(name)
             endpoints[name] = nil
@@ -126,7 +145,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
     }
 
     func connect(serviceName: String, endpoint: NWEndpoint) {
-        queue.sync { connectOnQueue(serviceName: serviceName, endpoint: endpoint) }
+        synchronized { connectOnQueue(serviceName: serviceName, endpoint: endpoint) }
     }
     private func connectOnQueue(serviceName: String, endpoint: NWEndpoint, replacing: Bool = false) {
         guard listener != nil, endpoints[serviceName] != nil || endpoints.count < 7 else { return }
@@ -143,6 +162,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             guard let self, let connection, self.generation == token,
                   self.outgoing[serviceName] === connection || self.replacements[serviceName] === connection else { return }
+            defer { self.onAvailabilityChange?() }
             switch state {
             case .ready:
                 if self.replacements[serviceName] === connection {
@@ -176,6 +196,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
         connection.viabilityUpdateHandler = { [weak self, weak connection] viable in
             guard let self, let connection, self.generation == token,
                   self.outgoing[serviceName] === connection else { return }
+            defer { self.onAvailabilityChange?() }
             if viable {
                 if case .ready = connection.state { self.ready.insert(serviceName) }
             } else {
@@ -191,7 +212,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
     func send(_ data: Data, to peers: [PeerID]) -> Set<PeerID> {
         guard data.count <= 60_000, (1...63).contains(peerID.rawValue.utf8.count) else { return [] }
         let bytes = Data([UInt8(peerID.rawValue.utf8.count)]) + Data(peerID.rawValue.utf8) + data
-        return queue.sync {
+        return synchronized {
             var sent: Set<PeerID> = []
             let token = generation
             for peer in peers {
@@ -221,6 +242,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
                             at: ProcessInfo.processInfo.systemUptime, policy: .connectionRecovery)
                         self.removeOutgoing(name)
                         self.retryAfter[name] = retry
+                        self.onAvailabilityChange?()
                     }
                 })
                 self.sent += 1
@@ -252,7 +274,7 @@ final class LocalDatagramTransport: @unchecked Sendable {
         retryAfter[name] = nil
     }
 
-    func stop() { queue.sync { stopOnQueue() } }
+    func stop() { synchronized { stopOnQueue() } }
     private func stopOnQueue() {
         generation = UUID()
         listener?.cancel(); listener = nil
@@ -262,5 +284,6 @@ final class LocalDatagramTransport: @unchecked Sendable {
         outgoing.removeAll(); incoming.removeAll(); ready.removeAll(); inFlight.removeAll(); endpoints.removeAll()
         replacements.removeAll(); retryAfter.removeAll(); peerServiceNames.removeAll()
         sent = 0; received = 0
+        onAvailabilityChange?()
     }
 }
