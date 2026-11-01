@@ -194,3 +194,19 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 補正後の`.validation/watch-rtc-device-public-flow-ready-20261102/`では、通常refresh待ちのままでも実WCの要求・返信、Phoneの広告取得、Watchのlink生成まで成立した。両端の送信・受信・一致件数は0で、新しい媒体APIでもservice指定の通信は成立しなかった。Phone listenerのreadyと実cancelled、停止後250msの件数不変を確認した。Watchの最終観測ではpackageの失敗処理後にnative outgoing／activeを保持しておらず、nilから準備中・実cancelledを推定しない。先行受話の判定も受信・一致2件を必須として不合格である。
 
 ビルド番号384→386の更新を除く実行前後362ファイルの一致、binaryと診断patchの対応、両App終了・所有Simulatorペア停止、一時2sourceのHEAD完全復元とrunner回収を確認した。観測・AppログへIP・鍵・packet内容は記録していない。同条件の追加試行を止め、通常service経路のApp本統合は保留する。既に往復を確認した実アドレス指定は診断の対照に限り、音声回路の5秒録音・全量再生を切り分ける範囲を次に確認する。製品のLAN必須化やAPなし近距離要求の撤回ではない。
+
+
+## 実アドレス対照の録音開始と制御返信の未観測
+
+2026-11-02、通常serviceの発見とは分けて音声回路を観測するため、RTC・AudioDeviceの薄いDEBUG接続口と既存App録音入口の計6ファイルへ一時診断を加えた。Phone実interfaceとlistener portを専用WC形式で渡し、Watchの実マイク→Phoneの実TX処理・5秒録音→Watchの実出力を1サイクルで測る。合成PCM・既知音声への置換、Watch録音、通常のstop／gate／codec変更は行わない。Phone元録音とWatch波形の厳密一致ではなく、各段の量とWatch受信PCMに対する実出力を比較する条件とした。
+
+| 試行 | 観測と判断 | 証跡（共通ルートからの相対位置） |
+|---|---|---|
+| 初回build | 診断コードのimport不足でPhone compile停止。補正し、音声の試行には数えない | 共通ルート直下 |
+| native開始後にbootstrap | Watchは入力48kHz mono・出力48kHz stereoで開始したが、接続情報の待機が約12秒で終了。PhoneはRecordingへ進んだ後、0 framesで失敗。Watchの媒体backend・入力配送handler設置前なので、input 0をマイク取得不能とは解釈しない | `native/` |
+| 同条件で段階観測を追加 | Phoneはport取得・snapshot生成・693 byteのencodeと返信送信要求の前後まで到達。Watchはreply／error callbackのthread到達・MainActor反映がすべて0でtimeout。empty／prefix／decode不良に進んでいないことを確認 | `native-control-stages/` |
+| Watch音声開始前にbootstrap | Phone binaryを前試行と照合して再利用し、Watch側の開始順だけを変更。Phoneの693 byte返信送信要求に対し、Watchのcallbackは再び0。native開始に進まず、Watch音声先行だけを原因とする仮説は支持されなかった | `native-bootstrap-before-audio/` |
+
+証跡の共通ルートは`.validation/watch-audio-lan-cycle-20261102/`。媒体接続前で止まったため、5秒全量録音・再生波形・codec末尾の成否は未判定である。通常Bonjour経路の未成立に加えて、今回のPhone録音準備を含むWC返信配送／callback境界を残す。送信APIを呼べた事実はWatchへ届いた証明ではない。
+
+各試行でビルド番号を除く362ファイルの対応と診断patchを保持し、比較後に6ファイルすべてをHEADへ完全復元した。両Simulatorの48kHz入出力固定・音量を完全復元し、両App終了、所有ペア停止、runner撤去を確認した。観測・AppログにIP・鍵・PCMを保存せず、製品のLAN必須化や通常経路の変更は採用していない。
