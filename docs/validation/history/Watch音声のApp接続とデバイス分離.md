@@ -161,3 +161,14 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 証跡は`.validation/watch-listener-standalone-20261102/`。source362ファイル一致、一時sourceのHEAD完全復元、所有process・Simulator停止、runner・自前cache回収を確認した。音声設定は変更していない。[TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)はwatchOSとSimulatorがローカルネットワークのprivacy機構をサポートしないと説明し、[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)はSimulatorの低レベル通信を許可している。今回を許可拒否や実Watchの背景制限として扱う根拠はなく、確認した公式資料に今回の既知問題や登録成功期限も見つからない。Watch広告の永続的な非対応は断定しない。
 
 現在の両端広告は、送信専用outgoing接続と受信専用listener接続を分けた実装の条件であり、製品要求ではない。次の採否判断は、実Phone Appに待受を置き、実Watch Appから同一UDP接続で有限データを双方向に往復できるかの最小技術実証とする。Watchのマイク・スピーカー、iPhoneでの通話・音声処理という要求は維持し、成立するまでは製品transportを変更しない。
+
+
+## Phone側待受とWatch単一接続の双方向対照
+
+2026-11-02、実Phone AppのNWListenerへ実Watch Appが接続し、同じUDP flowで32byteの検証値を2回echoする一時対照を行った。PhoneのBonjour登録とport取得は成功した。初回はWatchの自動refreshと検証要求が競合して要求未送信だったため、媒体不成立とは扱わず`.validation/watch-single-flow-20261102/`へ保持する。既存の到達性・待機状態が整ってから要求する補正後は、実WCでservice endpointを受け取ったが、WatchのNWConnectionはpreparingのまま期限に達し、送信・受信0だった。証跡は`.validation/watch-single-flow-ready-20261102/`。実際のcancelledと停止後250msの件数不変を両端で確認した。
+
+続く対照では、Phone実processの利用中Wi-Fi／Ethernet pathと実interfaceを照合して得た非loopback IPv4候補1件・listener実portを、検証専用の有界・version付きWC返信で渡した。固定IPやlocalhostは使わず、service endpointの型をhost／portへ読み替えていない。今回の候補はwiredEthernet 1件である。WatchのhostPort接続はreadyとなり、Phone受信・echo各2、Watch送信・echo受信・全32byte一致各2を確認した。実際のlistener／connection取消と停止後250msの件数不変も成立した。これは停止後の観測であり、意図的な遅延packet注入試験ではない。
+
+証跡は`.validation/watch-hostport-flow-20261102/`。source362ファイル一致、IP値を観測JSON・Appログへ保存していないこと、一時2sourceのHEAD完全復元、runner回収、両App終了・所有Simulator停止を確認した。音声設定は変更していない。同条件でUDP通信自体は成立し、Bonjour指定の接続準備停止とは差が出たが、根本原因を特定したものではない。LAN対照はAPなし近距離・製品fallback・暗号化音声・録音会話の成立を示さない。
+
+実証した単一flowの双方向配送を、既存の認証・暗号化・replay防止と配送上限を保つ音声device packageへ接続する。製品のBonjour既定・APなし近距離要求は維持し、IP交換を製品fallbackとして採用する判断とは分ける。App追従とnative5秒録音・全量再生は引き続き未完である。
