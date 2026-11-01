@@ -199,10 +199,12 @@ final class IntercomViewModel {
     var audioCheckInputPeakWindow = VoicePeakWindow()
     var audioCheckOutputPeakWindow = VoicePeakWindow()
     var audioCheckRecordedFrames: [PCMFrame] = []
+    var audioCheckRecordedFrameCount = 0
     var audioCheckGeneration = UUID()
     var connectionGeneration = UUID()
     var audioGeneration = UUID()
     var audioCheckTask: Task<Void, Never>?
+    var audioCheckPlaybackDuration: Duration = .seconds(5)
     var audioStartTask: Task<Void, Never>?
     var audioCheckOwnsAudioPipeline = false
     var isOtherAudioDuckingActiveInternal = false

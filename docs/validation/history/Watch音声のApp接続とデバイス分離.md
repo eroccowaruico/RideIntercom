@@ -73,3 +73,13 @@ Watch Simulatorの実Appで、標準`AVAudioRecorder`による録音→`AVAudioF
 削除失敗後に新しい録音が既存file参照・エラーを上書きしないguardも追加した。所有する合成ファイルのdirectoryを一時的に書込不可として実削除失敗を起こし、guardなしではエラー保持・許可要求抑止の2項目が失敗、修正後は6項目成功した。権限復元後の削除とdirectory回収も確認し、この試験ではマイク録音を開始していない。最終buildには既知のAppIntentsメタデータ対象なしwarningが1件あり、警告ゼロとは扱わない。成功時はcleanupでfileがnilになるため従来の録音経路を変えない。証跡は`.validation/watch-recording-cleanup-failure-20261101/`。
 
 Recorder成功からWatchのnative入力一般が利用不能とはいえない。先のEngine試験はsession optionsも異なっていたため、APIだけの比較ではなかった。同じcategory・mode・optionsなし・deactivate→activate完了に揃えた直接Engine＋Sinkでも入力0Hz・0 frames・開始エラー-10851、標準input tapでは-10868となった。optionsだけの原因説とSinkだけの原因説は裏付けられず、AVAudioEngine入力の未成立を残す。証跡は`.validation/watch-native-engine-empty-options-20261101/`と`.validation/watch-native-input-tap-20261101/`。診断コードはsourceから撤去した。録音ファイルを既存WC経由でiPhone設定のAudioCheckへ届ける確認は次の必須項目であり、通話streamの代替やWatch会話E2E完了とは扱わない。
+
+## iPhone設定の5秒録音と有限配送
+
+2026-11-02、設定画面のAudio Checkを所有iPhone Simulatorで2回続けて実行した。両回ともnative入力は48kHz mono・240,000 framesの正確な5秒で、入力の配送dropと時刻gapは0、終了時にnative入出力の停止を確認した。有限録音ではsample予算で末尾をtrimし、通常通話に使う32 frame／100msの鮮度制限を適用しない。通常通話の既定配送条件は維持する。5秒ぶんの入力が得られない場合は、壁時計だけで短い録音を成功扱いせず、猶予後に失敗を表示する。
+
+証跡は`.validation/phone-audio-check-route-20261101/finite-main-native-two-cycles/`。この実行はUIの録音→再生→完了と再開始に成功したが、native出力のMainActor観測配送で7,680／5,760 framesのdropを検出した。hardware実再生の欠落とは区別し、全量再生の波形受入は未完とした。2回目はnative出力のchannel数の違いも測定不能の原因だった。録音の5秒入力成立を、送信エフェクト・codec適用や5秒全量再生の成立へ読み替えない。
+
+有限再生の観測はstartup／drainを含む最大6秒のsample予算で保持し、同一sample rateのstereo hardware出力はmonoへ平均して入力と比較する修正を追加した。`.validation/phone-audio-check-route-20261101/finite-output-green/`では、有限配送2件・ViewModelの5秒録音と再開始・stereo比較・故障注入後のgraph再構築の計5件が成功し、runtime warnings／skipは0。native再測定の`.validation/phone-audio-check-route-20261101/finite-output-native-two-cycles/`では、2回目の出力が242,880 frames／5.06秒、drop／gap 0で、先頭・中央・末尾の3窓の相関はすべて1.0、全量coverageが成立した。1回目は出力callbackの波形観測が0のため未測定であり、UI2回成功や入力両回5秒をもってnative再生両回の受入完了とはしない。録音前の送信pipeline構築と、録音から再生へのshared engine lifecycleを続く送信エフェクト工程で確認する。
+
+Simulatorのnative入力確認では、Macの既定入力が48kHz、既定出力が別形式の場合の0callbackを再現した。同じ所有Simulatorだけのinput／outputを既存48kHz機器へ固定するとnative入力testは成功した。Macの既定設定は変更せず、Simulatorのinput／output／volumeを実行前の値へ戻し、所有Simulatorを停止した。証跡は`finite-main-pinned/pinned-audio-state.json`と`finite-output-green/pinned-audio-state.json`。pinしたsuite全体の故障注入testでAppleのAudio Unit parameter更新threadのSIGTRAPを1回検出した。同じtestの同pin条件単独実行は成功したが、再現条件や原因を未確定のまま保持する。

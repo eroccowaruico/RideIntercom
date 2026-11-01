@@ -14,10 +14,12 @@ extension IntercomViewModel {
         guard canStartAudioCheck else { return }
 
         cancelAudioCheck()
-        bindAudioEvents(deliverEveryFrame: true)
+        bindAudioEvents(finiteRecordingDuration: 5)
         let generation = audioCheckGeneration, audio = audioGeneration
         resetAudioCheckMeters()
         audioCheckRecordedFrames = []
+        audioCheckRecordedFrameCount = 0
+        audioCheckPlaybackDuration = playbackDuration
         audioCheckPhase = .preparing
         audioCheckStatusMessage = "Preparing microphone and speaker"
         audioCheckOwnsAudioPipeline = true
@@ -47,9 +49,14 @@ extension IntercomViewModel {
             self.audioCheckPhase = .recording
             self.audioCheckStatusMessage = "Recording microphone for 5 seconds"
             self.inputFrameDelivery?.activate()
-            try? await Task.sleep(for: recordDuration)
+            // Capture five seconds of samples even when activation or delivery
+            // consumes part of the wall-clock interval.
+            try? await Task.sleep(for: recordDuration + .seconds(1))
             guard !Task.isCancelled, self.audioCheckGeneration == generation else { return }
-            self.finishAudioCheckRecording(playbackDuration: playbackDuration)
+            guard self.audioCheckPhase == .recording else { return }
+            self.audioCheckPhase = .failed
+            self.audioCheckStatusMessage = "Incomplete microphone recording"
+            self.stopAudioCheckOwnedPipeline()
         }
     }
 
@@ -60,6 +67,10 @@ extension IntercomViewModel {
         audioCheckInputLevel = clampedLevel
         audioCheckInputPeakLevel = audioCheckInputPeakWindow.record(clampedLevel)
         audioCheckRecordedFrames.append(frame)
+        audioCheckRecordedFrameCount += frame.frameCount
+        if audioCheckRecordedFrameCount == Int(frame.format.sampleRate * 5) {
+            finishAudioCheckRecording(playbackDuration: audioCheckPlaybackDuration)
+        }
     }
 
     func finishAudioCheckRecording(playbackDuration: Duration) {

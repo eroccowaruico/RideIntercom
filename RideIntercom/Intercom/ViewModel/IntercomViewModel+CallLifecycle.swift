@@ -240,11 +240,12 @@ extension IntercomViewModel {
         }
     }
 
-    func bindAudioEvents(deliverEveryFrame: Bool = false) {
+    func bindAudioEvents(finiteRecordingDuration: TimeInterval? = nil) {
         audioGeneration = UUID()
         let generation = audioGeneration
         inputFrameDelivery?.finish()
-        let delivery = AudioFrameDelivery(initiallyActive: false, coalescesObservations: !deliverEveryFrame) { [weak self] frame in
+        let delivery = AudioFrameDelivery(initiallyActive: false, coalescesObservations: finiteRecordingDuration == nil,
+                                          finiteRecordingDuration: finiteRecordingDuration) { [weak self] frame in
             guard let self, self.audioGeneration == generation else { return }
             self.handleMicrophoneFrame(frame)
         }

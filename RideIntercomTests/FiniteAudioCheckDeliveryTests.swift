@@ -40,4 +40,24 @@ struct FiniteAudioCheckDeliveryTests {
         #expect(delivery.droppedFrameCount == 0)
     }
 
+    @Test func viewModelRecordsAllFiveSecondsAndCanRestartAfterPlayback() async {
+        let h = AppTestSupport.makeHarness(groups: []), vm = h.viewModel
+        for cycle in 0..<2 {
+            vm.startAudioCheck()
+            await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+            let format = AudioFormat(sampleRate: 48_000, channelCount: 1)
+            for index in 0..<236 {
+                h.inputBackend.emit(.init(sequenceNumber: UInt64(index), format: format,
+                    capturedAt: Double(cycle * 10) + Double(index * 1024) / 48_000,
+                    samples: [Float](repeating: 0.2, count: 1024)))
+            }
+            blockActorBeyondLiveDeadline()
+            await AppTestSupport.waitUntil { vm.audioCheckPhase == .playing }
+            #expect(vm.audioCheckRecordedFrameCount == 240_000)
+            #expect(vm.inputFrameDelivery?.droppedFrameCount == 0)
+            vm.completeAudioCheckPlayback()
+            #expect(vm.audioCheckPhase == .completed && vm.canStartAudioCheck)
+        }
+    }
+
 }
