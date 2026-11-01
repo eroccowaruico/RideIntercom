@@ -41,6 +41,9 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         names = ['RideIntercomWatch/WatchApp.swift', 'RideIntercomWidgets/Widget.swift',
                  'RideIntercomWidgets/Widget.entitlements', 'Config/Test.xcconfig',
                  'RideIntercom.xctestplan', 'RideIntercomWatch/Assets.xcassets/AppIcon.appiconset/Icon.png',
+                 'RideIntercom/Assets.xcassets/Icon.imageset/Icon.svg',
+                 'RideIntercom/Assets.xcassets/Logo.imageset/Logo.pdf',
+                 'RideIntercom/Assets.xcassets/Photo.imageset/Photo.jpeg',
                  'RideIntercom/ja.lproj/InfoPlist.strings', 'RideIntercom/PrivacyInfo.xcprivacy',
                  'RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.zip']
         for name in names:
@@ -52,9 +55,12 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         with patch('scripts.audio_e2e.ROOT', self.root), patch('scripts.audio_e2e.subprocess.check_output', side_effect=output):
             before = source_manifest()
             self.assertEqual(set(before['files']), set(names))
-            (self.root / names[2]).write_text('changed app group')
-            after = source_manifest()
-            self.assertFalse(fingerprints_match(before['files'], after['files']))
+            for name in names:
+                with self.subTest(changed=name):
+                    (self.root / name).write_text('changed build input')
+                    after = source_manifest()
+                    self.assertFalse(fingerprints_match(before['files'], after['files']))
+                    (self.root / name).write_text('fixture')
 
     def test_source_gate_allows_only_forward_generated_build_numbers(self):
         project = self.root / 'project.pbxproj'
