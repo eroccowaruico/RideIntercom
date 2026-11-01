@@ -77,7 +77,9 @@ snapshotの現在通話は閲覧中groupと分ける。表示状態は未ログ�
 
 | 境界 | 実装・受入の条件 |
 |---|---|
-| 通話の所有 | iPhoneの既存RTC接続・認証・利用権・通話世代を使う。Watchを別の参加者やWebRTC接続として追加しない。音声機器の切替・復旧で24時間の起算点や自動切断期限を更新しない |
+| 通話の所有 | iPhoneの既存RTC接続・認証・利用権・通話世代を使う。Watchを別の参加者やWebRTC接続として追加しない。Watchから開始した音声は明示終了または自動切断期限まで入出力ともWatchに固定し、iPhoneのマイク・スピーカーへ暗黙に切り替えない。音声機器の切替・復旧で24時間の起算点や自動切断期限を更新しない |
+| 起動中の継続 | Watch Appを開いたまま手首を下げ画面が暗くなっても音声を継続する。通常モードでONにしたマイクは暗転だけではOFFにしない。押下モードのrelease・操作取消はWatchローカルの送話gateだけを閉じ、受話と通話を維持する。腕下げによる暗転と別画面へ移った背景状態を区別する |
+| 通信とnative経路 | 相手の無音・packet欠落・省電力のための音声通信停止を、Watchのnative入出力経路の破棄と結び付けない。無音を出せる再生状態を維持し、次の受話で再初期化を要求しない。この条件と通常モードの暗転中送話、押下解除中の受話継続を回帰・実機受入で確認する |
 | 音声session | Watchでは[非同期activation](https://developer.apple.com/documentation/avfaudio/avaudiosession/activate(options:completionhandler:))の実完了を待つ。途中の終了・中断・新開始に古い完了を適用せず、設定変更のたびのactivationや周期的な再activationを設けない。指定できない周波数・バッファ長・出力先等は要求値と実適用を区別する |
 | 媒体と秘密 | WatchConnectivityは操作と接続準備に限定する。既存のNetwork UDP配送・音声packetを再利用し、認証・暗号化・鮮度破棄をpackageに閉じる。グループ鍵やアカウント資格は渡さず、現在のペアと通話だけに使う一時的な媒体資格を別の明示契約で扱う。一般の表示snapshotに秘密を追加しない |
 | 既存packageとの差 | 再利用対象はiPhone–Watch間のNetwork配送・PCM入出力であり、WatchへNative WebRTCやグループ通話を移植しない。既存moduleのMultipeer専用CFNetwork/socket処理と、Watch非対応のAudio Toolbox・Audio Unit処理を分離し、必要な処理だけをWatchで使える境界を確認する |

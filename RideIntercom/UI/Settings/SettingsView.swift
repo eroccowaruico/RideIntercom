@@ -437,8 +437,8 @@ struct AudioCheckPanel: View {
             .accessibilityIdentifier("audioCheckButton")
         } header: {
             Label("Audio Check", systemImage: "waveform")
+                .accessibilityIdentifier("audioCheckPanel")
         }
-        .accessibilityIdentifier("audioCheckPanel")
     }
 
     private var statusColor: Color {
