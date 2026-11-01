@@ -1,5 +1,7 @@
 # RideCom ドキュメント
 
+[Xcode標準設定への復帰と一時領域の整理](validation/history/Xcode標準設定への復帰と一時領域の整理.md)に、独自採番・一時buildの廃止、指定先Widgetの照合、検証結果と未解決の警告、一時物の保全・削除を記録する。
+
 [Watch音声の下位基盤検証](validation/history/Watch音声の下位基盤検証.md)に、AAC・媒体pairの単独検証とMac／iOS App回帰、実Watch未接続の境界を記録する。
 
 ## 目的から読む

@@ -1,295 +1,312 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "Connect to your iPhone to control a call.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneに接続して通話を操作してください。"
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Audio paused — check your audio device" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声を一時停止中 — 音声機器を確認してください"
           }
         }
       }
     },
-    "Unmute iPhone microphone": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneのマイクをオン"
+    "Audio plays on iPhone or its headphones." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声はiPhoneまたは接続したヘッドホンから流れます。"
           }
         }
       }
     },
-    "Mute iPhone microphone": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneのマイクをミュート"
+    "Audio unavailable — check your settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声を利用できません — 設定を確認してください"
           }
         }
       }
     },
-    "End Call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話を終了"
+    "Call on iPhone" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneで通話"
           }
         }
       }
     },
-    "Updating…": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新中…"
+    "Call Request" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話の呼び出し"
           }
         }
       }
     },
-    "Refresh": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新"
+    "Call request cancelled." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話の呼び出しを取り消しました。"
           }
         }
       }
     },
-    "Call on iPhone": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneで通話"
+    "Cancel Call Request" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話の呼び出しを取消"
           }
         }
       }
     },
-    "Audio plays on iPhone or its headphones.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声はiPhoneまたは接続したヘッドホンから流れます。"
+    "Choose a call" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話先を選択"
           }
         }
       }
     },
-    "Open RideCom on iPhone and sign in.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneでRideComを開いてログインしてください。"
+    "Connect to your iPhone to control a call." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneに接続して通話を操作してください。"
           }
         }
       }
     },
-    "Choose a call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話先を選択"
+    "Connecting — waiting for others" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続中 — 相手の参加を待っています"
           }
         }
       }
     },
-    "Connecting — waiting for others": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接続中 — 相手の参加を待っています"
+    "Could not reach iPhone. Try again." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneに接続できませんでした。もう一度お試しください。"
           }
         }
       }
     },
-    "In a call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話中"
+    "End Call" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話を終了"
           }
         }
       }
     },
-    "Audio paused — check your audio device": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声を一時停止中 — 音声機器を確認してください"
+    "In a call" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話中"
           }
         }
       }
     },
-    "Audio unavailable — check your settings": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声を利用できません — 設定を確認してください"
+    "Mute iPhone microphone" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneのマイクをミュート"
           }
         }
       }
     },
-    "Could not reach iPhone. Try again.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneに接続できませんでした。もう一度お試しください。"
+    "Notification accepted. Delivery is not confirmed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知サービスが受け付けました。相手への到着は未確認です。"
           }
         }
       }
     },
-    "The call changed. Check the current call and try again.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話が変わりました。現在の通話を確認して、もう一度操作してください。"
+    "Open RideCom on iPhone and sign in." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneでRideComを開いてログインしてください。"
           }
         }
       }
     },
-    "This saved call destination is no longer available.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この保存済みの通話先は利用できなくなりました。"
+    "Open RideCom on iPhone to continue." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneでRideComを開いて続けてください。"
           }
         }
       }
     },
-    "Open RideCom on iPhone to continue.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iPhoneでRideComを開いて続けてください。"
+    "Refresh" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新"
           }
         }
       }
     },
-    "RideCom": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "RideCom"
+    "RideCom" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RideCom"
           }
         }
       }
     },
-    "Call Request": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話の呼び出し"
+    "Send Call Request" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話の呼び出しを送信"
           }
         }
       }
     },
-    "Call request cancelled.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話の呼び出しを取り消しました。"
+    "The call changed. Check the current call and try again." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話が変わりました。現在の通話を確認して、もう一度操作してください。"
           }
         }
       }
     },
-    "Cancel Call Request": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話の呼び出しを取消"
+    "The call request could not be sent. Please try again later." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話の呼び出しを送信できませんでした。しばらくしてからお試しください。"
           }
         }
       }
     },
-    "Notification accepted. Delivery is not confirmed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通知サービスが受け付けました。相手への到着は未確認です。"
+    "The call request is being processed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話の呼び出しを処理しています。"
           }
         }
       }
     },
-    "Send Call Request": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話の呼び出しを送信"
+    "The call request was not accepted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話の呼び出しは受け付けられませんでした。"
           }
         }
       }
     },
-    "The call request could not be sent. Please try again later.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話の呼び出しを送信できませんでした。しばらくしてからお試しください。"
+    "This person has no notification destination available." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この相手には通知を受け取れる端末がありません。"
           }
         }
       }
     },
-    "The call request is being processed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話の呼び出しを処理しています。"
+    "This saved call destination is no longer available." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この保存済みの通話先は利用できなくなりました。"
           }
         }
       }
     },
-    "The call request was not accepted.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話の呼び出しは受け付けられませんでした。"
+    "Unmute iPhone microphone" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneのマイクをオン"
           }
         }
       }
     },
-    "This person has no notification destination available.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この相手には通知を受け取れる端末がありません。"
+    "Updating…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新中…"
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }

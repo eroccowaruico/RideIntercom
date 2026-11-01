@@ -1,5 +1,7 @@
 # 検証状況と証跡
 
+[Xcode標準設定への復帰と一時領域の整理](history/Xcode標準設定への復帰と一時領域の整理.md)に、標準DerivedDataでのMac526件／iOS単体512件とRelease検証構成の成功、設定UIの実行時警告・StoreKit週券fixtureの同期課題、/tmpの照合後削除を記録する。
+
 [Watch音声の下位基盤検証](history/Watch音声の下位基盤検証.md)に、AAC・媒体pairの単独検証とMac／iOS App回帰、実Watch未接続の境界を記録する。
 
 [作業領域の引継ぎと整理](history/作業領域の引継ぎと整理.md)に、登録済み32件の点検・復元用保全とmainへの作業集約を記録する。

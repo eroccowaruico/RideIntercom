@@ -8,7 +8,6 @@ try {
     const origin = (await runtime.ready).origin;
     const code = await new Promise((resolve, reject) => {
         const args = ['test', '--package-path', '../RideIntercom/packages/RTC', '--filter', 'WorkerPairTests'];
-        if (process.env.RIDEINTERCOM_PAIR_SCRATCH_PATH) args.push('--scratch-path', process.env.RIDEINTERCOM_PAIR_SCRATCH_PATH);
         if (process.env.RIDEINTERCOM_PAIR_SANITIZER) args.push('--sanitize=' + process.env.RIDEINTERCOM_PAIR_SANITIZER);
         const child = spawn('swift', args, {
             stdio: 'inherit', env: { ...process.env, RIDEINTERCOM_PAIR_URL: origin, RIDEINTERCOM_PAIR_TOKEN: token }

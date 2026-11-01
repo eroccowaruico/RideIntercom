@@ -24,11 +24,15 @@
       </BuildActionEntries>
    </BuildAction>
    <TestAction
-      buildConfiguration = "Debug"
+      buildConfiguration = "Debug-Validation"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
+      shouldUseLaunchSchemeArgsEnv = "NO"
       shouldAutocreateTestPlan = "YES">
+      <EnvironmentVariables>
+         <EnvironmentVariable key="RIDEINTERCOM_LOCAL_TESTING" value="1" isEnabled="YES"/>
+         <EnvironmentVariable key="RIDEINTERCOM_ACCOUNT_FIXTURE" value="signed-out" isEnabled="YES"/>
+      </EnvironmentVariables>
       <Testables>
          <TestableReference skipped = "NO" parallelizable = "NO">
             <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "E2E000000000000000000001" BuildableName = "RideIntercomAudioE2ETests.xctest" BlueprintName = "RideIntercomAudioE2ETests" ReferencedContainer = "container:RideIntercom.xcodeproj"/>

@@ -630,10 +630,16 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(url.waitForExistence(timeout: 3))
         url.tap(); url.typeText("http://example.com")
         let token = app.secureTextFields["internetDeviceToken"]
-        token.tap(); token.typeText("invalid-test-token")
+        let fixtureToken = "invalid-test-token"
+        token.tap(); token.typeText(fixtureToken)
         let save = app.buttons["saveInternetConnection"]
         save.tap()
         XCTAssertTrue(app.staticTexts["Could not save. Check the HTTPS URL, device token, and Keychain access."].waitForExistence(timeout: 3))
+        #if os(iOS)
+        // The rejected fixture is not a password to offer to the system store.
+        token.tap()
+        token.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: fixtureToken.count))
+        #endif
         app.buttons["closeInternetConnection"].tap()
         XCTAssertTrue(url.waitForNonExistence(timeout: 5))
     }
@@ -985,6 +991,12 @@ final class RideIntercomUITests: XCTestCase {
     private func openSettingsTab() {
         let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
         if !scroll.exists {
+            #if os(iOS)
+            let identified = app.tabBars.buttons["settingsTab"].firstMatch
+            let button = identified.exists ? identified : app.tabBars.buttons["Settings"].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 3))
+            button.tap()
+            #else
             let radio = app.radioButtons["settingsTab"].firstMatch
             if radio.exists { radio.tap() }
             else {
@@ -993,6 +1005,7 @@ final class RideIntercomUITests: XCTestCase {
                 XCTAssertTrue(button.waitForExistence(timeout: 3))
                 button.tap()
             }
+            #endif
         }
         guard scroll.waitForExistence(timeout: 5) else {
             XCTFail("Settings tab did not open"); return

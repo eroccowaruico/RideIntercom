@@ -54,7 +54,7 @@ App Privacy、プライバシーポリシーURL、年齢区分、審査連絡先
 
 ## 生成物での確認
 
-`python3 scripts/check_platform_configuration.py`は、OS別entitlement、App Group、APNs環境の接続、日英権限説明、Watchアイコン、埋込product、近距離設定を読み取り検査する。通常のCheck Development Setupからも実行する。portalやOS許可は変更しない。
+`python3 scripts/check_platform_configuration.py`は、OS別entitlement、App Group、APNs環境の接続、日英権限説明、Watchアイコン、埋込product、近距離設定を読み取り検査する。CLIの開発設定検査（`scripts/check_development_setup.py`）からも実行する。Xcodeの通常build phaseには組み込まない。portalやOS許可は変更しない。
 
 Xcodeで通常のRelease Archiveを生成し、Organizerから実際の配布先へexportした**最終artifact**を確認する。iOSは展開したPayload内、macOSは.app内のInfo.plistを使用する。
 

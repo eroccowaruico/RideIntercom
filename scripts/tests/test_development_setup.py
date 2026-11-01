@@ -1,4 +1,4 @@
-"""Guard against turning the live repository navigator into a stale file list."""
+"""Keep synchronized editing folders visible without recursive self-project discovery."""
 import copy
 import importlib.util
 from pathlib import Path
@@ -19,41 +19,9 @@ class DevelopmentSetupTests(unittest.TestCase):
     def test_repository_and_editor_configuration(self):
         self.assertEqual(self.setup.check(ROOT), [])
 
-    def test_static_file_group_is_rejected(self):
-        project = copy.deepcopy(self.project)
-        for obj in project['objects'].values():
-            if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and obj.get('path') == '.':
-                obj['isa'] = 'PBXGroup'
-        self.assertFalse(self.setup.has_live_repository(project))
-
-    def test_repository_must_not_be_a_build_input(self):
-        project = copy.deepcopy(self.project)
-        repo_id = next(k for k,v in project['objects'].items() if v.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and v.get('path') == '.')
-        target = next(v for v in project['objects'].values() if v.get('isa') == 'PBXNativeTarget')
-        target.setdefault('fileSystemSynchronizedGroups', []).append(repo_id)
-        self.assertFalse(self.setup.has_live_repository(project))
-
-    def test_detached_repository_group_is_rejected(self):
-        project = copy.deepcopy(self.project)
-        main = project['objects'][project['objects'][project['rootObject']]['mainGroup']]
-        main['children'] = [k for k in main['children'] if project['objects'][k].get('path') != '.']
-        self.assertFalse(self.setup.has_live_repository(project))
-
-    def test_repository_container_discovery_is_rejected(self):
-        for path in ['RideIntercom.xcodeproj']:
-            with self.subTest(path=path):
-                project = copy.deepcopy(self.project)
-                repository = next(obj for obj in project['objects'].values()
-                                  if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup'
-                                  and obj.get('path') == '.')
-                repository['explicitFolders'] = [p for p in repository.get('explicitFolders', [])
-                                                 if p != path]
-                repository.get('explicitFileTypes', {}).pop(path, None)
-                with patch.object(self.setup, 'load_project', return_value=project):
-                    self.assertTrue(any(path in error for error in self.setup.check(ROOT)))
 
     def test_package_folder_override_is_rejected(self):
-        for scope, path in [('.', 'RideIntercom/packages'), ('RideIntercom', 'packages')]:
+        for scope, path in [('RideIntercom', 'packages')]:
             with self.subTest(scope=scope):
                 project = copy.deepcopy(self.project)
                 group = next(obj for obj in project['objects'].values()
@@ -73,19 +41,6 @@ class DevelopmentSetupTests(unittest.TestCase):
         ]
         with patch.object(self.setup, 'load_project', return_value=project):
             self.assertTrue(any('itself' in error for error in self.setup.check(ROOT)))
-
-    def test_xcode_folder_reference_is_allowed(self):
-        project = copy.deepcopy(self.project)
-        project['objects']['SELF_FOLDER'] = {
-            'isa': 'PBXFileReference', 'path': 'RideIntercom.xcodeproj',
-            'sourceTree': '<group>', 'explicitFileType': 'folder',
-            'lastKnownFileType': 'wrapper.pb-project',
-        }
-        project['objects'][project['rootObject']]['projectReferences'] = [
-            {'ProjectRef': 'SELF_FOLDER'},
-        ]
-        with patch.object(self.setup, 'load_project', return_value=project):
-            self.assertEqual(self.setup.check(ROOT), [])
 
 
     def test_package_roots_are_valid_without_parent_exception(self):
@@ -125,6 +80,55 @@ class DevelopmentSetupTests(unittest.TestCase):
                     project['objects'][group['exceptions'][0]]['target'] = 'another-target'
                 with patch.object(self.setup, 'load_project', return_value=project):
                     self.assertTrue(any('local Swift package root' in error for error in self.setup.check(ROOT)))
+
+    def test_synchronized_ancestor_is_rejected_even_with_folder_type_override(self):
+        for path in ['.', '..', str(ROOT.resolve())]:
+            with self.subTest(path=path):
+                project = copy.deepcopy(self.project)
+                project['objects']['RECURSIVE_ROOT'] = {
+                    'isa': 'PBXFileSystemSynchronizedRootGroup', 'path': path,
+                    'sourceTree': '<group>', 'explicitFileTypes': {'RideIntercom.xcodeproj': 'folder'},
+                }
+                with patch.object(self.setup, 'load_project', return_value=project):
+                    self.assertTrue(any('containing the project' in error for error in self.setup.check(ROOT)))
+
+    def test_editing_folder_must_stay_visible_and_synchronized(self):
+        for failure in ['detached', 'static-group']:
+            with self.subTest(failure=failure):
+                project = copy.deepcopy(self.project)
+                objects = project['objects']
+                group_id = next(k for k,v in objects.items() if v.get('path') == 'docs')
+                if failure == 'detached':
+                    main = objects[objects[project['rootObject']]['mainGroup']]
+                    main['children'].remove(group_id)
+                else:
+                    objects[group_id]['isa'] = 'PBXGroup'
+                with patch.object(self.setup, 'load_project', return_value=project):
+                    self.assertTrue(any('docs must remain visible' in error for error in self.setup.check(ROOT)))
+
+    def test_editing_only_folder_must_not_become_a_build_input(self):
+        for failure in ['target-group', 'build-file']:
+            with self.subTest(failure=failure):
+                project = copy.deepcopy(self.project)
+                objects = project['objects']
+                group_id = next(k for k,v in objects.items() if v.get('path') == 'docs')
+                if failure == 'target-group':
+                    target = next(v for v in objects.values() if v.get('isa') == 'PBXNativeTarget')
+                    target.setdefault('fileSystemSynchronizedGroups', []).append(group_id)
+                else:
+                    objects['DOCS_BUILD_FILE'] = {'isa': 'PBXBuildFile', 'fileRef': group_id}
+                with patch.object(self.setup, 'load_project', return_value=project):
+                    self.assertTrue(any('docs is editing-only' in error for error in self.setup.check(ROOT)))
+
+    def test_self_project_folder_reference_is_also_rejected(self):
+        project = copy.deepcopy(self.project)
+        project['objects']['SELF_FOLDER'] = {
+            'isa': 'PBXFileReference', 'path': 'RideIntercom.xcodeproj',
+            'sourceTree': '<group>', 'explicitFileType': 'folder',
+        }
+        project['objects'][project['rootObject']]['projectReferences'] = [{'ProjectRef': 'SELF_FOLDER'}]
+        with patch.object(self.setup, 'load_project', return_value=project):
+            self.assertTrue(any('itself' in error for error in self.setup.check(ROOT)))
 
 
 if __name__ == '__main__':

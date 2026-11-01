@@ -11,7 +11,7 @@ python3 scripts/audio_e2e.py
 python3 scripts/audio_e2e.py --matrix full
 ```
 
-生成されたxctestrunが参照するAppのInfo.plistを起動前に読み、保存先が`RideIntercom.AudioE2E.Host`と一致し、開発用接続資格を含まないことを確認する。build引数だけを証拠にせず、通常のApp／StoreKit検証と[同じhost検査](自動検証.md#xcodeテストの起動前検査)を使う。不一致の場合は音声hostを起動しない。
+生成されたxctestrunが参照するAppのInfo.plistを起動前に読み、保存先がXcodeの検証構成から取得した`RideIntercom.Validation.Xcode`と一致し、開発用接続資格を含まないことを確認する。build引数だけを証拠にせず、通常のApp／StoreKit検証と[同じhost検査](自動検証.md#xcodeテストの起動前検査)を使う。不一致の場合は音声hostを起動しない。
 
 通常は両通信経路の`quick`を実行する。`--transport local`はMultipeerによる認証・制御と別のUDP音声経路、`--transport webrtc`はローカルのサーバーモックと実WebRTCに絞る。切り分け用の`--matrix smoke`は既定設定だけを測る。`--codec pcm16` / `--codec opus`と`--isolation off`は診断用の上書きであり、全設定を検証した実績にはしない。`--seconds`は各発話区間の秒数で、既定8秒。無音を測る区間は2秒。
 
@@ -70,14 +70,14 @@ python3 scripts/audio_e2e.py --pipeline-only
 
 ## 再利用と後片付け
 
-通常実行では通常検証（`validate.py`）と共通の専用Simulatorを1台だけ再利用する。終了時に停止し、毎回端末を増やさない。build cacheも既定の`/tmp/RideIntercom-AudioE2E-Build`に再利用する。`--build-root`で場所を変えられるが、Xcodeの同期folderが生成物を取り込まないようリポジトリ外を指定する。
+通常実行では通常検証（`validate.py`）と共通の専用Simulatorを1台だけ再利用する。終了時に停止し、毎回端末を増やさない。mainの通常作業フォルダのprojectを使い、build cacheはXcode既定のDerivedDataを再利用する。projectコピーや`/tmp`専用build、`--build-root`による別cacheは使用しない。生成先はXcodeの`-showBuildSettings -json`から必要なpathだけを取得する。MacとiOS Simulatorは同じBuild/Productsを使うため、生成xctestrun名にはplatformを含める。
 
-成功・失敗・timeout・SIGINT・SIGTERMでは、起動したコマンドのprocess groupと、記録した実行ファイルの完全なパスに一致するMac test hostを終了し、専用Simulatorを停止する。名前だけの`pkill`や`simctl shutdown all`は使用しない。二重実行はlockで拒否する。SIGKILLや電源断で終了処理自体が実行できなかった場合は、次回起動で全端末の一覧を証跡へ保存する。管理記録が失われても専用名から停止済み端末を再発見し、互換端末を再利用する。起動中の専用端末がある場合は作成・削除を行わず失敗するため、所有する作業を確認して終了してから再実行する。
+正常終了時のtest host終了はXcodeに任せる。timeout・SIGINT・SIGTERMでは、起動時に取得したprocess identityと所有子孫だけを回収し、専用Simulatorを停止する。同じ既定DerivedDataを使うGUI hostをpath一致で終了しない。旧journalに実行ファイルpathだけが残り、そのhostが動いている場合は所有を証明できないため失敗を記録し、signalを送らない。名前だけの`pkill`や`simctl shutdown all`は使用しない。二重実行はlockで拒否する。SIGKILLや電源断で終了処理自体が実行できなかった場合は、次回起動で全端末の一覧を証跡へ保存する。管理記録が失われても専用名から停止済み端末を再発見し、互換端末を再利用する。起動中の専用端末がある場合は作成・削除を行わず失敗するため、所有する作業を確認して終了してから再実行する。
 
 ```sh
 # CI等で今回作った端末を終了時に削除する
 python3 scripts/audio_e2e.py --matrix quick --ephemeral
-# 管理対象のアプリを終了し、再利用端末も削除する
+# 再利用端末を削除する。旧hostの所有を証明できない場合は停止せず失敗にする
 python3 scripts/audio_e2e.py --cleanup-only
 ```
 
@@ -87,7 +87,7 @@ python3 scripts/audio_e2e.py --cleanup-only
 
 ## 証跡
 
-標準出力の`Evidence:`が保存先を示す。`--output`で新しい空の保存先を指定できる。同じrunを上書きしない。
+標準出力の`Evidence:`が保存先を示す。既定はmain作業フォルダの`.validation/audio-e2e-<日時>`。`--output`で新しい空の保存先を指定できる。同じrunを上書きしない。build cacheと測定証跡は分けて扱う。
 
 | ファイル | 内容 |
 |---|---|
@@ -168,12 +168,12 @@ conversation-ja.wav（Kyoko、約16.38秒）とconversation-reply-ja.wav（Reed�
 
 ## ビルド成果物の再作成
 
-既存のbuild productsに問題がある場合は`--clean-build`を指定し、同じDerivedData内でcleanしてから再構築する。別のcacheを使う場合も`--build-root`だけを変更する。bundle identifierや署名方式を実行ごとに変更せず、OSの許可リストを増やす方法を復旧策にしない。local networkの拒否とbuild／hostの不整合は結果を分けて記録し、確認していない原因を権限不足と決めつけない。
+既存のbuild productsに問題がある場合は`--clean-build`を指定し、Xcode既定のDerivedData内で標準のcleanを行ってから再構築する。別のcacheやprojectコピーへ切り替える復旧策は使わない。bundle identifierや署名方式を実行ごとに変更せず、OSの許可リストを増やす方法を復旧策にしない。local networkの拒否とbuild／hostの不整合は結果を分けて記録し、確認していない原因を権限不足と決めつけない。
 
 録音probeのsample領域は開始前に確保・初期化し、音声callback内で配列の拡張やcopy-on-writeの大きなコピーを行わない。snapshotは記録済みprefixをrender用lockの外で複製し、設定区間の境界はsample数だけを読む。snapshotとresetは同じ試験ownerが順に行い、解析中の領域を書き換えない。iOS captureの時刻不連続も測定JSONへ残し、内部ringのdrop counterとは別に検出する。
 
 fixtureの再生位置は最初のcapture時刻と現在のcapture時刻の差から求める。native I/Oが中断した場合、その区間のsource sampleを省略し、その後の発話全部を後ろへずらさない。10msの欠落で正確に10ms分のsource sampleを省略し、以後の時計を保つ正例を事前検査する。欠落・繰り返しの拒否閾値は変更しない。
 
-性能測定では`--configuration Release`を明示し、配布構成と同じ最適化を使用できる。既定のDebug構成も保持する。`configuration.json`へ構成名を記録し、音声同一性・欠落ゼロ・125msの判定は構成によらず同じものを適用する。Releaseの成功で既存のDebug失敗を成功へ書き換えない。テストから内部APIを参照するため`ENABLE_TESTABILITY=YES`のみ明示し、音声経路やbundle identifierを変更しない。
+性能測定では`--configuration Release`を明示し、通常Releaseと同じ最適化を持つ標準構成`Release-Validation`を使う。DEBUGマクロは追加せず、内部API参照に必要な`ENABLE_TESTABILITY=YES`と検証namespaceをprojectの標準設定へ置く。既定のDebugは通常検証と同じ`Debug-Validation`を使い、schemeのTestActionで明示したsigned-out fixtureから起動する。通常Debug／Release／Archiveの設定は変更しない。コンパイラ条件・namespace・署名設定をCLIから上書きしない。`configuration.json`に測定構成、`build-settings-<platform>.json`にXcodeで解決した構成と生成先を記録する。資格を含み得るbuild settings全体は保存しない。音声同一性・欠落ゼロ・125msの判定は構成によらず同じものを適用し、Releaseの成功で既存のDebug失敗を成功へ書き換えない。
 
 MacとSimulatorは同じMacのCoreAudio serviceを共有する。二つのhostのnative graph初期化を同時に開始せず、最初のhostが初期化完了を通知してから次を起動する。初期化は30秒を上限とし、失敗時は後続hostを起動せず所有processを回収する。通話開始後の双方向送受信・capture/render時計・判定閾値は変えない。

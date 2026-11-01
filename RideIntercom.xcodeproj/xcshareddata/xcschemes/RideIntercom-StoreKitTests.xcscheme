@@ -8,17 +8,10 @@
          </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
-   <TestAction buildConfiguration="Debug-StoreKitValidation" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="NO" shouldAutocreateTestPlan="YES" onlyGenerateCoverageForSpecifiedTargets="YES">
-      <Testables>
-         <TestableReference skipped="NO" parallelizable="NO">
-            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="93F300D82F93829D0046716D" BuildableName="RideIntercomTests.xctest" BlueprintName="RideIntercomTests" ReferencedContainer="container:RideIntercom.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
-      <EnvironmentVariables>
-         <EnvironmentVariable key="RIDEINTERCOM_LOCAL_TESTING" value="1" isEnabled="YES" />
-         <EnvironmentVariable key="RIDEINTERCOM_ACCOUNT_FIXTURE" value="signed-out" isEnabled="YES" />
-      </EnvironmentVariables>
+   <TestAction buildConfiguration="Debug-StoreKitValidation" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="NO" onlyGenerateCoverageForSpecifiedTargets="YES">
+      <TestPlans>
+         <TestPlanReference reference="container:Configuration/StoreKit.xctestplan" default="YES" />
+      </TestPlans>
    </TestAction>
    <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES" queueDebuggingEnableBacktraceRecording="Yes">
       <BuildableProductRunnable runnableDebuggingMode="0">

@@ -13,8 +13,11 @@ private struct SelectedCallProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> SelectedCallEntry { .init(date: .now, destination: nil) }
     func snapshot(for configuration: Intent, in context: Context) async -> SelectedCallEntry {
         let snapshot = WidgetDestinationStore.system.readSnapshot()
-        return .init(date: .now, destination: snapshot?.destinations.first { $0.id == configuration.destination?.id },
-                     currentCall: snapshot?.currentCall)
+        let destination = configuration.destination.flatMap { configured in
+            snapshot?.destinations.first { $0.id == configured.id }
+        }
+        return .init(date: .now, destination: destination,
+                     currentCall: snapshot?.currentCall(for: configuration.destination))
     }
     func timeline(for configuration: Intent, in context: Context) async -> Timeline<SelectedCallEntry> {
         let entry = await snapshot(for: configuration, in: context)

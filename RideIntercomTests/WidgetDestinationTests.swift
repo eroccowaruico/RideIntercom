@@ -22,11 +22,11 @@ struct WidgetDestinationTests {
         #expect(try await query.entities(matching: "friend") == [item])
         let renamed = WidgetCallDestination(id: item.id, name: "New name", kind: .user)
         try store.write([renamed])
-        #expect(store.current(item) == renamed)
+        #expect(store.readSnapshot()?.destinations.first { $0.id == item.id } == renamed)
         try store.write([])
-        #expect(store.current(item) == nil)
+        #expect(store.readSnapshot()?.destinations.first { $0.id == item.id } == nil)
         try Data("broken".utf8).write(to: file)
-        #expect(store.current(item) == nil)
+        #expect(store.readSnapshot()?.destinations.first { $0.id == item.id } == nil)
         #expect(try await query.suggestedEntities().isEmpty)
         try store.write([item])
         #expect(try await query.entities(for: [item.id]) == [item])
@@ -88,9 +88,12 @@ struct WidgetDestinationTests {
         vm.disconnect()
         try owner.startWidgetCall(id: selected.id)
         let reference = try #require(owner.currentLivePresentation?.reference)
+        await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall?.reference == reference }
+        #expect(store.readSnapshot()?.currentDestinationID == selected.id)
         #expect(vm.removeSavedUser(user.id))
         await AppTestSupport.waitUntil { !store.read().contains(where: { $0.id == selected.id }) }
-        #expect(store.current(selected) == nil)
+        #expect(store.readSnapshot()?.destinations.first { $0.id == selected.id } == nil)
+        #expect(store.readSnapshot()?.currentDestinationID == nil)
         #expect(throws: CallIntentError.self) { try owner.startWidgetCall(id: selected.id) }
         #expect(vm.activeGroupID != nil)
         try owner.performCallSurfaceAction(.end, reference: reference)
@@ -117,6 +120,28 @@ struct WidgetDestinationTests {
         #expect(FileManager.default.fileExists(atPath: file.path))
     }
 
+    @Test func selectedWidgetShowsCurrentControlsOnlyForItsConfiguredDestination() throws {
+        let file = try temporaryFile(); defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let store = WidgetDestinationStore(fileURL: file)
+        let configured = WidgetCallDestination(id: "scope|group|\(UUID())", name: "Ride", kind: .group)
+        let other = WidgetCallDestination(id: "scope|group|\(UUID())", name: "Other", kind: .group)
+        let call = CallLivePresentation(reference: .init(accountAccessID: UUID(), connectionGeneration: UUID(), groupID: UUID()), status: .inCall, isMuted: false)
+        try store.write(.init(destinations: [configured, other], currentDestinationID: configured.id, currentCall: call))
+        #expect(store.readSnapshot()?.currentCall(for: configured) == call)
+        #expect(store.readSnapshot()?.currentCall(for: other) == nil)
+        #expect(store.readSnapshot()?.currentCall(for: nil) == nil)
+        try store.write(.init(destinations: [other], currentDestinationID: configured.id, currentCall: call))
+        #expect(store.readSnapshot()?.currentCall(for: configured) == nil)
+        let foreign = WidgetCallDestination(id: "other-account|group|\(UUID())", name: "Ride", kind: .group)
+        try store.write(.init(destinations: [configured, foreign], currentDestinationID: configured.id, currentCall: call))
+        #expect(store.readSnapshot()?.currentCall(for: foreign) == nil)
+
+        let oldFileSnapshot = #"{"version":1,"destinations":[{"id":"scope|group|old","name":"Ride","kind":"group"}],"currentCall":{"reference":{"accountAccessID":"00000000-0000-0000-0000-000000000001","connectionGeneration":"00000000-0000-0000-0000-000000000002","groupID":"00000000-0000-0000-0000-000000000003"},"status":"inCall","isMuted":false}}"#
+        try Data(oldFileSnapshot.utf8).write(to: file)
+        let old = WidgetCallDestination(id: "scope|group|old", name: "Ride", kind: .group)
+        #expect(store.readSnapshot()?.currentCall(for: old) == nil)
+    }
+
     @Test func callProjectionCarriesCurrentReferenceAndExplicitMuteAndClearsAtSignOut() async throws {
         let file = try temporaryFile(); defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
         let store = WidgetDestinationStore(fileURL: file), account = AccountFixture(); defer { account.remove() }; account.signIn()
@@ -127,6 +152,7 @@ struct WidgetDestinationTests {
         await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall != nil }
         let call = try #require(store.readSnapshot()?.currentCall)
         #expect(call.reference == owner.currentLivePresentation?.reference)
+        #expect(store.readSnapshot()?.currentDestinationID == selected.entity.id)
         #expect(call.status == vm.callStatus(for: vm.activeGroupID))
         #expect(owner.setCallSurfaceMuted(true, reference: call.reference))
         await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall?.isMuted == true }
@@ -137,23 +163,22 @@ struct WidgetDestinationTests {
         account.session.signOut()
         await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall == nil && store.read().isEmpty }
         #expect(store.readSnapshot()?.currentCall == nil)
-        #expect(store.readSnapshot()?.recentDestinationID == nil)
     }
 
-    @Test func recentProjectionUsesOnlyCurrentTargetsAndOldSnapshotRemainsReadable() async throws {
+    @Test func currentTargetProjectionUsesOnlyCurrentTargetsAndOldSnapshotRemainsReadable() async throws {
         let file = try temporaryFile(); defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
         let store = WidgetDestinationStore(fileURL: file)
         let group = IntercomSeedData.recentGroups[0]
-        let h = AppTestSupport.makeHarness(appSettingsStore: InMemoryAppSettingsStore(settings: .init(recentCallDestination: .group(group.id))))
+        let h = AppTestSupport.makeHarness()
         let vm = h.viewModel; defer { vm.disconnect() }
         let owner = AppCallOwner(account: vm.accountSession, viewModel: vm, widgetDestinationStore: store)
-        #expect(store.readSnapshot()?.recentDestinationID == owner.callTargets.first { $0.destination == .group(group.id) }?.entity.id)
+        #expect(store.readSnapshot()?.currentDestinationID == nil)
         vm.deleteGroup(group.id)
-        await AppTestSupport.waitUntil { store.readSnapshot()?.recentDestinationID == nil }
+        await AppTestSupport.waitUntil { store.readSnapshot()?.destinations.count == owner.callTargets.count }
         let oldFormat = #"{"version":1,"destinations":[]}"#
         try Data(oldFormat.utf8).write(to: file)
         #expect(store.readSnapshot()?.destinations == [])
         #expect(store.readSnapshot()?.currentCall == nil)
-        #expect(store.readSnapshot()?.recentDestinationID == nil)
+        #expect(store.readSnapshot()?.currentDestinationID == nil)
     }
 }

@@ -13,33 +13,17 @@ def load_project(root):
     ]))
 
 
-def has_live_repository(project):
-    objects = project['objects']
-    main = objects[objects[project['rootObject']]['mainGroup']]
-    candidates = {key for key in main['children']
-                  if objects[key].get('isa') == 'PBXFileSystemSynchronizedRootGroup'
-                  and objects[key].get('path') == '.'
-                  and objects[key].get('sourceTree') == '<group>'
-                  and not objects[key].get('exceptions')}
-    build_groups = {key for obj in objects.values() if obj.get('isa') == 'PBXNativeTarget'
-                    for key in obj.get('fileSystemSynchronizedGroups', [])}
-    build_files = {obj.get('fileRef') for obj in objects.values() if obj.get('isa') == 'PBXBuildFile'}
-    return bool(candidates) and not candidates.intersection(build_groups | build_files)
-
-
 def check(root):
     errors = []
     project = load_project(root)
-    if not has_live_repository(project):
-        errors.append('Xcode needs a live Repository folder (path = .), visible in mainGroup and absent from all build targets.')
     objects = project['objects']
     package_paths = {obj['relativePath'] for obj in objects.values()
                      if obj.get('isa') == 'XCLocalSwiftPackageReference'}
     for obj in objects.values():
-        if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and obj.get('path') == '.':
-            if obj.get('explicitFileTypes', {}).get('RideIntercom.xcodeproj') != 'folder':
-                errors.append('Repository must override RideIntercom.xcodeproj to folder to avoid self-project discovery.')
         if obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup':
+            directory = (root / obj.get('path', '')).resolve()
+            if (root / 'RideIntercom.xcodeproj').resolve().is_relative_to(directory):
+                errors.append('Do not synchronize a folder containing the project itself; add its editing subfolders separately.')
             for folder in obj.get('explicitFolders', []):
                 forced = (root / obj.get('path', '') / folder).resolve()
                 if any((root / path).resolve().is_relative_to(forced) for path in package_paths):
@@ -47,16 +31,26 @@ def check(root):
     project_object = objects[project['rootObject']]
     for reference in project_object.get('projectReferences', []):
         obj = objects[reference['ProjectRef']]
-        # Xcode retains folder-typed entries here when saving a synchronized root.
-        # An explicit folder type overrides both extension and lastKnownFileType.
-        if obj.get('explicitFileType') == 'folder':
-            continue
         if obj.get('sourceTree') in ('<group>', 'SOURCE_ROOT', '<absolute>') and (root / obj.get('path', '')).resolve() == (root / 'RideIntercom.xcodeproj').resolve():
             errors.append('RideIntercom must not reference itself as a child project.')
-    for folder in ['RideIntercom', 'RideIntercomTests', 'RideIntercomUITests']:
-        if not any(obj.get('isa') == 'PBXFileSystemSynchronizedRootGroup' and obj.get('path') == folder
-                   for obj in objects.values()):
-            errors.append(f'{folder} must remain a filesystem-synchronized folder.')
+    main = objects[objects[project['rootObject']]['mainGroup']]
+    visible = {objects[key].get('path'): key for key in main['children']}
+    editing_folders = ['docs', 'scripts', 'server', 'Configuration', '.vscode', '.codex', '.github', '.claude']
+    source_folders = ['RideIntercom', 'RideIntercomTests', 'RideIntercomUITests',
+                      'RideIntercomAudioE2ETests', 'RideIntercomWidgets', 'RideIntercomWatch']
+    for folder in source_folders + editing_folders:
+        group = objects.get(visible.get(folder), {})
+        if group.get('isa') != 'PBXFileSystemSynchronizedRootGroup':
+            errors.append(f'{folder} must remain visible as a filesystem-synchronized folder.')
+    build_groups = {key for obj in objects.values() if obj.get('isa') == 'PBXNativeTarget'
+                    for key in obj.get('fileSystemSynchronizedGroups', [])}
+    build_files = {obj.get('fileRef') for obj in objects.values() if obj.get('isa') == 'PBXBuildFile'}
+    for folder in editing_folders + ['.gitignore', 'README.md', 'RideIntercom.code-workspace', 'AGENTS.md', 'CLAUDE.md']:
+        key = visible.get(folder)
+        if key is None:
+            errors.append(f'Keep the explicit Xcode editing entry for {folder}.')
+        elif key in build_groups | build_files:
+            errors.append(f'{folder} is editing-only and must not be a build input.')
     app_id = next(key for key,obj in objects.items() if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == 'RideIntercom')
     for group_id in objects[app_id].get('fileSystemSynchronizedGroups', []):
         group = objects[group_id]
@@ -70,11 +64,6 @@ def check(root):
                 relative = package_directory.relative_to(directory).as_posix()
                 if relative not in excluded:
                     errors.append(f'App must exclude local Swift package root {relative} from synchronized target membership (SwiftPM owns it).')
-    main = objects[objects[project['rootObject']]['mainGroup']]
-    visible_paths = {objects[key].get('path') for key in main['children']}
-    for path in ['.vscode', '.codex', '.github', '.gitignore']:
-        if path not in visible_paths:
-            errors.append(f'Keep the explicit Xcode entry for hidden configuration: {path}')
     settings = json.loads((root / '.vscode/settings.json').read_text())
     if settings.get('explorer.excludeGitIgnore') is not False or settings.get('explorer.fileNesting.enabled') is not False:
         errors.append('VS Code must show ignored files and disable file nesting.')

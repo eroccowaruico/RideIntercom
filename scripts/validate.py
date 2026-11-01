@@ -16,8 +16,9 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.test_lifecycle import (stop_executable, exclusive_run, SimulatorLease,
+from scripts.test_lifecycle import (exclusive_run, SimulatorLease,
                                     simulator_resource_root, process_snapshot, stop_process_tree)
+from scripts.xcode_paths import scheme_configuration, xcode_build_settings, select_test_run
 
 
 def swift_supported(output):
@@ -67,9 +68,8 @@ def xcode_tests_passed(summary):
 
 def test_host_metadata(test_run, expected_namespace):
     """Validate the product actually referenced by Xcode, before it can start."""
-    if not (expected_namespace == 'RideIntercom.AudioE2E.Host'
-            or (expected_namespace.startswith('RideIntercom.Validation.')
-                and len(expected_namespace) > len('RideIntercom.Validation.'))):
+    if not (expected_namespace.startswith('RideIntercom.Validation.')
+            and len(expected_namespace) > len('RideIntercom.Validation.')):
         raise ValueError('An isolated test namespace is required')
     if test_run is None:
         raise ValueError('Missing generated xctestrun')
@@ -203,56 +203,44 @@ class Runner:
         return self.record(name, [], 'passed', 0, started, 'Generated host isolation verified before launch')
 
     def xcode(self, name, destination, only=None, needs=(), skip=None, reuse_build=None,
-              scheme='RideIntercom', derived_data=None, extra_conditions=()):
+              scheme='RideIntercom'):
         bundle = self.out / f'{name}.xcresult'
-        # Xcode's live Repository group must not recursively discover its own
-        # generated package checkout/build tree while constructing the graph.
-        if reuse_build:
-            derived = Path((self.out / f'{reuse_build}-derived-data.txt').read_text().strip())
-        elif derived_data is not None:
-            derived = Path(derived_data).resolve()
+        settings_stage = name + '-build-settings'
+        started = time.monotonic()
+        settings, test_run, configuration, namespace = None, None, '', ''
+        blocked = [n for n in needs if self.results.get(n, {}).get('status') != 'passed']
+        if blocked:
+            self.record(settings_stage, [], 'blocked', None, started, 'requires ' + ', '.join(blocked))
         else:
-            parent = os.environ.get('VALIDATION_DERIVED_DATA') or tempfile.mkdtemp(prefix='RideIntercom-validation-')
-            derived = Path(parent).resolve() / f'DerivedData-{name}'
-        if derived.is_relative_to(ROOT):
-            return self.record(name, [], 'blocked', None, time.monotonic(), 'DerivedData must be outside the synchronized repository')
-        (self.out / f'{name}-derived-data.txt').write_text(str(derived) + '\n')
-        namespace = 'RideIntercom.Validation.' + self.out.name + '.' + (reuse_build or name)
-        mac_executables = []
-        try:
-            if not reuse_build:
-                command = ['xcodebuild', 'build-for-testing', '-project', 'RideIntercom.xcodeproj', '-scheme', scheme,
-                           '-destination', destination, '-derivedDataPath', str(derived),
-                           'RIDEINTERCOM_STORAGE_NAMESPACE=' + namespace,
-                           'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) RIDEINTERCOM_VALIDATION'
-                           + ''.join(' ' + condition for condition in extra_conditions)]
-                if destination.startswith('platform=macOS'):
-                    # Local fixtures do not contact Apple; real signing is a separate gate.
-                    command.extend(['CODE_SIGN_ENTITLEMENTS=', 'ENABLE_APP_SANDBOX=NO'])
-                self.run(name + '-build', command, needs=needs)
-                needs = [name + '-build']
-            products = derived / 'Build/Products'
-            runs = sorted(products.glob(scheme + '_*.xctestrun'), key=lambda p: p.stat().st_mtime, reverse=True)
-            test_run = runs[0] if runs else None
-            preflight = name + '-host-preflight'
-            if self.check_test_host(preflight, test_run, namespace, needs=needs) and destination.startswith('platform=macOS'):
-                metadata = json.loads((self.out / (preflight + '.json')).read_text())
-                mac_executables = [Path(info).parent / 'MacOS/RideIntercom' for info in metadata['hostInfoPaths']]
-            command = ['xcodebuild', 'test-without-building', '-xctestrun', str(test_run or ''),
-                       '-destination', destination, '-parallel-testing-enabled', 'NO', '-resultBundlePath', str(bundle)]
-            for identifier in ([only] if isinstance(only, str) else only or []):
-                command.append(f'-only-testing:{identifier}')
-            if skip:
-                command.append(f'-skip-testing:{skip}')
-            self.run(name, command, needs=[preflight])
-        finally:
-            if destination.startswith('platform=macOS'):
-                started = time.monotonic()
-                try:
-                    stopped = [pid for executable in mac_executables for pid in stop_executable(executable)]
-                    self.record(name + '-host-cleanup', [], 'passed', 0, started, f'Terminated owned PIDs: {stopped}')
-                except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-                    self.record(name + '-host-cleanup', [], 'failed', 1, started, str(error))
+            try:
+                configuration = scheme_configuration(ROOT, scheme)
+                settings = xcode_build_settings(ROOT, scheme, destination, configuration)
+                if reuse_build:
+                    previous = json.loads((self.out / f'{reuse_build}-build-settings.json').read_text())
+                    if settings != previous:
+                        raise ValueError('The reused build does not match this scheme configuration and destination')
+                (self.out / f'{name}-build-settings.json').write_text(json.dumps(settings, indent=2) + '\n')
+                namespace = settings['RIDEINTERCOM_STORAGE_NAMESPACE']
+                self.record(settings_stage, [], 'passed', 0, started, 'Resolved standard Xcode product paths')
+            except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+                self.record(settings_stage, [], 'failed', 1, started, str(error))
+        needs = [settings_stage]
+        if not reuse_build:
+            command = ['xcodebuild', 'build-for-testing', '-project', 'RideIntercom.xcodeproj', '-scheme', scheme,
+                       '-destination', destination, '-configuration', configuration]
+            self.run(name + '-build', command, needs=needs)
+            needs = [name + '-build']
+        if settings is not None:
+            test_run = select_test_run(settings, scheme)
+        preflight = name + '-host-preflight'
+        self.check_test_host(preflight, test_run, namespace, needs=needs)
+        command = ['xcodebuild', 'test-without-building', '-xctestrun', str(test_run or ''),
+                   '-destination', destination, '-parallel-testing-enabled', 'NO', '-resultBundlePath', str(bundle)]
+        for identifier in ([only] if isinstance(only, str) else only or []):
+            command.append(f'-only-testing:{identifier}')
+        if skip:
+            command.append(f'-skip-testing:{skip}')
+        self.run(name, command, needs=[preflight])
         summary_name = name + '-summary'
         self.run(summary_name, ['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)], needs=[name], timeout=60)
         started = time.monotonic()
@@ -268,34 +256,12 @@ class Runner:
 def file_fingerprint(path):
     if not path.is_file():
         return {'sha256': None}
-    data = path.read_bytes()
-    result = {'sha256': hashlib.sha256(data).hexdigest()}
-    if path.name == 'project.pbxproj':
-        text = data.decode()
-        pattern = r'(CURRENT_PROJECT_VERSION\s*=\s*)([^;]+)(;)'
-        values = [match[1].strip() for match in re.findall(pattern, text)]
-        if not values or len(set(values)) != 1 or not re.fullmatch(r'[1-9][0-9]*', values[0]):
-            raise ValueError('Expected a shared positive generated build number')
-        normalized = re.sub(pattern, lambda m: m[1] + '<generated>' + m[3], text)
-        result.update(buildNumber=int(values[0]), configurationSHA256=hashlib.sha256(normalized.encode()).hexdigest())
-    return result
+    return {'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
 def fingerprints_match(before, after):
-    if before.keys() != after.keys():
-        return False
-    for name, original in before.items():
-        current = after[name]
-        if original == current:
-            continue
-        # Retain both raw hashes as evidence. Only the project-owned automatic
-        # counter may advance; every other byte of project configuration is fixed.
-        if not (original.get('configurationSHA256')
-                and original.get('configurationSHA256') == current.get('configurationSHA256')
-                and isinstance(current.get('buildNumber'), int)
-                and current['buildNumber'] >= original['buildNumber']):
-            return False
-    return True
+    # Builds must not mutate any input, including Xcode Version / Build settings.
+    return before == after
 
 
 def snapshot(out):
@@ -311,7 +277,7 @@ def snapshot(out):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('mode', nargs='?', default='all', choices=['all', 'headless', 'packages', 'worker', 'pair', 'macos', 'ios', 'ios-ui', 'scripts'])
-    parser.add_argument('--clean', action='store_true', help='Use new private build outputs; never remove existing caches')
+    parser.add_argument('--clean', action='store_true', help='Run standard swift package clean before package tests, using each package .build directory')
     parser.add_argument('--thread-sanitizer', action='store_true', help='Run supported Swift package tests under Thread Sanitizer')
     args = parser.parse_args()
     os.environ.setdefault('DEVELOPER_DIR', '/Applications/Xcode.app/Contents/Developer')
@@ -319,9 +285,6 @@ def main():
     os.environ['CI'] = '1'  # Noninteractive tool output; this still runs locally.
     out = os.environ.get('VALIDATION_DIR', ROOT / '.validation' / datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
     runner = Runner(out, timeout=float(os.environ.get('VALIDATION_TIMEOUT_SECONDS', '1800')))
-    build_root = Path(tempfile.mkdtemp(prefix='RideIntercom-clean-')) if args.clean else None
-    if build_root:
-        (runner.out / 'clean-build-root.txt').write_text(str(build_root) + '\n')
     snapshot(runner.out)
     runner.run('environment', ['sh', '-c', 'git rev-parse HEAD; git status --short; sw_vers; xcodebuild -version; swift --version; node --version; npm --version'], timeout=60)
     python = sys.executable
@@ -342,8 +305,11 @@ def main():
         for package in packages:
             name = package.split('/')[-1]
             command = ['swift', 'test', '--package-path', 'RideIntercom/packages/' + package]
+            needs = ['swift-toolchain'] + (['webrtc-artifact'] if name == 'RTC' else [])
             if args.clean:
-                command += ['--scratch-path', str(build_root / name)]
+                clean = 'package-' + name + '-clean'
+                runner.run(clean, ['swift', 'package', '--package-path', 'RideIntercom/packages/' + package, 'clean'], needs=needs)
+                needs += [clean]
             if args.thread_sanitizer:
                 command += ['--sanitize=thread']
             if name == 'RTC':
@@ -351,22 +317,31 @@ def main():
                 # SwiftPM's default says "no parallel". Keep accelerated ten-minute
                 # CPU stress and deliberate actor stalls off the real-time gates.
                 command += ['--no-parallel', '--skip', 'WorkerPairTests']  # Pair has its own server stage.
-            runner.run('package-' + name, command, needs=['swift-toolchain'] + (['webrtc-artifact'] if name == 'RTC' else []), tests=True)
+            runner.run('package-' + name, command, needs=needs, tests=True)
     if mode in ('all', 'headless', 'worker', 'pair'):
         runner.run('worker-install', ['npm', '--prefix', 'server', 'ci'], needs=['node-toolchain'])
         runner.run('worker-types', ['npm', '--prefix', 'server', 'run', 'type-check'], needs=['worker-install'])
         runner.run('worker-test', ['npm', '--prefix', 'server', 'test'], needs=['worker-install'], tests=True)
     if mode in ('all', 'headless', 'pair'):
+        pair_needs = ['worker-install', 'swift-toolchain', 'webrtc-artifact']
         if args.clean:
-            os.environ['RIDEINTERCOM_PAIR_SCRATCH_PATH'] = str(build_root / 'RTC-pair')
+            clean = 'package-RTC-clean'
+            if clean not in runner.results:
+                runner.run(clean, ['swift', 'package', '--package-path', 'RideIntercom/packages/RTC', 'clean'],
+                           needs=['swift-toolchain', 'webrtc-artifact'])
+            pair_needs += [clean]
         if args.thread_sanitizer:
             os.environ['RIDEINTERCOM_PAIR_SANITIZER'] = 'thread'
-        runner.run('swift-worker-pair', ['npm', '--prefix', 'server', 'run', 'test:pair'], needs=['worker-install', 'swift-toolchain', 'webrtc-artifact'], tests=True)
+        runner.run('swift-worker-pair', ['npm', '--prefix', 'server', 'run', 'test:pair'], needs=pair_needs, tests=True)
     if mode in ('all', 'headless', 'scripts'):
         runner.run('script-tests', [python, '-m', 'unittest', 'discover', '-s', 'scripts/tests'], tests=True)
         runner.run('cloudflare-scripts', ['node', '--test', 'scripts/Cloudflare/estimate-cost.test.mjs', 'scripts/Cloudflare/issue-device.test.mjs'], needs=['node-toolchain'], tests=True)
     if mode in ('all', 'macos'):
-        runner.xcode('macos-tests', 'platform=macOS,arch=arm64', only='RideIntercomTests', needs=['swift-toolchain', 'webrtc-artifact'])
+        try:
+            with exclusive_run(simulator_resource_root() / 'run.lock'):
+                runner.xcode('macos-tests', 'platform=macOS,arch=arm64', only='RideIntercomTests', needs=['swift-toolchain', 'webrtc-artifact'])
+        except BlockingIOError:
+            runner.record('macos-tests', [], 'blocked', None, time.monotonic(), 'Another managed App or audio test run is active')
     if mode in ('all', 'ios', 'ios-ui'):
         try:
             with exclusive_run(simulator_resource_root() / 'run.lock'):
@@ -399,7 +374,7 @@ def main():
     after = (runner.out / 'inputs.json').read_text()
     (runner.out / 'inputs-before.json').write_text(before)
     runner.record('unchanged-inputs', [], 'passed' if fingerprints_match(json.loads(before), json.loads(after)) else 'failed', 0 if fingerprints_match(json.loads(before), json.loads(after)) else 1,
-                  time.monotonic(), 'source/configuration fingerprints before/after validation; generated build counter may only advance')
+                  time.monotonic(), 'source/configuration fingerprints before/after validation must match exactly')
     print(f'Results: {runner.out / "results.tsv"}')
     return runner.exit_code
 

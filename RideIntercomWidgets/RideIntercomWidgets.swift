@@ -5,65 +5,11 @@ import WidgetKit
 @main
 struct RideIntercomWidgets: WidgetBundle {
     var body: some Widget {
-        CallShortcutsWidget()
         SelectedCallWidget()
         #if os(iOS)
         OpenCallsControl()
         RecentCallControl()
         CallLiveActivityWidget()
-        #endif
-    }
-}
-
-private struct CallShortcutsEntry: TimelineEntry {
-    let date: Date
-    var snapshot: WidgetDestinationSnapshot? = nil
-}
-private struct CallShortcutsProvider: TimelineProvider {
-    func placeholder(in context: Context) -> CallShortcutsEntry { .init(date: .now) }
-    func getSnapshot(in context: Context, completion: @escaping (CallShortcutsEntry) -> Void) {
-        completion(.init(date: .now, snapshot: WidgetDestinationStore.system.readSnapshot()))
-    }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<CallShortcutsEntry>) -> Void) {
-        completion(.init(entries: [.init(date: .now, snapshot: WidgetDestinationStore.system.readSnapshot())], policy: .never))
-    }
-}
-
-struct CallShortcutsWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "RideIntercom.CallShortcuts", provider: CallShortcutsProvider()) { entry in
-            VStack(alignment: .leading, spacing: 8) {
-                Text("RideIntercom").font(.headline)
-                if #available(iOS 27.0, macOS 27.0, *) {
-                    if let call = entry.snapshot?.currentCall {
-                        BackgroundWidgetCallButtons(call: call)
-                    } else {
-                        if let id = entry.snapshot?.recentDestinationID {
-                            Button(intent: BackgroundCallControlIntent(destinationID: id)) {
-                                Label("Resume recent call", systemImage: "arrow.clockwise")
-                            }
-                        }
-                        Button(intent: OpenCallControlIntent(action: .calls)) {
-                            Label("Choose a call", systemImage: "phone")
-                        }
-                    }
-                } else {
-                    Button(intent: OpenCallControlIntent(action: .recent)) {
-                        Label("Resume recent call", systemImage: "arrow.clockwise")
-                    }
-                    Button(intent: OpenCallControlIntent(action: .calls)) {
-                        Label("Choose a call", systemImage: "phone")
-                    }
-                }
-            }
-            .buttonStyle(.bordered)
-            .containerBackground(.fill.tertiary, for: .widget)
-        }
-        .configurationDisplayName("Call shortcuts")
-        .description("Open RideIntercom or resume your recent call.")
-        .supportedFamilies([.systemSmall])
-        #if os(iOS)
-        .disfavoredLocations(CallWidgetAvailability.disfavoredLocations, for: [.systemSmall])
         #endif
     }
 }

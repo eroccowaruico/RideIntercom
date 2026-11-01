@@ -6,10 +6,14 @@ import plistlib
 import subprocess
 import sys
 import tempfile
+import time
+import signal
+import shutil
+import scripts.audio_e2e as audio
 import unittest
 from unittest.mock import patch
 
-from scripts.test_lifecycle import exclusive_run, stop_executable, SimulatorLease
+from scripts.test_lifecycle import exclusive_run, SimulatorLease
 from scripts.validate import Runner, file_fingerprint, fingerprints_match
 from scripts.audio_e2e_matrix import scenarios
 from scripts.audio_e2e import measurements, duplex_latencies, run_pair, configure_test_run
@@ -22,19 +26,126 @@ class AudioE2ELifecycleTests(unittest.TestCase):
             app = products / ('Release' if platform == 'mac' else 'Release-iphonesimulator') / 'RideIntercom.app'
             info = app / ('Contents/Info.plist' if platform == 'mac' else 'Info.plist')
             info.parent.mkdir(parents=True)
-            source, output = products / 'source.xctestrun', products / 'configured.xctestrun'
+            source, output = products / 'source.xctestrun', products / ('audio-pair-' + platform + '.xctestrun')
             target = {'BlueprintName': 'RideIntercomAudioE2ETests',
                       'TestHostPath': '__TESTROOT__/' + str(app.relative_to(products))}
             source.write_bytes(plistlib.dumps({'TestConfigurations': [{'TestTargets': [target]}]}))
             info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom'}))
             with self.assertRaises(ValueError):
-                configure_test_run(source, output, {})
+                configure_test_run(source, 'pair', platform, 'RideIntercom.Validation.Xcode', {})
             self.assertFalse(output.exists())
-            info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom.AudioE2E.Host'}))
-            configure_test_run(source, output, {'AUDIO_E2E_ROLE': 'a'})
+            info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom.Validation.Xcode'}))
+            configure_test_run(source, 'pair', platform, 'RideIntercom.Validation.Xcode', {'AUDIO_E2E_ROLE': 'a'})
             configured = plistlib.loads(output.read_bytes())['TestConfigurations'][0]['TestTargets'][0]
             self.assertEqual(configured['EnvironmentVariables']['AUDIO_E2E_ROLE'], 'a')
             self.assertEqual(configured['OnlyTestIdentifiers'], ['AudioE2ETests/testDuplexSpeechOverNetwork'])
+
+    def test_audio_debug_and_release_use_native_isolated_configurations(self):
+        from scripts.validate import ROOT
+        from scripts.xcode_paths import scheme_configuration
+        project = json.loads(subprocess.check_output(['plutil', '-convert', 'json', '-o', '-',
+            str(ROOT / 'RideIntercom.xcodeproj/project.pbxproj')]))
+        objects = project['objects']
+        owner = objects[project['rootObject']]
+        configs = {objects[key]['name']: objects[key] for key in objects[owner['buildConfigurationList']]['buildConfigurations']}
+        self.assertEqual(scheme_configuration(ROOT, 'RideIntercomAudioE2E'), 'Debug-Validation')
+        release = configs['Release-Validation']['buildSettings']
+        self.assertEqual(release['RIDEINTERCOM_STORAGE_NAMESPACE'], 'RideIntercom.Validation.Xcode')
+        self.assertEqual(release['ENABLE_TESTABILITY'], 'YES')
+        self.assertNotIn('DEBUG', release.get('SWIFT_ACTIVE_COMPILATION_CONDITIONS', '').split())
+        self.assertEqual(release.get('SWIFT_OPTIMIZATION_LEVEL', '-O'), configs['Release']['buildSettings'].get('SWIFT_OPTIMIZATION_LEVEL', '-O'))
+        for target_id in owner['targets']:
+            names = {objects[key]['name'] for key in objects[objects[target_id]['buildConfigurationList']]['buildConfigurations']}
+            self.assertIn('Release-Validation', names)
+
+    def test_audio_build_discovers_standard_paths_and_rejects_wrong_namespace(self):
+        for configuration in ['Debug', 'Release']:
+            runner = Runner(self.root / configuration)
+            products = self.root / 'Xcode Default/Build/Products'
+            target_dir = products / (configuration + '-Validation-iphonesimulator')
+            info = target_dir / 'RideIntercom.app/Info.plist'
+            info.parent.mkdir(parents=True)
+            info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom.Validation.Xcode'}))
+            source = products / 'RideIntercomAudioE2E_iphonesimulator_fixture.xctestrun'
+            source.write_bytes(plistlib.dumps({'TestConfigurations': [{'TestTargets': [{
+                'BlueprintName': 'RideIntercomAudioE2ETests',
+                'TestHostPath': '__TESTROOT__/' + str(info.parent.relative_to(products))}]}]}))
+            settings = dict(BUILD_DIR=str(products), TARGET_BUILD_DIR=str(target_dir),
+                FULL_PRODUCT_NAME='RideIntercom.app', CONFIGURATION=configuration + '-Validation',
+                PLATFORM_NAME='iphonesimulator', RIDEINTERCOM_STORAGE_NAMESPACE='RideIntercom.Validation.Xcode')
+            def command(stage, argv, **kwargs):
+                return runner.record(stage, argv, 'passed', 0, time.monotonic())
+            with patch.object(audio, 'xcode_build_settings', return_value=settings, create=True), patch.object(runner, 'run', side_effect=command):
+                actual, run = audio.build_audio_host(runner, 'ios', 'platform=iOS Simulator,id=owned', configuration)
+            self.assertEqual(actual, settings)
+            self.assertEqual(run, source)
+            argv = runner.results['build-ios']['command']
+            self.assertNotIn('-derivedDataPath', argv)
+            self.assertFalse(any(arg.startswith(('ENABLE_TESTABILITY=', 'RIDEINTERCOM_STORAGE_NAMESPACE=', 'CODE_SIGN_')) for arg in argv))
+            self.assertEqual(argv[argv.index('-configuration') + 1], configuration + '-Validation')
+
+    def test_shared_products_survive_cleaning_both_platforms(self):
+        runner = Runner(self.root / 'evidence')
+        products = self.root / 'shared-products'
+        events = []
+        endpoints = [('a', 'mac', 'platform=macOS'), ('b', 'ios', 'platform=iOS Simulator,id=owned')]
+        def settings(root, scheme, destination, configuration):
+            platform = 'mac' if destination == 'platform=macOS' else 'ios'
+            target = products / (configuration + ('-iphonesimulator' if platform == 'ios' else ''))
+            return dict(BUILD_DIR=str(products), TARGET_BUILD_DIR=str(target), FULL_PRODUCT_NAME='RideIntercom.app',
+                CONFIGURATION=configuration, PLATFORM_NAME='macosx' if platform == 'mac' else 'iphonesimulator',
+                RIDEINTERCOM_STORAGE_NAMESPACE='RideIntercom.Validation.Xcode')
+        def command(stage, argv, **kwargs):
+            destination = argv[argv.index('-destination') + 1]
+            platform = 'mac' if destination == 'platform=macOS' else 'ios'
+            if 'clean' in argv:
+                events.append(('clean', platform))
+                shutil.rmtree(products, ignore_errors=True)
+            if 'build-for-testing' in argv:
+                events.append(('build', platform))
+                values = settings(None, None, destination, 'Debug-Validation')
+                app = Path(values['TARGET_BUILD_DIR']) / 'RideIntercom.app'
+                info = app / ('Contents/Info.plist' if platform == 'mac' else 'Info.plist')
+                info.parent.mkdir(parents=True)
+                info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom.Validation.Xcode'}))
+                (products / ('RideIntercomAudioE2E_' + platform + '.xctestrun')).write_bytes(plistlib.dumps({
+                    'TestConfigurations': [{'TestTargets': [{'BlueprintName': 'RideIntercomAudioE2ETests',
+                        'TestHostPath': '__TESTROOT__/' + str(app.relative_to(products))}]}]}))
+            return runner.record(stage, argv, 'passed', 0, time.monotonic())
+        with patch.object(audio, 'xcode_build_settings', side_effect=settings), patch.object(runner, 'run', side_effect=command):
+            built = audio.build_audio_hosts(runner, endpoints, 'Debug', clean=True)
+        for values, test_run in built.values():
+            self.assertTrue(test_run.exists(), 'A later clean removed an earlier platform test run')
+            self.assertTrue((Path(values['TARGET_BUILD_DIR']) / 'RideIntercom.app').is_dir())
+        self.assertEqual(events, [('clean', 'mac'), ('clean', 'ios'), ('build', 'mac'), ('build', 'ios')])
+
+    def test_platform_specific_generated_runs_do_not_overwrite_each_other(self):
+        products = self.root / 'products'
+        products.mkdir()
+        outputs = []
+        for platform, role in [('mac', 'a'), ('ios', 'b')]:
+            folder = 'Release-Validation' + ('-iphonesimulator' if platform == 'ios' else '')
+            app = products / folder / 'RideIntercom.app'
+            info = app / ('Contents/Info.plist' if platform == 'mac' else 'Info.plist')
+            info.parent.mkdir(parents=True)
+            info.write_bytes(plistlib.dumps({'StorageNamespace': 'RideIntercom.Validation.Xcode'}))
+            source = products / (platform + '.xctestrun')
+            source.write_bytes(plistlib.dumps({'TestConfigurations': [{'TestTargets': [{
+                'BlueprintName': 'RideIntercomAudioE2ETests',
+                'TestHostPath': '__TESTROOT__/' + str(app.relative_to(products))}]}]}))
+            output = configure_test_run(source, 'pair', platform, 'RideIntercom.Validation.Xcode', {'AUDIO_E2E_ROLE': role})
+            outputs.append(output)
+        self.assertNotEqual(*outputs)
+        for output, role in zip(outputs, ['a', 'b']):
+            target = plistlib.loads(output.read_bytes())['TestConfigurations'][0]['TestTargets'][0]
+            self.assertEqual(target['EnvironmentVariables']['AUDIO_E2E_ROLE'], role)
+
+    def test_pair_timeout_recovers_the_owned_process_without_type_error(self):
+        runner = Runner(self.root / 'timeout-run')
+        command = [sys.executable, '-u', '-c', 'import time; print("AUDIO_E2E_NATIVE_READY", flush=True); time.sleep(60)']
+        with self.assertRaises(TimeoutError):
+            run_pair(runner, [('only', command)], timeout=0.1)
+        self.assertNotEqual(runner.results['only']['exit_code'], 0)
 
     def test_source_gate_includes_new_surface_code_and_signing_configuration(self):
         from scripts.audio_e2e import source_manifest
@@ -63,7 +174,7 @@ class AudioE2ELifecycleTests(unittest.TestCase):
                     self.assertFalse(fingerprints_match(before['files'], after['files']))
                     (self.root / name).write_text('fixture')
 
-    def test_source_gate_allows_only_forward_generated_build_numbers(self):
+    def test_source_gate_rejects_all_project_changes_including_build_number(self):
         project = self.root / 'project.pbxproj'
         def capture(number, setting='Release'):
             project.write_text(f'CURRENT_PROJECT_VERSION = {number};\nCONFIGURATION = {setting};\nCURRENT_PROJECT_VERSION = {number};\n')
@@ -71,7 +182,7 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         before = capture(42)
         after = capture(44)
         self.assertNotEqual(before['project']['sha256'], after['project']['sha256'])
-        self.assertTrue(fingerprints_match(before, after))
+        self.assertFalse(fingerprints_match(before, after))
         self.assertFalse(fingerprints_match(after, before))
         self.assertFalse(fingerprints_match(before, capture(44, 'Debug')))
         self.assertFalse(fingerprints_match(before, {}))
@@ -80,9 +191,9 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         original = {'source': file_fingerprint(source)}
         source.write_text('let value = 2')
         self.assertFalse(fingerprints_match(original, {'source': file_fingerprint(source)}))
-        project.write_text('CURRENT_PROJECT_VERSION = 44; CURRENT_PROJECT_VERSION = 45;')
-        with self.assertRaises(ValueError):
-            file_fingerprint(project)
+        dotted = capture('44.2.1')
+        self.assertTrue(fingerprints_match(dotted, capture('44.2.1')))
+        self.assertFalse(fingerprints_match(dotted, capture('44.2.2')))
 
     def test_pair_initializes_native_audio_before_launching_the_other_host(self):
         ready = self.root / 'ready'
@@ -186,13 +297,18 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         write('two.json', 'mute')
         self.assertEqual(len(measurements(self.root, ['voice', 'mute'], 'a', 'local')), 2)
 
-    def test_cleanup_matches_full_binary_path_not_application_name(self):
-        expected = self.root / 'E2E Build/RideIntercom.app/Contents/MacOS/RideIntercom'
-        rows = f' 101 {expected}\n 202 /Applications/RideIntercom.app/Contents/MacOS/RideIntercom\n'
-        with patch('scripts.test_lifecycle.process_listing', side_effect=[rows, rows, '']), \
+    def test_recorded_host_path_cannot_authorize_stopping_a_gui_process(self):
+        runner = Runner(self.root / 'evidence')
+        lease = SimulatorLease(runner, self.root / 'lease.json')
+        lease.state = {'executable': str(self.root / 'Default DerivedData/RideIntercom.app/Contents/MacOS/RideIntercom')}
+        with patch('scripts.test_lifecycle.matching_processes', return_value=[123]), \
+             patch('scripts.test_lifecycle.stop_executable', return_value=[], create=True) as stop, \
              patch('scripts.test_lifecycle.os.kill') as kill:
-            self.assertEqual(stop_executable(expected), [101])
-        self.assertEqual([c.args[0] for c in kill.call_args_list], [101])
+            self.assertFalse(lease.cleanup_host('recorded'))
+        stop.assert_not_called()
+        kill.assert_not_called()
+        self.assertEqual(runner.results['recorded-host']['status'], 'failed')
+        self.assertIn('ownership', runner.results['recorded-host']['reason'])
 
     def test_create_failure_is_recovered_by_exact_journaled_name(self):
         runner = Runner(self.root / 'evidence')
@@ -299,19 +415,23 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         self.assertEqual([c.args[1] for c in run.call_args_list], [['xcrun', 'simctl', 'delete', 'old']])
         self.assertFalse(lease.journal.exists())
 
-    def test_previous_mode_host_cleanup_does_not_delete_the_adopted_simulator(self):
+    def test_previous_mode_only_checks_old_host_without_touching_simulator(self):
         runner = Runner(self.root / 'evidence')
         old = SimulatorLease(runner, self.root / 'ephemeral.json')
         old.reserve('RideIntercom Audio E2E 12345678')
         old.identify('reused')
-        old.host(self.root / 'old-host')
-        with patch('scripts.test_lifecycle.stop_executable', return_value=[123]) as stop, \
+        old.state['executable'] = str(self.root / 'old-host')
+        old.save()
+        with patch('scripts.test_lifecycle.matching_processes', return_value=[]) as matches, \
+             patch('scripts.test_lifecycle.os.kill') as kill, \
              patch('scripts.test_lifecycle.simulator_devices') as inventory, \
              patch.object(runner, 'run') as run:
             self.assertTrue(old.cleanup_host('previous-mode'))
-        stop.assert_called_once_with(str((self.root / 'old-host').resolve()))
+        matches.assert_called_once_with(str(self.root / 'old-host'))
+        kill.assert_not_called()
         inventory.assert_not_called()
         run.assert_not_called()
+        self.assertNotIn('executable', old.state)
 
     def test_runner_sigterm_stops_child_and_executes_final_cleanup_without_ai(self):
         marker = self.root / 'child.pid'

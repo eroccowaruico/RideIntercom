@@ -3,6 +3,7 @@ import copy
 import importlib.util
 from pathlib import Path
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -15,11 +16,25 @@ class PlatformConfigurationTests(unittest.TestCase):
         spec.loader.exec_module(cls.checker)
         cls.project = cls.checker.load_project(ROOT)
 
+    def test_watch_scheme_has_standard_run_profile_analyze_and_archive_actions(self):
+        scheme = ET.parse(ROOT / 'RideIntercom.xcodeproj/xcshareddata/xcschemes/RideIntercomWatch.xcscheme').getroot()
+        for name, configuration in [('LaunchAction', 'Debug'), ('ProfileAction', 'Release'),
+                                    ('AnalyzeAction', 'Debug'), ('ArchiveAction', 'Release')]:
+            with self.subTest(action=name):
+                action = scheme.find(name)
+                self.assertIsNotNone(action)
+                self.assertEqual(action.get('buildConfiguration'), configuration)
+                if name in ('LaunchAction', 'ProfileAction'):
+                    reference = action.find('BuildableProductRunnable/BuildableReference')
+                    self.assertIsNotNone(reference)
+                    self.assertEqual(reference.get('BlueprintIdentifier'), '0CCFFDBF2F4415059F932F5F')
+                    self.assertEqual(reference.get('BuildableName'), 'RideIntercomWatch.app')
+
     def test_repository_has_complete_minimum_platform_inputs(self):
         self.assertEqual(self.checker.check(ROOT, self.project), [])
 
     def test_named_validation_configurations_allow_mac_fixture_settings(self):
-        for name in ('Debug-Validation', 'Debug-StoreKitValidation'):
+        for name in ('Debug-Validation', 'Debug-StoreKitValidation', 'Release-Validation'):
             with self.subTest(configuration=name):
                 project = copy.deepcopy(self.project)
                 objects = project['objects']

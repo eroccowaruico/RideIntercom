@@ -29,6 +29,18 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "NO"
       shouldAutocreateTestPlan = "YES">
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "RIDEINTERCOM_LOCAL_TESTING"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "RIDEINTERCOM_ACCOUNT_FIXTURE"
+            value = "signed-out"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
       <Testables>
          <TestableReference
             skipped = "NO"
@@ -42,8 +54,7 @@
             </BuildableReference>
          </TestableReference>
          <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
+            skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "93F300E22F93829D0046716D"
@@ -53,10 +64,6 @@
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <EnvironmentVariables>
-         <EnvironmentVariable key="RIDEINTERCOM_LOCAL_TESTING" value="1" isEnabled="YES" />
-         <EnvironmentVariable key="RIDEINTERCOM_ACCOUNT_FIXTURE" value="signed-out" isEnabled="YES" />
-      </EnvironmentVariables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

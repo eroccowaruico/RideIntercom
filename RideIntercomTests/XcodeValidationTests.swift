@@ -5,28 +5,50 @@ import Testing
 @MainActor @Suite(.serialized)
 struct XcodeValidationTests {
     @Test func sharedSchemesSeparateTestFromNormalRunAndArchive() throws {
-        for (name, configuration) in [("RideIntercom", "Debug-Validation"), ("RideIntercom-StoreKitTests", "Debug-StoreKitValidation"), ("RideIntercom-StoreKitUITests", "Debug-StoreKitValidation")] {
+        for (name, configuration) in [("RideIntercom", "Debug-Validation"), ("RideIntercomAudioE2E", "Debug-Validation"), ("RideIntercom-StoreKitTests", "Debug-StoreKitValidation"), ("RideIntercom-StoreKitUITests", "Debug-StoreKitValidation")] {
             let scheme = try AppTestSupport.source("RideIntercom.xcodeproj/xcshareddata/xcschemes/\(name).xcscheme")
             for (action, value) in [("TestAction", configuration), ("LaunchAction", "Debug"), ("ArchiveAction", "Release")] {
                 #expect(scheme.range(of: "<\(action)\\b[^>]*buildConfiguration\\s*=\\s*\"\(value)\"", options: .regularExpression) != nil)
             }
-            #expect(scheme.contains("RIDEINTERCOM_LOCAL_TESTING"))
-            #expect(scheme.contains("signed-out"))
+            let fixtureSettings: String
+            if name == "RideIntercom-StoreKitTests" {
+                #expect(scheme.contains("container:Configuration/StoreKit.xctestplan"))
+                fixtureSettings = try AppTestSupport.source("Configuration/StoreKit.xctestplan")
+            } else {
+                fixtureSettings = scheme
+            }
+            #expect(fixtureSettings.contains("RIDEINTERCOM_LOCAL_TESTING"))
+            #expect(fixtureSettings.contains("signed-out"))
         }
     }
 
-    @Test func everyTargetHasBothExplicitValidationConfigurations() throws {
+    @Test func nativeTargetsAndProjectHaveTheirExplicitValidationConfigurations() throws {
         let data = try Data(contentsOf: AppTestSupport.workspaceRoot().appending(path: "RideIntercom.xcodeproj/project.pbxproj"))
         let project = try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
         let objects = try #require(project["objects"] as? [String: [String: Any]])
-        let lists = objects.values.filter { $0["isa"] as? String == "XCConfigurationList" }
-        #expect(lists.count == 8) // Project, six native products, and build metadata.
-        for list in lists {
+        let rootID = try #require(project["rootObject"] as? String)
+        let projectObject = try #require(objects[rootID])
+        let targetIDs = try #require(projectObject["targets"] as? [String])
+        let nativeTargets = targetIDs.compactMap { objects[$0] }.filter { $0["isa"] as? String == "PBXNativeTarget" }
+        let targetNames = Set(nativeTargets.compactMap { $0["name"] as? String })
+        let requiredTargets: Set<String> = ["RideIntercom", "RideIntercomWidgets", "RideIntercomWatch",
+                                            "RideIntercomTests", "RideIntercomUITests", "RideIntercomAudioE2ETests"]
+        #expect(requiredTargets.isSubset(of: targetNames))
+        #expect(!objects.values.contains { $0["isa"] as? String == "PBXAggregateTarget" })
+        let requiredConfigurations: Set<String> = ["Debug", "Release", "Debug-Validation",
+                                                    "Debug-StoreKitValidation", "Release-Validation"]
+        for owner in [projectObject] + nativeTargets {
+            let listID = try #require(owner["buildConfigurationList"] as? String)
+            let list = try #require(objects[listID])
+            #expect(list["isa"] as? String == "XCConfigurationList")
             let ids = try #require(list["buildConfigurations"] as? [String])
             let names = Set(ids.compactMap { objects[$0]?["name"] as? String })
-            #expect(names == ["Debug", "Release", "Debug-Validation", "Debug-StoreKitValidation"])
+            #expect(requiredConfigurations.isSubset(of: names))
+            let releaseValidation = try #require(ids.compactMap { objects[$0] }.first { $0["name"] as? String == "Release-Validation" })
+            let settings = try #require(releaseValidation["buildSettings"] as? [String: Any])
+            let conditions = (settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] as? String ?? "").split { $0.isWhitespace }
+            #expect(!conditions.contains("DEBUG"))
         }
-        let projectObject = try #require(objects.values.first { $0["isa"] as? String == "PBXProject" })
         let projectList = try #require(projectObject["buildConfigurationList"] as? String)
         let configIDs = try #require(objects[projectList]?["buildConfigurations"] as? [String])
         let release = try #require(configIDs.compactMap { objects[$0] }.first { $0["name"] as? String == "Release" })
@@ -34,6 +56,13 @@ struct XcodeValidationTests {
         #expect(releaseSettings["RIDEINTERCOM_STORAGE_NAMESPACE"] as? String == "RideIntercom")
         #expect(release["baseConfigurationReference"] == nil)
         #expect(releaseSettings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] == nil)
+        let releaseValidation = try #require(configIDs.compactMap { objects[$0] }.first { $0["name"] as? String == "Release-Validation" })
+        let releaseValidationSettings = try #require(releaseValidation["buildSettings"] as? [String: Any])
+        #expect(releaseValidationSettings["RIDEINTERCOM_STORAGE_NAMESPACE"] as? String == "RideIntercom.Validation.Xcode")
+        #expect(releaseValidationSettings["ENABLE_TESTABILITY"] as? String == "YES")
+        #expect(releaseValidation["baseConfigurationReference"] == nil)
+        #expect((releaseValidationSettings["SWIFT_OPTIMIZATION_LEVEL"] as? String ?? "-O") == (releaseSettings["SWIFT_OPTIMIZATION_LEVEL"] as? String ?? "-O"))
+        #expect(releaseValidationSettings["SWIFT_COMPILATION_MODE"] as? String == releaseSettings["SWIFT_COMPILATION_MODE"] as? String)
         let app = try #require(objects.values.first { $0["isa"] as? String == "PBXNativeTarget" && $0["name"] as? String == "RideIntercom" })
         let appListID = try #require(app["buildConfigurationList"] as? String)
         let appConfigIDs = try #require(objects[appListID]?["buildConfigurations"] as? [String])

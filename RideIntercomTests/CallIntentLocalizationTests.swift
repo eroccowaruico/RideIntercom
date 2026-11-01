@@ -10,7 +10,7 @@ struct CallIntentLocalizationTests {
         #expect(try render(StartRecentCallIntent.title, language: "ja") == "最近の通話を再開")
         #expect(try render(EndCurrentCallIntent.title, language: "ja") == "現在の通話を終了")
         #expect(try render(StartSavedCallIntent.description.descriptionText, language: "ja")
-            == "RideIntercomに保存したユーザーやグループへ接続します。")
+            == "RideComに保存したユーザーやグループへ接続します。")
         #expect(try render(StartSavedCallIntent.title, language: "en") == "Start a call")
     }
 

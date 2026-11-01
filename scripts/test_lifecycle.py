@@ -124,37 +124,6 @@ def stop_process_tree(process, original):
                        ', '.join(str(info.pid) for info in remaining))
 
 
-def stop_executable(executable):
-    owned = matching_processes(executable)
-    for pid in owned:
-        # Recheck immediately before signaling, including the escalation below.
-        if pid in matching_processes(executable):
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-    deadline = time.monotonic() + 3
-    while True:
-        remaining = set(owned).intersection(matching_processes(executable))
-        if not remaining:
-            return owned
-        if time.monotonic() >= deadline:
-            break
-        time.sleep(0.05)
-    for pid in remaining:
-        if pid in matching_processes(executable):
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-    deadline = time.monotonic() + 2
-    while set(owned).intersection(matching_processes(executable)):
-        if time.monotonic() >= deadline:
-            raise RuntimeError('Owned test host did not terminate')
-        time.sleep(0.05)
-    return owned
-
-
 def simulator_devices():
     data = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', '-j'], text=True, timeout=60))
     return [dict(device, runtime=runtime) for runtime, devices in data['devices'].items() for device in devices]
@@ -191,10 +160,6 @@ class SimulatorLease:
         self.state['udid'] = device_id
         self.save()
 
-    def host(self, executable):
-        self.state['executable'] = str(Path(executable).resolve())
-        self.save()
-
     def owned_devices(self):
         return [d for d in simulator_devices() if d['name'] == self.state.get('name')
                 and (not self.state.get('udid') or d['udid'] == self.state['udid'])]
@@ -213,7 +178,7 @@ class SimulatorLease:
             raise RuntimeError('Managed simulator is in use; stop its owner before retrying')
         self.acquired = True
         if not self.cleanup_host('simulator-previous'):
-            raise RuntimeError('Previous owned test host could not be stopped')
+            raise RuntimeError('A previous host requires ownership review before retrying')
         candidates = [d for d in managed if d.get('isAvailable') and d.get('runtime') == runtime
                       and d.get('deviceTypeIdentifier') == device_type] if not delete_all else []
         selected = max(candidates, key=lambda d: (d['udid'] == self.state.get('udid'), d.get('lastUsedAt', ''), d['udid']), default=None)
@@ -245,18 +210,20 @@ class SimulatorLease:
         return device_id
 
     def cleanup_host(self, prefix):
-        success = True
-        if not self.state:
+        # Older journals recorded only a binary path. With standard DerivedData
+        # that path may also belong to a GUI-launched host; it proves no ownership.
+        executable = self.state.get('executable')
+        if not executable:
             return True
-        if self.state.get('executable'):
-            started = time.monotonic()
-            try:
-                stopped = stop_executable(self.state['executable'])
-                self.runner.record(prefix + '-host', [], 'passed', 0, started, f'Terminated owned PIDs: {stopped}')
-            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-                self.runner.record(prefix + '-host', [], 'failed', 1, started, str(error))
-                success = False
-        return success
+        started = time.monotonic()
+        try:
+            if matching_processes(executable):
+                raise RuntimeError('A recorded host is running, but its path does not establish process ownership')
+            self.state.pop('executable')
+            self.save()
+            return self.runner.record(prefix + '-host', [], 'passed', 0, started, 'No recorded host remains')
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            return self.runner.record(prefix + '-host', [], 'failed', 1, started, str(error))
 
     def cleanup(self, prefix):
         success = self.cleanup_host(prefix)

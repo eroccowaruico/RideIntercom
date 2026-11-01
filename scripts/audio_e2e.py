@@ -16,7 +16,8 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.validate import ROOT, Runner, xcode_tests_passed, file_fingerprint, fingerprints_match, test_host_metadata
-from scripts.test_lifecycle import exclusive_run, SimulatorLease, simulator_resource_root
+from scripts.test_lifecycle import exclusive_run, SimulatorLease, simulator_resource_root, process_snapshot
+from scripts.xcode_paths import scheme_configuration, xcode_build_settings, select_test_run
 from scripts.audio_e2e_matrix import scenarios
 
 
@@ -31,18 +32,50 @@ def source_manifest():
     return dict(head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), files=files)
 
 
-def configure_test_run(source, destination, environment, identifiers=None):
+def configure_test_run(source, purpose, platform, namespace, environment, identifiers=None):
     data = plistlib.loads(source.read_bytes())
     targets = [target for config in data['TestConfigurations'] for target in config['TestTargets']]
     if len(targets) != 1 or targets[0]['BlueprintName'] != 'RideIntercomAudioE2ETests':
         raise ValueError('Expected the dedicated audio E2E test target')
-    test_host_metadata(source, 'RideIntercom.AudioE2E.Host')
+    test_host_metadata(source, namespace)
     targets[0].setdefault('EnvironmentVariables', {}).update(environment)
     targets[0]['OnlyTestIdentifiers'] = identifiers or ['AudioE2ETests/testDuplexSpeechOverNetwork']
-    # __TESTROOT__ is relative to the xctestrun, which we keep beside its products.
-    if source.parent != destination.parent:
-        raise ValueError('Keep the configured xctestrun beside its build products')
+    # Mac and Simulator now share Xcode's product root. Keep distinct files
+    # beside their products so __TESTROOT__ stays valid for both endpoints.
+    destination = source.parent / f'audio-{purpose}-{platform}.xctestrun'
     destination.write_bytes(plistlib.dumps(data))
+    return destination
+
+
+def build_audio_host(runner, platform, destination, optimization):
+    configuration = optimization + '-Validation'
+    if optimization == 'Debug' and scheme_configuration(ROOT, 'RideIntercomAudioE2E') != configuration:
+        raise ValueError('Audio E2E TestAction must use the native Debug validation configuration')
+    settings = xcode_build_settings(ROOT, 'RideIntercomAudioE2E', destination, configuration)
+    (runner.out / ('build-settings-' + platform + '.json')).write_text(json.dumps(settings, indent=2) + '\n')
+    command = ['xcodebuild', 'build-for-testing', '-project', 'RideIntercom.xcodeproj',
+        '-scheme', 'RideIntercomAudioE2E', '-configuration', configuration, '-destination', destination]
+    if not runner.run('build-' + platform, command):
+        raise RuntimeError('Audio E2E build failed')
+    test_run = select_test_run(settings, 'RideIntercomAudioE2E')
+    if not runner.check_test_host('host-preflight-' + platform, test_run, settings['RIDEINTERCOM_STORAGE_NAMESPACE']):
+        raise RuntimeError('Audio E2E host isolation check failed')
+    return settings, test_run
+
+
+def build_audio_hosts(runner, endpoints, optimization, clean=False):
+    # Both SDKs share Xcode's product root. Finish every clean before building
+    # either endpoint, so the second SDK cannot remove the first SDK's products.
+    if clean:
+        for _, platform, destination in endpoints:
+            command = ['xcodebuild', 'clean', '-project', 'RideIntercom.xcodeproj',
+                '-scheme', 'RideIntercomAudioE2E', '-configuration', optimization + '-Validation', '-destination', destination]
+            if not runner.run('clean-' + platform, command):
+                raise RuntimeError('Audio E2E clean failed')
+    products = {}
+    for _, platform, destination in endpoints:
+        products[platform] = build_audio_host(runner, platform, destination, optimization)
+    return products
 
 
 def measurements(folder, expected_ids, role, transport):
@@ -102,7 +135,9 @@ def run_pair(runner, commands, timeout):
                 process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             finally:
                 log.close()
-            processes.append((name, command, process))
+            processes.append((name, command, process, None))
+            original = process_snapshot().get(process.pid)
+            processes[-1] = (name, command, process, original)
             if len(processes) == 1 and len(commands) > 1:
                 # Both endpoints share the Mac's CoreAudio service. Initialize
                 # their native graphs in order, then measure simultaneous media.
@@ -113,25 +148,23 @@ def run_pair(runner, commands, timeout):
                     if time.monotonic() - started > min(timeout, 30):
                         raise TimeoutError('Audio endpoint native initialization exceeded its deadline')
                     time.sleep(0.05)
-        while any(p.poll() is None for _, _, p in processes):
+        while any(p.poll() is None for _, _, p, _ in processes):
             if time.monotonic() - started > timeout:
                 raise TimeoutError('Audio endpoints exceeded their deadline')
             time.sleep(0.2)
     finally:
-        for name, command, process in processes:
-            if process.poll() is None:
-                Runner.stop(process)
-            runner.record(name, command, 'passed' if process.returncode == 0 else 'failed', process.returncode, started)
+        for name, command, process, original in processes:
+            cleanup = Runner.stop(process, original) if process.poll() is None else ''
+            runner.record(name, command, 'passed' if process.returncode == 0 and not cleanup else 'failed', process.returncode, started, cleanup)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path)
-    parser.add_argument('--build-root', type=Path, default=Path('/tmp/RideIntercom-AudioE2E-Build'))
     parser.add_argument('--configuration', choices=['Debug', 'Release'], default='Debug', help='Use Release for shipping-performance measurements; thresholds are identical')
     parser.add_argument('--clean-build', action='store_true', help='Clean test products before building, preserving bundle identifiers and signing')
     parser.add_argument('--ephemeral', action='store_true', help='Delete the owned simulator after this run (CI)')
-    parser.add_argument('--cleanup-only', action='store_true', help='Stop owned hosts and delete managed test devices')
+    parser.add_argument('--cleanup-only', action='store_true', help='Recover managed devices and report old running hosts without stopping unknown owners')
     parser.add_argument('--transport', choices=['local', 'webrtc', 'all'], default='all')
     parser.add_argument('--matrix', choices=['smoke', 'quick', 'full', 'identity'], default='quick')
     parser.add_argument('--speech-pair', choices=['english', 'japanese', 'conversation'], default='english')
@@ -151,9 +184,9 @@ def main():
     if args.speech_pair == 'conversation' and args.seconds < 20:
         parser.error('Conversation coverage requires --seconds 20 or longer')
     os.environ.setdefault('DEVELOPER_DIR', '/Applications/Xcode.app/Contents/Developer')
-    out = (args.output or Path('/tmp') / ('RideIntercom-AudioE2E-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))).resolve()
-    if out == ROOT or ROOT in out.parents or args.build_root.resolve().is_relative_to(ROOT):
-        parser.error('Evidence/build output must be outside the synchronized repository')
+    out = (args.output or ROOT / '.validation' / ('audio-e2e-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))).resolve()
+    if out == ROOT:
+        parser.error('Use a separate evidence folder within .validation or another explicit output location')
     runner = Runner(out)
     resource_root = simulator_resource_root()
     try:
@@ -198,32 +231,19 @@ def execute(args, runner, resource_root):
         # mode without deleting the device that prepare just adopted.
         for index, old in enumerate(leases):
             if old is not lease and not old.cleanup_host(f'recovery-{index}'):
-                raise RuntimeError('Previous owned test host could not be stopped')
+                raise RuntimeError('A previous host requires ownership review before retrying')
         if args.cleanup_only:
             return runner.exit_code
-        lease.host(args.build_root.resolve() / 'mac/Build/Products' / args.configuration / 'RideIntercom.app/Contents/MacOS/RideIntercom')
         command('simulator-boot', ['xcrun', 'simctl', 'boot', simulator], 60)
         (out / 'simulator-id.txt').write_text(simulator + '\n')
         command('simulator-ready', ['xcrun', 'simctl', 'bootstatus', simulator, '-b'], 180)
         endpoints = [('a', 'mac', 'platform=macOS,arch=arm64'),
                      ('b', 'ios', 'platform=iOS Simulator,id=' + simulator)]
-        products_by_platform = {}
-        for role, platform, destination in endpoints:
-            derived = args.build_root.resolve() / platform
-            command('build-' + platform, ['xcodebuild'] + (['clean'] if args.clean_build else []) + ['build-for-testing', '-project', 'RideIntercom.xcodeproj',
-                '-scheme', 'RideIntercomAudioE2E', '-configuration', args.configuration, 'ENABLE_TESTABILITY=YES', '-destination', destination, '-derivedDataPath', str(derived),
-                'RIDEINTERCOM_STORAGE_NAMESPACE=RideIntercom.AudioE2E.Host'])
-            products = derived / 'Build/Products'
-            runs = sorted(products.glob('RideIntercomAudioE2E_*.xctestrun'), key=lambda p: p.stat().st_mtime, reverse=True)
-            if not runs:
-                raise ValueError('Missing generated xctestrun')
-            if not runner.check_test_host('host-preflight-' + platform, runs[0], 'RideIntercom.AudioE2E.Host'):
-                raise RuntimeError('Audio E2E host isolation check failed')
-            products_by_platform[platform] = (products, runs[0])
+        products_by_platform = build_audio_hosts(runner, endpoints, args.configuration, args.clean_build)
+        ios_settings, ios_run = products_by_platform['ios']
         command('microphone-permission', ['xcrun', 'simctl', 'privacy', simulator, 'grant', 'microphone',
                 'com.yowamushi-inc.RideIntercom.RideIntercom'], 60)
-        preflight = products / 'audio-preflight.xctestrun'
-        configure_test_run(runs[0], preflight, {}, identifiers=[
+        preflight = configure_test_run(ios_run, 'preflight', 'ios', ios_settings['RIDEINTERCOM_STORAGE_NAMESPACE'], {}, identifiers=[
             'AudioE2ETests/testSpeechMatcherRejectsSilenceAndWrongSpeaker',
             'AudioE2ETests/testContinuityRejectsGapsRepeatsAndMissingSpeech',
             'AudioE2ETests/testMicroGapOverlapAndClickAreRejected',
@@ -237,9 +257,8 @@ def execute(args, runner, resource_root):
         preflight_summary = json.loads((out / 'preflight-summary.log').read_text())
         if not xcode_tests_passed(preflight_summary) or preflight_summary['totalTestCount'] != 5:
             raise RuntimeError('Speech oracle and real iOS session preflight must both pass')
-        mac_products, mac_run = products_by_platform['mac']
-        mac_preflight = mac_products / 'audio-preflight.xctestrun'
-        configure_test_run(mac_run, mac_preflight, {}, identifiers=[
+        mac_settings, mac_run = products_by_platform['mac']
+        mac_preflight = configure_test_run(mac_run, 'preflight', 'mac', mac_settings['RIDEINTERCOM_STORAGE_NAMESPACE'], {}, identifiers=[
             'AudioE2ETests/testMacFixturePacesCompletedSamples',
             'AudioE2ETests/testFixturePreservesClockGapsWithoutDelayingLaterSpeech'])
         command('preflight-mac', ['xcodebuild', 'test-without-building', '-xctestrun', str(mac_preflight),
@@ -252,8 +271,7 @@ def execute(args, runner, resource_root):
             raise RuntimeError('Mac fixture capture clock must pass before latency measurement')
         transports = ['local', 'webrtc'] if args.transport == 'all' else [args.transport]
         if args.pipeline_only or args.realtime_only or args.group_only or args.codec_only or args.switches_only:
-            configured = products / 'audio-pipeline.xctestrun'
-            configure_test_run(runs[0], configured, {}, identifiers=(['AudioE2ETests/testInputModeChangesRestoreTheSharedReceiveClock'] if args.switches_only else ['AudioE2ETests/testTransmitChainPreservesConversationAndAcknowledgements'] if args.codec_only else []) + ['AudioE2ETests/testLiveSettingsKeepBoundedSilenceAndContinuousSteadyAudio' if args.switches_only else 'AudioE2ETests/testNativeCodecsPreserveWholeSpeech' if args.codec_only else 'AudioE2ETests/testEightPersonMixedRouteConversation' if args.group_only else 'AudioE2ETests/testRealtimeAudioLatencyAndIdentity' if args.realtime_only else 'AudioE2ETests/testSpeechContinuityWithoutNetwork'])
+            configured = configure_test_run(ios_run, 'pipeline', 'ios', ios_settings['RIDEINTERCOM_STORAGE_NAMESPACE'], {}, identifiers=(['AudioE2ETests/testInputModeChangesRestoreTheSharedReceiveClock'] if args.switches_only else ['AudioE2ETests/testTransmitChainPreservesConversationAndAcknowledgements'] if args.codec_only else []) + ['AudioE2ETests/testLiveSettingsKeepBoundedSilenceAndContinuousSteadyAudio' if args.switches_only else 'AudioE2ETests/testNativeCodecsPreserveWholeSpeech' if args.codec_only else 'AudioE2ETests/testEightPersonMixedRouteConversation' if args.group_only else 'AudioE2ETests/testRealtimeAudioLatencyAndIdentity' if args.realtime_only else 'AudioE2ETests/testSpeechContinuityWithoutNetwork'])
             runner.run('test-pipeline', ['xcodebuild', 'test-without-building', '-xctestrun', str(configured),
                 '-destination', 'platform=iOS Simulator,id=' + simulator, '-parallel-testing-enabled', 'NO',
                 '-resultBundlePath', str(out / 'pipeline.xcresult')], timeout=600 if args.codec_only or args.realtime_only else 180)
@@ -283,9 +301,8 @@ def execute(args, runner, resource_root):
             (out / (transport + '-configuration.json')).write_text(json.dumps(environment, indent=2) + '\n')
             commands = []
             for role, platform, destination in endpoints:
-                products, source = products_by_platform[platform]
-                configured = products / 'audio-pair.xctestrun'
-                configure_test_run(source, configured, environment | dict(AUDIO_E2E_ROLE=role))
+                settings, source = products_by_platform[platform]
+                configured = configure_test_run(source, 'pair', platform, settings['RIDEINTERCOM_STORAGE_NAMESPACE'], environment | dict(AUDIO_E2E_ROLE=role))
                 name = transport + '-' + platform
                 commands.append(('test-' + name, ['xcodebuild', 'test-without-building', '-xctestrun', str(configured),
                     '-destination', destination, '-parallel-testing-enabled', 'NO',
@@ -319,8 +336,8 @@ def execute(args, runner, resource_root):
         (out / 'source-manifest-after.json').write_text(json.dumps(after_sources, indent=2) + '\n')
         unchanged = sources['head'] == after_sources['head'] and fingerprints_match(sources['files'], after_sources['files'])
         runner.record('source-stability', [], 'passed' if unchanged else 'failed', 0 if unchanged else 1,
-                      time.monotonic(), 'Sources/configuration unchanged; raw hashes retained and generated build counter may only advance')
-    except (OSError, ValueError, RuntimeError, TimeoutError, KeyboardInterrupt) as error:
+                      time.monotonic(), 'Sources/configuration unchanged; all raw input hashes must match exactly')
+    except (OSError, ValueError, RuntimeError, TimeoutError, KeyboardInterrupt, subprocess.SubprocessError) as error:
         runner.record('audio-e2e', [], 'failed', 1, time.monotonic(), str(error))
     finally:
         # A second Ctrl-C must not skip teardown. SIGKILL is recovered next run.

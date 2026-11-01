@@ -1,0 +1,40 @@
+{
+  "configurations": [
+    {
+      "id": "5895EAF7-BACE-4276-A086-C19CFD20A84A",
+      "name": "Local StoreKit",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "storeKitConfiguration": {
+      "identifier": "../RideIntercomTests/Fixtures/LocalPurchases.storekit"
+    },
+    "environmentVariableEntries": [
+      {
+        "key": "RIDEINTERCOM_LOCAL_TESTING",
+        "value": "1"
+      },
+      {
+        "key": "RIDEINTERCOM_ACCOUNT_FIXTURE",
+        "value": "signed-out"
+      }
+    ],
+    "targetForVariableExpansion": {
+      "containerPath": "container:RideIntercom.xcodeproj",
+      "identifier": "93F300C72F93829C0046716D",
+      "name": "RideIntercom"
+    }
+  },
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:RideIntercom.xcodeproj",
+        "identifier": "93F300D82F93829D0046716D",
+        "name": "RideIntercomTests"
+      }
+    }
+  ],
+  "version": 1
+}

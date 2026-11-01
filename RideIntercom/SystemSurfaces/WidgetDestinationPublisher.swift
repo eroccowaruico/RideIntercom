@@ -26,12 +26,11 @@ extension WidgetDestinationStore {
     private var published: WidgetDestinationSnapshot?
     init(store: WidgetDestinationStore, reload: @escaping () -> Void = {
         WidgetCenter.shared.reloadTimelines(ofKind: "RideIntercom.SelectedCall")
-        WidgetCenter.shared.reloadTimelines(ofKind: "RideIntercom.CallShortcuts")
     }) { self.store = store; self.reload = reload }
 
-    func publish(_ destinations: [WidgetCallDestination], recentDestinationID: String? = nil, currentCall: CallLivePresentation? = nil) {
+    func publish(_ destinations: [WidgetCallDestination], currentDestinationID: String? = nil, currentCall: CallLivePresentation? = nil) {
         guard store.fileURL != nil else { return }
-        let snapshot = WidgetDestinationSnapshot(destinations: destinations, recentDestinationID: recentDestinationID, currentCall: currentCall)
+        let snapshot = WidgetDestinationSnapshot(destinations: destinations, currentDestinationID: currentDestinationID, currentCall: currentCall)
         guard published != snapshot || store.readSnapshot() != snapshot else { return }
         do {
             try store.write(snapshot)
@@ -54,13 +53,28 @@ extension AppCallOwner {
                 WidgetCallDestination(id: target.entity.id, name: target.entity.name,
                     kind: { if case .user = target.destination { return .user }; return .group }())
             }
+            let currentDestinationID: String? = {
+                guard let vm = viewModel, let groupID = vm.activeGroupID,
+                      let group = vm.groups.first(where: { $0.id == groupID }) else { return nil }
+                let destination: CallDestination?
+                if group.kind == .group {
+                    destination = .group(group.id)
+                } else if let principal = vm.directCallAccountRecipient(for: group) {
+                    destination = vm.savedRemoteUsers.first { $0.principal == principal }.map { .user($0.id) }
+                } else if let memberID = vm.directCallRecipient(for: group) {
+                    destination = vm.savedRemoteUsers.first { $0.memberIDs.contains(memberID) }.map { .user($0.id) }
+                } else {
+                    destination = nil
+                }
+                return targets.first { $0.destination == destination }?.entity.id
+            }()
             return WidgetDestinationSnapshot(destinations: destinations,
-                recentDestinationID: targets.first { $0.destination == viewModel?.recentCallDestination }?.entity.id,
+                currentDestinationID: currentDestinationID,
                 currentCall: currentLivePresentation)
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in self?.observeWidgetDestinations() }
         }
-        widgetDestinations.publish(snapshot.destinations, recentDestinationID: snapshot.recentDestinationID, currentCall: snapshot.currentCall)
+        widgetDestinations.publish(snapshot.destinations, currentDestinationID: snapshot.currentDestinationID, currentCall: snapshot.currentCall)
     }
 
     func startWidgetCall(id: String) throws {

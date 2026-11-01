@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Xcode build phase: reserve a shared build number and prepare an unsigned input plist."""
-import fcntl
+"""Copy custom App Info keys and inject Debug-only development credentials."""
 import os
 from pathlib import Path
 import plistlib
-import re
-import shlex
 import sys
 from urllib.parse import urlsplit
 
@@ -28,111 +25,19 @@ def development_internet_defaults(env):
     return {'workerURL': url, 'accessToken': token.strip()}
 
 
-def info_contents(source, env):
-    """Preserve the app's configured metadata while allowing a fresh build number.
-
-    GENERATE_INFOPLIST_FILE would overwrite CFBundleVersion with Xcode's cached
-    setting. Supply the app's explicit keys here; Xcode still merges platform,
-    asset-catalog and toolchain metadata in ProcessInfoPlistFile before signing.
-    """
-    info = plistlib.loads(source.read_bytes())
-    # Never carry a development credential from a previous source or configuration.
-    info.pop('DevelopmentInternetConnection', None)
-    is_main_app = env.get("RIDEINTERCOM_INFO_SOURCE", "RideIntercom/Info.plist") == "RideIntercom/Info.plist"
-    development = development_internet_defaults(env) if is_main_app else None
-    if development:
-        info['DevelopmentInternetConnection'] = development
-    for key, setting in {
-        'CFBundleDevelopmentRegion': 'DEVELOPMENT_LANGUAGE',
-        'CFBundleExecutable': 'EXECUTABLE_NAME',
-        'CFBundleIdentifier': 'PRODUCT_BUNDLE_IDENTIFIER',
-        'CFBundleName': 'PRODUCT_NAME',
-        'CFBundlePackageType': 'PRODUCT_BUNDLE_PACKAGE_TYPE',
-        'CFBundleShortVersionString': 'MARKETING_VERSION',
-    }.items():
-        info[key] = env[setting]
-    info['CFBundleInfoDictionaryVersion'] = '6.0'
-    if not is_main_app:
-        return info
-    for key in ['CFBundleDisplayName', 'LSApplicationCategoryType',
-                'NSLocalNetworkUsageDescription', 'NSMicrophoneUsageDescription']:
-        value = env.get('INFOPLIST_KEY_' + key)
-        if value:
-            info[key] = value
-    info['UIStatusBarStyle'] = env.get('INFOPLIST_KEY_UIStatusBarStyle', '')
-    for key in ['ITSAppUsesNonExemptEncryption', 'UIApplicationSupportsIndirectInputEvents']:
-        info[key] = boolean(env.get('INFOPLIST_KEY_' + key) or 'NO')
-    for key, setting in [('UISupportedInterfaceOrientations', 'UISupportedInterfaceOrientations'),
-                         ('UISupportedInterfaceOrientations~ipad', 'UISupportedInterfaceOrientations_iPad')]:
-        value = env.get('INFOPLIST_KEY_' + setting)
-        if value:
-            info[key] = shlex.split(value)
-    if env['PLATFORM_NAME'] in ('iphoneos', 'iphonesimulator'):
-        info['LSRequiresIPhoneOS'] = True
-    if boolean(env.get('INFOPLIST_KEY_UILaunchScreen_Generation', 'NO')):
-        info['UILaunchScreen'] = {}
-    if boolean(env.get('INFOPLIST_KEY_UIApplicationSceneManifest_Generation', 'NO')):
-        info['UIApplicationSceneManifest'] = {
-            'UIApplicationSupportsMultipleScenes': True, 'UISceneConfigurations': {}}
-    return info
-
-
-def boolean(value):
-    if value not in ('YES', 'NO'):
-        raise ValueError(f'Expected YES or NO, got {value!r}')
-    return value == 'YES'
-
-
 def prepare(env):
     root = Path(env['SRCROOT'])
-    project = root / 'RideIntercom.xcodeproj'
-    project_file = project / 'project.pbxproj'
     output = Path(env['SCRIPT_OUTPUT_FILE_0'])
-    reserves = env.get('RIDEINTERCOM_RESERVE_BUILD_NUMBER') == 'YES'
-    info = {} if reserves else info_contents(root / env.get('RIDEINTERCOM_INFO_SOURCE', 'RideIntercom/Info.plist'), env)
-    if reserves:
-        # Lock the stable directory inode: no persistent lock/state file is needed,
-        # and replacing project.pbxproj atomically does not invalidate the lock.
-        directory = os.open(project, os.O_RDONLY)
-        try:
-            fcntl.flock(directory, fcntl.LOCK_EX)
-            original = project_file.read_text()
-            pattern = r'(CURRENT_PROJECT_VERSION\s*=\s*)([^;]+)(;)'
-            values = [m[1].strip() for m in re.findall(pattern, original)]
-            if not values or any(not re.fullmatch(r'[1-9][0-9]*', v) for v in values) or len(set(values)) != 1:
-                raise ValueError('Xcode CURRENT_PROJECT_VERSION must be one shared positive decimal value')
-            number = int(values[0])
-            # Run/Build/Test and Archive share one counter; indexing alone does not build an app.
-            if env['ACTION'] in ('build', 'install'):
-                number += 1
-                updated = re.sub(pattern, lambda m: f'{m[1]}{number}{m[3]}', original)
-                pending = project / '.build-number.tmp'
-                try:
-                    with pending.open('w') as stream:
-                        stream.write(updated)
-                        stream.flush()
-                        os.fsync(stream.fileno())
-                    # Don't overwrite an editor's intervening save with an older snapshot.
-                    if project_file.read_text() != original:
-                        raise ValueError('Project changed while reserving a number; retry the build')
-                    os.replace(pending, project_file)
-                finally:
-                    pending.unlink(missing_ok=True)
-        finally:
-            os.close(directory)
-    else:
-        # The aggregate dependency owns project access. Product sandboxes only
-        # consume its reservation; a parallel build may already have advanced it.
-        reservation = plistlib.loads(Path(env['RIDEINTERCOM_BUILD_NUMBER_FROM']).read_bytes())
-        reserved = reservation.get('CFBundleVersion') if isinstance(reservation, dict) else None
-        if not isinstance(reserved, str) or not re.fullmatch(r'[1-9][0-9]*', reserved):
-            raise ValueError('Invalid build reservation; build the metadata dependency first')
-        number = int(reserved)
-    info['CFBundleVersion'] = str(number)
-    # Each build has its own DerivedSources; a parallel Archive cannot change this number.
+    info = plistlib.loads((root / 'RideIntercom/Info.plist').read_bytes())
+    # Never carry a development credential from another build configuration.
+    info.pop('DevelopmentInternetConnection', None)
+    development = development_internet_defaults(env)
+    if development:
+        info['DevelopmentInternetConnection'] = development
+    # Xcode generates standard bundle, version and platform metadata afterward.
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(plistlib.dumps(info, sort_keys=False))
-    print(f'RideCom {env["ACTION"]}: {"reserved" if reserves else "prepared"} build {number}')
+    print('RideCom: prepared custom App Info.plist')
 
 
 if __name__ == '__main__':

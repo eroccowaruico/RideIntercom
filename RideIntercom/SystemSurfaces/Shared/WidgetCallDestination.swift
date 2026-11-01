@@ -16,8 +16,15 @@ nonisolated struct WidgetCallDestination: AppEntity, Codable, Hashable, Sendable
 nonisolated struct WidgetDestinationSnapshot: Codable, Equatable {
     var version = 1
     let destinations: [WidgetCallDestination]
-    var recentDestinationID: String? = nil
+    var currentDestinationID: String? = nil
     var currentCall: CallLivePresentation? = nil
+
+    func currentCall(for configured: WidgetCallDestination?) -> CallLivePresentation? {
+        guard let configured,
+              destinations.contains(where: { $0.id == configured.id }),
+              currentDestinationID == configured.id else { return nil }
+        return currentCall
+    }
 }
 
 /// Read-only in the extension. The app owns the writer and all call authorization.
@@ -45,11 +52,6 @@ nonisolated struct WidgetDestinationStore: Sendable {
               snapshot.version == 1,
               Set(snapshot.destinations.map(\.id)).count == snapshot.destinations.count else { return nil }
         return snapshot
-    }
-    /// Never use a stale configuration's embedded name or ID as a fallback.
-    func current(_ configured: WidgetCallDestination?) -> WidgetCallDestination? {
-        guard let configured else { return nil }
-        return read().first { $0.id == configured.id }
     }
 }
 
