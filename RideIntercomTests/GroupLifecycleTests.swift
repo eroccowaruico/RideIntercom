@@ -14,6 +14,75 @@ import PeakLimiter
 extension AppTests {
 @MainActor
 struct GroupLifecycleTests {
+    @Test func invitationStorageFailureKeepsStorageRecoveryInsteadOfRequestingAnotherInvite() throws {
+        let h = AppTestSupport.makeHarness(groups: [])
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(), signer: testIdentitySigner("remote"),
+            groupID: UUID(), groupName: "Ride", groupSecret: "shared", inviterMemberID: "remote")
+        let url = try GroupInviteTokenCodec.joinURL(for: token)
+        try h.viewModel.acceptInviteURL(url)
+        let activeID = h.viewModel.activeGroupID
+        let saves = h.groupStore.saveCount
+        h.groupStore.readError = DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "broken stored snapshot"))
+        #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(url) }
+        #expect(h.viewModel.groupStorageIssue == .corrupted)
+        #expect(h.viewModel.groupErrorMessage == GroupStorageIssue.corrupted.message)
+        #expect(h.viewModel.inviteStatusMessage == nil)
+        #expect(h.viewModel.activeGroupID == activeID)
+        #expect(h.groupStore.saveCount == saves)
+        #expect(h.callSession.disconnectCallCount == 0)
+        h.groupStore.readError = nil
+        h.viewModel.disconnect()
+        h.viewModel.reloadSavedGroups()
+        try h.viewModel.acceptInviteURL(url)
+        #expect(h.viewModel.groupStorageIssue == nil)
+        #expect(h.viewModel.groupErrorMessage == nil)
+        #expect(h.viewModel.inviteStatusMessage == "JOINED Ride")
+    }
+
+    @Test(arguments: ["expired", "version", "signature", "malformed"])
+    func failedInvitationClearsSuccessExplainsRecoveryAndAcceptsReplacement(_ failure: String) throws {
+        let h = AppTestSupport.makeHarness(groups: [])
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(), signer: testIdentitySigner("remote"),
+            groupID: UUID(), groupName: "Ride", groupSecret: "shared", inviterMemberID: "remote",
+            issuedAt: 100, expiresAt: 200)
+        let validURL = try GroupInviteTokenCodec.joinURL(for: token)
+        try h.viewModel.acceptInviteURL(validURL, now: 150)
+        let groupIDs = h.viewModel.groups.map(\.id)
+        let activeID = h.viewModel.activeGroupID
+        let saves = h.groupStore.saveCount
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(token)) as? [String: Any])
+        let expected: String
+        switch failure {
+        case "expired":
+            expected = "This invitation has expired. Ask the sender for a new invitation."
+        case "version":
+            object["version"] = 999
+            expected = "This invitation uses a different app version. Update RideIntercom and ask for a new invitation."
+        default:
+            object["signature"] = "invalid"
+            expected = "This invitation could not be verified. Ask the sender for a new invitation."
+        }
+        let encoded = try JSONSerialization.data(withJSONObject: object).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let badURL = try #require(URL(string: "rideintercom://join?token=\(failure == "malformed" ? "broken" : encoded)"))
+        #expect(throws: (any Error).self) { try h.viewModel.acceptInviteURL(badURL, now: 200) }
+        #expect(h.viewModel.groupErrorMessage == expected)
+        #expect(h.viewModel.inviteStatusMessage == nil)
+        #expect(h.viewModel.groups.map(\.id) == groupIDs)
+        #expect(h.viewModel.activeGroupID == activeID)
+        #expect(h.groupStore.saveCount == saves)
+        #expect(h.callSession.disconnectCallCount == 0)
+
+        let replacement = try GroupInviteToken.make(authority: testInvitationAuthority(), signer: testIdentitySigner("remote"),
+            groupID: token.groupID, groupName: "Ride", groupSecret: "shared", inviterMemberID: "remote",
+            issuedAt: 200, expiresAt: 300)
+        try h.viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: replacement), now: 250)
+        #expect(h.viewModel.groupErrorMessage == nil)
+        #expect(h.viewModel.inviteStatusMessage == "JOINED Ride")
+        #expect(h.viewModel.activeGroupID == activeID)
+    }
+
     @Test func corruptLocalIdentityReportsCreationFailureWithoutWritingGroups() {
         var stored = IntercomSeedData.recentGroups[0]
         stored.members[0] = GroupMember(id: "", displayName: "You")

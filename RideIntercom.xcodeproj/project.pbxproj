@@ -825,6 +825,8 @@
 				"$(SRCROOT)/scripts/prepare_archive_info.py",
 				"$(SRCROOT)/RideIntercomWatch/Info.plist",
 				"$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist",
+				"$(PROJECT_FILE_PATH)",
+				"$(PROJECT_FILE_PATH)/project.pbxproj",
 			);
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/RideIntercomWatch-Info.plist",
@@ -843,6 +845,8 @@
 				"$(SRCROOT)/scripts/prepare_archive_info.py",
 				"$(SRCROOT)/RideIntercomWidgets/Info.plist",
 				"$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist",
+				"$(PROJECT_FILE_PATH)",
+				"$(PROJECT_FILE_PATH)/project.pbxproj",
 			);
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/RideIntercomWidgets-Info.plist",
@@ -861,6 +865,8 @@
 				"$(SRCROOT)/scripts/prepare_archive_info.py",
 				"$(SRCROOT)/RideIntercom/Info.plist",
 				"$(PROJECT_TEMP_DIR)/RideIntercom-BuildNumber.plist",
+				"$(PROJECT_FILE_PATH)",
+				"$(PROJECT_FILE_PATH)/project.pbxproj",
 			);
 			name = "Prepare Build Number";
 			outputPaths = (
@@ -878,6 +884,16 @@
 			alwaysOutOfDate = 1;
 			inputPaths = (
 				"$(SRCROOT)/scripts/check_development_setup.py",
+				"$(SRCROOT)/scripts/check_platform_configuration.py",
+				"$(SRCROOT)/RideIntercom/RideIntercom.entitlements",
+				"$(SRCROOT)/RideIntercom/RideIntercom-macOS.entitlements",
+				"$(SRCROOT)/RideIntercomWidgets/RideIntercomWidgets.entitlements",
+				"$(SRCROOT)/RideIntercom/Info.plist",
+				"$(SRCROOT)/RideIntercom/en.lproj/InfoPlist.strings",
+				"$(SRCROOT)/RideIntercom/ja.lproj/InfoPlist.strings",
+				"$(SRCROOT)/RideIntercomWatch/Assets.xcassets/AppIcon.appiconset/Contents.json",
+				"$(SRCROOT)/RideIntercomWatch/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+				"$(SRCROOT)/RideIntercomWatch/Info.plist",
 				"$(SRCROOT)/RideIntercom.xcodeproj/project.pbxproj",
 				"$(SRCROOT)/.vscode/settings.json",
 				"$(SRCROOT)/.vscode/tasks.json",
@@ -1269,7 +1285,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 284;
+				CURRENT_PROJECT_VERSION = 297;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1335,7 +1351,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 284;
+				CURRENT_PROJECT_VERSION = 297;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1568,7 +1584,7 @@
 			buildSettings = {
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CURRENT_PROJECT_VERSION = 284;
+				CURRENT_PROJECT_VERSION = 297;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -2047,7 +2063,7 @@
 			buildSettings = {
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CURRENT_PROJECT_VERSION = 284;
+				CURRENT_PROJECT_VERSION = 297;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				CLANG_WARN_INFINITE_RECURSION = YES;

@@ -1,6 +1,50 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "This invitation has expired. Ask the sender for a new invitation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この招待は有効期限が切れています。送信者に新しい招待を依頼してください。"
+          }
+        }
+      }
+    },
+    "This invitation uses a different app version. Update RideIntercom and ask for a new invitation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この招待はアプリのバージョンに対応していません。RideIntercomを更新し、新しい招待を依頼してください。"
+          }
+        }
+      }
+    },
+    "This invitation could not be verified. Ask the sender for a new invitation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この招待を確認できませんでした。送信者に新しい招待を依頼してください。"
+          }
+        }
+      }
+    },
+    "This invitation could not be opened or saved. Check your account and saved groups, then open the link again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この招待を開くか保存することができませんでした。アカウントと保存済みグループを確認し、リンクをもう一度開いてください。"
+          }
+        }
+      }
+    },
     "Automatic Disconnection": {
       "extractionState": "manual",
       "localizations": {

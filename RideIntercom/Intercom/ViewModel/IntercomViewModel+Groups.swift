@@ -204,9 +204,38 @@ extension IntercomViewModel {
     }
 
     func acceptInviteURL(_ url: URL, now: TimeInterval = Date().timeIntervalSince1970) throws {
-        guard canStartCalls else { throw IntercomGroupError.storageUnavailable }
         groupErrorMessage = nil
-        let token = try GroupInviteTokenCodec.decodeJoinURL(url)
+        inviteStatusMessage = nil
+        do {
+            try applyInviteURL(url, now: now)
+        } catch {
+            // Storage and account failures already carry their own recovery action.
+            if groupErrorMessage == nil {
+                switch error {
+                case GroupInviteTokenError.expired:
+                    groupErrorMessage = "This invitation has expired. Ask the sender for a new invitation."
+                case GroupInviteTokenError.unsupportedVersion:
+                    groupErrorMessage = "This invitation uses a different app version. Update RideIntercom and ask for a new invitation."
+                case GroupInviteTokenError.invalidURL, GroupInviteTokenError.invalidTokenEncoding,
+                     GroupInviteTokenError.invalidSignature:
+                    groupErrorMessage = "This invitation could not be verified. Ask the sender for a new invitation."
+                default:
+                    groupErrorMessage = "This invitation could not be opened or saved. Check your account and saved groups, then open the link again."
+                }
+            }
+            throw error
+        }
+    }
+
+    private func applyInviteURL(_ url: URL, now: TimeInterval) throws {
+        guard canStartCalls else {
+            groupErrorMessage = groupStorageNotice
+            throw IntercomGroupError.storageUnavailable
+        }
+        let token: GroupInviteToken
+        do { token = try GroupInviteTokenCodec.decodeJoinURL(url) }
+        catch let error as GroupInviteTokenError { throw error }
+        catch { throw GroupInviteTokenError.invalidTokenEncoding }
         guard !token.isExpired(now: now) else {
             throw GroupInviteTokenError.expired
         }
@@ -226,7 +255,9 @@ extension IntercomViewModel {
 
         let accepted = try token.accept(signer: internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID),
                                         displayName: localMemberIdentity.displayName, trust: try internetSettingsStore.identityTrust(), now: now)
-        let previous = try groupRepository.credential(for: token.groupID)
+        let previous: GroupAccessCredential?
+        do { previous = try groupRepository.credential(for: token.groupID) }
+        catch { reportGroupStorageError(error); throw error }
         // Account calls converge by principal, independently of which device invited.
         // Do not replace a call that has already connected; reconnect explicitly.
         let keepsLocalKey = token.accountPair.map { $0.first == localAccountPrincipal }

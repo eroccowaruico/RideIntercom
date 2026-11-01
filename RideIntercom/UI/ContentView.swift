@@ -45,12 +45,8 @@ struct ContentView: View {
 
     private func openInvitation(_ url: URL, in viewModel: IntercomViewModel) {
         selectedTab = .call
-        do { try viewModel.acceptInviteURL(url) }
-        catch {
-            if viewModel.groupErrorMessage == nil {
-                viewModel.groupErrorMessage = "This invitation could not be opened or saved. Ask for a valid invite and try again."
-            }
-        }
+        // The common operation preserves the reason and recovery action for every entry point.
+        try? viewModel.acceptInviteURL(url)
     }
 }
 

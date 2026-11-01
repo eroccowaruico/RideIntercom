@@ -27,7 +27,7 @@ struct CallEntryView: View {
         .safeAreaInset(edge: .top) {
             if let message = viewModel.groupErrorMessage,
                viewModel.selectedGroup != nil || message != viewModel.groupStorageNotice {
-                Label(message, systemImage: "exclamationmark.circle")
+                Label(LocalizedStringKey(message), systemImage: "exclamationmark.circle")
                     .font(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()

@@ -7,6 +7,38 @@ final class StandardInterfaceUITests: XCTestCase {
     override func tearDownWithError() throws { app?.terminate(); app = nil }
 
     @MainActor
+    func testInvitationFailureExplainsRecoveryInBothEnglishLayouts() {
+        checkInvitationFailure(japanese: false)
+    }
+
+    @MainActor
+    func testInvitationFailureExplainsRecoveryInBothJapaneseLayouts() {
+        checkInvitationFailure(japanese: true)
+    }
+
+    @MainActor private func checkInvitationFailure(japanese: Bool) {
+        #if os(iOS)
+        launch(japanese: japanese)
+        let message = japanese
+            ? "この招待を確認できませんでした。送信者に新しい招待を依頼してください。"
+            : "This invitation could not be verified. Ask the sender for a new invitation."
+        let url = URL(string: "rideintercom://join?token=invalid")!
+        app.open(url)
+        XCTAssertTrue(app.staticTexts[message].waitForExistence(timeout: 5))
+        screenshot("Invitation recovery in Standard")
+        tab(japanese ? "設定" : "Settings", id: "settingsTab")
+        selectLayout(japanese ? "詳細" : "Advanced")
+        // open(URL) may relaunch and reapply the Standard launch fixture.
+        // Keep this process and verify the actual Advanced error surface.
+        tab(japanese ? "通話" : "Call", id: "callTab")
+        XCTAssertFalse(app.descendants(matching: .any)["standardCallScreen"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["groupErrorLabel"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[message].waitForExistence(timeout: 5))
+        screenshot("Invitation recovery in Advanced")
+        #endif
+    }
+
+    @MainActor
     func testStandardLayoutKeepsCallAcrossAdvancedSwitchAndPersistsChoice() throws {
         launch()
         XCTAssertFalse(app.tabBars.buttons["Diagnostics"].exists)
