@@ -152,3 +152,12 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 | 登録domainだけを明示`local.`へ変更 | 現sourceで両Appをbuild。control追加・削除各4、新規device候補0、登録addなし、ready→timeoutのまま。改善の証拠がなく、domain指定と一時ログを撤去 | `.validation/watch-endpoint-explicit-domain-20261102/` |
 
 広告名・IP・鍵・PCMは比較結果へ保存せず、役割に合う広告の件数と時刻で観測する。登録通知を受けず、同時にhost browserでも広告を見なかったことまでは確定するが、OS内部の登録状態や実Watch固有の制限を断定しない。Phone録音要求前の停止であり、音声往復は未成立である。両比較で所有processの終了、Simulatorの音声設定・音量の復元と停止、一時runner回収を確認した。次は同App内の最小NWListener単独対照で、独自wrapper／parameter条件の外側でも同症状かを確認する。
+
+
+## 同じWatch App内のNWListener単独対照
+
+2026-11-02、音声session・Phone App・RTC／AudioDeviceを起動せず、同じWatch Appの一時Validation入口からNWListenerを動かした。Aは現行と同じP2P許可・cellular禁止、Bは標準UDP条件とし、短い検証専用名・既定domainで各約8.5秒保持した。両方ともready・portあり、登録add/remove 0、外部browserの該当広告0で、cancelled通知と段階ごとの停止を確認した。browserの別名positive controlは追加・削除各4件である。wrapperや既存parameterだけを原因とする根拠は得られなかった。
+
+証跡は`.validation/watch-listener-standalone-20261102/`。source362ファイル一致、一時sourceのHEAD完全復元、所有process・Simulator停止、runner・自前cache回収を確認した。音声設定は変更していない。[TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)はwatchOSとSimulatorがローカルネットワークのprivacy機構をサポートしないと説明し、[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)はSimulatorの低レベル通信を許可している。今回を許可拒否や実Watchの背景制限として扱う根拠はなく、確認した公式資料に今回の既知問題や登録成功期限も見つからない。Watch広告の永続的な非対応は断定しない。
+
+現在の両端広告は、送信専用outgoing接続と受信専用listener接続を分けた実装の条件であり、製品要求ではない。次の採否判断は、実Phone Appに待受を置き、実Watch Appから同一UDP接続で有限データを双方向に往復できるかの最小技術実証とする。Watchのマイク・スピーカー、iPhoneでの通話・音声処理という要求は維持し、成立するまでは製品transportを変更しない。
