@@ -114,6 +114,9 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | マイク入力確認 | `audioCheckPanel` | `audioCheckInputMeter` | `Microphone Input` | `diagnosticsInputLevel`, `diagnosticsInputPeakLevel` | 常時 | 入力メーター | 権限未許可時は上がらない |
 | スピーカー出力確認 | `audioCheckPanel` | `audioCheckOutputMeter` | `Speaker Output` | `diagnosticsOutputLevel`, `diagnosticsOutputPeakLevel` | 常時 | 出力メーター | 最終出力へ回した音声を示す |
 | チェック状態メッセージ | `audioCheckPanel` | `audioCheckStatusLabel` | 状態文言 | `String` | 常時 | footnote | 実行中、完了、失敗 |
+| 録音入力元 | `audioCheckPanel` | `audioCheckInputSource` | `Recording Input` | `isUsingWatchAudio`, `audioCheckInputPortName` | 常時 | `LabeledContent` | Watch音声使用中は`Watch Microphone`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実入力ポート、それ以外は選択済み入力ポートを表示 |
+| 再生出力先 | `audioCheckPanel` | `audioCheckOutputDestination` | `Playback Output` | `isUsingWatchAudio`, `audioCheckOutputPortName` | 常時 | `LabeledContent` | Watch音声使用中は`Watch Speaker`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実出力ポート、それ以外は選択済み出力ポートを表示 |
+| マイクミュート状態 | `audioCheckPanel` | `audioCheckMuteState` | `Microphone mute: On` / `Off` | `isMuted` | `isUsingWatchAudio == false` | 状態テキスト | 現在のマイクミュート状態を表示。Watch音声使用中は、Watch音声を停止してからこの端末のチェックを開始する案内を表示 |
 | チェック実行ボタン | `audioCheckPanel` | `audioCheckButton` | `Record 5s and Play` | Action | 常時 | 録音/再生中は disabled | 二重起動と通話中の競合を防ぐ。録音・再生中はStop Audio Checkを表示 |
 
 ## Transmit Codec
