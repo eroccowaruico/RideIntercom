@@ -11,6 +11,6 @@
 
 すべての作業で[efficient-work](.agents/skills/efficient-work/SKILL.md)を必ず適用する。まずスキルの入口だけを読み、参照先は今回の作業・担当に必要な節だけを読む。
 
-作業の選択・計画・着手と追加依頼の優先判断では[core-story-first](.agents/skills/core-story-first/SKILL.md)を必ず適用する。まず入口を読み、理由・判断・実験の詳細は必要な節だけを読む。
+作業の選択・計画・着手と追加依頼の優先判断、実装・検証・完了報告では[core-story-first](.agents/skills/core-story-first/SKILL.md)を必ず適用する。まず入口を読み、理由・判断・実装/E2E・完了判定の詳細は必要な節だけを読む。
 
 [文書入口](docs/README.md)から、対象の仕様・マニュアル・検証状況も確認する。過去計画は現行指示ではない。規約変更は正本へ反映し、この入口に本文を複製しない。
