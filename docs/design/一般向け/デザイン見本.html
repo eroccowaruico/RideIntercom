@@ -858,7 +858,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
   </div>
 
   <h2 id="settings">設定の構成</h2>
-  <p class="note">リセットまでのスクロール全体。同じ目的のセクションを隣り合わせ、グループの切れ目を少し広い余白で区切る。左の色は右の構成図のグループに対応する。音声セッション・コーデックの専門的な項目は「詳しい設定」へまとめ、リセットは最下部に独立して置く。</p>
+  <p class="note">リセットまでのスクロール全体。同じ目的のセクションを隣り合わせ、グループの切れ目を少し広い余白で区切る。左の色は右の構成図のグループに対応する。画面表示の切替と専門的な音声の設定は「開発者向けの高度な設定」へまとめ、リセットは最下部に独立して置く。</p>
   <div class="pair">
     <figure>
       <div class="phone tall"><div class="screen form">
@@ -894,10 +894,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group-h g4"><span class="gdot"></span>音声チェック</div>
           <div class="group"><div class="row"><span class="grow"><span class="link">5秒録音して再生</span></span></div></div>
           <div class="gsep"></div>
-          <div class="group-h g5"><span class="gdot"></span>画面表示</div>
-          <div class="group"><div class="seg3"><span class="on">標準</span><span>詳細</span></div></div>
-          <div class="group-h g5"><span class="gdot"></span>詳しい設定</div>
-          <div class="group"><div class="row"><span class="grow">音声セッション・コーデック</span><svg class="i chev"><use href="#chev"/></svg></div></div>
+          <div class="group-h g5"><span class="gdot"></span>高度な設定</div>
+          <div class="group"><div class="row"><span class="grow">開発者向けの高度な設定</span><svg class="i chev"><use href="#chev"/></svg></div></div>
           <div class="gsep"></div>
           <div class="group-h g6"><span class="gdot"></span>リセット</div>
           <div class="group"><div class="row"><span class="grow"><span class="redtext">すべての設定をリセット</span></span></div></div>
@@ -910,7 +908,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>設定（一般向け・スクロール全体）</b>自分 → 接続 → 通信 → 音声 → 表示と詳しい設定 → リセットの順。破壊的な操作（アカウント削除・リセット）は各まとまりの最後に赤で置く。</figcaption>
+      <figcaption><b>設定（一般向け・スクロール全体）</b>自分 → 接続 → 通信 → 音声 → 高度な設定 → リセットの順。破壊的な操作（アカウント削除・リセット）は各まとまりの最後に赤で置く。</figcaption>
     </figure>
 
     <figure>
@@ -936,13 +934,17 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
       <div class="phone tall"><div class="screen form">
         <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
         <div class="navbar" style="justify-content:flex-start"><span class="link" style="display:flex;align-items:center;gap:2px;font-size:14px"><svg class="i"><use href="#back"/></svg>設定</span></div>
-        <div class="ltitle">詳しい設定</div>
+        <div class="ltitle">開発者向けの高度な設定</div>
         <div class="body">
-          <div class="group-h g4"><span class="gdot"></span>音声セッション</div>
-          <div class="group"><div class="row"><span class="grow">モード</span><span class="tail">バースト<svg class="i chev"><use href="#chev"/></svg></span></div><div class="row"><span class="grow">スピーカーから出す</span><span class="toggle offt"></span></div><div class="row"><span class="grow">エコーキャンセル</span><span class="toggle"></span></div><div class="row"><span class="grow">他の音声を下げる</span><span class="toggle"></span></div></div>
+          <div class="banner glass" style="background:color-mix(in srgb,var(--orange) 12%,var(--grouped-card));border-color:transparent"><span class="ic"><svg class="i"><use href="#warn"/></svg></span><div><b>通常は変更しないでください</b><p>ここの設定を変えると、音声や接続が正しく動かなくなることがあります。変更による不具合はサポートの対象外です。</p></div></div>
+          <div class="group-h g5"><span class="gdot"></span>画面表示</div>
+          <div class="group"><div class="seg3"><span class="on">標準</span><span>詳細</span></div></div>
+          <div class="ffoot">詳細表示では診断と細かな設定を表示します（英語のみ）。</div>
+          <div class="group-h g4"><span class="gdot"></span>オーディオセッション</div>
+          <div class="group"><div class="row"><span class="grow">セッションモード</span><span class="tail">バースト<svg class="i chev"><use href="#chev"/></svg></span></div><div class="row"><span class="grow">スピーカー出力を強制</span><span class="toggle offt"></span></div><div class="row"><span class="grow">エコーキャンセレーション</span><span class="toggle"></span></div><div class="row"><span class="grow">他のアプリ音声のダッキング</span><span class="toggle"></span></div></div>
           <div class="ffoot">バーストは通常の音声モード、ストリームは電話に近い会話向けです。</div>
-          <div class="group-h g4"><span class="gdot"></span>コーデック</div>
-          <div class="group"><div class="seg3"><span>PCM</span><span class="on">AAC-ELD</span><span>Opus</span></div><div class="row"><span class="grow">サンプルレート</span><span class="tail">48 kHz<svg class="i chev"><use href="#chev"/></svg></span></div><div class="row"><span class="grow">ビットレート</span><span class="tail">48 kbps<svg class="i chev"><use href="#chev"/></svg></span></div></div>
+          <div class="group-h g4"><span class="gdot"></span>送信コーデック</div>
+          <div class="group"><div class="seg3"><span>PCM</span><span class="on">AAC-ELD</span><span>Opus</span></div><div class="row"><span class="grow">サンプリング周波数</span><span class="tail">48 kHz<svg class="i chev"><use href="#chev"/></svg></span></div><div class="row"><span class="grow">エンコードビットレート</span><span class="tail">48 kbps<svg class="i chev"><use href="#chev"/></svg></span></div></div>
           <div class="ffoot">使えない形式は自動で切り替わります。</div>
         </div>
         <div class="tabbar glass">
@@ -952,7 +954,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>詳しい設定</b>専門的な音声の設定（音声セッション → コーデック）だけを置く。将来は固定して変更できなくする想定の項目。リセットはここに置かず、設定の最下部に1か所だけ。</figcaption>
+      <figcaption><b>開発者向けの高度な設定</b>一般の人が入らないよう難しい名前にし、画面の一番上に「変えると動かなくなることがある」と警告を出す。画面表示（標準／詳細）の切替もここ。音声の項目は将来固定する想定。リセットはここに置かない。</figcaption>
     </figure>
 
     <div class="outline">
@@ -972,12 +974,11 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <li>音声の入出力 <span>入力 · 出力 · 送信する声を分離</span></li>
         <li>発話検出 <span>静かな場所／標準／騒がしい場所</span></li>
         <li>音声チェック <span>5秒録音して再生</span></li></ol></div>
-      <div class="og g5"><b>表示と詳しい設定</b><ol>
-        <li>画面表示 <span>標準／詳細</span></li>
-        <li>詳しい設定 ▸ <span>音声セッション · コーデック（将来は固定予定）</span></li></ol></div>
+      <div class="og g5"><b>高度な設定</b><ol>
+        <li>開発者向けの高度な設定 ▸ <span>警告 · 画面表示（標準／詳細）· オーディオセッション · 送信コーデック（音声は将来固定予定）</span></li></ol></div>
       <div class="og g6"><b>リセット</b><ol>
         <li>リセット <span>すべての設定をリセット（確認付き）</span></li></ol></div>
-      <p class="note" style="margin-top:6px">現行は画面表示が先頭、リセットは「詳しい設定」の中。一般向けでは日常的に触る項目を上に、まれに使う表示切替と専門設定を下に、リセットを最下部に移す。</p>
+      <p class="note" style="margin-top:6px">現行は画面表示が先頭、リセットは「More Audio and Connection Settings」の中。一般向けでは日常的に触る項目を上に、表示切替と専門設定を「開発者向けの高度な設定」の中へ、リセットを最下部に移す。</p>
     </div>
   </div>
 
