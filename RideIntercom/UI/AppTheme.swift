@@ -11,6 +11,11 @@ enum AppColorPalette {
     static let info: Color = .blue
     static let neutral: Color = .secondary
 
+    static let standardScreenBackground = LinearGradient(
+        colors: [Color("BackgroundTop"), Color("BackgroundBase")],
+        startPoint: .top,
+        endPoint: .bottom
+    )
     static let callScreenBackground: Color = Color.secondary.opacity(0.08)
     static let cardMaterial: Material = .regularMaterial
     static let diagnosticsCardMaterial: Material = .thinMaterial
@@ -58,6 +63,7 @@ enum AppSize {
 }
 
 enum AppTypography {
+    static let destinationTitle: Font = .title.bold()
     static let sectionTitle: Font = .headline
     static let rowTitle: Font = .headline
     static let bodyStrong: Font = .body.weight(.semibold)
@@ -82,14 +88,14 @@ extension View {
     }
 
     func appProminentButtonStyle() -> some View {
-        buttonStyle(.borderedProminent)
+        buttonStyle(.glassProminent)
             .tint(AppColorPalette.buttonProminentBackground)
             .foregroundStyle(AppColorPalette.buttonProminentForeground)
             .frame(minHeight: max(AppSize.buttonPrimaryMinHeight, platformButtonMinHeight))
     }
 
     func appSecondaryButtonStyle() -> some View {
-        buttonStyle(.bordered)
+        buttonStyle(.glass)
             .frame(minHeight: max(AppSize.buttonSecondaryMinHeight, platformButtonMinHeight))
     }
 

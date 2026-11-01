@@ -32,7 +32,7 @@ struct CallView: View {
                             viewModel.resumeAudioAfterDeviceChange()
                         }
                         .controlSize(.large)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.glassProminent)
                         .disabled(viewModel.authenticatedPeerIDs.isEmpty)
                         .accessibilityIdentifier("resumeAudioButton")
                     }
@@ -46,7 +46,7 @@ struct CallView: View {
                         Button("Add Saved Users", systemImage: "person.badge.plus") {
                             addingUsersToGroup = viewModel.selectedGroup
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.glass)
                         .controlSize(.large)
                         .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: viewModel.selectedGroup?.id).isEmpty
                                   || (viewModel.selectedGroup?.members.count ?? 8) >= IntercomGroup.maximumMemberCount)

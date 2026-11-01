@@ -8,15 +8,15 @@
 
 Watch音声のpairが失われ、Watchでの再準備が必要な場合は、この端末のResume Audioを表示しない。Watchからの再開始案内に従う。既存pairを保持した一時停止では共通の再開操作を利用する。
 
-初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
+初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。AdvancedでもUsers / Groupsは同じ一覧を使用し、Callは詳細表示と従来のGroups導線を維持する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
 
 | 画面・項目ID | 表示と操作 |
 |---|---|
-| Call / `standardCallScreen` | 相手名または通常グループ名、接続前・接続待ち・会話中・音声停止・音声エラーの短い案内。認証だけでは会話中にせず、音声準備も成立している状態を使う |
-| `standardConnectButton` / `standardEndCallButton` | 共通startCall / endCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
+| Call / `standardCallScreen` | 相手名または通常グループ名を見出しにし、接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う |
+| `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、終了は破壊操作のglassボタンとし、共通startCall / endCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
 | `standardMuteToggle` / `standardMicrophoneStatus` | 共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する。Watch音声選択中はマイク操作を表示せず「Watchでマイクを操作」と案内し、以前のphone mute値を状態として表示しない |
 | `standardUsersList` | 保存済みユーザーだけを表示。相手の選択は共通selectUserで内部通話先を解決してCallへ移る。内部グループの作成や選択は要求しない。鉛筆で本人名と端末の呼び名を編集できる |
-| `standardGroupsList` | 通常グループだけを表示。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
+| `standardGroupsList` | 通常グループだけを表示し、進行中の通話の実状態（接続待ち・会話中・音声停止等）を行内に示す。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
 | Current Call | 別の相手・一覧の閲覧中でも進行中の通話へ戻る／終了する操作を維持する。保存ユーザー削除で現在の通話を隠さない |
 | 招待・参加者 | 既存の署名付き共有、本人名／別名編集、通常groupへの保存ユーザー追加・削除を共用する。groupで会っただけの相手をUsersへ追加しない |
 | 入出力 | マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
@@ -185,3 +185,7 @@ resetでrider identity・音声設定・Internet資格は変更しない。退�
 ### Standardの直近通話
 
 通話していないときに、現在のアカウントと保存一覧で確認できる直近宛先をRecent Callに表示する。`recentCallName`は現在の名前、`recentCallButton`はCall Again。描画時に示した宛先とログイン世代を共通開始操作へ渡し、削除やログイン変更後は再検証する。通話成立時の記録、設定との保存、破損時の扱いは[通信仕様](../通信仕様.md#直近の成立済み通話先)を参照する。
+
+## 共通の操作表現
+
+StandardとAdvancedの接続・音声再開には標準`glassProminent`、補助操作には`glass`のButtonStyleを使う。Advancedの参加者操作・既存Groups導線と、Form内の設定コントロールを維持する。Standardの背景は淡い空色のグラデーション、Advancedの本文・診断背景は既存のシステムMaterialと背景を保ち、共通の青いtintで揃える。

@@ -1077,31 +1077,36 @@ final class RideIntercomUITests: XCTestCase {
         openDiagnosticsTab()
     }
 
+    private var isGroupSelectionVisible: Bool {
+        app.descendants(matching: .any)["groupSelectionList"].firstMatch.exists
+            || app.staticTexts["Recent Groups"].firstMatch.exists
+    }
+
     private func openGroupsTab() {
-        if app.staticTexts["Recent Groups"].firstMatch.exists {
+        if isGroupSelectionVisible {
             return
         }
         if app.tabBars.buttons["Call"].firstMatch.exists {
             app.tabBars.buttons["Call"].firstMatch.tap()
-            if app.staticTexts["Recent Groups"].firstMatch.exists {
+            if isGroupSelectionVisible {
                 return
             }
         }
         if app.buttons["Call"].firstMatch.exists {
             app.buttons["Call"].firstMatch.tap()
-            if app.staticTexts["Recent Groups"].firstMatch.exists {
+            if isGroupSelectionVisible {
                 return
             }
         }
         if app.radioButtons["callTab"].firstMatch.exists {
             app.radioButtons["callTab"].firstMatch.tap()
-            if app.staticTexts["Recent Groups"].firstMatch.exists {
+            if isGroupSelectionVisible {
                 return
             }
         }
         if app.buttons["callTab"].firstMatch.exists {
             app.buttons["callTab"].firstMatch.tap()
-            if app.staticTexts["Recent Groups"].firstMatch.exists {
+            if isGroupSelectionVisible {
                 return
             }
         }

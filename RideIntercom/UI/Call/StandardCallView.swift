@@ -22,9 +22,24 @@ struct StandardCallView: View {
             StandardStorageSection(viewModel: viewModel)
             if let group = viewModel.selectedGroup {
                 Section {
-                    Text(viewModel.callTitle(for: group)).font(.title2).accessibilityAddTraits(.isHeader)
-                    Text(LocalizedStringKey(viewModel.standardCallStatus.message))
-                        .accessibilityIdentifier("standardCallStatus")
+                    VStack(alignment: .leading, spacing: AppSpacing.l) {
+                        Text(viewModel.callTitle(for: group))
+                            .font(AppTypography.destinationTitle)
+                            .accessibilityAddTraits(.isHeader)
+                        HStack(spacing: AppSpacing.m) {
+                            if viewModel.standardCallStatus == .connecting {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: statusSymbol)
+                                    .foregroundStyle(statusColor)
+                                    .accessibilityHidden(true)
+                            }
+                            Text(LocalizedStringKey(viewModel.standardCallStatus.message))
+                                .accessibilityIdentifier("standardCallStatus")
+                        }
+                        .font(.subheadline)
+                    }
+                    .padding(.vertical, AppSpacing.m)
                     connectionActions(group)
                     if viewModel.canShareSelectedGroup { CallInvitationButton(viewModel: viewModel, group: group) }
                     if group.kind == .direct {
@@ -38,6 +53,8 @@ struct StandardCallView: View {
                         Section {
                             Text("Check your headphones or speaker, then resume audio.")
                             Button("Resume Audio") { viewModel.resumeAudioAfterDeviceChange() }
+                                .buttonStyle(.glassProminent)
+                                .controlSize(.large)
                                 .disabled(viewModel.authenticatedPeerIDs.isEmpty)
                                 .accessibilityIdentifier("resumeAudioButton")
                         }
@@ -48,7 +65,7 @@ struct StandardCallView: View {
                 }
                 Section("People in This Call") {
                     ForEach(Array(group.members.dropFirst())) { member in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: AppSpacing.m) {
                             HStack {
                                 Text(member.resolvedDisplayName)
                                 Spacer()
@@ -85,6 +102,8 @@ struct StandardCallView: View {
             }
             StandardErrorSection(viewModel: viewModel)
         }
+        .scrollContentBackground(.hidden)
+        .background(AppColorPalette.standardScreenBackground)
         .navigationTitle("Call")
         .accessibilityIdentifier("standardCallScreen")
         .sheet(item: $addingUsers) { group in SavedUsersView(viewModel: viewModel, groupID: group.id) }
@@ -93,16 +112,39 @@ struct StandardCallView: View {
         }
     }
 
+    private var statusSymbol: String {
+        switch viewModel.standardCallStatus {
+        case .chooseDestination, .ready: "phone"
+        case .connecting: "hourglass"
+        case .inCall: "waveform"
+        case .audioPaused: "headphones"
+        case .audioUnavailable: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var statusColor: Color {
+        switch viewModel.standardCallStatus {
+        case .inCall: AppColorPalette.success
+        case .connecting, .audioPaused: AppColorPalette.warning
+        case .audioUnavailable: AppColorPalette.danger
+        case .chooseDestination, .ready: AppColorPalette.neutral
+        }
+    }
+
     @ViewBuilder private func connectionActions(_ group: IntercomGroup) -> some View {
         let reference = viewModel.currentCallReference
         let access = viewModel.accountAccessID
         if group.id == viewModel.activeGroupID, viewModel.hasAnyActiveGroupConnection {
-            Button("End Call", role: .destructive) { viewModel.endCall(reference) }
+            Button("End Call", systemImage: "phone.down.fill", role: .destructive) { viewModel.endCall(reference) }
+                .buttonStyle(.glass)
+                .controlSize(.large)
                 .accessibilityIdentifier("standardEndCallButton")
         } else {
             Button(LocalizedStringKey(viewModel.hasAnyActiveGroupConnection ? "Switch to This Call" : "Connect"), systemImage: "phone") {
                 viewModel.startCall(to: .group(group.id), accountAccessID: access)
             }
+            .buttonStyle(.glassProminent)
+            .controlSize(.large)
             .disabled(!viewModel.canStartCalls)
             .accessibilityIdentifier("standardConnectButton")
         }

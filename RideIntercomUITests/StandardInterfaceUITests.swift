@@ -69,6 +69,10 @@ final class StandardInterfaceUITests: XCTestCase {
         #endif
         selectLayout("Advanced")
         XCTAssertTrue(app.tabBars.buttons["Diagnostics"].exists || app.buttons["diagnosticsTab"].exists)
+        tab("Users", id: "usersTab")
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3))
+        tab("Groups", id: "groupsTab")
+        XCTAssertTrue(app.descendants(matching: .any)["standardGroupsList"].firstMatch.waitForExistence(timeout: 3))
         tab("Call", id: "callTab")
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
         XCTAssertEqual(app.staticTexts["localMicrophoneStateLabel"].label, "Muted")

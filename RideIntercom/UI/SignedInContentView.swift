@@ -15,14 +15,13 @@ struct SignedInContentView: View {
                     }
                 }
             }.accessibilityIdentifier("callTab")
-            if viewModel.interfaceMode == .standard {
-                Tab("Users", systemImage: "person.2", value: .users) {
-                    NavigationStack { StandardUsersView(viewModel: viewModel, selectedTab: $selectedTab) }
-                }.accessibilityIdentifier("usersTab")
-                Tab("Groups", systemImage: "person.3", value: .groups) {
-                    NavigationStack { StandardGroupsView(viewModel: viewModel, selectedTab: $selectedTab) }
-                }.accessibilityIdentifier("groupsTab")
-            } else {
+            Tab("Users", systemImage: "person.2", value: .users) {
+                NavigationStack { StandardUsersView(viewModel: viewModel, selectedTab: $selectedTab) }
+            }.accessibilityIdentifier("usersTab")
+            Tab("Groups", systemImage: "person.3", value: .groups) {
+                NavigationStack { StandardGroupsView(viewModel: viewModel, selectedTab: $selectedTab) }
+            }.accessibilityIdentifier("groupsTab")
+            if viewModel.interfaceMode == .advanced {
                 Tab("Diagnostics", systemImage: "gauge", value: .diagnostics) {
                     NavigationStack { DiagnosticsView(viewModel: viewModel).navigationTitle("Diagnostics") }
                 }.accessibilityIdentifier("diagnosticsTab")

@@ -32,6 +32,10 @@ struct StandardUsersView: View {
             }
             StandardErrorSection(viewModel: viewModel)
         }
+        .scrollContentBackground(viewModel.interfaceMode == .standard ? .hidden : .automatic)
+        .background {
+            if viewModel.interfaceMode == .standard { AppColorPalette.standardScreenBackground }
+        }
         .navigationTitle("Users")
         .accessibilityIdentifier("standardUsersList")
         .sheet(item: $editingUser) { user in SavedUserNameView(viewModel: viewModel, user: user) }
@@ -56,12 +60,30 @@ struct StandardGroupsView: View {
                     Button {
                         viewModel.selectGroup(group, connectIfIdle: false)
                         selectedTab = .call
-                    } label: { Label(group.name, systemImage: "person.3") }
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                                Text(group.name)
+                                if group.id == viewModel.activeGroupID && viewModel.hasAnyActiveGroupConnection {
+                                    Text(LocalizedStringKey(viewModel.callStatus(for: group.id).message))
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        } icon: {
+                            Image(systemName: "person.3.fill")
+                                .foregroundStyle(.tint)
+                        }
+                    }
                     .accessibilityIdentifier("standardGroup-\(group.id)")
                     .appDeleteActions { viewModel.deleteGroup(group.id) }
                 }
             }
             StandardErrorSection(viewModel: viewModel)
+        }
+        .scrollContentBackground(viewModel.interfaceMode == .standard ? .hidden : .automatic)
+        .background {
+            if viewModel.interfaceMode == .standard { AppColorPalette.standardScreenBackground }
         }
         .navigationTitle("Groups")
         .toolbar {
