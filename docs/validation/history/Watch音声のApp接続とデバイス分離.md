@@ -72,7 +72,7 @@ Watch Simulatorの実Appで、標準`AVAudioRecorder`による録音→`AVAudioF
 
 削除失敗後に新しい録音が既存file参照・エラーを上書きしないguardも追加した。所有する合成ファイルのdirectoryを一時的に書込不可として実削除失敗を起こし、guardなしではエラー保持・許可要求抑止の2項目が失敗、修正後は6項目成功した。権限復元後の削除とdirectory回収も確認し、この試験ではマイク録音を開始していない。最終buildには既知のAppIntentsメタデータ対象なしwarningが1件あり、警告ゼロとは扱わない。成功時はcleanupでfileがnilになるため従来の録音経路を変えない。証跡は`.validation/watch-recording-cleanup-failure-20261101/`。
 
-Recorder成功からWatchのnative入力一般が利用不能とはいえない。先のEngine試験はsession optionsも異なっていたため、APIだけの比較ではなかった。同じcategory・mode・optionsなし・deactivate→activate完了に揃えた直接Engine＋Sinkでも入力0Hz・0 frames・開始エラー-10851、標準input tapでは-10868となった。optionsだけの原因説とSinkだけの原因説は裏付けられず、AVAudioEngine入力の未成立を残す。証跡は`.validation/watch-native-engine-empty-options-20261101/`と`.validation/watch-native-input-tap-20261101/`。診断コードはsourceから撤去した。録音ファイルを既存WC経由でiPhone設定のAudioCheckへ届ける確認は次の必須項目であり、通話streamの代替やWatch会話E2E完了とは扱わない。
+Recorder成功からWatchのnative入力一般が利用不能とはいえない。先のEngine試験はsession optionsも異なっていたため、APIだけの比較ではなかった。同じcategory・mode・optionsなし・deactivate→activate完了に揃えた直接Engine＋Sinkでも入力0Hz・0 frames・開始エラー-10851、標準input tapでは-10868となった。optionsだけの原因説とSinkだけの原因説は裏付けられず、AVAudioEngine入力の未成立を残す。証跡は`.validation/watch-native-engine-empty-options-20261101/`と`.validation/watch-native-input-tap-20261101/`。診断コードはsourceから撤去した。この区切り後、利用者から「Watchで録音したファイルを送るのではなく、iPhoneで録音する」と訂正された。次の必須項目はWatchマイクのlive音声を既存AudioDeviceでiPhone設定のAudioCheckへ届け、iPhone側で処理・録音し、Watchで再生すること。録音ファイル配送案は撤回し、その仮実装と専用REDテストを本体から除いた。Watch単体録音を通話streamやWatch会話E2Eの完了とは扱わない。
 
 ## iPhone設定の5秒録音と有限配送
 
