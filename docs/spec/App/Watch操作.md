@@ -13,6 +13,12 @@
 
 新しいwatchOS targetはiPhone依存の単一Appとし、最低OSは26.4。iPhone/macOSの最低OSは引き上げない。`WKApplication=true`、`WKCompanionAppBundleIdentifier=com.yowamushi-inc.RideIntercom.RideIntercom`、`WKRunsIndependentlyOfCompanionApp=false`。この制御機能のためにマイク、APNs、CarPlayのentitlementや外部登録を追加しない。
 
+## 音声接続時の要求と現行の境界
+
+Watchの音声経路は未実装であり、現行の遠隔操作の応答時間をWatch通話の遅延測定として扱わない。[製品要求](../../requirements/製品要求.md)では、iPhone経由の処理・複数段の通信により通常端末に少なくとも約100msを追加する見込みを許容している。通常端末と同じ約125msの総遅延基準は適用しない。100msは実測・固定下限・最大許容値のいずれでもなく、試作後に実際の追加量を測る。
+
+押している間だけ話すモードはこの利用体験に合わせるが、AppleのPush to Talk／CallKitへの統合は行わない。押下解除時にWatchの送話を閉じることと、既に送信済みの音声が通信・再生時間の後に相手へ届くことは区別する。古い解除要求や再接続による録音再開は許さない。codecはApple標準AACの成立性を先に確認し、未測定の電池優位を理由にOpusを既定にしない。
+
 ## 操作と状態の契約
 
 | 接続点 | 契約 |
