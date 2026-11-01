@@ -64,19 +64,14 @@ public final class SystemAudioSessionBackend: AudioSessionBackend, @unchecked Se
         #if os(iOS) || os(watchOS)
         if active {
             let generation = activationStateLock.withLock { activity.generation }
-            #if os(watchOS)
-            // watchOS authorizes the route asynchronously, including non-playback
-            // categories. Do not block while the system may present route UI.
+            // Native activation and deactivation may negotiate routes. Keep
+            // both asynchronous; the manager serializes their completion.
             let authorized = try await session.activate(options: [])
-            #else
-            try session.setActive(true)
-            let authorized = true
-            #endif
-            try Self.finishActivation(authorized: authorized,
+            try await Self.finishActivation(authorized: authorized,
                 isCurrent: { self.activationStateLock.withLock { self.activity.activate(ifUnchangedFrom: generation) } },
-                deactivate: { try self.session.setActive(false, options: .notifyOthersOnDeactivation) })
+                deactivate: { try await self.deactivateSession() })
         } else {
-            try session.setActive(false, options: .notifyOthersOnDeactivation)
+            try await deactivateSession()
             activationStateLock.withLock { activity.deactivate() }
         }
         #else
@@ -88,17 +83,27 @@ public final class SystemAudioSessionBackend: AudioSessionBackend, @unchecked Se
     // Called before the serialized backend operation finishes. If an old
     // authorization succeeded after an interruption/reset, undo its native
     // side effect before a subsequent request can activate another session.
-    static func finishActivation(authorized: Bool, isCurrent: () -> Bool, deactivate: () throws -> Void) throws {
+    @MainActor static func finishActivation(authorized: Bool, isCurrent: () -> Bool,
+                                           deactivate: () async throws -> Void) async throws {
         guard authorized else {
             throw NSError(domain: "SessionManager.AudioSession", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Audio session activation was not authorized"])
         }
         guard isCurrent() else {
-            try deactivate()
+            try await deactivate()
             throw NSError(domain: "SessionManager.AudioSession", code: 2,
                 userInfo: [NSLocalizedDescriptionKey: "Audio session was interrupted during activation"])
         }
     }
+
+    #if os(iOS) || os(watchOS)
+    @MainActor private func deactivateSession() async throws {
+        guard try await session.deactivate(options: .notifyOthersOnDeactivation) else {
+            throw NSError(domain: "SessionManager.AudioSession", code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "Audio session deactivation did not complete"])
+        }
+    }
+    #endif
 
     public func unsupportedSettings(in configuration: ResolvedAudioSessionConfiguration) -> [AudioSessionConfigurationSetting] {
         #if os(watchOS)
@@ -245,18 +250,19 @@ public final class SystemAudioSessionBackend: AudioSessionBackend, @unchecked Se
             object: nil, queue: .main) { [weak self] notification in
             self?.observeSessionChange(.routeChanged(Self.sessionRouteChangeReason(from: notification)))
         })
-        sessionObservers.append(notificationCenter.addObserver(forName: AVAudioSession.interruptionNotification,
+        sessionObservers.append(notificationCenter.addObserver(forName: AVAudioSession.didBecomeInactiveNotification,
             object: nil, queue: .main) { [weak self] notification in
-            guard let raw = (notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? NSNumber)?.uintValue,
-                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
-            switch type {
-            case .began: self?.observeSessionChange(.interruptionBegan)
-            case .ended:
-                let rawOptions = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? NSNumber)?.uintValue ?? 0
-                let resume = AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume)
-                self?.observeSessionChange(.interruptionEnded(shouldResume: resume))
-            @unknown default: break
-            }
+            let context = notification.userInfo?[AVAudioSession.deactivationContextKey] as? AVAudioSession.DeactivationContext
+            // An explicit stop is already owned by setActive(false). Do not
+            // report it as another interruption and trigger stop recursively.
+            guard context?.source != .app else { return }
+            self?.observeSessionChange(.interruptionBegan)
+        })
+        sessionObservers.append(notificationCenter.addObserver(forName: AVAudioSession.resumptionRecommendationNotification,
+            object: nil, queue: .main) { [weak self] notification in
+            let context = notification.userInfo?[AVAudioSession.resumptionContextKey] as? AVAudioSession.ResumptionContext
+            // A recommendation is not authorization to reopen the microphone.
+            self?.observeSessionChange(.interruptionEnded(shouldResume: context?.recommendation == .shouldResume))
         })
         sessionObservers.append(notificationCenter.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
             object: nil, queue: .main) { [weak self] _ in

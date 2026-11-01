@@ -9,6 +9,7 @@ import Foundation
 public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
     private let engine: AVAudioEngine
     public var renderingEngine: AVAudioEngine? { engine }
+    public var rendersToHardware: Bool { true }
     private let playerNode: AVAudioPlayerNode
     private var isGraphConfigured = false
     private var configuredHardwareFormat: AudioFormat?
@@ -55,26 +56,26 @@ public final class SystemAudioOutputStreamBackend: AudioOutputStreamBackend {
             avAudioFormat: engine.isInManualRenderingMode ? engine.manualRenderingFormat : engine.outputNode.outputFormat(forBus: 0),
             fallback: configuration.preferredFormat
         )
-        if !isGraphConfigured || configuredHardwareFormat != hardwareFormat {
-            if !engine.attachedNodes.contains(playerNode) {
-                engine.attach(playerNode)
-            }
-            guard let format = AVAudioFormat(audioFormat: hardwareFormat) else {
-                throw AudioStreamError.invalidFrame("failed to create output format")
-            }
-            engine.disconnectNodeOutput(playerNode)
-            engine.connect(playerNode, to: engine.mainMixerNode, fromBus: 0,
-                toBus: engine.mainMixerNode.nextAvailableInputBus, format: format)
-            isGraphConfigured = true
-            configuredHardwareFormat = hardwareFormat
-        }
-        engine.prepare()
         do {
+            if !isGraphConfigured || configuredHardwareFormat != hardwareFormat {
+                if !engine.attachedNodes.contains(playerNode) {
+                    engine.attach(playerNode)
+                }
+                guard let format = AVAudioFormat(audioFormat: hardwareFormat) else {
+                    throw AudioStreamError.invalidFrame("failed to create output format")
+                }
+                engine.disconnectNodeOutput(playerNode)
+                try engine.connectNode(playerNode, to: engine.mainMixerNode, fromBus: 0,
+                    toBus: engine.mainMixerNode.nextAvailableInputBus, format: format)
+                isGraphConfigured = true
+                configuredHardwareFormat = hardwareFormat
+            }
+            engine.prepare()
             if !engine.isRunning {
                 try engine.start()
             }
             if !playerNode.isPlaying {
-                playerNode.play()
+                try playerNode.playAudio(at: nil)
             }
         } catch {
             throw AudioStreamError.engineOperationFailed(error.localizedDescription)

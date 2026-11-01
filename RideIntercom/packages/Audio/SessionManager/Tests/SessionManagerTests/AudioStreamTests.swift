@@ -206,7 +206,7 @@ func inputCaptureRestartsWhenVoiceProcessingIOModeChanges(_ initiallyEnabled: Bo
     #expect(report.snapshot.isRunning == false)
 }
 
-@Test func outputRendererSchedulesOnlyHardwareFormatFrames() {
+@Test func outputRendererConvertsFramesToHardwareFormat() {
     let hardwareFormat = AudioFormat(sampleRate: 48_000, channelCount: 2)
     let backend = FakeOutputStreamBackend(actualHardwareFormat: hardwareFormat)
     let configuration = AudioOutputStreamConfiguration(
@@ -223,7 +223,7 @@ func inputCaptureRestartsWhenVoiceProcessingIOModeChanges(_ initiallyEnabled: Bo
         capturedAt: 10,
         samples: [0.2, -0.2]
     ))
-    let rejected = renderer.schedule(PCMFrame(
+    let converted = renderer.schedule(PCMFrame(
         sequenceNumber: 2,
         format: AudioFormat(sampleRate: 48_000, channelCount: 1),
         capturedAt: 10,
@@ -235,13 +235,10 @@ func inputCaptureRestartsWhenVoiceProcessingIOModeChanges(_ initiallyEnabled: Bo
     #expect(start.snapshot.actualHardwareFormat == hardwareFormat)
     #expect(scheduled.result == .applied)
     #expect(scheduled.snapshot.processedFrameCount == 1)
-    #expect(backend.scheduledFrames.map(\.sequenceNumber) == [1])
-    guard case .failed(.hardwareFormatMismatch(let expected, let actual)) = rejected.result else {
-        Issue.record("Expected hardware format mismatch")
-        return
-    }
-    #expect(expected == hardwareFormat)
-    #expect(actual == AudioFormat(sampleRate: 48_000, channelCount: 1))
+    #expect(converted.result == .applied)
+    #expect(backend.scheduledFrames.map(\.sequenceNumber) == [1, 2])
+    #expect(backend.scheduledFrames.last?.format == hardwareFormat)
+    #expect(backend.scheduledFrames.last?.samples == [0.4, 0.4])
     #expect(events.contains(.outputFrameScheduled(PCMFrame(
         sequenceNumber: 1,
         format: hardwareFormat,
@@ -251,6 +248,81 @@ func inputCaptureRestartsWhenVoiceProcessingIOModeChanges(_ initiallyEnabled: Bo
 }
 
 #if canImport(AVFAudio)
+@Test func outputPCMConversionPreservesClockAcrossBlockPartitions() throws {
+    let source = AudioFormat(sampleRate: 44_100, channelCount: 1)
+    let hardware = AudioFormat(sampleRate: 48_000, channelCount: 2)
+    let samples = (0..<4410).map { Float(sin(Double($0) * 0.04) * 0.2) }
+    func render(blocks: [Int]) throws -> [PCMFrame] {
+        let backend = FakeOutputStreamBackend(actualHardwareFormat: hardware)
+        let renderer = AudioOutputStreamRenderer(backend: backend)
+        #expect(renderer.start().result == .applied)
+        var position = 0, index = 0
+        while position < samples.count {
+            let count = min(blocks[index % blocks.count], samples.count - position)
+            let report = renderer.schedule(.init(sequenceNumber: UInt64(index), format: source,
+                capturedAt: 10 + Double(position) / source.sampleRate,
+                samples: Array(samples[position..<(position + count)])))
+            try #require(report.result == .applied)
+            position += count; index += 1
+        }
+        return backend.scheduledFrames
+    }
+    let whole = try render(blocks: [4410])
+    let split = try render(blocks: [1, 17, 128, 511, 37])
+    let expected = whole.flatMap(\.samples), actual = split.flatMap(\.samples)
+    #expect(abs(actual.count - expected.count) <= hardware.channelCount)
+    #expect(abs(actual.count / hardware.channelCount - 4800) < 128)
+    #expect(zip(actual, expected).allSatisfy { abs($0 - $1) < 0.00001 })
+    var emitted = 0
+    for frame in split {
+        #expect(frame.format == hardware)
+        #expect(abs(frame.capturedAt - (10 + Double(emitted) / hardware.sampleRate)) < 1e-9)
+        emitted += frame.frameCount
+    }
+}
+
+@Test func outputPCMConversionDiscardsHistoryOnStopAndFormatChange() throws {
+    let hardware = AudioFormat(sampleRate: 48_000, channelCount: 1)
+    let backend = FakeOutputStreamBackend(actualHardwareFormat: hardware)
+    let renderer = AudioOutputStreamRenderer(backend: backend)
+    #expect(renderer.start().result == .applied)
+    func frame(rate: Double, value: Float, time: Double) -> PCMFrame {
+        .init(sequenceNumber: 0, format: .init(sampleRate: rate, channelCount: 1),
+              capturedAt: time, samples: Array(repeating: value, count: 600))
+    }
+    #expect(renderer.schedule(frame(rate: 44_100, value: 0.2, time: 10)).result == .applied)
+    #expect(renderer.stop().result == .applied)
+    #expect(renderer.start().result == .applied)
+    let afterRestart = backend.scheduledFrames.count
+    #expect(renderer.schedule(frame(rate: 44_100, value: 0, time: 10 + 600.0 / 44_100)).result == .applied)
+    #expect(backend.scheduledFrames.dropFirst(afterRestart).flatMap(\.samples).allSatisfy { $0 == 0 })
+    #expect(renderer.schedule(frame(rate: 44_100, value: 0.2, time: 20)).result == .applied)
+    let afterChange = backend.scheduledFrames.count
+    #expect(renderer.schedule(frame(rate: 32_000, value: 0, time: 20 + 600.0 / 44_100)).result == .applied)
+    #expect(backend.scheduledFrames.dropFirst(afterChange).flatMap(\.samples).allSatisfy { $0 == 0 })
+}
+
+@Test func outputPCMConversionKeepsTheNativePlaybackBudget() throws {
+    let engine = AVAudioEngine()
+    let hardware = try #require(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+    try engine.enableManualRenderingMode(.offline, format: hardware, maximumFrameCount: 4800)
+    let renderer = AudioOutputStreamRenderer(configuration: .init(maximumBufferedDuration: 0.1), engine: engine)
+    try #require(renderer.start().result == .applied)
+    defer { _ = renderer.stop() }
+    for index in 0..<3 {
+        let report = renderer.schedule(.init(sequenceNumber: UInt64(index),
+            format: .init(sampleRate: 44_100, channelCount: 1), capturedAt: Double(index) * 0.08,
+            samples: Array(repeating: 0.2, count: 3528)))
+        #expect(report.result == .applied)
+    }
+    let oversized = renderer.schedule(.init(sequenceNumber: 3,
+        format: .init(sampleRate: 44_100, channelCount: 1), capturedAt: 0.24,
+        samples: Array(repeating: 0.2, count: 4411)))
+    #expect(oversized.result == .failed(.invalidFrame("Frame exceeds live playback budget")))
+    #expect(oversized.snapshot.playbackResetCount == 1)
+    #expect((oversized.snapshot.bufferedOutputDuration ?? 1) <= 0.081)
+}
+
 @Test func outputGraphUsesTheDeviceClockWithoutAnotherPCMQueue() throws {
     let engine = AVAudioEngine()
     let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
@@ -265,7 +337,7 @@ func inputCaptureRestartsWhenVoiceProcessingIOModeChanges(_ initiallyEnabled: Bo
         return noErr
     }
     engine.attach(source)
-    engine.connect(source, to: engine.mainMixerNode, format: format)
+    try engine.connectNode(source, to: engine.mainMixerNode, format: format)
     #expect(renderer.start().result == .applied)
     let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
     #expect(try engine.renderOffline(480, to: output) == .success)
@@ -595,14 +667,21 @@ final class OutputDeviceFormatTests: XCTestCase {
         let engine = AVAudioEngine()
         // Meter installation can materialize the mixer's provisional 44.1 kHz
         // graph before the device's final clock is negotiated at engine start.
-        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { _, _ in }
-        let backend = SystemAudioOutputStreamBackend(engine: engine)
+        try engine.mainMixerNode.installAudioTap(onBus: 0, bufferSize: 1024, format: nil) { _, _ in }
+        let player = AVAudioPlayerNode()
+        let backend = SystemAudioOutputStreamBackend(engine: engine, playerNode: player)
         defer { engine.mainMixerNode.removeTap(onBus: 0); try? backend.stopRendering() }
         let reported = try backend.startRendering(configuration: .init())
         let device = engine.outputNode.outputFormat(forBus: 0)
+        let playback = player.outputFormat(forBus: 0)
         XCTAssertEqual(reported.sampleRate, device.sampleRate)
-        XCTAssertEqual(reported.channelCount, Int(device.channelCount))
+        // Physical devices can expose more channels than the supported PCM
+        // stream. The player connection is the format callers must schedule.
+        XCTAssertEqual(reported.channelCount, Int(playback.channelCount))
+        XCTAssertEqual(reported.sampleRate, playback.sampleRate)
         XCTAssertEqual(engine.mainMixerNode.outputFormat(forBus: 0).sampleRate, device.sampleRate)
+        XCTAssertNoThrow(try backend.schedule(.init(sequenceNumber: 0, format: reported,
+            samples: Array(repeating: 0, count: 128 * reported.channelCount))))
     }
 }
 #endif

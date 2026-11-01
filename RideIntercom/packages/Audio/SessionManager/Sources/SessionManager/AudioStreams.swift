@@ -149,6 +149,9 @@ public extension AudioInputStreamBackend {
 }
 
 public protocol AudioOutputStreamBackend: AnyObject {
+    /// Whether the selected sink renders through its engine's physical output.
+    /// A remote device can share that engine's clock while keeping hardware silent.
+    var rendersToHardware: Bool { get }
     #if canImport(AVFAudio)
     /// Optional graph destination. A mixer on this engine renders directly on
     /// the output device clock instead of crossing a second PCM player queue.
@@ -162,6 +165,7 @@ public protocol AudioOutputStreamBackend: AnyObject {
 }
 
 public extension AudioOutputStreamBackend {
+    var rendersToHardware: Bool { false }
     #if canImport(AVFAudio)
     var renderingEngine: AVAudioEngine? { nil }
     #endif

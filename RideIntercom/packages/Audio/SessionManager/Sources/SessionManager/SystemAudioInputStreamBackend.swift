@@ -51,11 +51,13 @@ public final class SystemAudioInputStreamBackend: AudioInputStreamBackend {
             return noErr
         }
         engine.attach(sink)
-        engine.connect(inputNode, to: sink, fromBus: bus, toBus: 0, format: inputFormat)
+        // Register owned resources before the throwing connection, so cleanup
+        // detaches the sink even when native graph construction fails.
         captureNode = sink
         renderCapture = capture
-        engine.prepare()
         do {
+            try engine.connectNode(inputNode, to: sink, fromBus: bus, toBus: 0, format: inputFormat)
+            engine.prepare()
             try engine.start()
         } catch {
             try? stopCapture()

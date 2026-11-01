@@ -49,11 +49,11 @@ import Testing
     #expect(!resetActivation)
 }
 
-@Test func obsoleteNativeActivationIsDeactivatedBeforeReportingInterruption() {
+@Test @MainActor func obsoleteNativeActivationIsDeactivatedBeforeReportingInterruption() async {
     var nativeActive = true
     var cleanupCount = 0
-    #expect(throws: (any Error).self) {
-        try SystemAudioSessionBackend.finishActivation(authorized: true, isCurrent: { false }, deactivate: {
+    await #expect(throws: (any Error).self) {
+        try await SystemAudioSessionBackend.finishActivation(authorized: true, isCurrent: { false }, deactivate: {
             cleanupCount += 1
             nativeActive = false
         })
@@ -62,12 +62,33 @@ import Testing
     #expect(cleanupCount == 1)
 }
 
-@Test func obsoleteActivationDoesNotHideNativeDeactivationFailure() {
+@Test @MainActor func obsoleteActivationDoesNotHideNativeDeactivationFailure() async {
     let failure = AudioSessionManagerError.coreAudioOperationFailed("injected cleanup failure")
-    #expect(throws: failure) {
-        try SystemAudioSessionBackend.finishActivation(authorized: true, isCurrent: { false },
+    await #expect(throws: failure) {
+        try await SystemAudioSessionBackend.finishActivation(authorized: true, isCurrent: { false },
                                                        deactivate: { throw failure })
     }
+}
+
+@Test @MainActor func interruptedActivationAwaitsNativeCleanupWithoutBlockingTheActor() async {
+    let (cleanup, continuation) = AsyncStream<Void>.makeStream()
+    var enteredCleanup = false
+    var completed = false
+    let activation = Task { @MainActor in
+        await #expect(throws: (any Error).self) {
+            try await SystemAudioSessionBackend.finishActivation(authorized: true, isCurrent: { false }) {
+                enteredCleanup = true
+                for await _ in cleanup { break }
+            }
+        }
+        completed = true
+    }
+    while !enteredCleanup { await Task.yield() }
+    #expect(!completed)
+    continuation.yield(())
+    continuation.finish()
+    await activation.value
+    #expect(completed)
 }
 
 @Test func managerForwardsInterruptionAndResetWithoutRequestingActivation() throws {

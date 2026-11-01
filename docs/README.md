@@ -1,5 +1,7 @@
 # RideCom ドキュメント
 
+[音声デバイスpackageの検証](validation/history/音声デバイスpackageの検証.md)に、backend抽出とWatch Simulatorでの実行結果を記録する。
+
 [Xcode標準設定への復帰と一時領域の整理](validation/history/Xcode標準設定への復帰と一時領域の整理.md)に、独自採番・一時buildの廃止、指定先Widgetの照合、検証結果と未解決の警告、一時物の保全・削除を記録する。
 
 [Watch音声の下位基盤検証](validation/history/Watch音声の下位基盤検証.md)に、AAC・媒体pairの単独検証とMac／iOS App回帰、実Watch未接続の境界を記録する。
@@ -120,6 +122,7 @@
 | 文書 | 役割 / 表題 |
 |---|---|
 | [spec/packages/Audio/AudioCore.md](<spec/packages/Audio/AudioCore.md>) | AudioCore 仕様 |
+| [spec/packages/Audio/AudioDevice.md](<spec/packages/Audio/AudioDevice.md>) | 遠隔音声デバイスのbackend・AAC・媒体接続 |
 | [spec/packages/Audio/AudioMixer.md](<spec/packages/Audio/AudioMixer.md>) | AudioMixer 仕様 |
 | [spec/packages/Audio/Codec.md](<spec/packages/Audio/Codec.md>) | Codec 仕様 |
 | [spec/packages/Audio/Effectors/DynamicsProcessor.md](<spec/packages/Audio/Effectors/DynamicsProcessor.md>) | DynamicsProcessor 仕様 |
