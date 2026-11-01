@@ -13,15 +13,22 @@ final class AudioFrameDelivery {
     nonisolated var isActive: Bool { metrics.state.load(ordering: .acquiring) == 1 }
     nonisolated var droppedFrameCount: Int { metrics.dropped.load(ordering: .relaxed) }
 
-    init(initiallyActive: Bool = true, coalescesObservations: Bool = false, receive: @escaping @MainActor (PCMFrame) -> Void) {
-        metrics = AudioDeliveryMetrics(initiallyActive: initiallyActive, coalescesObservations: coalescesObservations)
-        let stream = AsyncStream<(PCMFrame, ContinuousClock.Instant)>.makeStream(bufferingPolicy: .bufferingNewest(coalescesObservations ? 1 : 32))
+    init(initiallyActive: Bool = true, coalescesObservations: Bool = false,
+         finiteRecordingDuration: TimeInterval? = nil, receive: @escaping @MainActor (PCMFrame) -> Void) {
+        precondition(finiteRecordingDuration.map { $0.isFinite && $0 > 0 && $0 <= 6 } ?? true)
+        precondition(finiteRecordingDuration == nil || !coalescesObservations)
+        metrics = AudioDeliveryMetrics(initiallyActive: initiallyActive, coalescesObservations: coalescesObservations,
+                                       finiteRecordingDuration: finiteRecordingDuration)
+        // The finite producer's sample budget, not the stream default, bounds retained audio to the recording or playback budget.
+        let policy: AsyncStream<(PCMFrame, ContinuousClock.Instant)>.Continuation.BufferingPolicy = finiteRecordingDuration == nil
+            ? .bufferingNewest(coalescesObservations ? 1 : 32) : .unbounded
+        let stream = AsyncStream<(PCMFrame, ContinuousClock.Instant)>.makeStream(bufferingPolicy: policy)
         continuation = stream.continuation
         let metrics = metrics
         task = Task {
             for await (frame, queuedAt) in stream.stream {
                 guard !Task.isCancelled, metrics.state.load(ordering: .acquiring) == 1 else { return }
-                if coalescesObservations || queuedAt.duration(to: .now) < .milliseconds(100) { receive(frame) }
+                if metrics.isFiniteRecording || coalescesObservations || queuedAt.duration(to: .now) < .milliseconds(100) { receive(frame) }
                 else { metrics.dropped.wrappingAdd(frame.frameCount, ordering: .relaxed) }
             }
         }
@@ -35,6 +42,10 @@ final class AudioFrameDelivery {
             guard now >= next,
                   metrics.nextObservation.compareExchange(expected: next, desired: now + 50_000_000,
                     ordering: .relaxed).exchanged else { return }
+        }
+        if metrics.isFiniteRecording {
+            metrics.yieldFinite(frame, to: continuation)
+            return
         }
         if case .dropped(let previous) = continuation.yield((frame, .now)), !metrics.coalescesObservations {
             metrics.dropped.wrappingAdd(previous.0.frameCount, ordering: .relaxed)
@@ -51,8 +62,43 @@ private nonisolated final class AudioDeliveryMetrics: Sendable {
     let state: Atomic<UInt8>
     let coalescesObservations: Bool
     let nextObservation = Atomic<UInt64>(0)
-    init(initiallyActive: Bool, coalescesObservations: Bool) {
+    let isFiniteRecording: Bool
+    private let finite: Mutex<FiniteBudget>
+
+    init(initiallyActive: Bool, coalescesObservations: Bool, finiteRecordingDuration: TimeInterval?) {
         state = Atomic(initiallyActive ? 1 : 0)
         self.coalescesObservations = coalescesObservations
+        isFiniteRecording = finiteRecordingDuration != nil
+        finite = Mutex(FiniteBudget(duration: finiteRecordingDuration ?? 0))
     }
+
+    func yieldFinite(_ frame: PCMFrame, to continuation: AsyncStream<(PCMFrame, ContinuousClock.Instant)>.Continuation) {
+        finite.withLock { budget in
+            guard frame.format.isValid, frame.capturedAt.isFinite,
+                  frame.samples.count.isMultiple(of: frame.format.channelCount), frame.frameCount > 0 else {
+                dropped.wrappingAdd(frame.frameCount, ordering: .relaxed); return
+            }
+            if let format = budget.format, format != frame.format {
+                dropped.wrappingAdd(frame.frameCount, ordering: .relaxed); return
+            }
+            if budget.format == nil {
+                budget.format = frame.format
+                budget.remaining = Int(frame.format.sampleRate * budget.duration)
+            }
+            let accepted = min(frame.frameCount, budget.remaining)
+            budget.remaining -= accepted
+            guard accepted > 0 else { return }
+            var value = frame
+            if accepted < frame.frameCount { value.samples = Array(frame.samples.prefix(accepted * frame.format.channelCount)) }
+            if case .dropped(let previous) = continuation.yield((value, .now)) {
+                dropped.wrappingAdd(previous.0.frameCount, ordering: .relaxed)
+            }
+        }
+    }
+}
+
+private struct FiniteBudget {
+    let duration: TimeInterval
+    var format: AudioFormat?
+    var remaining = 0
 }
