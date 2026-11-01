@@ -30,8 +30,8 @@ struct CallIntentLocalizationTests {
 
     @Test func intentErrorsExposeLocalizableResourcesIncludingSharedFailures() throws {
         let errors: [(any Error, String)] = [
-            (CallIntentError.unavailable("No recent call is available. Choose a saved user or group in RideIntercom."),
-             "最近の通話はありません。RideIntercomで保存済みのユーザーかグループを選んでください。"),
+            (CallIntentError.unavailable("No recent call is available. Choose a saved user or group in RideCom."),
+             "最近の通話はありません。RideComで保存済みのユーザーかグループを選んでください。"),
             (CallIntentError.unavailable("End the current call before starting a different call."),
              "別の通話を始める前に、現在の通話を終了してください。"),
             (CallIntentError.unavailable("Remove the previous account data on this device to set up your account again."),

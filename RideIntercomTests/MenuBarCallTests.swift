@@ -12,7 +12,7 @@ struct MenuBarCallTests {
         #expect(japanese.localizedString(forKey: "Mute", value: nil, table: nil) == "ミュート")
         #expect(japanese.localizedString(forKey: "Unmute", value: nil, table: nil) == "ミュートを解除")
         #expect(japanese.localizedString(forKey: "No active call", value: nil, table: nil) == "通話していません")
-        #expect(japanese.localizedString(forKey: "Open RideIntercom", value: nil, table: nil) == "RideIntercomを開く")
+        #expect(japanese.localizedString(forKey: "Open RideCom", value: nil, table: nil) == "RideComを開く")
     }
 
     @Test func preferenceDefaultsOffAndRoundTripsAlongsideOtherDisplayAndHistory() throws {

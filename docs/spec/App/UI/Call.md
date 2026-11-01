@@ -1,4 +1,4 @@
-# RideIntercom Call 画面項目
+# RideCom Call 画面項目
 
 ## 目的
 

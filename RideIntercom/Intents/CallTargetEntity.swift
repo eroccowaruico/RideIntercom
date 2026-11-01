@@ -39,7 +39,7 @@ extension AppCallOwner {
     func callModel() throws -> IntercomViewModel {
         guard let viewModel, !account.deletion.blocksSignIn, account.userID != nil,
               viewModel.accountUserID == account.userID, viewModel.accountAccessID == account.accessID else {
-            throw CallIntentError.unavailable(viewModel?.groupStorageNotice ?? "Sign in with Apple in RideIntercom first.")
+            throw CallIntentError.unavailable(viewModel?.groupStorageNotice ?? "Sign in with Apple in RideCom first.")
         }
         return viewModel
     }

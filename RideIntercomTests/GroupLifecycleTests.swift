@@ -57,7 +57,7 @@ struct GroupLifecycleTests {
             expected = "This invitation has expired. Ask the sender for a new invitation."
         case "version":
             object["version"] = 999
-            expected = "This invitation uses a different app version. Update RideIntercom and ask for a new invitation."
+            expected = "This invitation uses a different app version. Update RideCom and ask for a new invitation."
         default:
             object["signature"] = "invalid"
             expected = "This invitation could not be verified. Ask the sender for a new invitation."

@@ -41,7 +41,7 @@
 
 ## Background
 
-RideIntercom の音声経路では、送信と受信の両方で次の差分が同時に発生する。
+RideCom の音声経路では、送信と受信の両方で次の差分が同時に発生する。
 
 | 差分 | 発生元 | Mixerで吸収する理由 |
 |---|---|---|
@@ -199,7 +199,7 @@ external caller
 | `receiveMaster` | peer buses | master limiter | output sink |
 | `monitor` | capture bus or selected source | limiter | output sink |
 
-上表は RideIntercom の構成例である。別Appでは必要なbusだけを作る。`AudioMixer` は bus名に意味を持たず、snapshot ID として扱う。
+上表は RideCom の構成例である。別Appでは必要なbusだけを作る。`AudioMixer` は bus名に意味を持たず、snapshot ID として扱う。
 
 ## Public Contract
 

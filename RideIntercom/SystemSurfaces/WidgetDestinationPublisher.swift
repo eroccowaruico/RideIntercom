@@ -66,7 +66,7 @@ extension AppCallOwner {
     func startWidgetCall(id: String) throws {
         let vm = try callModel()
         guard let destination = callTargets.first(where: { $0.entity.id == id })?.destination else {
-            throw CallIntentError.unavailable("This call destination is no longer available. Choose a saved user or group in RideIntercom.")
+            throw CallIntentError.unavailable("This call destination is no longer available. Choose a saved user or group in RideCom.")
         }
         guard vm.startCall(to: destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false) else {
             throw CallIntentError.unavailable(vm.groupErrorMessage ?? "The call could not be started.")

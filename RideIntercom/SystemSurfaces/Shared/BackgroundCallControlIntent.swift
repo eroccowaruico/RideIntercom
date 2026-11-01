@@ -57,7 +57,7 @@ struct BackgroundCallControlIntent: AppIntent {
 nonisolated enum BackgroundCallSurfaceError: LocalizedError, CustomLocalizedStringResourceConvertible {
     case stale
     var localizedStringResource: LocalizedStringResource {
-        "The displayed call has ended or changed. Open RideIntercom to check your current call."
+        "The displayed call has ended or changed. Open RideCom to check your current call."
     }
     var errorDescription: String? { String(localized: localizedStringResource) }
 }

@@ -20,7 +20,7 @@ struct AccountDeletionView: View {
             if loaded {
                 if access != nil {
                     Section("Verify with Apple to delete") {
-                        Text("Continue with the same Apple Account to also remove its authorization for RideIntercom.")
+                        Text("Continue with the same Apple Account to also remove its authorization for RideCom.")
                         if let authorization { DeletionAppleVerification(authorization: authorization) }
                     }
                 } else {
@@ -37,7 +37,7 @@ struct AccountDeletionView: View {
                         }
                         .disabled(authorization?.isBusy == true)
                         .accessibilityIdentifier("deleteWithoutAppleButton")
-                        Text("Without verification, remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.").font(.footnote)
+                        Text("Without verification, remove RideCom from Sign in with Apple in your Apple Account settings yourself.").font(.footnote)
                     }
                 }
             }
@@ -115,7 +115,7 @@ struct AccountDeletionProgressView: View {
                     if deletion.record?.serverResult?.newerAccountPreserved == true {
                         Text("Your previous account is deleted. A newer account is registered with Apple; its registration and Apple authorization have been kept.")
                     } else if deletion.requiresManualAppleRemoval {
-                        Text("Apple authorization has not been removed. Open your Apple Account settings, choose Sign in with Apple, and remove RideIntercom.")
+                        Text("Apple authorization has not been removed. Open your Apple Account settings, choose Sign in with Apple, and remove RideCom.")
                         Link("Open Apple Account", destination: URL(string: "https://account.apple.com/")!)
                     }
                     Text("Copies on other devices and information already shared with friends remain. Purchases and subscriptions are not cancelled.")
@@ -146,7 +146,7 @@ struct AccountDeletionProgressView: View {
                 do { try deletion.replaceProof(nil); Task { await account.resumeDeletion() } }
                 catch { message = "Could not update the deletion request. Try again." }
             }
-        } message: { Text("You must remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.") }
+        } message: { Text("You must remove RideCom from Sign in with Apple in your Apple Account settings yourself.") }
         .accessibilityIdentifier("accountDeletionProgress")
     }
     private func prepareAuthorization() {

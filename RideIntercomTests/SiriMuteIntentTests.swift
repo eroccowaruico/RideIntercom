@@ -72,7 +72,7 @@ struct SiriMuteIntentTests {
             "Should the microphone be muted?": "マイクをミュートしますか？",
             "Microphone muted.": "マイクをミュートしました。",
             "Microphone unmuted.": "マイクのミュートを解除しました。",
-            "The microphone could not be changed. Open RideIntercom and try again.": "マイクの状態を変更できませんでした。RideIntercomを開いて、もう一度お試しください。"
+            "The microphone could not be changed. Open RideCom and try again.": "マイクの状態を変更できませんでした。RideComを開いて、もう一度お試しください。"
         ]
         for (key, value) in expected {
             #expect(try localized(.init(stringLiteral: key), language: "ja") == value)

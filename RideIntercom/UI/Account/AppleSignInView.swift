@@ -9,7 +9,7 @@ struct AppleSignInView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                Text("Welcome to RideIntercom")
+                Text("Welcome to RideCom")
                     .font(.largeTitle).fontWeight(.bold)
                     .accessibilityAddTraits(.isHeader)
                 Text("Sign in with Apple to call your friends. Your groups and saved users stay with your account on this device.")

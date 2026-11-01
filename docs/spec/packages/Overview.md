@@ -1,6 +1,6 @@
 # Package 統合仕様
 
-RideIntercom の package 群は、App の都合ではなく、音声、通信、OS差分、format差分をそれぞれの境界で吸収するための独立したライブラリとして設計する。
+RideCom の package 群は、App の都合ではなく、音声、通信、OS差分、format差分をそれぞれの境界で吸収するための独立したライブラリとして設計する。
 
 この文書は「全packageを同時に移植しなければならない」という仕様ではない。各packageは単独で移植できる。ここでは、複数packageを同じAppで使う場合の接続ルール、責務境界、エラー出力の扱いだけを定義する。
 
@@ -11,7 +11,7 @@ App は必要な package だけを組み合わせる。package 内の責務を A
 | 原則 | 仕様 |
 |---|---|
 | 単独移植 | 各packageは、そのpackageの `Package.swift` が宣言する依存だけで別Appへ移植できる |
-| 統合任意 | この文書の end-to-end flow は RideIntercom での組み合わせ例であり、全Appへの必須構成ではない |
+| 統合任意 | この文書の end-to-end flow は RideCom での組み合わせ例であり、全Appへの必須構成ではない |
 | 上位composition | package同士を直接循環依存させず、Appまたは上位層が接続する |
 | 共通語彙 | Audio系package間でPCMを渡す場合だけ `AudioCore` を共有語彙として使う |
 | 通信独立 | `RTC` は Audio package に依存せず、他Appでは通信package単体として使える |
@@ -84,7 +84,7 @@ flowchart LR
     App --> RTC
 ```
 
-この図は RideIntercom で全packageを使う場合の全体像である。各packageの移植条件は「移植単位」の表を優先する。
+この図は RideCom で全packageを使う場合の全体像である。各packageの移植条件は「移植単位」の表を優先する。
 
 ## Package 境界
 
@@ -128,7 +128,7 @@ flowchart TB
     end
 ```
 
-この flow は RideIntercom の通話実装で採用する接続例である。別Appで `Codec` だけ、`RTC` だけ、`AudioMixer` だけを使う場合、この flow 全体を再現する必要はない。
+この flow は RideCom の通話実装で採用する接続例である。別Appで `Codec` だけ、`RTC` だけ、`AudioMixer` だけを使う場合、この flow 全体を再現する必要はない。
 
 ## I/O とエラー出力の原則
 

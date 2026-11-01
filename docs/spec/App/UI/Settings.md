@@ -1,4 +1,4 @@
-# RideIntercom Settings 画面項目
+# RideCom Settings 画面項目
 
 ## 目的
 

@@ -133,7 +133,7 @@ Appleとのコード交換・取消の契約は[Token validation](https://develo
 
 | Method / path | 入力 | 結果 |
 |---|---|---|
-| GET `/health` | なし | service / protocol。SFUへの接続確認ではない |
+| GET `/health` | なし | `service="RideCom SFU"` / `protocol=1`。SFUへの接続確認ではない |
 | GET `/api/status` | Bearer | 月の予約参加者秒・上限・active数。試用資格保持者に公開 |
 | POST `R/join` | participantId、iceLeaseID、offer {type,sdp} | sessionId、expiresAt (Unix ms)、renewAfterSeconds、answer |
 | POST `R/sessions/{id}/publish` | `{}` | audio/control channel ID。ICE接続後、同じsessionで1回確保 |

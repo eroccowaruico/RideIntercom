@@ -1,6 +1,6 @@
 # PeakLimiter 仕様
 
-PeakLimiter は Apple 標準の `AUPeakLimiter` Audio Unit を、RideIntercom の音声パイプラインから再利用しやすい Swift Package として切り出したエフェクトライブラリである。
+PeakLimiter は Apple 標準の `AUPeakLimiter` Audio Unit を、RideCom の音声パイプラインから再利用しやすい Swift Package として切り出したエフェクトライブラリである。
 
 このライブラリはマイク入力、受信音声、ミキサー出力など任意の `AVAudioEngine` ノードチェーンに差し込めるピーク保護エフェクトだけを扱う。音声ルーティング、通信、コーデック、録音、再生デバイス制御は責務に含めない。
 

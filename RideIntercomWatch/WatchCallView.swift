@@ -52,7 +52,7 @@ struct WatchCallView: View {
                 }
                 Section { Text("Audio plays on iPhone or its headphones.").font(.footnote) }
             }
-            .navigationTitle("RideIntercom")
+            .navigationTitle("RideCom")
         }
     }
     private func notificationTitle(_ status: CallNotificationStatus) -> LocalizedStringKey {
@@ -67,7 +67,7 @@ struct WatchCallView: View {
     }
     private func stateTitle(_ state: WatchCallState) -> LocalizedStringKey {
         switch state {
-        case .signedOut: "Open RideIntercom on iPhone and sign in."
+        case .signedOut: "Open RideCom on iPhone and sign in."
         case .idle: "Choose a call"
         case .connecting: "Connecting — waiting for others"
         case .inCall: "In a call"
@@ -79,9 +79,9 @@ struct WatchCallView: View {
         switch problem {
         case .unavailable: "Could not reach iPhone. Try again."
         case .stale: "The call changed. Check the current call and try again."
-        case .noAccount: "Open RideIntercom on iPhone and sign in."
+        case .noAccount: "Open RideCom on iPhone and sign in."
         case .missingDestination: "This saved call destination is no longer available."
-        case .denied: "Open RideIntercom on iPhone to continue."
+        case .denied: "Open RideCom on iPhone to continue."
         }
     }
 }

@@ -1,4 +1,4 @@
-# RideIntercom Diagnostics 画面項目
+# RideCom Diagnostics 画面項目
 
 ## 表示実装の所有
 

@@ -215,7 +215,7 @@ extension IntercomViewModel {
                 case GroupInviteTokenError.expired:
                     groupErrorMessage = "This invitation has expired. Ask the sender for a new invitation."
                 case GroupInviteTokenError.unsupportedVersion:
-                    groupErrorMessage = "This invitation uses a different app version. Update RideIntercom and ask for a new invitation."
+                    groupErrorMessage = "This invitation uses a different app version. Update RideCom and ask for a new invitation."
                 case GroupInviteTokenError.invalidURL, GroupInviteTokenError.invalidTokenEncoding,
                      GroupInviteTokenError.invalidSignature:
                     groupErrorMessage = "This invitation could not be verified. Ask the sender for a new invitation."

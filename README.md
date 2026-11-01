@@ -1,4 +1,6 @@
-# RideIntercom
+# RideCom
+
+アプリケーション名はRideCom。署名・保存・通信・開発用の技術識別子の扱いは[開発環境](docs/development/開発環境.md#開く入口)を参照する。
 
 ## 開発を始める
 

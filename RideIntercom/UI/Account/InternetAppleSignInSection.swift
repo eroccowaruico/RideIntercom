@@ -32,7 +32,7 @@ struct InternetAppleSignInSection: View {
             }
             if let message { Text(LocalizedStringKey(message)).font(.callout).accessibilityIdentifier("internetAppleSignInStatus") }
         } header: { Text("Connect with Apple") }
-        footer: { Text("Use the same Apple Account as RideIntercom. Updating Internet access ends the current call. Nearby calling remains available if this service cannot be reached.") }
+        footer: { Text("Use the same Apple Account as RideCom. Updating Internet access ends the current call. Nearby calling remains available if this service cannot be reached.") }
         .onChange(of: workerURL) { authorization?.cancel(); authorization = nil; message = nil }
         .task { await viewModel.retryInternetAccountRevocation() }
         .onDisappear { authorization?.cancel() }

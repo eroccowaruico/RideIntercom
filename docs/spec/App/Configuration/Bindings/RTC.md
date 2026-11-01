@@ -2,7 +2,7 @@
 
 ## 目的
 
-本書は、現行のRideIntercom App が `RTC` package へ渡す固定値、導出値、runtime event / metrics の扱いを定義する。
+本書は、現行のRideCom App が `RTC` package へ渡す固定値、導出値、runtime event / metrics の扱いを定義する。
 
 画面から直接設定する値は `docs/spec/App/Configuration/設定値一覧.md` を正とし、本書では package adapter が決める値だけを扱う。
 

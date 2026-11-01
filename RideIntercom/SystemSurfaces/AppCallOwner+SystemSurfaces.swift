@@ -33,7 +33,7 @@ extension AppCallOwner {
         case .saved: try startWidgetCall(id: "")
         case .recent:
             guard let destination = vm.recentCallDestination else {
-                throw CallIntentError.unavailable("No recent call is available. Choose a saved user or group in RideIntercom.")
+                throw CallIntentError.unavailable("No recent call is available. Choose a saved user or group in RideCom.")
             }
             guard vm.startCall(to: destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false) else {
                 throw CallIntentError.unavailable(vm.groupErrorMessage ?? "The call could not be started.")
@@ -41,7 +41,7 @@ extension AppCallOwner {
         case .end:
             guard let reference, vm.endCall(.init(accountAccessID: reference.accountAccessID,
                 connectionGeneration: reference.connectionGeneration, groupID: reference.groupID)) else {
-                throw CallIntentError.unavailable("The displayed call has ended or changed. Open RideIntercom to check your current call.")
+                throw CallIntentError.unavailable("The displayed call has ended or changed. Open RideCom to check your current call.")
             }
         }
         callPresentationID = UUID()

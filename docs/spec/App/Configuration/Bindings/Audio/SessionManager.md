@@ -2,7 +2,7 @@
 
 ## 目的
 
-本書は、現行のRideIntercom App が `SessionManager` package へ渡す固定値、導出値、runtime report の扱いを定義する。
+本書は、現行のRideCom App が `SessionManager` package へ渡す固定値、導出値、runtime report の扱いを定義する。
 
 画面から直接設定する値は `docs/spec/App/Configuration/設定値一覧.md` を正とし、`SessionManager` の型、既定値、OS差分、operation report、runtime event は `docs/spec/packages/Audio/SessionManager.md` を正とする。
 

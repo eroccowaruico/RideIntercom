@@ -204,7 +204,7 @@ flowchart LR
 | bit rate | codec option と encoded metadata に保持する | 通信上の希望や制約として運ぶ |
 | drop判断 | decode失敗を `CodecError` として返す | unsupported codec、duplicate、expired、decrypt failure を扱う |
 
-RideIntercomのLocal / Internet / 中継は同じ符号化済みpacket経路を使い、このpackageでencode / decodeする。WebRTC DataChannelはcodec payloadを解釈しない。
+RideComのLocal / Internet / 中継は同じ符号化済みpacket経路を使い、このpackageでencode / decodeする。WebRTC DataChannelはcodec payloadを解釈しない。
 
 ## Error I/O
 

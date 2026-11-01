@@ -75,7 +75,7 @@ struct OpenCallsControl: ControlWidget {
             ControlWidgetButton(action: OpenCallControlIntent(action: .calls)) {
                 Label("Choose a call", systemImage: "phone")
             }
-        }.displayName("Choose a call").description("Open the call screen in RideIntercom.")
+        }.displayName("Choose a call").description("Open the call screen in RideCom.")
     }
 }
 struct RecentCallControl: ControlWidget {
@@ -84,7 +84,7 @@ struct RecentCallControl: ControlWidget {
             ControlWidgetButton(action: OpenCallControlIntent(action: .recent)) {
                 Label("Resume recent call", systemImage: "arrow.clockwise")
             }
-        }.displayName("Resume recent call").description("Open RideIntercom and connect to your recent call.")
+        }.displayName("Resume recent call").description("Open RideCom and connect to your recent call.")
     }
 }
 #endif

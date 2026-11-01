@@ -7,8 +7,8 @@ struct CallInvitationButton: View {
 
     var body: some View {
         ShareLink(item: GroupInvitationShare(viewModel: viewModel, groupID: group.id),
-                  subject: Text("RideIntercom Invite"),
-                  message: Text("Join me for a call on RideIntercom."),
+                  subject: Text("RideCom Invite"),
+                  message: Text("Join me for a call on RideCom."),
                   preview: SharePreview(Text(viewModel.callTitle(for: group)))) {
             Label(LocalizedStringKey(group.kind == .direct ? "Share Call Invite" : "Invite"), systemImage: "square.and.arrow.up")
         }

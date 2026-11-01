@@ -27,7 +27,7 @@ struct SelectedCallWidget: Widget {
         AppIntentConfiguration(kind: "RideIntercom.SelectedCall", intent: SelectWidgetCallDestination.self,
             provider: SelectedCallProvider()) { entry in
             VStack(alignment: .leading, spacing: 8) {
-                Text("RideIntercom").font(.headline)
+                Text("RideCom").font(.headline)
                 if #available(iOS 27.0, macOS 27.0, *), let call = entry.currentCall {
                     BackgroundWidgetCallButtons(call: call)
                 } else if let destination = entry.destination {

@@ -83,7 +83,7 @@ final class AppCallOwner: CallSurfaceActions {
         }
         guard !account.storageUnavailable, !account.deletion.blocksSignIn, !account.isSigningIn,
               let userID = account.userID else {
-            throw CallIntentError.unavailable(account.message ?? "Sign in with Apple in RideIntercom first.")
+            throw CallIntentError.unavailable(account.message ?? "Sign in with Apple in RideCom first.")
         }
         let accessID = account.accessID
         synchronizeAccountModel()
@@ -95,10 +95,10 @@ final class AppCallOwner: CallSurfaceActions {
             throw CallIntentError.unavailable("This sign-in has ended. Open your current account to continue.")
         }
         guard viewModel === model, model.currentCallReference == reference else {
-            throw CallIntentError.unavailable("The displayed call has ended or changed. Open RideIntercom to check your current call.")
+            throw CallIntentError.unavailable("The displayed call has ended or changed. Open RideCom to check your current call.")
         }
         guard model.canStartCalls else {
-            throw CallIntentError.unavailable(model.groupStorageNotice ?? "Sign in with Apple in RideIntercom first.")
+            throw CallIntentError.unavailable(model.groupStorageNotice ?? "Sign in with Apple in RideCom first.")
         }
         if model.groupStorageIssue == .unavailable, model.activeGroupID == nil { model.reloadSavedGroups() }
     }

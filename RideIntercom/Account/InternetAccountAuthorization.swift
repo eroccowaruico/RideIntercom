@@ -202,7 +202,7 @@ final class InternetAccountAuthorization {
     func exchange(userID: String, state: String?, identityToken: Data) async {
         guard let expectedState = self.state, state == expectedState, userID == expectedUserID,
               currentUser() == expectedUserID, let challenge, let origin else {
-            cancel(); message = "Use the Apple Account currently signed in to RideIntercom."; return
+            cancel(); message = "Use the Apple Account currently signed in to RideCom."; return
         }
         self.state = nil; self.challenge = nil
         let operation = generation
@@ -234,7 +234,7 @@ final class InternetAccountAuthorization {
         case InternetAccountClient.Failure.deletionPending:
             return "Account deletion is still pending. Finish deletion on the device where you started it, then set up Internet calling again."
         case InternetAccountClient.Failure.deviceLimitReached:
-            return "This account has 8 registered devices. Sign out of RideIntercom on another device, then set up Internet calling again."
+            return "This account has 8 registered devices. Sign out of RideCom on another device, then set up Internet calling again."
         default: return fallback
         }
     }

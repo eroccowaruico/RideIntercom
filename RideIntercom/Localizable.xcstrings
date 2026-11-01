@@ -56,13 +56,13 @@
         }
       }
     },
-    "This invitation uses a different app version. Update RideIntercom and ask for a new invitation.": {
+    "This invitation uses a different app version. Update RideCom and ask for a new invitation.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この招待はアプリのバージョンに対応していません。RideIntercomを更新し、新しい招待を依頼してください。"
+            "value": "この招待はアプリのバージョンに対応していません。RideComを更新し、新しい招待を依頼してください。"
           }
         }
       }
@@ -378,18 +378,18 @@
         }
       }
     },
-    "The microphone could not be changed. Open RideIntercom and try again.": {
+    "The microphone could not be changed. Open RideCom and try again.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The microphone could not be changed. Open RideIntercom and try again."
+            "value": "The microphone could not be changed. Open RideCom and try again."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "マイクの状態を変更できませんでした。RideIntercomを開いて、もう一度お試しください。"
+            "value": "マイクの状態を変更できませんでした。RideComを開いて、もう一度お試しください。"
           }
         }
       }
@@ -596,13 +596,13 @@
         }
       }
     },
-    "Apple authorization has not been removed. Open your Apple Account settings, choose Sign in with Apple, and remove RideIntercom.": {
+    "Apple authorization has not been removed. Open your Apple Account settings, choose Sign in with Apple, and remove RideCom.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appleの連携解除は完了していません。Appleアカウント設定の「Appleでサインイン」からRideIntercomを削除してください。"
+            "value": "Appleの連携解除は完了していません。Appleアカウント設定の「Appleでサインイン」からRideComを削除してください。"
           }
         }
       }
@@ -1066,12 +1066,12 @@
         }
       }
     },
-    "Connect to a saved user or group in RideIntercom.": {
+    "Connect to a saved user or group in RideCom.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomに保存したユーザーやグループへ接続します。"
+            "value": "RideComに保存したユーザーやグループへ接続します。"
           }
         }
       }
@@ -1130,13 +1130,13 @@
         }
       }
     },
-    "Continue with the same Apple Account to also remove its authorization for RideIntercom.": {
+    "Continue with the same Apple Account to also remove its authorization for RideCom.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "同じApple Accountで続けると、RideIntercomへの認可も取り消します。"
+            "value": "同じApple Accountで続けると、RideComへの認可も取り消します。"
           }
         }
       }
@@ -1743,13 +1743,13 @@
         }
       }
     },
-    "Join me for a call on RideIntercom.": {
+    "Join me for a call on RideCom.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomで一緒に通話しましょう。"
+            "value": "RideComで一緒に通話しましょう。"
           }
         }
       }
@@ -1958,12 +1958,12 @@
         }
       }
     },
-    "No recent call is available. Choose a saved user or group in RideIntercom.": {
+    "No recent call is available. Choose a saved user or group in RideCom.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "最近の通話はありません。RideIntercomで保存済みのユーザーかグループを選んでください。"
+            "value": "最近の通話はありません。RideComで保存済みのユーザーかグループを選んでください。"
           }
         }
       }
@@ -2418,13 +2418,13 @@
         }
       }
     },
-    "RideIntercom Invite": {
+    "RideCom Invite": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomへの招待"
+            "value": "RideComへの招待"
           }
         }
       }
@@ -2658,12 +2658,12 @@
         }
       }
     },
-    "Sign in with Apple in RideIntercom first.": {
+    "Sign in with Apple in RideCom first.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "先にRideIntercomでAppleにサインインしてください。"
+            "value": "先にRideComでAppleにサインインしてください。"
           }
         }
       }
@@ -2884,13 +2884,13 @@
         }
       }
     },
-    "This account has 8 registered devices. Sign out of RideIntercom on another device, then set up Internet calling again.": {
+    "This account has 8 registered devices. Sign out of RideCom on another device, then set up Internet calling again.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このアカウントには8台の端末が登録されています。別の端末でRideIntercomからサインアウトしてから、もう一度設定してください。"
+            "value": "このアカウントには8台の端末が登録されています。別の端末でRideComからサインアウトしてから、もう一度設定してください。"
           }
         }
       }
@@ -2994,12 +2994,12 @@
         }
       }
     },
-    "This saved call destination is no longer available. Choose it again in RideIntercom.": {
+    "This saved call destination is no longer available. Choose it again in RideCom.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この通話先は利用できなくなりました。RideIntercomでもう一度選んでください。"
+            "value": "この通話先は利用できなくなりました。RideComでもう一度選んでください。"
           }
         }
       }
@@ -3133,24 +3133,24 @@
         }
       }
     },
-    "Use the Apple Account currently signed in to RideIntercom.": {
+    "Use the Apple Account currently signed in to RideCom.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomにログイン中のAppleアカウントを使ってください。"
+            "value": "RideComにログイン中のAppleアカウントを使ってください。"
           }
         }
       }
     },
-    "Use the same Apple Account as RideIntercom. Updating Internet access ends the current call. Nearby calling remains available if this service cannot be reached.": {
+    "Use the same Apple Account as RideCom. Updating Internet access ends the current call. Nearby calling remains available if this service cannot be reached.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomと同じApple Accountを使ってください。Internet接続を更新すると現在の通話を終了します。サービスにつながらない場合も近距離通話は利用できます。"
+            "value": "RideComと同じApple Accountを使ってください。Internet接続を更新すると現在の通話を終了します。サービスにつながらない場合も近距離通話は利用できます。"
           }
         }
       }
@@ -3307,24 +3307,24 @@
         }
       }
     },
-    "Welcome to RideIntercom": {
+    "Welcome to RideCom": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomへようこそ"
+            "value": "RideComへようこそ"
           }
         }
       }
     },
-    "Without verification, remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.": {
+    "Without verification, remove RideCom from Sign in with Apple in your Apple Account settings yourself.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appleで確認しない場合は、Apple Accountの設定にある「Appleでサインイン」からRideIntercomをご自身で削除してください。"
+            "value": "Appleで確認しない場合は、Apple Accountの設定にある「Appleでサインイン」からRideComをご自身で削除してください。"
           }
         }
       }
@@ -3362,13 +3362,13 @@
         }
       }
     },
-    "You must remove RideIntercom from Sign in with Apple in your Apple Account settings yourself.": {
+    "You must remove RideCom from Sign in with Apple in your Apple Account settings yourself.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appleアカウント設定の「Appleでサインイン」から、ご自身でRideIntercomを削除してください。"
+            "value": "Appleアカウント設定の「Appleでサインイン」から、ご自身でRideComを削除してください。"
           }
         }
       }
@@ -3616,53 +3616,53 @@
         }
       }
     },
-    "Open RideIntercom or resume your recent call.": {
+    "Open RideCom or resume your recent call.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open RideIntercom or resume your recent call."
+            "value": "Open RideCom or resume your recent call."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomを開くか、直近の通話を再開します。"
+            "value": "RideComを開くか、直近の通話を再開します。"
           }
         }
       }
     },
-    "Open the call screen in RideIntercom.": {
+    "Open the call screen in RideCom.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open the call screen in RideIntercom."
+            "value": "Open the call screen in RideCom."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomの通話画面を開きます。"
+            "value": "RideComの通話画面を開きます。"
           }
         }
       }
     },
-    "Open RideIntercom and connect to your recent call.": {
+    "Open RideCom and connect to your recent call.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open RideIntercom and connect to your recent call."
+            "value": "Open RideCom and connect to your recent call."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomを開いて、直近の通話先に接続します。"
+            "value": "RideComを開いて、直近の通話先に接続します。"
           }
         }
       }
@@ -3684,19 +3684,19 @@
         }
       }
     },
-    "RideIntercom call": {
+    "RideCom call": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercom call"
+            "value": "RideCom call"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomの通話"
+            "value": "RideComの通話"
           }
         }
       }
@@ -3769,19 +3769,19 @@
         }
       }
     },
-    "The displayed call has ended or changed. Open RideIntercom to check your current call.": {
+    "The displayed call has ended or changed. Open RideCom to check your current call.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The displayed call has ended or changed. Open RideIntercom to check your current call."
+            "value": "The displayed call has ended or changed. Open RideCom to check your current call."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "表示していた通話は終了したか、別の通話に変わりました。RideIntercomを開いて現在の通話を確認してください。"
+            "value": "表示していた通話は終了したか、別の通話に変わりました。RideComを開いて現在の通話を確認してください。"
           }
         }
       }
@@ -3955,19 +3955,19 @@
         }
       }
     },
-    "This call destination is no longer available. Choose a saved user or group in RideIntercom.": {
+    "This call destination is no longer available. Choose a saved user or group in RideCom.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This call destination is no longer available. Choose a saved user or group in RideIntercom."
+            "value": "This call destination is no longer available. Choose a saved user or group in RideCom."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この通話先は利用できません。RideIntercomで保存済みユーザーまたはグループを選んでください。"
+            "value": "この通話先は利用できません。RideComで保存済みユーザーまたはグループを選んでください。"
           }
         }
       }
@@ -4023,19 +4023,19 @@
         }
       }
     },
-    "Open RideIntercom": {
+    "Open RideCom": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open RideIntercom"
+            "value": "Open RideCom"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomを開く"
+            "value": "RideComを開く"
           }
         }
       }
@@ -4457,13 +4457,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open RideIntercom to respond to a call request."
+            "value": "Open RideCom to respond to a call request."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "RideIntercomを開いて通話の呼び出しに応答してください。"
+            "value": "RideComを開いて通話の呼び出しに応答してください。"
           }
         }
       }

@@ -2,7 +2,7 @@ import AuthenticationServices
 import Foundation
 import Observation
 
-/// Fresh Apple proof for deletion; no new RideIntercom session is registered.
+/// Fresh Apple proof for deletion; no new RideCom session is registered.
 @MainActor @Observable
 final class AccountDeletionAuthorization {
     private(set) var isBusy = false

@@ -2,9 +2,9 @@
 
 ## 目的
 
-RideIntercomで使用するnative WebRTC SDKの `WebRTC.xcframework` を、`webrtc.googlesource.com/src` から自前ビルドするためのスクリプト群を定義する。
+RideComで使用するnative WebRTC SDKの `WebRTC.xcframework` を、`webrtc.googlesource.com/src` から自前ビルドするためのスクリプト群を定義する。
 
-WebRTC本体とChromium依存ソースは巨大なため、RideIntercom repositoryには含めない。checkout、build output、SwiftPM artifactは明確に分離し、検証済みの `WebRTC.xcframework` またはzipだけをbinary targetの入力として扱う。
+WebRTC本体とChromium依存ソースは巨大なため、`RideIntercom` repositoryには含めない。checkout、build output、SwiftPM artifactは明確に分離し、検証済みの `WebRTC.xcframework` またはzipだけをbinary targetの入力として扱う。
 
 ## スクリプト一覧
 
@@ -26,7 +26,7 @@ WebRTC本体とChromium依存ソースは巨大なため、RideIntercom reposito
 |---|---|---|
 | depot_tools | `../depot_tools` | repository親ディレクトリから見た既定位置。`fetch`、`gclient`、`gn`、`ninja` を提供する |
 | WebRTC build root | `../webrtc-build` | repository親ディレクトリから見た既定位置。WebRTC source checkoutとbuild outputを置く |
-| RideIntercom repository | current directory | スクリプトと仕様ドキュメントだけを置く |
+| `RideIntercom` repository | current directory | スクリプトと仕様ドキュメントだけを置く |
 | Xcode | `xcode-select -p` | 必要な場合だけ `DEVELOPER_DIR` で上書きする |
 
 ## 通常運用

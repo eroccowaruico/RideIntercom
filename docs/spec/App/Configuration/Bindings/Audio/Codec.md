@@ -2,7 +2,7 @@
 
 ## 目的
 
-本書は、現行のRideIntercom App が `Codec` package へ渡す画面設定値、導出値、fallback の扱いを定義する。
+本書は、現行のRideCom App が `Codec` package へ渡す画面設定値、導出値、fallback の扱いを定義する。
 
 画面から直接設定する値は `docs/spec/App/Configuration/設定値一覧.md` を正とし、本書ではそれを `CodecEncodingConfiguration` と `RTCAudioPolicy` へ渡す方法を扱う。
 

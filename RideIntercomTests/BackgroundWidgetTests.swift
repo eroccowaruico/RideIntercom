@@ -11,7 +11,7 @@ struct BackgroundWidgetTests {
         #expect(try localized(BackgroundCallControlIntent.title, language: "ja") == "通話の操作")
         #expect(try localized(BackgroundCallControlIntent.title, language: "en") == "Call controls")
         #expect(try localized(BackgroundCallSurfaceError.stale.localizedStringResource, language: "ja")
-            == "表示していた通話は終了したか、別の通話に変わりました。RideIntercomを開いて現在の通話を確認してください。")
+            == "表示していた通話は終了したか、別の通話に変わりました。RideComを開いて現在の通話を確認してください。")
     }
 
     @Test func backgroundIntentTargetsTheAppWithoutRequiringAnUnlock() {

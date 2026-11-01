@@ -1,4 +1,4 @@
-# RideIntercom ドキュメント
+# RideCom ドキュメント
 
 [Watch音声の下位基盤検証](validation/history/Watch音声の下位基盤検証.md)に、AAC・媒体pairの単独検証とMac／iOS App回帰、実Watch未接続の境界を記録する。
 
@@ -93,25 +93,25 @@
 | [spec/App/Configuration/Bindings/Audio/Effectors/VADGate.md](<spec/App/Configuration/Bindings/Audio/Effectors/VADGate.md>) | VADGate package 設定値 |
 | [spec/App/Configuration/Bindings/Audio/SessionManager.md](<spec/App/Configuration/Bindings/Audio/SessionManager.md>) | SessionManager package 設定値 |
 | [spec/App/Configuration/Bindings/RTC.md](<spec/App/Configuration/Bindings/RTC.md>) | RTC package 設定値 |
-| [spec/App/Configuration/設定値一覧.md](<spec/App/Configuration/設定値一覧.md>) | RideIntercom App 設定値一覧 |
-| [spec/App/UI/Call.md](<spec/App/UI/Call.md>) | RideIntercom Call 画面項目 |
-| [spec/App/UI/Diagnostics.md](<spec/App/UI/Diagnostics.md>) | RideIntercom Diagnostics 画面項目 |
-| [spec/App/UI/Settings.md](<spec/App/UI/Settings.md>) | RideIntercom Settings 画面項目 |
-| [spec/App/UI/アイコン適用.md](<spec/App/UI/アイコン適用.md>) | RideIntercom UI アイコン適用 |
-| [spec/App/UI/全体構成.md](<spec/App/UI/全体構成.md>) | RideIntercom UI 全体構成 |
-| [spec/App/UI/共通画面遷移.md](<spec/App/UI/共通画面遷移.md>) | RideIntercom 共通画面遷移 |
-| [spec/App/UI/共通項目.md](<spec/App/UI/共通項目.md>) | RideIntercom UI 共通項目 |
-| [spec/App/UI/画面・状態遷移.md](<spec/App/UI/画面・状態遷移.md>) | RideIntercom 画面・状態遷移 |
-| [spec/App/UI/画面項目定義.md](<spec/App/UI/画面項目定義.md>) | RideIntercom 画面項目定義 |
+| [spec/App/Configuration/設定値一覧.md](<spec/App/Configuration/設定値一覧.md>) | RideCom App 設定値一覧 |
+| [spec/App/UI/Call.md](<spec/App/UI/Call.md>) | RideCom Call 画面項目 |
+| [spec/App/UI/Diagnostics.md](<spec/App/UI/Diagnostics.md>) | RideCom Diagnostics 画面項目 |
+| [spec/App/UI/Settings.md](<spec/App/UI/Settings.md>) | RideCom Settings 画面項目 |
+| [spec/App/UI/アイコン適用.md](<spec/App/UI/アイコン適用.md>) | RideCom UI アイコン適用 |
+| [spec/App/UI/全体構成.md](<spec/App/UI/全体構成.md>) | RideCom UI 全体構成 |
+| [spec/App/UI/共通画面遷移.md](<spec/App/UI/共通画面遷移.md>) | RideCom 共通画面遷移 |
+| [spec/App/UI/共通項目.md](<spec/App/UI/共通項目.md>) | RideCom UI 共通項目 |
+| [spec/App/UI/画面・状態遷移.md](<spec/App/UI/画面・状態遷移.md>) | RideCom 画面・状態遷移 |
+| [spec/App/UI/画面項目定義.md](<spec/App/UI/画面項目定義.md>) | RideCom 画面項目定義 |
 | [spec/App/Watch操作.md](<spec/App/Watch操作.md>) | iPhone依存Watchの操作と状態・音声の未実装境界 |
 | [spec/App/通知仕様.md](<spec/App/通知仕様.md>) | 通常通知の許可・直接相手のgrant・tapから共通通話操作への接続 |
 | [spec/App/システム表示と通話操作.md](<spec/App/システム表示と通話操作.md>) | Widget・Control・任意のLive Activity・Macメニューと共通通話操作 |
 | [spec/App/利用権仕様.md](<spec/App/利用権仕様.md>) | StoreKitの読取・期限・復元・ログイン寿命 |
 | [spec/App/配布環境の利用権仕様.md](<spec/App/配布環境の利用権仕様.md>) | 配布環境の利用権仕様 |
-| [spec/App/ログ仕様.md](<spec/App/ログ仕様.md>) | RideIntercom App ログ仕様 |
+| [spec/App/ログ仕様.md](<spec/App/ログ仕様.md>) | RideCom App ログ仕様 |
 | [spec/App/通話利用権仕様.md](<spec/App/通話利用権仕様.md>) | 共通操作・媒体許可・24時間起算点 |
-| [spec/App/通信仕様.md](<spec/App/通信仕様.md>) | RideIntercom App 通信仕様 |
-| [spec/App/音声処理仕様.md](<spec/App/音声処理仕様.md>) | RideIntercom App 音声処理仕様 |
+| [spec/App/通信仕様.md](<spec/App/通信仕様.md>) | RideCom App 通信仕様 |
+| [spec/App/音声処理仕様.md](<spec/App/音声処理仕様.md>) | RideCom App 音声処理仕様 |
 
 ### パッケージ仕様
 
@@ -201,5 +201,5 @@
 
 | 文書 | 役割 / 表題 |
 |---|---|
-| [design/アイコン定義.md](<design/アイコン定義.md>) | RideIntercom アイコン定義（SF Symbols） |
-| [design/デザインシステム.md](<design/デザインシステム.md>) | RideIntercom デザインシステム |
+| [design/アイコン定義.md](<design/アイコン定義.md>) | RideCom アイコン定義（SF Symbols） |
+| [design/デザインシステム.md](<design/デザインシステム.md>) | RideCom デザインシステム |

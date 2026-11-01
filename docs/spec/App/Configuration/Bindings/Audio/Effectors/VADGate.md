@@ -2,7 +2,7 @@
 
 ## 目的
 
-本書は RideIntercom App が `VADGate` package へ渡す設定値を定義する。
+本書は RideCom App が `VADGate` package へ渡す設定値を定義する。
 
 画面から直接設定する値は `docs/spec/App/Configuration/設定値一覧.md` を正とし、本書では固定値、導出値、package adapter が決める値だけを扱う。
 

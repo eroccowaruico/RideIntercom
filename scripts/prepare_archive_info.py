@@ -132,12 +132,12 @@ def prepare(env):
     # Each build has its own DerivedSources; a parallel Archive cannot change this number.
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(plistlib.dumps(info, sort_keys=False))
-    print(f'RideIntercom {env["ACTION"]}: {"reserved" if reserves else "prepared"} build {number}')
+    print(f'RideCom {env["ACTION"]}: {"reserved" if reserves else "prepared"} build {number}')
 
 
 if __name__ == '__main__':
     try:
         prepare(os.environ)
     except (OSError, ValueError, KeyError, plistlib.InvalidFileException) as error:
-        print(f'error: Cannot prepare RideIntercom build metadata: {error}', file=sys.stderr)
+        print(f'error: Cannot prepare RideCom build metadata: {error}', file=sys.stderr)
         sys.exit(1)

@@ -28,7 +28,7 @@ struct MenuBarCallView: View {
                 .accessibilityIdentifier("menuBarCallStatus")
         }
         Divider()
-        Button("Open RideIntercom") {
+        Button("Open RideCom") {
             owner.callPresentationID = UUID()
             openWindow(id: SingleWindowPolicy.mainWindowID)
             NSApp.activate(ignoringOtherApps: true)

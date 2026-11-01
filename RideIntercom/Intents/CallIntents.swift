@@ -3,7 +3,7 @@ import Foundation
 
 struct StartSavedCallIntent: AppIntent {
     static let title: LocalizedStringResource = "Start a call"
-    static let description = IntentDescription("Connect to a saved user or group in RideIntercom.")
+    static let description = IntentDescription("Connect to a saved user or group in RideCom.")
     static let supportedModes: IntentModes = .foreground(.immediate)
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     @Parameter(title: "Call destination") var target: CallTargetEntity
@@ -15,7 +15,7 @@ struct StartSavedCallIntent: AppIntent {
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
         let vm = try owner.callModel()
         guard let destination = owner.callTargets.first(where: { $0.entity.id == target.id })?.destination else {
-            throw CallIntentError.unavailable("This saved call destination is no longer available. Choose it again in RideIntercom.")
+            throw CallIntentError.unavailable("This saved call destination is no longer available. Choose it again in RideCom.")
         }
         guard vm.startCall(to: destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false) else {
             throw CallIntentError.unavailable(vm.groupErrorMessage ?? "The call could not be started.")
@@ -34,7 +34,7 @@ struct StartRecentCallIntent: AppIntent {
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
         let vm = try owner.callModel()
         guard let destination = vm.recentCallDestination else {
-            throw CallIntentError.unavailable("No recent call is available. Choose a saved user or group in RideIntercom.")
+            throw CallIntentError.unavailable("No recent call is available. Choose a saved user or group in RideCom.")
         }
         guard vm.startCall(to: destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false) else {
             throw CallIntentError.unavailable(vm.groupErrorMessage ?? "The call could not be started.")
@@ -73,7 +73,7 @@ struct SetCallMutedIntent: AppIntent {
         let vm = try owner.callModel()
         let reference = vm.currentCallReference
         guard vm.setCallMuted(muted, for: reference) else {
-            throw CallIntentError.unavailable(vm.groupStorageNotice ?? "The microphone could not be changed. Open RideIntercom and try again.")
+            throw CallIntentError.unavailable(vm.groupStorageNotice ?? "The microphone could not be changed. Open RideCom and try again.")
         }
         owner.callPresentationID = UUID()
         if muted { return .result(dialog: "Microphone muted.") }
