@@ -703,6 +703,17 @@ final class RideIntercomUITests: XCTestCase {
                 add(attachment)
                 XCTAssertTrue(passed, "Expected \(expected): \(details)")
             }
+            if cycle == 1 {
+                button.tap()
+                let recording = expectation(for: NSPredicate(format: "label == %@", "Recording"), evaluatedWith: phase)
+                XCTAssertEqual(XCTWaiter.wait(for: [recording], timeout: 5), .completed)
+                XCTAssertEqual(button.label, "Stop Audio Check")
+                button.tap()
+                let stopped = expectation(for: NSPredicate(format: "label == %@", "Audio Check Idle"), evaluatedWith: phase)
+                XCTAssertEqual(XCTWaiter.wait(for: [stopped], timeout: 5), .completed)
+                XCTAssertEqual(button.label, "Record 5s and Play")
+                XCTAssertTrue(button.isEnabled)
+            }
         }
     }
     #endif

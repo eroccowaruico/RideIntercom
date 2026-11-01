@@ -6,6 +6,27 @@ import Testing
 
 @MainActor
 struct AudioActivationTests {
+    @Test func audioCheckLeavesOtherAudioAloneAndPreservesCallDuckingPreference() async throws {
+        let h = AppTestSupport.makeHarness(), vm = h.viewModel
+        vm.setDuckOthersEnabled(true)
+        for _ in 0..<2 {
+            #expect(vm.startAudioCheck())
+            await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+            #expect(vm.audioCheckPhase == .recording)
+            #expect(!vm.audioInputCapture.configuration.voiceProcessing.otherAudioDuckingEnabled)
+            #expect(!vm.audioInputCapture.configuration.voiceProcessing.voiceProcessingEnabled)
+            #expect(vm.isDuckOthersEnabled)
+            vm.cancelAudioCheck()
+        }
+        vm.selectGroup(try #require(vm.groups.first))
+        vm.connectLocal()
+        h.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { vm.isAudioReady }
+        #expect(vm.isAudioReady)
+        #expect(vm.audioInputCapture.configuration.voiceProcessing.otherAudioDuckingEnabled)
+        vm.disconnect()
+    }
+
     @Test func audioCheckInitialRouteResolutionDoesNotCancelPreparation() async {
         let h = AppTestSupport.makeHarness(groups: []), gate = ManualAsyncGate()
         let vm = h.viewModel

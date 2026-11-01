@@ -375,7 +375,9 @@ extension IntercomViewModel {
             soundIsolationEnabled: false,
             // Keep the I/O mode fixed while the ducking feature is enabled.
             // Incoming speech changes the ducking level, not RemoteIO/VoiceIO.
-            otherAudioDuckingEnabled: isDuckOthersEnabled,
+            // A local recording checks the transmitted effects, not other apps'
+            // volume. Avoid switching its prepared graph to VoiceProcessingIO.
+            otherAudioDuckingEnabled: isDuckOthersEnabled && !audioCheckOwnsAudioPipeline,
             duckingLevel: isOtherAudioDuckingActiveInternal ? .medium : .minimum,
             // Finite checks keep the capture clock while the transmitter owns mute.
             inputMuted: !audioCheckOwnsAudioPipeline && effectiveInputMuted
