@@ -250,6 +250,16 @@ Phoneの開始API受付からWatchがRecording状態を受け取るまで約2.70
 
 証跡は`.validation/audio-check-first-input-20261102/manifest.json`。最終5ファイルのhashと実行前後入力を照合し、専用iPhone Simulatorの入出力・音量を復元して停止、共有lockと一時runnerを回収した。build warningは4件保持し、Build番号は400→402へ進んだ。package、codec、再生時間、Watchの制御経路は変更していない。
 
+## 初回入力期限修正後のWatch媒体比較
+
+2026-11-02、`45a59179`の録音期限修正後に、同じファイルbootstrap対照を1回実行した。一時6ソースは前回と同じhash、runnerは出力先と基点のみを更新し、録音・再生の5秒量、WCによるphase／play、codec、送話gate、準備期限を変えていない。
+
+Phone録音は前回の187,680 frames／3.91秒から240,000 frames／5秒へ進み、録音完了後の処理済み音声を集計できた。非zero samplesは0であり、今回は実集計された全無音である。Watch入力の途中観測は2,048 samples中2,023が非zeroだったが、この値だけでPhoneの送信処理後にも有音が残るとは判断しない。
+
+Phoneは録音完了後のpreparingへ進み、約5.32秒後にfailedとなった。Watchの最後のphase観測はrecordingで、play要求・受信音声・native再生波形には到達しなかった。35秒までにWatch側の最終結果・cleanup段階も観測されていない。5秒録音量の修正効果を確認できた一方、処理後音声の内容とWatch再生を未完として保持する。静的には録音frame進捗もWatch snapshotの変更対象となるため、phase配送を阻害した原因と断定せず、frame頻度に結び付く不要な観測・公開を回帰テストで確認する。
+
+証跡は`.validation/watch-audio-file-bootstrap-first-input-20261102/manifest.json`。実行前後363入力とbinary対応を照合し、一時6ソースをHEADへ完全復元、録音期限・マイク意図の修正を維持した。秘密一時入出力4ファイルを削除し、両端の音声設定・音量を完全復元して停止、実行用runnerとcacheを撤去した。Build番号は402→404へ進んだ。
+
 ## iPadの5秒録音と送信処理の回帰
 
 2026-11-02、Watchの返信境界の読取確認と並行し、既存のiPad録音チェック回帰を実行した。所有専用iPadはOS 26.4で現最低27.0を満たさなかったため、所有記録・停止状態とValidation名前空間だけの保存を確認して退役し、同じ用途のiPad Pro 13-inch (M5)／iPadOS 27.2を1台作成した。一般・所有不明のSimulatorは変更していない。
