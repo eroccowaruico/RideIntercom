@@ -2,17 +2,18 @@ import SwiftUI
 
 @main
 struct RideIntercomWatchApp: App {
+    @State private var connection = WatchConnectivityClient()
     var body: some Scene {
         WindowGroup {
             #if DEBUG
             #if RIDEINTERCOM_VALIDATION && targetEnvironment(simulator)
-            if WatchRecordingCLI.requested { WatchRecordingCheckView() }
-            else { WatchDebugRoot() }
+            if WatchRecordingCLI.requested { WatchRecordingCheckView(connection: connection) }
+            else { WatchDebugRoot(connection: connection) }
             #else
-            WatchDebugRoot()
+            WatchDebugRoot(connection: connection)
             #endif
             #else
-            WatchCallRoot()
+            WatchCallRoot(connection: connection)
             #endif
         }
     }
@@ -20,6 +21,7 @@ struct RideIntercomWatchApp: App {
 
 #if DEBUG
 private struct WatchDebugRoot: View {
+    let connection: WatchConnectivityClient
     private enum Destination: Hashable { case call, recording }
     var body: some View {
         NavigationStack {
@@ -30,8 +32,8 @@ private struct WatchDebugRoot: View {
             .navigationTitle("RideCom Debug")
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
-                case .call: WatchCallRoot()
-                case .recording: WatchRecordingCheckView()
+                case .call: WatchCallRoot(connection: connection)
+                case .recording: WatchRecordingCheckView(connection: connection)
                 }
             }
         }
@@ -40,7 +42,7 @@ private struct WatchDebugRoot: View {
 #endif
 
 private struct WatchCallRoot: View {
-    @State private var connection = WatchConnectivityClient()
+    let connection: WatchConnectivityClient
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
             WatchCallView(client: connection.client, audio: connection.audio)

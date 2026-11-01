@@ -129,3 +129,14 @@ Simulatorのnative入力確認では、Macの既定入力が48kHz、既定出力
 最終比較の証跡は`.validation/watch-native-both-nodes-prepared-20261102/`。各比較にsource差分と基準commitを保存し、実行前後362ファイルの一致、Simulatorの入出力・音量の完全復元、Macの既定機器不変、所有ペアの停止を確認した。成立したのはWatchのnative入力と出力時計の開始であり、出力波形・iPhoneでの5秒録音・Watchへの全量再生・会話成立は引き続き別に検証する。
 
 SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。停止中の両node準備だけを行い、単方向backendの生成・開始は変更しない。空実装でnode取得の期待が失敗するREDを確認後、既存を含む68テストが成功した。証跡は`.validation/session-duplex-prepare-20261102/`。このpackage単位はApp差分から独立しており、Watch Appへの接続は次の工程で行う。
+
+
+## Watch Appへの接続と次の媒体開始境界
+
+2026-11-02、Watchの実controllerでsession活性化後・capture開始前に`AudioDuplexIO.prepare`を呼ぶよう接続した。診断専用のnative入力分岐とAVAudioRecorder事前録音を撤去し、Debugの録音確認はWatch入力→iPhone処理・録音→Watch再生の既存App経路へ揃えた。操作状態は同一sessionで共有し、終了・取消・失敗では元のPhone backendへ戻す。Watchにファイル録音やMixerを置かない。
+
+標準DerivedDataでiPhone／Watchをbuildし、所有Simulatorペアで実行した。最初の起動はログイン済みfixture設定の不足でPhoneが終了し、次は自動起動済みWatchへの検証設定が適用されずCLI未到達だった。これらは検証器の起動条件の不備として、それぞれ`.validation/watch-app-core-prepared-20261102/`と`watch-app-core-prepared-account-20261102/`に保持する。設定を補い、同じbinaryをWatch processの明示終了後に起動した実行は`.validation/watch-app-core-prepared-explicit-launch-20261102/`。
+
+この実行ではnative capture／rendererが`applied`、入力48kHz mono・出力48kHz stereo・engine稼働を確認した。次のAudioDevice媒体endpoint取得で約5秒待った後`stopped`となり、iPhoneの録音要求には到達していない。入力配送handlerの設置前でマイクgateも閉じているため、このApp実行のinputFrames 0をDのnative入力成功へ混ぜない。native mixerの220,500 framesは全て無音であり、相手音声・録音内容の再生成功ではない。失敗表示とWatch終了状態、source 362ファイル一致、入出力・音量復元、所有ペア停止を確認した。媒体開始と5秒全量往復は未完として継続する。
+
+部分App単位の回帰では、Watch連携4テスト（引数別5ケース）と通常Phoneの有限5秒録音・再開始1テストが成功した。旧Watchテストの直接録音処理呼出しでは期待が失敗するREDを保持し、合成入力を実device renderer→暗号化媒体・AAC→Phoneの送信処理へ通すfixtureに修正した。成功・失敗・遅いactivationの取消、二重再生拒否、停止後のPhone録音・再生復帰とミュート設定の保持を確認する。短い合成入力の契約試験であり、Watch実Appの5秒全量往復の代替ではない。証跡は`.validation/watch-app-contract-green-20261102/`と`watch-app-phone-finite-final-20261102/`。Phone単独テストの最初のfilterが選択0件だった結果を保持し、正しいfilterの1件成功と区別する。失敗・skip・検出runtime warnings 0、362ファイル一致、最終production Swiftがnative実行時と同一であること、所有Simulator停止、一時runner5本回収を確認した。

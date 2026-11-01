@@ -32,7 +32,9 @@ extension AppCallOwner {
                          return .init(id: target.entity.id, name: target.entity.name, canNotify: canNotify)
                      },
                      title: vm.groups.first { $0.id == vm.activeGroupID }.map(vm.callTitle),
-                     hasCall: hasCall, isMuted: vm.isMuted, state: state, notification: notification)
+                     hasCall: hasCall, isMuted: vm.isMuted, state: state, notification: notification,
+                     audioCheck: vm.audioCheckWatchSessionID.map { .init(sessionID: $0, phase: vm.audioCheckPhase,
+                        recordedFrames: vm.audioCheckRecordedFrameCount, nonzeroSamples: vm.audioCheckRecordedNonzeroSamples) })
     }
 
     func handleWatchRequest(_ request: WatchControlRequest, now: Date = Date()) async -> WatchControlReply {
@@ -57,6 +59,20 @@ extension AppCallOwner {
         case .start(let id):
             guard let target = callTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
             succeeded = vm.startCall(to: target.destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false, usingWatch: true)
+        #if DEBUG
+        case .startAudioCheck(let offer):
+            guard offer.key.count == 32, vm.canStartAudioCheck else { return reply(.denied) }
+            do {
+                let endpoint = try await vm.attachWatchAudio(offer, audioCheck: true)
+                return .init(snapshot: watchSnapshot(), problem: nil, audioEndpoint: endpoint)
+            } catch { return reply(.unavailable) }
+        case .playAudioCheck(let id):
+            return reply(vm.playWatchAudioCheck(sessionID: id) ? nil : .stale)
+        case .stopAudioCheck(let id):
+            guard vm.audioCheckWatchSessionID == id else { return reply(.stale) }
+            vm.cancelAudioCheck()
+            return reply()
+        #endif
         case .end: succeeded = vm.endCall(vm.currentCallReference)
         case .setMuted(let value): succeeded = vm.setCallMuted(value, for: vm.currentCallReference)
         case .requestCall(let id):

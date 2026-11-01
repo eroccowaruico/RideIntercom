@@ -10,6 +10,119 @@ import Testing
 /// Actual local encrypted device link and native AAC, with synthetic Watch
 /// input and the existing offline phone graph. No microphone/device claims.
 @MainActor struct WatchAudioIntegrationTests {
+    @Test(arguments: [0, 32])
+    func failedWatchAudioCheckRestoresRouteAndMute(keyCount: Int) async {
+        let h = AppTestSupport.makeHarness(groups: [])
+        let vm = h.viewModel, input = h.viewModel.audioInputCapture, output = h.viewModel.audioOutputRenderer
+        await verifyPhoneAudioCheck(h)
+        vm.applyLocalMute(true)
+        do {
+            _ = try await vm.attachWatchAudio(.init(sessionID: UUID(), key: Data(repeating: 7, count: keyCount),
+                endpoint: .init(name: "invalid", type: "invalid", domain: "invalid")), audioCheck: true)
+            Issue.record("Invalid audio-check setup must fail")
+        } catch {}
+        #expect(vm.audioCheckPhase == .failed && !vm.audioCheckOwnsAudioPipeline)
+        #expect(vm.audioInputCapture === input && vm.audioOutputRenderer === output)
+        #expect(vm.watchAudioLink == nil && !vm.isUsingWatchAudio && vm.isMuted)
+        #expect(!vm.hasAnyActiveGroupConnection && h.callSession.startMediaCallCount == 0)
+        await verifyPhoneAudioCheck(h)
+    }
+
+    @Test func cancelledWatchAudioCheckRestoresBeforeLateActivation() async throws {
+        let h = AppTestSupport.makeHarness(groups: []), gate = ManualAsyncGate()
+        h.audioSessionBackend.activationGate = gate
+        let vm = h.viewModel, input = h.viewModel.audioInputCapture, output = h.viewModel.audioOutputRenderer
+        vm.applyLocalMute(true)
+        let id = UUID(), key = Data(repeating: 4, count: 32)
+        let watch = try AudioDeviceConnection(sessionID: id, key: key, role: .device)
+        defer { watch.stop(); vm.cancelAudioCheck() }
+        let endpoint = try await watch.prepare()
+        _ = try await vm.attachWatchAudio(.init(sessionID: id, key: key, endpoint: endpoint), audioCheck: true)
+        await gate.waitForEntry()
+        #expect(vm.audioCheckPhase == .preparing && !vm.canStartAudioCheck)
+        vm.cancelAudioCheck()
+        await gate.release()
+        _ = await vm.audioSessionManager.requestActive(false).value
+        #expect(vm.audioCheckPhase == .idle && !vm.audioCheckOwnsAudioPipeline)
+        #expect(vm.audioInputCapture === input && vm.audioOutputRenderer === output)
+        #expect(vm.watchAudioLink == nil && !vm.isUsingWatchAudio && vm.isMuted)
+        #expect(h.inputBackend.startCount == 0 && h.callSession.startMediaCallCount == 0)
+        await verifyPhoneAudioCheck(h)
+    }
+
+    @Test func watchAudioCheckRecordsOnPhoneAndRestoresBackendsWithoutStartingCall() async throws {
+        let h = AppTestSupport.makeHarness(groups: [])
+        let vm = h.viewModel, owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
+        let originalInput = vm.audioInputCapture, originalOutput = vm.audioOutputRenderer
+        await verifyPhoneAudioCheck(h)
+        let phoneStartsBeforeWatch = h.inputBackend.startCount
+        vm.applyLocalMute(true)
+        let id = UUID(), key = Data(repeating: 9, count: 32)
+        let watch = try AudioDeviceConnection(sessionID: id, key: key, role: .device)
+        let watchOutput = AudioOutputStreamRenderer(configuration: .init(maximumBufferedDuration: 0.1), backend: watch)
+        defer { _ = watchOutput.stop(); watch.stop(); vm.cancelAudioCheck() }
+        let endpoint = try await watch.prepare()
+        try #require(watchOutput.start().result == .applied)
+        let request = WatchControlRequest(.startAudioCheck(.init(sessionID: id, key: key, endpoint: endpoint)), snapshot: owner.watchSnapshot())
+        let reply = await owner.handleWatchRequest(request)
+        #expect(reply.problem == nil && !reply.snapshot.hasCall)
+        #expect(watch.connect(to: try #require(reply.audioEndpoint)))
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        #expect(vm.audioCheckPhase == .recording)
+        #expect(vm.audioCheckWatchSessionID == id)
+        #expect(vm.audioInputCapture !== originalInput && vm.audioOutputRenderer !== originalOutput)
+        #expect(h.inputBackend.startCount == phoneStartsBeforeWatch && h.callSession.startMediaCallCount == 0)
+        await AppTestSupport.waitUntil { watch.isSendReady }
+        try #require(watch.isSendReady)
+        watch.setSendingAllowed(true)
+        try #require(watch.isSendingAllowed)
+        for index in 0..<30 {
+            let frame = PCMFrame(sequenceNumber: UInt64(index), format: .intercomPacketAudio,
+                capturedAt: 100 + Double(index) * 0.01,
+                samples: (0..<480).map { Float(sin(Double(index * 480 + $0) * .pi * 880 / 48_000) * 0.3) })
+            try #require(watchOutput.schedule(frame).result == .applied)
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        await AppTestSupport.waitUntil { !vm.audioCheckRecordedFrames.isEmpty }
+        try #require(!vm.audioCheckRecordedFrames.isEmpty, "Watch device audio must reach Phone capture")
+        watch.setSendingAllowed(false)
+        vm.finishAudioCheckRecording(playbackDuration: .seconds(5))
+        #expect(vm.audioCheckPhase == .preparing && vm.audioCheckRecordedFrameCount > 0,
+            "Phone waits for the Watch to close its microphone before replay")
+        #expect(vm.audioCheckRecordedNonzeroSamples > 0, "Phone transmit processing must preserve device audio")
+        let play = await owner.handleWatchRequest(.init(.playAudioCheck(id), snapshot: owner.watchSnapshot()))
+        #expect(play.problem == nil && vm.audioCheckPhase == .playing)
+        #expect(!vm.playWatchAudioCheck(sessionID: id), "Duplicate play requests cannot restart playback")
+        let stopped = await owner.handleWatchRequest(.init(.stopAudioCheck(id), snapshot: owner.watchSnapshot()))
+        #expect(stopped.problem == nil)
+        #expect(vm.audioInputCapture === originalInput && vm.audioOutputRenderer === originalOutput)
+        #expect(vm.watchAudioLink == nil && !vm.isUsingWatchAudio && vm.isMuted)
+        #expect(!vm.playWatchAudioCheck(sessionID: id), "Cancelled audio cannot replay")
+        #expect(!vm.hasAnyActiveGroupConnection && h.callSession.startMediaCallCount == 0)
+        await verifyPhoneAudioCheck(h)
+    }
+
+    private func verifyPhoneAudioCheck(_ h: AppTestSupport.Harness) async {
+        let vm = h.viewModel
+        // Explicit user unmute: restoring the phone preference never silently
+        // changes it just because the Watch check ended.
+        vm.applyLocalMute(false)
+        let previousOutputFrames = h.outputBackend.scheduledFrames.count
+        vm.startAudioCheck()
+        await AppTestSupport.waitUntil { vm.audioCheckPhase == .recording }
+        #expect(vm.audioCheckPhase == .recording && !vm.isUsingWatchAudio)
+        h.inputBackend.emit(.init(sequenceNumber: 1, format: .intercomPacketAudio,
+            capturedAt: 200, samples: Array(repeating: 0.3, count: 480)))
+        await AppTestSupport.waitUntil { !vm.audioCheckRecordedFrames.isEmpty }
+        vm.finishAudioCheckRecording(playbackDuration: .seconds(5))
+        #expect(vm.audioCheckPhase == .playing && vm.audioCheckRecordedFrameCount == 480)
+        await AppTestSupport.waitUntil { h.outputBackend.scheduledFrames.count > previousOutputFrames }
+        #expect(h.outputBackend.scheduledFrames.dropFirst(previousOutputFrames).contains { $0.samples.contains { abs($0) > 0.01 } },
+            "A restored phone route must actually record/process/schedule new phone audio")
+        vm.completeAudioCheckPlayback()
+        #expect(vm.audioCheckPhase == .completed && !vm.audioCheckOwnsAudioPipeline)
+    }
+
     @Test func watchAudioPassesThroughThePhoneCallWithoutOpeningPhoneInputOrPlayback() async throws {
         let h = AppTestSupport.makeHarness(), received = Mutex<[Float]>([]), ready = Mutex(false)
         let vm = h.viewModel

@@ -201,7 +201,9 @@ final class IntercomViewModel {
     var audioCheckRecordedFrames: [PCMFrame] = []
     var audioCheckRecording: AudioCheckRecording?
     var audioCheckTransmitFailureBaseline = 0
+    var audioCheckWatchSessionID: UUID?
     var audioCheckRecordedFrameCount = 0
+    var audioCheckRecordedNonzeroSamples = 0
     #if DEBUG && RIDEINTERCOM_VALIDATION && os(iOS) && targetEnvironment(simulator)
     @ObservationIgnored var audioCheckObservation: AudioCheckValidationObservation?
     @ObservationIgnored var audioCheckObservationRecords: [[String: Any]] = []

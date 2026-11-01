@@ -77,16 +77,7 @@ enum VoiceLevelIntensity: Equatable {
     case high
 }
 
-enum AudioCheckPhase: String, Equatable {
-    case idle = "Audio Check Idle"
-    case preparing = "Preparing Audio Check"
-    case recording = "Recording"
-    case playing = "Playing Back"
-    case completed = "Audio Check Complete"
-    case failed = "Audio Check Failed"
 
-    var isInProgress: Bool { self == .preparing || self == .recording || self == .playing }
-}
 
 struct VoiceLevelIndicatorState: Equatable {
     let level: Float

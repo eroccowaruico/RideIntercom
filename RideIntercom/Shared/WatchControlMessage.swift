@@ -1,6 +1,24 @@
 import Foundation
 import RTC
 
+nonisolated enum AudioCheckPhase: String, Equatable, Codable, Sendable {
+    case idle = "Audio Check Idle"
+    case preparing = "Preparing Audio Check"
+    case recording = "Recording"
+    case playing = "Playing Back"
+    case completed = "Audio Check Complete"
+    case failed = "Audio Check Failed"
+
+    var isInProgress: Bool { self == .preparing || self == .recording || self == .playing }
+}
+
+nonisolated struct WatchAudioCheckState: Codable, Equatable, Sendable {
+    let sessionID: UUID
+    let phase: AudioCheckPhase
+    let recordedFrames: Int
+    let nonzeroSamples: Int
+}
+
 nonisolated struct WatchCallTarget: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String
@@ -31,6 +49,7 @@ nonisolated struct WatchCallSnapshot: Codable, Equatable, Sendable {
     let isMuted: Bool
     let state: WatchCallState
     var notification: WatchCallNotification?
+    var audioCheck: WatchAudioCheckState? = nil
 
     func needsPublication(after previous: Self?) -> Bool {
         guard let previous else { return true }
@@ -39,7 +58,7 @@ nonisolated struct WatchCallSnapshot: Codable, Equatable, Sendable {
         return reference != previous.reference || targets != previous.targets
             || title != previous.title || hasCall != previous.hasCall
             || isMuted != previous.isMuted || state != previous.state
-            || notification != previous.notification
+            || notification != previous.notification || audioCheck != previous.audioCheck
     }
 }
 
@@ -53,10 +72,27 @@ nonisolated enum WatchCallAction: Codable, Equatable, Sendable {
     case refresh
     case start(String)
     case startAudio(String, WatchAudioOffer)
+    #if DEBUG
+    case startAudioCheck(WatchAudioOffer)
+    case stopAudioCheck(UUID)
+    case playAudioCheck(UUID)
+    #endif
     case end
     case setMuted(Bool)
     case requestCall(String)
     case cancelCallRequest(UUID)
+}
+
+extension WatchCallAction {
+    var isRecordingFixtureAction: Bool {
+        switch self {
+        case .refresh: true
+        #if DEBUG
+        case .startAudioCheck, .stopAudioCheck, .playAudioCheck: true
+        #endif
+        default: false
+        }
+    }
 }
 
 nonisolated struct WatchControlRequest: Codable, Equatable, Sendable {

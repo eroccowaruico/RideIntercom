@@ -5,22 +5,29 @@ import Foundation
 import SessionManager
 
 extension IntercomViewModel {
+    var canPrepareAudioCheck: Bool {
+        canStartCalls && !hasAnyActiveGroupConnection && !isAudioReady && audioStartTask == nil
+    }
     var canStartAudioCheck: Bool {
-        canStartCalls && !hasAnyActiveGroupConnection && !isAudioReady && audioStartTask == nil && !audioCheckPhase.isInProgress
-            && !isUsingWatchAudio && audioInputCapture === nativeAudioInputCapture
-            && audioOutputRenderer === nativeAudioOutputRenderer
+        canPrepareAudioCheck && !audioCheckPhase.isInProgress && !isUsingWatchAudio
+            && audioInputCapture === nativeAudioInputCapture && audioOutputRenderer === nativeAudioOutputRenderer
     }
 
-    func startAudioCheck(recordDuration: Duration = .seconds(5), playbackDuration: Duration = .seconds(5)) {
-        guard canStartAudioCheck else { return }
-        cancelAudioCheck()
+    @discardableResult
+    func startAudioCheck(recordDuration: Duration = .seconds(5), playbackDuration: Duration = .seconds(5), watchSessionID: UUID? = nil) -> Bool {
+        let preparedWatch = watchSessionID != nil && watchSessionID == audioCheckWatchSessionID
+            && audioCheckPhase == .preparing && watchAudioLink?.sessionID == watchSessionID
+        guard canPrepareAudioCheck, (watchSessionID == nil ? canStartAudioCheck : preparedWatch) else { return false }
+
+        if !preparedWatch { cancelAudioCheck() }
         #if DEBUG && RIDEINTERCOM_VALIDATION && os(iOS) && targetEnvironment(simulator)
-        if ProcessInfo.processInfo.environment["RIDEINTERCOM_LOCAL_TESTING"] == "1" {
+        if watchSessionID == nil && ProcessInfo.processInfo.environment["RIDEINTERCOM_LOCAL_TESTING"] == "1" {
             audioCheckObservation = AudioCheckValidationObservation(generation: audioCheckGeneration)
         }
         #endif
+        audioCheckWatchSessionID = watchSessionID
         audioCheckPlaybackDuration = playbackDuration
-        audioCheckRecordedFrameCount = 0
+        audioCheckRecordedFrameCount = 0; audioCheckRecordedNonzeroSamples = 0
         audioCheckRecording = AudioCheckRecording(format: rtcAudioFormatPreset.audioFormat)
         bindAudioEvents(finiteRecordingDuration: 5)
         let generation = audioCheckGeneration, audio = audioGeneration
@@ -33,13 +40,13 @@ extension IntercomViewModel {
             audioCheckPhase = .failed
             audioCheckStatusMessage = audioErrorMessage ?? "Audio setup failed"
             stopAudioCheckOwnedPipeline()
-            return
+            return false
         }
         let activation = audioSessionManager.requestActive(true)
         audioCheckTask = Task { [weak self] in
             let report = await activation.value
             guard let self, !Task.isCancelled, self.audioCheckGeneration == generation else { return }
-            guard self.audioGeneration == audio, self.canStartCalls, !self.hasAnyActiveGroupConnection, !self.isAudioReady, self.audioStartTask == nil, self.audioCheckPhase == .preparing else {
+            guard self.audioGeneration == audio, self.canPrepareAudioCheck, self.audioCheckPhase == .preparing else {
                 self.cancelAudioCheck(); return
             }
             guard report.result != .ignored(.superseded) else { self.cancelAudioCheck(); return }
@@ -54,7 +61,7 @@ extension IntercomViewModel {
             // activation. Freeze the actual route before accepting samples.
             if let actual = try? self.audioSessionManager.snapshot() { self.applyAudioSessionSnapshot(actual) }
             self.audioCheckPhase = .recording
-            self.audioCheckStatusMessage = "Recording microphone for 5 seconds"
+            self.audioCheckStatusMessage = watchSessionID == nil ? "Recording microphone for 5 seconds" : "Recording Watch microphone for 5 seconds"
             self.inputFrameDelivery?.activate()
             // Count captured samples rather than completing a short recording when
             // activation or delivery takes part of the wall-clock interval.
@@ -65,6 +72,7 @@ extension IntercomViewModel {
             self.audioCheckStatusMessage = "Incomplete microphone recording"
             self.stopAudioCheckOwnedPipeline()
         }
+        return true
     }
 
     func processAudioCheckInput(level: Float, frame: PCMFrame) {
@@ -102,6 +110,7 @@ extension IntercomViewModel {
         audioCheckObservation?.setInput(recordedFrames)
         #endif
         audioCheckRecordedFrameCount = recordedFrames.reduce(0) { $0 + $1.frameCount }
+        audioCheckRecordedNonzeroSamples = recordedFrames.reduce(0) { $0 + $1.samples.filter { abs($0) > 0.00001 }.count }
         guard !recordedFrames.isEmpty else {
             audioCheckPhase = .failed
             audioCheckStatusMessage = "No microphone samples captured"
@@ -109,7 +118,31 @@ extension IntercomViewModel {
             return
         }
 
+        if audioCheckWatchSessionID != nil {
+            // Reuse preparing for the control handoff: nonzero recordedFrames
+            // distinguishes recorded audio from initial device preparation.
+            audioCheckPhase = .preparing
+            audioCheckStatusMessage = "Waiting for Watch playback"
+            let generation = audioCheckGeneration
+            audioCheckTask?.cancel()
+            audioCheckTask = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                guard let self, audioCheckGeneration == generation, audioCheckPhase == .preparing else { return }
+                audioCheckPhase = .failed; audioCheckStatusMessage = "Watch playback did not start"
+                stopAudioCheckOwnedPipeline()
+            }
+            return
+        }
         beginAudioCheckPlayback(recordedFrames, playbackDuration: playbackDuration)
+    }
+
+    @discardableResult
+    func playWatchAudioCheck(sessionID: UUID) -> Bool {
+        guard audioCheckWatchSessionID == sessionID, watchAudioLink?.sessionID == sessionID,
+              audioCheckPhase == .preparing, !audioCheckRecordedFrames.isEmpty,
+              canPrepareAudioCheck else { return false }
+        beginAudioCheckPlayback(audioCheckRecordedFrames, playbackDuration: .seconds(5))
+        return audioCheckPhase == .playing
     }
 
     private func beginAudioCheckPlayback(_ recordedFrames: [PCMFrame], playbackDuration: Duration) {
@@ -118,9 +151,10 @@ extension IntercomViewModel {
         audioCheckOutputLevel = min(1, max(0, outputLevel))
         audioCheckOutputPeakLevel = audioCheckOutputPeakWindow.record(audioCheckOutputLevel)
         audioCheckPhase = .playing
-        audioCheckStatusMessage = "Playing recorded audio for 5 seconds"
+        audioCheckStatusMessage = audioCheckWatchSessionID == nil ? "Playing recorded audio for 5 seconds" : "Playing recorded audio on Watch"
         do {
-            audioPipeline.setHardwareOutputEnabled(audioOutputRenderer.rendersToHardware)
+            audioPipeline.setHardwareOutputEnabled(audioCheckWatchSessionID == nil)
+            watchAudioLink?.setSendingAllowed(audioCheckWatchSessionID != nil)
             audioPipeline.beginFinitePlayback()
             for frame in recordedFrames { try audioPipeline.processPlaybackFrame(frame) }
         } catch {
@@ -172,6 +206,7 @@ extension IntercomViewModel {
         audioCheckTask = nil
         stopAudioCheckOwnedPipeline()
         audioCheckRecordedFrames.removeAll()
+        audioCheckWatchSessionID = nil
         audioCheckPhase = .idle
         audioCheckStatusMessage = "Audio check idle"
         resetAudioCheckMeters()
@@ -201,6 +236,14 @@ extension IntercomViewModel {
         #endif
         _ = audioSessionManager.requestActive(false)
         audioCheckOwnsAudioPipeline = false
+        if audioCheckWatchSessionID != nil, isUsingWatchAudio {
+            stopWatchAudioLink()
+            audioInputCapture = nativeAudioInputCapture
+            audioOutputRenderer = nativeAudioOutputRenderer
+            isUsingWatchAudio = false
+            audioPipeline.setHardwareOutputEnabled(true)
+            applyEffectiveInputMute()
+        }
         #if DEBUG && RIDEINTERCOM_VALIDATION && os(iOS) && targetEnvironment(simulator)
         if let observation = audioCheckObservation {
             let phase = audioCheckPhase.isInProgress ? "Cancelled" : audioCheckPhase.rawValue

@@ -9,7 +9,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     init(session: WCSession = .default) {
         self.session = session
         let control = WatchControlClient { request in
-            guard SystemSurfaceScope.permitsSystemAccess else { throw CocoaError(.featureUnsupported) }
+            guard SystemSurfaceScope.permitsCompanionAccess else { throw CocoaError(.featureUnsupported) }
+            guard SystemSurfaceScope.permitsSystemAccess || request.action.isRecordingFixtureAction else { throw CocoaError(.featureUnsupported) }
             let data = try JSONEncoder().encode(request)
             let response: Data = try await withCheckedThrowingContinuation { continuation in
                 session.sendMessageData(data, replyHandler: { continuation.resume(returning: $0) },
@@ -23,13 +24,13 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         super.init()
     }
     func activate() {
-        guard SystemSurfaceScope.permitsSystemAccess, WCSession.isSupported() else { return }
+        guard SystemSurfaceScope.permitsCompanionAccess, WCSession.isSupported() else { return }
         session.delegate = self
         if session.activationState != .activated { session.activate() }
         else { refreshReachability() }
     }
     private func refreshReachability() {
-        guard SystemSurfaceScope.permitsSystemAccess else { return }
+        guard SystemSurfaceScope.permitsCompanionAccess else { return }
         client.setReachable(session.activationState == .activated && session.isReachable)
         if client.isReachable { Task { await client.perform(.refresh) } }
     }
@@ -40,7 +41,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         Task { @MainActor [weak self] in self?.refreshReachability() }
     }
     nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        guard SystemSurfaceScope.permitsSystemAccess, let data = applicationContext["rideintercom.watch.v1"] as? Data, data.count <= 262_144,
+        guard SystemSurfaceScope.permitsCompanionAccess, let data = applicationContext["rideintercom.watch.v1"] as? Data, data.count <= 262_144,
               let value = try? JSONDecoder().decode(WatchCallSnapshot.self, from: data) else { return }
         Task { @MainActor [weak self] in self?.client.receive(value) }
     }
