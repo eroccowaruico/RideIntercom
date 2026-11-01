@@ -11,7 +11,7 @@
 | Xcode | `RideIntercom.xcodeproj` | 共有scheme `RideIntercom`、My MacまたはiOS Simulator |
 | VS Code | `RideIntercom.code-workspace` | `Tasks: Run Task` → `RideIntercom: …` |
 
-[Xcode / VS Codeの開発環境](docs/development/開発環境.md)に、ファイル自動同期、package編集、ビルド・テスト・デバッグ、表示されない場合の確認方法を記載する。
+[Xcode / VS Codeの開発環境](docs/development/開発環境.md)に確認方法を記載するが、全ての開発はXcodeのGUIを利用したビルドやテストも自動化も実行することを必須とし、コマンドラインとGUIの両方で操作可能であることを前提とする。
 
 ## 要求と作り方を分けて読む
 
