@@ -1,6 +1,47 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Audio connection failed. Start the call again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声接続に失敗しました。通話を開始し直してください。"
+          }
+        }
+      }
+    },
+    "Audio connection timed out. Start the call again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声に接続できませんでした。通話を開始し直してください。"
+          }
+        }
+      }
+    },
+    "Audio device changed. Start audio again on your Watch." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声機器が変わりました。Watchで音声を開始し直してください。"
+          }
+        }
+      }
+    },
+    "Audio disconnected. Start the call again." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声が切断されました。通話を開始し直してください。"
+          }
+        }
+      }
+    },
     "Audio paused — check your audio device" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -12,7 +53,18 @@
         }
       }
     },
+    "Audio playback failed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声を再生できませんでした"
+          }
+        }
+      }
+    },
     "Audio plays on iPhone or its headphones." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -29,6 +81,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "音声を利用できません — 設定を確認してください"
+          }
+        }
+      }
+    },
+    "Audio uses your Watch. Keep your iPhone nearby." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声はWatchを使用します。iPhoneを近くに置いてください。"
+          }
+        }
+      }
+    },
+    "Call" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話"
           }
         }
       }
@@ -88,6 +160,16 @@
         }
       }
     },
+    "Choose Toggle Microphone to use a single tap." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1回のタップで操作するには「マイクのオン／オフ」を選んでください。"
+          }
+        }
+      }
+    },
     "Connect to your iPhone to control a call." : {
       "localizations" : {
         "ja" : {
@@ -120,6 +202,16 @@
         }
       }
     },
+    "Could not start Watch audio. Try again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Watchの音声を開始できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
     "End Call" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -131,6 +223,16 @@
         }
       }
     },
+    "Hold to Talk" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "押して話す"
+          }
+        }
+      }
+    },
     "In a call" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -138,6 +240,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通話中"
+          }
+        }
+      }
+    },
+    "Microphone" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイク"
+          }
+        }
+      }
+    },
+    "Microphone Mode" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクの操作"
+          }
+        }
+      }
+    },
+    "Microphone unavailable" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクを利用できません"
           }
         }
       }
@@ -219,6 +351,16 @@
         }
       }
     },
+    "Talking…" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "送話中…"
+          }
+        }
+      }
+    },
     "The call changed. Check the current call and try again." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -285,6 +427,16 @@
         }
       }
     },
+    "Toggle Microphone" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクのオン／オフ"
+          }
+        }
+      }
+    },
     "Unmute iPhone microphone" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -303,156 +455,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更新中…"
-          }
-        }
-      }
-    },
-    "Audio connection failed. Start the call again.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声接続に失敗しました。通話を開始し直してください。"
-          }
-        }
-      }
-    },
-    "Audio connection timed out. Start the call again.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声に接続できませんでした。通話を開始し直してください。"
-          }
-        }
-      }
-    },
-    "Audio disconnected. Start the call again.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声が切断されました。通話を開始し直してください。"
-          }
-        }
-      }
-    },
-    "Audio playback failed": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声を再生できませんでした"
-          }
-        }
-      }
-    },
-    "Audio uses your Watch. Keep your iPhone nearby.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声はWatchを使用します。iPhoneを近くに置いてください。"
-          }
-        }
-      }
-    },
-    "Call": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通話"
-          }
-        }
-      }
-    },
-    "Choose Toggle Microphone to use a single tap.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1回のタップで操作するには「マイクのオン／オフ」を選んでください。"
-          }
-        }
-      }
-    },
-    "Could not start Watch audio. Try again.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Watchの音声を開始できませんでした。もう一度お試しください。"
-          }
-        }
-      }
-    },
-    "Hold to Talk": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "押して話す"
-          }
-        }
-      }
-    },
-    "Microphone": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "マイク"
-          }
-        }
-      }
-    },
-    "Microphone Mode": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "マイクの操作"
-          }
-        }
-      }
-    },
-    "Microphone unavailable": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "マイクを利用できません"
-          }
-        }
-      }
-    },
-    "Talking…": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "送話中…"
-          }
-        }
-      }
-    },
-    "Toggle Microphone": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "マイクのオン／オフ"
-          }
-        }
-      }
-    },
-    "Audio device changed. Start audio again on your Watch.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "音声機器が変わりました。Watchで音声を開始し直してください。"
           }
         }
       }
