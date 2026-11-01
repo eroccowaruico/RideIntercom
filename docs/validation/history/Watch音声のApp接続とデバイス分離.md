@@ -210,3 +210,17 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 証跡の共通ルートは`.validation/watch-audio-lan-cycle-20261102/`。媒体接続前で止まったため、5秒全量録音・再生波形・codec末尾の成否は未判定である。通常Bonjour経路の未成立に加えて、今回のPhone録音準備を含むWC返信配送／callback境界を残す。送信APIを呼べた事実はWatchへ届いた証明ではない。
 
 各試行でビルド番号を除く362ファイルの対応と診断patchを保持し、比較後に6ファイルすべてをHEADへ完全復元した。両Simulatorの48kHz入出力固定・音量を完全復元し、両App終了、所有ペア停止、runner撤去を確認した。観測・AppログにIP・鍵・PCMを保存せず、製品のLAN必須化や通常経路の変更は採用していない。
+
+
+## iPadの5秒録音と送信処理の回帰
+
+2026-11-02、Watchの返信境界の読取確認と並行し、既存のiPad録音チェック回帰を実行した。所有専用iPadはOS 26.4で現最低27.0を満たさなかったため、所有記録・停止状態とValidation名前空間だけの保存を確認して退役し、同じ用途のiPad Pro 13-inch (M5)／iPadOS 27.2を1台作成した。一般・所有不明のSimulatorは変更していない。
+
+標準Xcodeの`build-for-testing`と`test-without-building`で、`FiniteAudioCheckDeliveryTests`の次の2テストを選択し、2件成功・失敗0・skip 0・runtime warning 0を確認した。
+
+| テスト | 確認した範囲 |
+|---|---|
+| `nativeRecordingCheckUsesThePreparedGraphForTwoCycles` | 実マイクで48kHzの240,000 framesを録音し、再生フェーズの出力callbackが240,000 frames以上となり、completedへ進む2周。通常録音→再生→再開始のnative backend経路を確認 |
+| `recordingCheckUsesTheActualTransmitCodecAndDynamicsForAllFiveSeconds` | 合成入力を実TXのAAC・Dynamics・VADへ通し、5秒全量、処理効果、無音区間、末尾markerを確認。実マイク波形の比較ではない |
+
+証跡は`.validation/ipad-audio-check-20261102/`のxcresult・選択filter・実行log・前後inputs。Build番号391→392を除く632入力の一致、host隔離、入出力設定・音量の完全復元、host既定機器不変、専用iPadの停止を確認した。build warning 5件（App Intents metadata省略3、Swift debug環境変数の未知警告2）は保持し、build警告なしとは扱わない。native試験は非zero信号の存在を合否条件にしていない。再生callbackの量と完了状態は、有音の全量再生、native出力tapの全量波形一致や実機の音響品質を証明しない。iPadの波形比較、Macの同等入口、Watchの媒体到達以降は引き続き別の確認範囲である。
