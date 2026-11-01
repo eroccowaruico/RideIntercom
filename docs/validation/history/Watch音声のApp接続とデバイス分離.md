@@ -212,6 +212,14 @@ SessionManagerに明示的な`AudioDuplexIO.prepare(engine:)`を追加した。�
 各試行でビルド番号を除く362ファイルの対応と診断patchを保持し、比較後に6ファイルすべてをHEADへ完全復元した。両Simulatorの48kHz入出力固定・音量を完全復元し、両App終了、所有ペア停止、runner撤去を確認した。観測・AppログにIP・鍵・PCMを保存せず、製品のLAN必須化や通常経路の変更は採用していない。
 
 
+## 通常マイクONをinactiveで維持する回帰修正
+
+2026-11-02、Watchのsceneがinactiveへ変わるだけで、押下モードと通常モードの両方をOFFにする実装を修正した。共有の小さな状態型がモード・明示ON/OFF・sceneの意図を所有し、controllerが既存の認証・媒体・通話状態の条件を確認して実gateへ適用する。通常モードで既にONならinactiveでgateを操作せず、押下モードは閉じる。inactive中の新規ON、背景・明示OFF・モード変更・媒体断・適用失敗後の自動ONを防ぐ。iPhoneのミュート、受話route、renderer、RTCは変更していない。
+
+`WatchMicrophoneBoundaryTests`へ状態遷移の回帰を先行追加し、新しい型が未定義のcompile失敗を記録した。実装後は同suiteと`WatchAudioIntegrationTests`の10関数・パラメータを含む11ケースが成功し、失敗・skip・runtime warningは0。Watch Simulatorのarm64／x86_64 buildも成功した。build warningは7件残り、警告なしとは扱わない。共有の製品状態を直接検査した結果であり、Watch controllerのnative gate実行や実機の手首暗転・音声継続の証明ではない。Watch音声往復の未成立境界は維持する。
+
+証跡は`.validation/watch-mic-intent-20261102/manifest.json`。7ファイルの最終hashと実行前後の入力対応を照合し、専用iPhone Simulator停止・共有lock解放・一時runnerコピー撤去を確認した。再現runnerは証跡に保持し、Build番号は396→398へ進んだ。
+
 ## Phoneの録音開始順と接続準備期限の対照
 
 2026-11-02、Phoneが媒体認証前に録音を開始する条件を分離した。診断用のlistenerとbackendを準備してWC返信を要求し、既存の媒体認証成立後にだけ録音を始める一時変更を1回実行した。Watchは返信を受けてからnative音声を開始する。新しいACKや製品の通信方式は追加していない。

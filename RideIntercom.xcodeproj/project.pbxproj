@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A9F382A78A734E6BAC3AFB81 /* RideIntercom/Shared/WatchMicrophoneIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F382A78A734E6BAC3AFB82 /* RideIntercom/Shared/WatchMicrophoneIntent.swift */; };
 		46D1F67273160099EA54F6D1 /* RideIntercomWidgets.appex in Embed Widget Extension */ = {isa = PBXBuildFile; fileRef = 56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4A70295CC8984182A928FC3A /* AudioDevice in Frameworks */ = {isa = PBXBuildFile; productRef = FD5319A4F84D41EEBD886629 /* AudioDevice */; };
 		60BF422F1B3694AA5E84F16C /* RideIntercom/Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */; };
@@ -101,6 +102,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A9F382A78A734E6BAC3AFB82 /* RideIntercom/Shared/WatchMicrophoneIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/WatchMicrophoneIntent.swift; sourceTree = SOURCE_ROOT; };
 		0874A31143C7555BB4D5AC15 /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift; sourceTree = SOURCE_ROOT; };
 		1C0A209D1EDC02B2C3B6C9AD /* RideIntercom.code-workspace */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "RideIntercom.code-workspace"; sourceTree = "<group>"; };
 		24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = RideIntercom/Localizable.xcstrings; sourceTree = SOURCE_ROOT; };
@@ -331,6 +333,7 @@
 			isa = PBXGroup;
 			children = (
 				24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */,
+				A9F382A78A734E6BAC3AFB82 /* RideIntercom/Shared/WatchMicrophoneIntent.swift */,
 				7FF1CEF8CC38869E15C83735 /* RideIntercom/Shared/WatchControlMessage.swift */,
 				8EC36A73C65578D5E215505E /* RideIntercom/Shared/WatchControlClient.swift */,
 				0874A31143C7555BB4D5AC15 /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift */,
@@ -680,6 +683,7 @@
 		95D4EA3192569FCBA891B147 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				A9F382A78A734E6BAC3AFB81 /* RideIntercom/Shared/WatchMicrophoneIntent.swift in Sources */,
 				E1FA6A96A55CF6A201DD62BC /* RideIntercom/Shared/WatchControlMessage.swift in Sources */,
 				76FFE8A75AF524B511A8BA4F /* RideIntercom/Shared/WatchControlClient.swift in Sources */,
 				B89AEF130DA8CECA89175FDB /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift in Sources */,
@@ -954,7 +958,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 396;
+				CURRENT_PROJECT_VERSION = 398;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1124,7 +1128,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 396;
+				CURRENT_PROJECT_VERSION = 398;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1408,7 +1412,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 396;
+				CURRENT_PROJECT_VERSION = 398;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
@@ -1477,7 +1481,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 396;
+				CURRENT_PROJECT_VERSION = 398;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = UAY8FH5FF8;

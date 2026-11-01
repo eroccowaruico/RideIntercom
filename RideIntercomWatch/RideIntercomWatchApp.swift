@@ -48,7 +48,7 @@ private struct WatchCallRoot: View {
             WatchCallView(client: connection.client, audio: connection.audio)
                 .task { connection.activate() }
                 .onChange(of: scenePhase) { _, phase in
-                    connection.audio.setSceneActive(phase == .active)
+                    connection.audio.setSceneActive(phase == .active, isInactive: phase == .inactive)
                     if phase == .active { connection.activate() }
                 }
     }

@@ -3,7 +3,6 @@ import SwiftUI
 struct WatchCallView: View {
     let client: WatchControlClient
     let audio: WatchAudioController
-    @State private var usesHoldToTalk = true
     @GestureState private var isHolding = false
     var body: some View {
         NavigationStack {
@@ -15,12 +14,12 @@ struct WatchCallView: View {
                         Text(stateTitle(state.state))
                         if let title = state.title { Text(title) }
                         if state.reference != nil {
-                            Picker("Microphone Mode", selection: $usesHoldToTalk) {
-                                Text("Hold to Talk").tag(true)
-                                Text("Toggle Microphone").tag(false)
+                            Picker("Microphone Mode", selection: Binding(
+                                get: { audio.microphoneIntent.mode }, set: audio.setMicrophoneMode)) {
+                                Text("Hold to Talk").tag(WatchMicrophoneIntent.Mode.hold)
+                                Text("Toggle Microphone").tag(WatchMicrophoneIntent.Mode.toggle)
                             }
-                            .onChange(of: usesHoldToTalk) { _, _ in audio.setPressed(false) }
-                            if usesHoldToTalk {
+                            if audio.microphoneIntent.mode == .hold {
                                 Button { } label: {
                                     Text(audio.isTalking ? LocalizedStringKey("Talking…") : LocalizedStringKey("Hold to Talk"))
                                 }

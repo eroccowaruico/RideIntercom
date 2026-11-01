@@ -14,6 +14,7 @@ final class WatchAudioController {
     private(set) var isPreparing = false
     private(set) var isReady = false
     private(set) var isTalking = false
+    private(set) var microphoneIntent = WatchMicrophoneIntent()
     private(set) var problem: LocalizedStringResource?
     private let client: WatchControlClient
     @ObservationIgnored private let manager = AudioSessionManager()
@@ -25,7 +26,6 @@ final class WatchAudioController {
     @ObservationIgnored private var sessionID: UUID?
     @ObservationIgnored private var boundReference: String?
     @ObservationIgnored private var connectionTimeout: Task<Void, Never>?
-    @ObservationIgnored private var sceneActive = true
     @ObservationIgnored private var checkingAudio = false
     @ObservationIgnored private var audioCheckPlaybackRequested = false
 
@@ -65,7 +65,7 @@ final class WatchAudioController {
     }
     #endif
     private func start(to target: String, audioCheck: Bool) async {
-        guard !isPreparing, client.isReachable, sceneActive else { return }
+        guard !isPreparing, client.isReachable, microphoneIntent.scene == .active else { return }
         stop()
         let id = UUID()
         sessionID = id; checkingAudio = audioCheck; isPreparing = true; problem = nil
@@ -196,34 +196,47 @@ final class WatchAudioController {
     }
 
     func setPressed(_ pressed: Bool) {
+        if pressed && microphoneIntent.scene != .active { return }
+        microphoneIntent.request(pressed)
         let matches = boundReference != nil && client.snapshot?.reference == boundReference
         let hasPermission = checkingAudio
             ? client.snapshot?.audioCheck?.sessionID == sessionID && client.snapshot?.audioCheck?.phase == .recording
             : client.snapshot?.hasCall == true && client.snapshot?.state != .audioPaused && client.snapshot?.state != .audioUnavailable
-        let allowed = pressed && sceneActive && isReady && client.isReachable && link?.isSendReady == true && matches && hasPermission
+        let allowed = microphoneIntent.isOn && isReady && client.isReachable && link?.isSendReady == true && matches && hasPermission
+        if pressed && !allowed { microphoneIntent.close() }
         link?.setSendingAllowed(false)
         let configuration = AudioInputVoiceProcessingConfiguration(soundIsolationEnabled: false,
             otherAudioDuckingEnabled: false, inputMuted: !allowed)
         if let report = capture?.updateVoiceProcessing(configuration), !Self.continuable(report.result) {
+            microphoneIntent.close()
             isTalking = false; problem = "Microphone unavailable"; return
         }
         if allowed { link?.setSendingAllowed(true) }
         isTalking = allowed && link?.isSendingAllowed == true
         if allowed && !isTalking {
+            microphoneIntent.close()
             _ = capture?.updateVoiceProcessing(.init(soundIsolationEnabled: false,
                 otherAudioDuckingEnabled: false, inputMuted: true))
         }
     }
 
-    func setSceneActive(_ active: Bool) {
-        sceneActive = active
-        if !active { setPressed(false) }
+    func setMicrophoneMode(_ mode: WatchMicrophoneIntent.Mode) {
+        guard microphoneIntent.mode != mode else { return }
+        microphoneIntent.setMode(mode)
+        setPressed(false)
+    }
+
+    func setSceneActive(_ active: Bool, isInactive: Bool = false) {
+        let wasOn = microphoneIntent.isOn
+        microphoneIntent.setScene(active ? .active : (isInactive ? .inactive : .background))
+        if wasOn && !microphoneIntent.isOn { setPressed(false) }
     }
 
     func stop(notifyAudioCheck: Bool = true) {
         #if DEBUG
         let stoppedCheck = checkingAudio && notifyAudioCheck ? sessionID : nil
         #endif
+        microphoneIntent.close()
         sessionID = nil; boundReference = nil; checkingAudio = false; audioCheckPlaybackRequested = false
         isReady = false; isTalking = false; isPreparing = false
         link?.setSendingAllowed(false)
