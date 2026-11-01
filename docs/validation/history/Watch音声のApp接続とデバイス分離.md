@@ -60,3 +60,16 @@ Mac・iPhone Simulatorで各1回成功し、失敗・skip・runtime warning0、H
 この区切りは合成Watch入力・offline phone graphを用いるアプリの操作／媒体契約の検証である。実Watch UI、実WatchConnectivity配送、native Watchマイク・スピーカー、背景開始・継続を通した利用体験の受入ではない。通常iOSマイクの0Hz問題も未解決として別に残す。Watch機能全体を完了にはせず、[現行の実行順](../../backlog/未実装課題.md#依存関係と取り組む順序)に沿って次の利用体験へ進める。
 
 `efficient-work`を適用し、継続中のSol／medium担当を再利用して局所実装・診断・このstory試験を担当させた。主担当が要求と受入境界、差分、コミットを確認した。新しい管理役や重複レビュー役は追加せず、全体テストの再実行はproduction変更がないため行っていない。料金・削減率の推計はしていない。
+
+
+## 通話から独立したWatchの録音確認
+
+Watch Simulatorの実Appで、標準`AVAudioRecorder`による録音→`AVAudioFile`での読取→`AVAudioPlayer`での再生を確認した。`.playAndRecord`・`.default`・optionsなし、非同期activation完了後の録音で、48kHz mono・2秒・96,000 frames・非zero 92,119 samplesを取得し、再生完了delegateまで到達した。録音内容は証跡へ保存せず、測定後に一時CAFを削除した。証跡は`.validation/watch-native-recording-check-20261101/`。
+
+同じcontrollerを使うDebug専用の入口を残した。Xcodeの通常DebugでWatch Appを起動し、`Recording Check`→`Record 5s`→`Stop`／`Play`で、形式・秒数・frames・信号取得有無・エラーを確認できる。ログイン・通話・音声packageを起動せず、CLI入口は隔離Validation build・明示fixture・Simulatorの全条件を要求する。Releaseでは録音controllerと画面をコンパイルしない。実機の操作・録音と、実際に聞こえたことは未確認であり、native再生APIの完了と区別する。
+
+終了取消・停止後再生・次録音・ファイル削除を二巡目に点検した。最初のawaitより前に取消tokenを固定し、古いrecorderのdelegateと所有参照を停止時に外す。途中停止の12,024 framesとその再生、次の96,000 framesの録音／再生、遅い許可応答後の開始抑止、残CAF 0を確認した。6項目成功、対象source一致。証跡は`.validation/watch-recording-check-lifecycle-20261101/`。
+
+削除失敗後に新しい録音が既存file参照・エラーを上書きしないguardも追加した。所有する合成ファイルのdirectoryを一時的に書込不可として実削除失敗を起こし、guardなしではエラー保持・許可要求抑止の2項目が失敗、修正後は6項目成功した。権限復元後の削除とdirectory回収も確認し、この試験ではマイク録音を開始していない。最終buildには既知のAppIntentsメタデータ対象なしwarningが1件あり、警告ゼロとは扱わない。成功時はcleanupでfileがnilになるため従来の録音経路を変えない。証跡は`.validation/watch-recording-cleanup-failure-20261101/`。
+
+Recorder成功からWatchのnative入力一般が利用不能とはいえない。先のEngine試験はsession optionsも異なっていたため、APIだけの比較ではなかった。同じcategory・mode・optionsなし・deactivate→activate完了に揃えた直接Engine＋Sinkでも入力0Hz・0 frames・開始エラー-10851、標準input tapでは-10868となった。optionsだけの原因説とSinkだけの原因説は裏付けられず、AVAudioEngine入力の未成立を残す。証跡は`.validation/watch-native-engine-empty-options-20261101/`と`.validation/watch-native-input-tap-20261101/`。診断コードはsourceから撤去した。録音ファイルを既存WC経由でiPhone設定のAudioCheckへ届ける確認は次の必須項目であり、通話streamの代替やWatch会話E2E完了とは扱わない。
