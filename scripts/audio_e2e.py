@@ -25,7 +25,7 @@ def source_manifest():
     files = {}
     for name in sorted(set(names)):
         path = ROOT / name
-        is_asset = any(part.endswith('.xcassets') for part in path.parts)
+        is_asset = any(part.endswith(('.xcassets', '.icon')) for part in path.parts)
         if name and (is_asset or path.suffix in {'.swift', '.py', '.pbxproj', '.xcscheme', '.wav', '.metadata', '.json', '.plist', '.resolved', '.xcstrings', '.storekit', '.entitlements', '.xcconfig', '.xctestplan', '.png', '.strings', '.stringsdict', '.xcprivacy', '.zip'}):
             files[name] = file_fingerprint(path)
     return dict(head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), files=files)

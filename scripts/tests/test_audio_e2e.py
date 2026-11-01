@@ -44,6 +44,7 @@ class AudioE2ELifecycleTests(unittest.TestCase):
                  'RideIntercom/Assets.xcassets/Icon.imageset/Icon.svg',
                  'RideIntercom/Assets.xcassets/Logo.imageset/Logo.pdf',
                  'RideIntercom/Assets.xcassets/Photo.imageset/Photo.jpeg',
+                 'RideIntercom/AppIcon.icon/Assets/Layer.svg',
                  'RideIntercom/ja.lproj/InfoPlist.strings', 'RideIntercom/PrivacyInfo.xcprivacy',
                  'RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.zip']
         for name in names:

@@ -95,7 +95,7 @@ python3 scripts/audio_e2e.py --cleanup-only
 | measurements.json | 全通信経路・全端末・全設定の発話照合、packet数、render数、peak、要求／実選択codec。各設定の実測が揃わない場合も失敗扱い |
 | pipeline-measurements.json | `--pipeline-only`の20ms / 100ms入力周期別の連続性、再生予約リセット、処理失敗 |
 | configuration.json / scenarios.json | run識別子、入力境界、通信経路、設定区間 |
-| source-manifest.json | HEAD、Swift・テスト・スクリプト・project・発話fixture・アセットカタログ内の全形式のSHA-256。Git未登録の追加アセットも含め、buildから受入までにsourceが変わると失敗扱い |
+| source-manifest.json | HEAD、Swift・テスト・スクリプト・project・発話fixture・アセットカタログとIcon Composer内の全形式のSHA-256。Git未登録の追加アセットも含め、buildから受入までにsourceが変わると失敗扱い |
 | local-mac.xcresult / local-ios.xcresult / webrtc-mac.xcresult / webrtc-ios.xcresult | 通信経路・端末別の独立したXCTest結果 |
 | attachments-<通信経路>-<端末> | 設定区間ごとのJSON測定値、実render WAV、終了時の状態 |
 | simulator-id.txt | 実行に使用した端末の識別子 |
