@@ -1,5 +1,7 @@
 # RideIntercom ドキュメント
 
+[Watch音声の下位基盤検証](validation/history/Watch音声の下位基盤検証.md)に、AAC・媒体pairの単独検証とMac／iOS App回帰、実Watch未接続の境界を記録する。
+
 ## 目的から読む
 
 | 目的 | 最初に読む | 次に読む |

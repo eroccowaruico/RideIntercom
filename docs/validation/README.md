@@ -1,5 +1,7 @@
 # 検証状況と証跡
 
+[Watch音声の下位基盤検証](history/Watch音声の下位基盤検証.md)に、AAC・媒体pairの単独検証とMac／iOS App回帰、実Watch未接続の境界を記録する。
+
 [作業領域の引継ぎと整理](history/作業領域の引継ぎと整理.md)に、登録済み32件の点検・復元用保全とmainへの作業集約を記録する。
 
 [正式アイコンとLiquid Glassの検証](history/正式アイコンとLiquid Glassの検証.md)に、指定SVGのレイヤー分離、全画像の統一、各外観の描画とApp・Watchへの組み込みを記録する。インストール後のOS表示と配布受理は別に確認する。
