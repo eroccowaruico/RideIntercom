@@ -1,0 +1,62 @@
+# Watch音声のApp接続とデバイス分離
+
+2026-11-01。基準commitは`adea0a73`。Watchの主要課題を優先し、iPhoneの既存通話・VAD・合成済み受信音声へ、Watch側のcapture／rendererとAAC・暗号化媒体pairを接続した。Watchに通話session、ミキサー、VADを追加しない。以下は作業段階ごとの証跡であり、実機での採用条件の達成を意味しない。
+
+## App接続の基準検証
+
+| 範囲 | 確認した結果 | 証跡 |
+|---|---|---|
+| 出力機器の形式差 | native PCM変換、任意block分割での時計維持、stop／形式変更の履歴破棄、再生予算。SessionManager Swift Testing63件＋XCTest1件成功 | `.validation/watch-output-conversion-20261101/` |
+| OS 27音声API | 非同期activation／deactivation、throwするnative接続・再生開始、通知の更新。SessionManager64件＋XCTest1件、Watch／iOS SDK build成功、最終警告0 | `.validation/watch-audio-os27-api-20261101/final/` |
+| 端末pairとApp | 実ローカル暗号化UDP＋native AACで、合成入力を既存phone TXへ渡し、合成済みRXを端末側へ返す。関連18件成功、phone input開始0・phone出力schedule0・期限不変を確認 | `.validation/watch-audio-app-pair-20261101/` |
+| 全Mac Appの基準 | プラグイン抽出前の534テスト成功。失敗・skip・runtime warning0、検証前後の入力hash一致 | `.validation/watch-audio-baseline-macos-20261101/` |
+| Watch App SDK | 初期App接続のgeneric Watch Simulator build成功。OS 27旧API警告は上記の後続package工程で解消 | `.validation/watch-audio-app-watch-sdk-20261101/` |
+
+## 後続工程と受入境界
+
+利用者の追加指示により、媒体・AACをAppから[音声デバイスpackage](../../spec/packages/Audio/AudioDevice.md)へ分離し、既存SessionManagerのbackend契約で差し替えた。package工程は`237de17`でコミットした。押下ごとのiPhoneミュート連動をせず、Watch利用中はiPhoneマイク操作を無効化し、以前のiPhoneミュート値も適用しない。後続Appの関連40テストは成功し、失敗・skip・runtime warningは0。旧phone mute=trueでも双方向音声が成立し、phone capture開始0・元backendへの復帰・通話期限の維持を確認した。証跡は`.validation/watch-audio-device-app-20261101/focused-ready/`。再点検では入力の不連続と状態配送も確認した。
+
+Watch Simulator用の専用iPhone／Watchペアを所有journal `.validation/watch-simulator-pair.json`へ記録した。既存ペアを変更せず、標準CLIで実行・停止する。GUI操作を試験の条件にしない。
+
+実Watchの背景・ロック中の開始、画面消灯、自然な無言区間、無線経路変更、追加遅延、長時間の電池消費は未受入。[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)ではSimulatorが低レベル通信制限を再現しないため、Simulator成功を実機の成立証明としない。iPhoneで先に操作する条件、CallKit、背景維持用の別音声を採用した結果ではない。
+
+
+## 再点検で修正した境界
+
+| 巡回 | 確認・改善 |
+|---|---|
+| 初回 | AudioDeviceを既存capture/render backendへ接続し、Watchに独自の通話・mixerを置かず、iPhoneの音声処理を共用した。保存済みphone mute値とWatchのローカル送話gateを分離した |
+| 二巡目 | 入力の途絶・形式変更で旧VAD preroll、DSP効果の履歴、未送出音声を持ち越す問題をREDで再現。AudioMixerの独立工程を`324820f`で凍結した後、AppのVAD・入力表示へ反映した。音量表示による同一Watch snapshotの再送もREDで再現し、日時だけの変化を配送理由にしない比較を追加した。Watch pairがない状態で無効なphone再開操作を表示しない |
+
+## 自動検証の証跡
+
+| 範囲 | 結果・境界 | 証跡 |
+|---|---|---|
+| 音声デバイスpackage | SessionManager 66件＋XCTest1件、AudioDevice Mac9件、Watch Simulator9件（引数別13実行）、iOS/Watch SDK成功。対象ソースのhashは一致。別作業のcommitによりHEADが変わったため全入力一致stageの失敗は保持し、対象一致の記録と分ける | `.validation/audio-device-package-20261101/final/` |
+| DSP入力の不連続 | AudioMixer 63件＋XCTest7件、iOS SDK成功、警告0、対象hash一致。旧tail・端数の破棄と次発話のfresh効果との一致を検査 | `.validation/audio-mixer-discontinuity-20261101/review-final/` |
+| App全体の中間確認 | Mac 533件成功、skip・runtime warning0、入力hash一致。以下の入力途絶修正より前の結果 | `.validation/watch-audio-device-app-20261101/macos-final/` |
+| 検証スクリプト | Python125件とCloudflareスクリプト試験成功、入力hash一致。外部サービスへは接続しない | `.validation/watch-audio-device-app-20261101/scripts-final/` |
+| Watch App起動 | Debug-Validationを標準DerivedDataでbuildし、専用Watch Simulatorへinstall・launch。5秒のログと同一process生存を確認後、Appと所有ペアを停止。compiler警告・検出runtime問題0。AppIntentsメタデータ対象なしのtool警告1件を区別する。ValidationはWCSessionを無効化するため、この結果は実操作配送・Watchからの音声開始の成功ではない | `.validation/watch-audio-device-app-watch-launch-20261101/` |
+| 追加回帰のRED | 入力gap・format変更で旧preroll／音声／VADと入力表示が残る8assert、日時・meter変更による不要なWatch配送20assertを確認。初回import不足のcompile失敗とは分ける | `.validation/watch-input-gap-app-20261101/behavior-red/` |
+| App追加回帰 | 54件成功、skip・runtime warning0、入力hash一致。実入力gapとPCM形式変更、入力途絶の表示失効、停止時の即時消去、Watch状態差分を検査 | `.validation/watch-input-gap-app-20261101/focused/` |
+| Mac App最終 | 536件成功、skip・runtime warning0。製品入力は一致。実行中に外部のefficient-workスキル参照3文書だけが更新され、全入力一致stageは失敗のまま保持し、`input-boundary.json`で区別した。sandbox内の初回はprocess管理権限で未実行 | `.validation/watch-audio-app-final-20261101/macos-verified/` |
+| iPhone Simulator App最終 | 522件成功、skip・runtime warning0、全入力hash一致。所有Simulatorを停止・回収。UI操作試験や実機背景開始の結果ではない | `.validation/watch-audio-device-app-20261101/ios-final/` |
+
+Release音声E2Eの初回buildでは、別schemeの測定用targetに旧`rendersToHardware`引数の追従漏れとOS 27の旧tap API警告があった。測定前のbuild失敗として`.validation/watch-audio-app-final-20261101/realtime/`に保持し、音声の合格や実測失敗とは扱わない。API追従後の検証は別の実行先へ記録する。
+
+
+API追従後のRelease再実行は`.validation/watch-audio-app-final-20261101/realtime-verified/`。Mac/iOS buildと事前検査7件は成功したが、本体は1件失敗、音声測定は0/9件。AURemoteIOが入力形式を2ch・0Hzとして開始に失敗し、`SystemAudioInputStreamBackend`が`invalidFrame`を返した。非同期activationの完了待ち・teardownのdeactivation待ちは実装済みで、未待機を原因とする証拠はなかった。遅延・音質は未測定として保持し、成功したApp単体522/536件とは分ける。対象ソースhashは一致、HEADのみ外部スキルcommitで変わった。所有SimulatorのShutdown・検証プロセス終了・共有lock解放を`cleanup-review.json`で確認した。
+
+
+同じ所有Simulatorの限定診断では、音声処理を無効・有効にしたfresh sessionの各1回とも、native nodeが設定前から0Hzだった。非同期activation/deactivationは成功し、session自体は入力あり・48kHz。Macにも有効な入力機器が存在する。VP単独原因やactivationの待機漏れは裏付けられず、原因未確定としてこの診断で終了した。権限付与は自動承認審査で拒否されたため実行せず、既に許可済みのE2E hostを使いOS設定を変えなかった。診断用の仮テストを証跡へ保全してsourceから撤去し、productionは変更していない。証跡は`.validation/session-input-format-diagnostic-20261101/`。
+
+
+## コアストーリーを通した区切り
+
+利用者から、部品単位の改善が続き各機能のコアストーリーが優先されていないとの指摘を受け、既存の`WatchAudioIntegrationTests`一件を一連の操作へ強化した。`WatchControlClient`で保存先を取得・選択し、`startAudio`を共通所有者へ渡す。実ローカル暗号化AAC pairで既存phone TX/RXへ音声を渡し、Watch送話gateを閉じても受話・同一通話・期限が維持され、閉じた期間のPCMが送信されないことを確認する。再押下で送話を再開し、同じclientの`end`でpair停止・元backendへの復帰・遅い音声の遮断まで検査した。保存済みphone mute=trueの保持と、押下ごとの制御要求なしも確認した。
+
+Mac・iPhone Simulatorで各1回成功し、失敗・skip・runtime warning0、HEADと全入力hash一致、所有Simulator停止を確認した。証跡は`.validation/watch-core-story-20261101/`。全体536/522件の確認後に変更したのはこの試験だけで、productionは同一である。
+
+この区切りは合成Watch入力・offline phone graphを用いるアプリの操作／媒体契約の検証である。実Watch UI、実WatchConnectivity配送、native Watchマイク・スピーカー、背景開始・継続を通した利用体験の受入ではない。通常iOSマイクの0Hz問題も未解決として別に残す。Watch機能全体を完了にはせず、[現行の実行順](../../backlog/未実装課題.md#依存関係と取り組む順序)に沿って次の利用体験へ進める。
+
+`efficient-work`を適用し、継続中のSol／medium担当を再利用して局所実装・診断・このstory試験を担当させた。主担当が要求と受入境界、差分、コミットを確認した。新しい管理役や重複レビュー役は追加せず、全体テストの再実行はproduction変更がないため行っていない。料金・削減率の推計はしていない。

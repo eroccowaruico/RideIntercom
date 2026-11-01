@@ -34,7 +34,7 @@ struct StandardCallView: View {
                 }
                 if group.id == viewModel.activeGroupID {
                     audioControls
-                    if viewModel.isAudioPausedForDeviceChange {
+                    if viewModel.isAudioPausedForDeviceChange, viewModel.canResumeAudioOnThisDevice {
                         Section {
                             Text("Check your headphones or speaker, then resume audio.")
                             Button("Resume Audio") { viewModel.resumeAudioAfterDeviceChange() }
@@ -111,10 +111,15 @@ struct StandardCallView: View {
     private var audioControls: some View {
         let reference = viewModel.currentCallReference
         return Section("Audio") {
-            Toggle("Mute Microphone", isOn: Binding(get: { viewModel.isMuted }, set: { viewModel.setCallMuted($0, for: reference) }))
-                .accessibilityIdentifier("standardMuteToggle")
-            Text(LocalizedStringKey(viewModel.isMuted ? "Microphone muted" : viewModel.isMicrophoneCaptureRunning ? "Microphone on" : "Microphone waiting for the call"))
-                .font(.footnote).accessibilityIdentifier("standardMicrophoneStatus")
+            if viewModel.canControlMicrophone {
+                Toggle("Mute Microphone", isOn: Binding(get: { viewModel.isMuted }, set: { viewModel.setCallMuted($0, for: reference) }))
+                    .accessibilityIdentifier("standardMuteToggle")
+                Text(LocalizedStringKey(viewModel.isMuted ? "Microphone muted" : viewModel.isMicrophoneCaptureRunning ? "Microphone on" : "Microphone waiting for the call"))
+                    .font(.footnote).accessibilityIdentifier("standardMicrophoneStatus")
+            } else {
+                Label("Control the microphone on your Watch", systemImage: "applewatch")
+                    .accessibilityIdentifier("standardMicrophoneStatus")
+            }
             Toggle("Mute Speaker", isOn: Binding(get: { viewModel.isOutputMuted }, set: { next in
                 if viewModel.isOutputMuted != next { viewModel.toggleOutputMute() }
             }))

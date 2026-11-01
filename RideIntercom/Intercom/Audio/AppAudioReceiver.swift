@@ -69,6 +69,10 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
         sources.values.forEach { $0.start() }
     }
 
+    func setHardwareOutputEnabled(_ enabled: Bool) {
+        lock.withLock { mixer?.bus("engine-output")?.volume = enabled ? 1 : 0 }
+    }
+
     func stop() {
         lock.lock(); defer { lock.unlock() }
         // Revoke receivers already waiting for this lock, even if stop is

@@ -367,11 +367,12 @@ class ValidationTests(unittest.TestCase):
              patch.object(self.runner, 'run', side_effect=command), patch.dict(os.environ):
             self.assertEqual(self.module.main(), 0)
         cleans = [(stage, argv) for stage, argv in commands if argv[:2] == ['swift', 'package']]
-        self.assertEqual(len(cleans), 9)
+        self.assertEqual(len(cleans), 10)
         self.assertEqual(sum(stage == 'package-RTC-clean' for stage, _ in cleans), 1)
         self.assertTrue(all(argv[-1] == 'clean' and '--package-path' in argv for _, argv in cleans))
         self.assertFalse(any('--scratch-path' in argv for _, argv in commands))
         self.assertFalse((self.runner.out / 'clean-build-root.txt').exists())
+        self.assertIn('package-AudioDevice', self.runner.results)
         rtc = next(argv for stage, argv in commands if stage == 'package-RTC')
         self.assertIn('RideIntercom/packages/RTC', rtc)
         self.assertIn('swift-worker-pair', self.runner.results)

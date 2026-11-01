@@ -72,6 +72,9 @@ struct SetCallMutedIntent: AppIntent {
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
         let vm = try owner.callModel()
         let reference = vm.currentCallReference
+        guard vm.canControlMicrophone else {
+            throw CallIntentError.unavailable("Control the microphone on your Watch")
+        }
         guard vm.setCallMuted(muted, for: reference) else {
             throw CallIntentError.unavailable(vm.groupStorageNotice ?? "The microphone could not be changed. Open RideCom and try again.")
         }

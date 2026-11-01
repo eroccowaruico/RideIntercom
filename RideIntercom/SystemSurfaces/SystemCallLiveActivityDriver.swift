@@ -43,7 +43,7 @@ import ActivityKit
         }
     }
     private func content(_ value: CallLivePresentation) -> ActivityContent<RideCallActivityAttributes.ContentState> {
-        .init(state: .init(status: value.status, isMuted: value.isMuted), staleDate: nil)
+        .init(state: .init(status: value.status, isMuted: value.isMuted, canControlMicrophone: value.canControlMicrophone), staleDate: nil)
     }
 }
 #else

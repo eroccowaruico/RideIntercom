@@ -16,7 +16,7 @@ extension AppCallOwner {
         let reference = vm.currentCallReference
         return .init(reference: .init(accountAccessID: reference.accountAccessID,
             connectionGeneration: reference.connectionGeneration, groupID: groupID),
-            status: vm.callStatus(for: groupID), isMuted: vm.isMuted)
+            status: vm.callStatus(for: groupID), isMuted: vm.effectiveInputMuted, canControlMicrophone: vm.canControlMicrophone)
     }
     func observeSystemSurfaces() {
         let input = withObservationTracking {

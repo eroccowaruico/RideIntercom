@@ -4,6 +4,7 @@ import RTC
 struct LocalMicrophoneHeaderControl: View {
     let member: GroupMember
     let isMuted: Bool
+    var canControlMicrophone = true
     let onToggleMute: () -> Void
 
     var body: some View {
@@ -19,9 +20,9 @@ struct LocalMicrophoneHeaderControl: View {
                             .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.textSecondary)
                     }
 
-                    Text(isMuted ? "Muted" : "Unmuted")
+                    Text(!canControlMicrophone ? "Control the microphone on your Watch" : isMuted ? "Muted" : "Unmuted")
                         .font(AppTypography.captionStrongMono)
-                        .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.success)
+                        .foregroundStyle(!canControlMicrophone ? AppColorPalette.textSecondary : isMuted ? AppColorPalette.danger : AppColorPalette.success)
                         .accessibilityIdentifier("localMicrophoneStateLabel")
                 }
 
@@ -34,19 +35,21 @@ struct LocalMicrophoneHeaderControl: View {
                 .accessibilityIdentifier("localMicrophoneMeter")
             }
 
-            Button(action: onToggleMute) {
-                Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
-                    .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
+            if canControlMicrophone {
+                Button(action: onToggleMute) {
+                    Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
+                        .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
+                }
+                .appSecondaryButtonStyle()
+                .tint(isMuted ? AppColorPalette.danger : AppColorPalette.buttonProminentBackground)
+                .accessibilityLabel(isMuted ? "Unmute" : "Mute")
+                .accessibilityValue(!canControlMicrophone ? "Control the microphone on your Watch" : isMuted ? "Muted" : "Unmuted")
+                .accessibilityIdentifier("localMicrophoneMuteButton")
             }
-            .appSecondaryButtonStyle()
-            .tint(isMuted ? AppColorPalette.danger : AppColorPalette.buttonProminentBackground)
-            .accessibilityLabel(isMuted ? "Unmute" : "Mute")
-            .accessibilityValue(isMuted ? "Muted" : "Unmuted")
-            .accessibilityIdentifier("localMicrophoneMuteButton")
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Your microphone")
-        .accessibilityValue(isMuted ? "Muted" : "Unmuted")
+        .accessibilityValue(!canControlMicrophone ? "Control the microphone on your Watch" : isMuted ? "Muted" : "Unmuted")
         .accessibilityIdentifier("localMicrophoneHeaderControl")
     }
 }

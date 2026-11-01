@@ -13,9 +13,9 @@ extension AudioE2ETests {
         try await activateAudioSessionForTest()
         let probe = RenderedAudioProbe(), engine = AVAudioEngine()
         let output = SystemAudioOutputStreamBackend(engine: engine)
-        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
+        try engine.mainMixerNode.installAudioTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
         let hardware = try output.startRendering(configuration: .intercomCall)
-        let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+        let pipeline = AppAudioPipeline(makeEngine: { engine }, usesHardwareClock: true)
         var errors: [String] = []
         try pipeline.rebuild(configuration: .init(outputHardwareFormat: hardware, transmitSoundIsolationEnabled: false,
             receiveMaximumBufferedDuration: 0.12, receivePlayoutDelay: 0.002), peerIDs: (1..<8).map(String.init))

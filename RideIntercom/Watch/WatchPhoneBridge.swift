@@ -9,6 +9,7 @@ final class WatchPhoneBridge: NSObject, WCSessionDelegate {
     private weak var owner: AppCallOwner?
     private let session: WCSession
     private var started = false
+    private var lastPublishedSnapshot: WatchCallSnapshot?
     init(owner: AppCallOwner, session: WCSession = .default) {
         self.owner = owner
         self.session = session
@@ -29,21 +30,28 @@ final class WatchPhoneBridge: NSObject, WCSessionDelegate {
         }
         publish(value)
     }
-    private func publish(_ value: WatchCallSnapshot) {
+    private func publish(_ value: WatchCallSnapshot, force: Bool = false) {
         guard SystemSurfaceScope.permitsSystemAccess, session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
+              force || value.needsPublication(after: lastPublishedSnapshot),
               let data = try? JSONEncoder().encode(value) else { return }
-        try? session.updateApplicationContext(["rideintercom.watch.v1": data])
+        do {
+            try session.updateApplicationContext(["rideintercom.watch.v1": data])
+            lastPublishedSnapshot = value
+        } catch {
+            // Keep the last accepted value so a later state observation can
+            // retry. Explicit Watch refreshes also return a fresh snapshot.
+        }
     }
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: (any Error)?) {
         Task { @MainActor [weak self] in
             guard let self, let owner else { return }
-            publish(owner.watchSnapshot())
+            publish(owner.watchSnapshot(), force: true)
         }
     }
     nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
         Task { @MainActor [weak self] in
             guard let self, let owner else { return }
-            publish(owner.watchSnapshot())
+            publish(owner.watchSnapshot(), force: true)
         }
     }
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}

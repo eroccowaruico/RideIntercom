@@ -114,25 +114,30 @@ extension IntercomViewModel {
     }
 
     func applyLocalMute(_ muted: Bool) {
-        guard isMuted != muted else { return }
+        guard canControlMicrophone, isMuted != muted else { return }
         isMuted = muted
-        audioPipeline.setInputMuted(isMuted)
+        applyEffectiveInputMute()
+    }
+
+    func applyEffectiveInputMute() {
+        let muted = effectiveInputMuted
+        audioPipeline.setInputMuted(muted)
         applyCurrentVoiceProcessingConfiguration()
-        callSession.setLocalMute(isMuted)
+        callSession.setLocalMute(muted)
 
         withActiveGroup { group in
             guard !group.members.isEmpty else { return }
-            group.members[0].isMuted = isMuted
-            if isMuted {
+            group.members[0].isMuted = muted
+            if muted {
                 group.members[0].isTalking = false
                 group.members[0].voiceLevel = 0
                 group.members[0].voicePeakLevel = 0
             }
         }
-        if isMuted {
+        if muted {
             localVoicePeakWindow = VoicePeakWindow()
         }
-        broadcastControl(.peerMuteState(isMuted: isMuted))
+        broadcastControl(.peerMuteState(isMuted: muted))
         broadcastMetadataKeepalive()
         publishRuntimePackageReports(force: true)
     }

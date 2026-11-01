@@ -159,7 +159,7 @@ struct WidgetDestinationTests {
         #expect(store.readSnapshot()?.currentCall?.reference == call.reference)
         let json = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
         let projected = try #require(json["currentCall"] as? [String: Any])
-        #expect(Set(projected.keys) == ["reference", "status", "isMuted"])
+        #expect(Set(projected.keys) == ["reference", "status", "isMuted", "canControlMicrophone"])
         account.session.signOut()
         await AppTestSupport.waitUntil { store.readSnapshot()?.currentCall == nil && store.read().isEmpty }
         #expect(store.readSnapshot()?.currentCall == nil)

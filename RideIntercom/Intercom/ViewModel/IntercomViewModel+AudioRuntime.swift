@@ -12,11 +12,24 @@ extension IntercomViewModel {
         }
     }
 
+    func clearLocalInputObservation() {
+        localInputObservedAt = nil
+        localVoicePeakWindow = VoicePeakWindow()
+        setLocalVoiceLevel(0)
+        setVoiceActive(false)
+    }
+
+    private func expireLocalInputObservation(now: TimeInterval) {
+        guard let last = localInputObservedAt, now - last >= remoteTalkerTimeout else { return }
+        clearLocalInputObservation()
+    }
+
     func handleCallTick(now: TimeInterval) {
         guard !disconnectIfTimerExpired(now: now) else { return }
         sendPeerProfileChallenges(now: now)
         refreshCallAccess(retryMedia: false)
         expireRemoteTalkers(now: now)
+        expireLocalInputObservation(now: now)
         refreshOtherAudioDuckingState(now: now)
         publishRuntimePackageReports(now: now)
     }
@@ -52,9 +65,11 @@ extension IntercomViewModel {
             processAudioCheckInput(level: rawLevel, frame: frame)
         }
         guard isAudioReady else { return }
+        // This is local observation time, never the remote capture clock.
+        localInputObservedAt = callAccessNow().timeIntervalSince1970
         let observation = audioPipeline.inputObservation
-        setLocalVoiceLevel(isMuted ? 0 : observation.level)
-        setVoiceActive(!isMuted && observation.voiceActive)
+        setLocalVoiceLevel(effectiveInputMuted ? 0 : observation.level)
+        setVoiceActive(!effectiveInputMuted && observation.voiceActive)
         sentVoicePacketCount = max(0, observation.sentPackets - transmitPacketCounterBaseline)
         vadGateRuntimeSnapshot = audioPipeline.vadRuntimeSnapshot
         if let failure = observation.failure {
@@ -86,6 +101,7 @@ extension IntercomViewModel {
     @discardableResult
     func rebuildAudioPipeline() -> Bool {
         do {
+            audioPipeline.setHardwareOutputEnabled(audioOutputRenderer.rendersToHardware)
             try audioPipeline.rebuild(
                 configuration: currentAudioPipelineConfiguration(),
                 peerIDs: receivePeerIDsForAudioPipeline()

@@ -2,6 +2,8 @@
 
 [音声デバイスpackageの検証](validation/history/音声デバイスpackageの検証.md)に、backend抽出とWatch Simulatorでの実行結果を記録する。
 
+[Watch音声のApp接続とデバイス分離](validation/history/Watch音声のApp接続とデバイス分離.md)に、ローカル媒体往復・Mac全体の基準検証と、音声デバイスへの分離／Watch Simulatorの後続工程を記録する。
+
 [Xcode標準設定への復帰と一時領域の整理](validation/history/Xcode標準設定への復帰と一時領域の整理.md)に、独自採番・一時buildの廃止、指定先Widgetの照合、検証結果と未解決の警告、一時物の保全・削除を記録する。
 
 [Watch音声の下位基盤検証](validation/history/Watch音声の下位基盤検証.md)に、AAC・媒体pairの単独検証とMac／iOS App回帰、実Watch未接続の境界を記録する。
@@ -107,7 +109,7 @@
 | [spec/App/UI/共通項目.md](<spec/App/UI/共通項目.md>) | RideCom UI 共通項目 |
 | [spec/App/UI/画面・状態遷移.md](<spec/App/UI/画面・状態遷移.md>) | RideCom 画面・状態遷移 |
 | [spec/App/UI/画面項目定義.md](<spec/App/UI/画面項目定義.md>) | RideCom 画面項目定義 |
-| [spec/App/Watch操作.md](<spec/App/Watch操作.md>) | iPhone依存Watchの操作と状態・音声の未実装境界 |
+| [spec/App/Watch操作.md](<spec/App/Watch操作.md>) | iPhone依存Watchの操作・音声デバイス接続と実機受入の境界 |
 | [spec/App/通知仕様.md](<spec/App/通知仕様.md>) | 通常通知の許可・直接相手のgrant・tapから共通通話操作への接続 |
 | [spec/App/システム表示と通話操作.md](<spec/App/システム表示と通話操作.md>) | Widget・Control・任意のLive Activity・Macメニューと共通通話操作 |
 | [spec/App/利用権仕様.md](<spec/App/利用権仕様.md>) | StoreKitの読取・期限・復元・ログイン寿命 |
@@ -147,6 +149,7 @@
 | [development/BuildWebRTC/WebRTCビルドスクリプト.md](<development/BuildWebRTC/WebRTCビルドスクリプト.md>) | WebRTCビルドスクリプト |
 | [development/Cloudflare試用手順.md](<development/Cloudflare試用手順.md>) | Cloudflare試用手順 |
 | [development/Cloudflare費用試算.md](<development/Cloudflare費用試算.md>) | Cloudflare 音声通話の費用試算 |
+| [development/history/旧機能拡張の着手順.md](<development/history/旧機能拡張の着手順.md>) | 初期の機能依存順と実装追記の履歴 |
 | [development/history/旧HE-AAC-v2追加計画.md](<development/history/旧HE-AAC-v2追加計画.md>) | 旧HE-AAC-v2追加計画 |
 | [development/history/旧アーキテクチャ再編計画.md](<development/history/旧アーキテクチャ再編計画.md>) | 旧アーキテクチャ再編計画 |
 | [development/history/旧音声入出力と画面改修計画.md](<development/history/旧音声入出力と画面改修計画.md>) | 旧音声入出力と画面改修計画 |

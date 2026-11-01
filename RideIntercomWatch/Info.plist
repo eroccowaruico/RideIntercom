@@ -8,5 +8,9 @@
     <key>CFBundleDisplayName</key><string>RideCom</string>
     <key>WKCompanionAppBundleIdentifier</key><string>com.yowamushi-inc.RideIntercom.RideIntercom</string>
     <key>WKRunsIndependentlyOfCompanionApp</key><false/>
+    <key>NSMicrophoneUsageDescription</key><string>Your microphone sends your voice through your iPhone during a call.</string>
+    <key>NSLocalNetworkUsageDescription</key><string>Connect to your iPhone to send and receive call audio.</string>
+    <key>NSBonjourServices</key><array><string>_ride-audio._udp</string></array>
+    <key>UIBackgroundModes</key><array><string>audio</string></array>
 </dict>
 </plist>

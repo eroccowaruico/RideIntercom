@@ -38,10 +38,10 @@ extension AudioE2ETests {
             let probe = RenderedAudioProbe()
             try input.updateVoiceProcessing(.init(soundIsolationEnabled: false, otherAudioDuckingEnabled: true))
             let output = SystemAudioOutputStreamBackend(engine: engine)
-            engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in
+            try engine.mainMixerNode.installAudioTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in
                 probe.append(buffer, time: time)
             }
-            let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+            let pipeline = AppAudioPipeline(makeEngine: { engine }, usesHardwareClock: true)
             previousPipeline = pipeline
             let transmitted = RenderedAudioProbe(), mixed = RenderedAudioProbe()
             let inputAges = Mutex<[Double]>([]), txAges = Mutex<[Double]>([])

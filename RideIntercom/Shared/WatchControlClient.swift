@@ -31,9 +31,10 @@ final class WatchControlClient {
         snapshot = value
     }
 
-    func perform(_ action: WatchCallAction) async {
-        guard isReachable else { problem = .unavailable; return }
-        guard !isWaiting else { return }
+    @discardableResult
+    func perform(_ action: WatchCallAction) async -> WatchControlReply? {
+        guard isReachable else { problem = .unavailable; return nil }
+        guard !isWaiting else { return nil }
         let generation = connectionGeneration
         let displayedReference = snapshot?.reference
         isWaiting = true; problem = nil
@@ -43,19 +44,21 @@ final class WatchControlClient {
             // interaction, never poll or enqueue a delayed microphone/start command.
             if action != .refresh, snapshot == nil || snapshot!.validUntil <= now() {
                 let updated = try await send(.init(.refresh))
-                guard generation == connectionGeneration else { return }
+                guard generation == connectionGeneration else { return nil }
                 receive(updated.snapshot)
                 guard displayedReference != nil, displayedReference == snapshot?.reference else {
-                    problem = .stale; return
+                    problem = .stale; return nil
                 }
             }
             let reply = try await send(.init(action, snapshot: snapshot))
-            guard generation == connectionGeneration else { return }
+            guard generation == connectionGeneration else { return nil }
             receive(reply.snapshot)
             problem = reply.problem
+            return reply
         } catch {
-            guard generation == connectionGeneration else { return }
+            guard generation == connectionGeneration else { return nil }
             problem = .unavailable
+            return nil
         }
     }
 }

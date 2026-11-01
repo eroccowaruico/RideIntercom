@@ -299,7 +299,7 @@ def main():
     if node_needed:
         runner.run('node-toolchain', ['node', '-e', 'if(Number(process.versions.node.split(".")[0])<22)process.exit(1)'], timeout=30)
     if mode in ('all', 'headless', 'packages'):
-        packages = ['Audio/' + name for name in ['AudioCore', 'AudioMixer', 'Codec', 'SessionManager']]
+        packages = ['Audio/' + name for name in ['AudioCore', 'AudioMixer', 'Codec', 'SessionManager', 'AudioDevice']]
         packages += ['Audio/Effectors/' + name for name in ['DynamicsProcessor', 'PeakLimiter', 'SoundIsolation', 'VADGate']]
         packages += ['RTC']
         for package in packages:

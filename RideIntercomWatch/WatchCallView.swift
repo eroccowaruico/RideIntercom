@@ -2,6 +2,9 @@ import SwiftUI
 
 struct WatchCallView: View {
     let client: WatchControlClient
+    let audio: WatchAudioController
+    @State private var usesHoldToTalk = true
+    @GestureState private var isHolding = false
     var body: some View {
         NavigationStack {
             List {
@@ -12,16 +15,34 @@ struct WatchCallView: View {
                         Text(stateTitle(state.state))
                         if let title = state.title { Text(title) }
                         if state.reference != nil {
-                            Button(state.isMuted ? LocalizedStringKey("Unmute iPhone microphone") : LocalizedStringKey("Mute iPhone microphone")) {
-                                Task { await client.perform(.setMuted(!state.isMuted)) }
-                            }.disabled(client.isWaiting)
+                            Picker("Microphone Mode", selection: $usesHoldToTalk) {
+                                Text("Hold to Talk").tag(true)
+                                Text("Toggle Microphone").tag(false)
+                            }
+                            .onChange(of: usesHoldToTalk) { _, _ in audio.setPressed(false) }
+                            if usesHoldToTalk {
+                                Button { } label: {
+                                    Text(audio.isTalking ? LocalizedStringKey("Talking…") : LocalizedStringKey("Hold to Talk"))
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .simultaneousGesture(DragGesture(minimumDistance: 0).updating($isHolding) { _, state, _ in state = true })
+                                .onChange(of: isHolding) { _, held in audio.setPressed(held) }
+                                .disabled(!audio.isReady || client.isWaiting)
+                                .accessibilityIdentifier("watchHoldToTalk")
+                                .accessibilityHint("Choose Toggle Microphone to use a single tap.")
+                            } else {
+                                Toggle("Microphone", isOn: Binding(get: { audio.isTalking }, set: audio.setPressed))
+                                    .disabled(!audio.isReady || client.isWaiting)
+                                    .accessibilityIdentifier("watchMicrophoneToggle")
+                            }
                             if state.hasCall {
-                                Button("End Call", role: .destructive) { Task { await client.perform(.end) } }
+                                Button("End Call", role: .destructive) { audio.stop(); Task { await client.perform(.end) } }
                                     .disabled(client.isWaiting)
                             }
                         }
                     }
-                    if client.isWaiting { ProgressView("Updating…") }
+                    if client.isWaiting || audio.isPreparing { ProgressView("Updating…") }
+                    if let problem = audio.problem { Text(problem).foregroundStyle(.secondary) }
                     if let problem = client.problem { Text(problemTitle(problem)).foregroundStyle(.secondary) }
                     Button("Refresh") { Task { await client.perform(.refresh) } }
                         .disabled(!client.isReachable || client.isWaiting)
@@ -37,22 +58,23 @@ struct WatchCallView: View {
                     }
                 }
                 if client.isReachable, let state = client.snapshot, !state.targets.isEmpty {
-                    Section("Call on iPhone") {
+                    Section("Call") {
                         ForEach(state.targets) { target in
                             VStack(alignment: .leading) {
-                                Button { Task { await client.perform(.start(target.id)) } } label: { Text(target.name) }
+                                Button { Task { await audio.startCall(to: target.id) } } label: { Text(target.name) }
                                     .buttonStyle(.bordered)
                                 if target.canNotify {
                                     Button("Send Call Request") { Task { await client.perform(.requestCall(target.id)) } }
                                         .buttonStyle(.bordered)
                                 }
-                            }.disabled(client.isWaiting)
+                            }.disabled(client.isWaiting || audio.isPreparing)
                         }
                     }
                 }
-                Section { Text("Audio plays on iPhone or its headphones.").font(.footnote) }
+                Section { Text("Audio uses your Watch. Keep your iPhone nearby.").font(.footnote) }
             }
             .navigationTitle("RideCom")
+            .onDisappear { audio.setPressed(false) }
         }
     }
     private func notificationTitle(_ status: CallNotificationStatus) -> LocalizedStringKey {

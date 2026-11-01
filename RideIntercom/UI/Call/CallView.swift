@@ -27,7 +27,7 @@ struct CallView: View {
                         Label(notice, systemImage: "headphones")
                             .accessibilityIdentifier("audioRouteNotice")
                     }
-                    if viewModel.isAudioPausedForDeviceChange {
+                    if viewModel.isAudioPausedForDeviceChange, viewModel.canResumeAudioOnThisDevice {
                         Button("Resume Audio", systemImage: "play.fill") {
                             viewModel.resumeAudioAfterDeviceChange()
                         }
@@ -132,7 +132,8 @@ struct CallView: View {
                 let muted = !viewModel.isMuted
                 LocalMicrophoneHeaderControl(
                     member: localMember,
-                    isMuted: viewModel.isMuted,
+                    isMuted: viewModel.effectiveInputMuted,
+                    canControlMicrophone: viewModel.canControlMicrophone,
                     onToggleMute: { viewModel.setCallMuted(muted, for: reference) }
                 )
             }

@@ -44,6 +44,16 @@ extension AppCallOwner {
         let succeeded: Bool
         switch request.action {
         case .refresh: return reply()
+        case .startAudio(let id, let offer):
+            guard offer.key.count == 32,
+                  let target = callTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
+            guard vm.startCall(to: target.destination, accountAccessID: vm.accountAccessID,
+                               allowSwitchingCall: false, usingWatch: true) else { return reply(.denied) }
+            do {
+                let endpoint = try await vm.attachWatchAudio(offer)
+                guard let current = try? callModel(), current === vm, vm.hasCurrentAccountAccess else { return reply(.noAccount) }
+                return .init(snapshot: watchSnapshot(), problem: nil, audioEndpoint: endpoint)
+            } catch { return reply(.unavailable) }
         case .start(let id):
             guard let target = callTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
             succeeded = vm.startCall(to: target.destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false, usingWatch: true)

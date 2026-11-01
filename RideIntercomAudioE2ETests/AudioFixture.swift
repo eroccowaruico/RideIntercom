@@ -240,14 +240,14 @@ final class RenderedAudioProbe: @unchecked Sendable {
         }
     }
 
-    func append(_ buffer: AVAudioPCMBuffer, time: AVAudioTime? = nil) {
-        guard let data = buffer.floatChannelData else { return }
+    func append(_ buffer: AVReadOnlyAudioPCMBuffer, time: AVAudioTime? = nil) {
+        guard case .float(let data) = buffer.channelData(0) else { return }
         lock.withLock {
             if count == 0, let time, time.isHostTimeValid { firstRenderTime = AVAudioTime.seconds(forHostTime: time.hostTime) }
             rate = buffer.format.sampleRate
             for index in 0..<Int(buffer.frameLength) {
                 guard count < capacity else { invalidSampleCount += 1; continue }
-                let value = data[0][index]
+                let value = data[index]
                 if !value.isFinite { invalidSampleCount += 1 }
                 storage[count] = value.isFinite ? value : 0
                 count += 1

@@ -101,11 +101,15 @@ struct AudioPipelineTests {
         #expect(delivered == Array(0..<UInt64(delivered.count)), "Every captured interval is delivered once in capture order")
     }
 
-    @Test func receiveMixerRendersDirectlyWithoutMainActorPCMDelivery() throws {
+    @Test(arguments: [true, false])
+    func receiveMixerKeepsItsClockWhileChoosingLocalOrRemoteOutput(localPlayback: Bool) async throws {
         let engine = AVAudioEngine()
         let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
         try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 480)
-        let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+        let pipeline = AppAudioPipeline(makeEngine: { engine }, usesHardwareClock: true)
+        pipeline.setHardwareOutputEnabled(localPlayback)
+        var forwarded: [Float] = []
+        pipeline.onOutputFrame = { forwarded += $0.samples }
         try pipeline.rebuild(configuration: .init(transmitSoundIsolationEnabled: false), peerIDs: ["peer"])
         defer { pipeline.stop() }
         // No PCM callback or actor yield: the hardware render itself must play
@@ -121,7 +125,10 @@ struct AudioPipelineTests {
             rendered += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: 480))
         }
         let steady = rendered[2400..<7200]
-        #expect(abs((steady.map { $0 * $0 }.reduce(0, +) / Float(steady.count)).squareRoot() - 0.07071) < 0.001)
+        let expectedRMS: Float = localPlayback ? 0.07071 : 0
+        #expect(abs((steady.map { $0 * $0 }.reduce(0, +) / Float(steady.count)).squareRoot() - expectedRMS) < 0.001)
+        await AppTestSupport.waitUntil { forwarded.contains { abs($0) > 0.01 } }
+        #expect(forwarded.contains { abs($0) > 0.01 }, "Muting the physical phone output must retain the processed PCM for the selected device")
         #expect(steady.map { abs($0) }.max()! < 0.101)
     }
 
@@ -174,7 +181,7 @@ struct AudioPipelineTests {
             PCMFrame(
                 sequenceNumber: sequenceNumber,
                 format: .intercomPacketAudio,
-                capturedAt: TimeInterval(sequenceNumber),
+                capturedAt: TimeInterval(sequenceNumber) * 960 / 48_000,
                 samples: Array(repeating: sample, count: 960)
             )
         }
@@ -766,7 +773,9 @@ struct AudioPipelineTests {
     @Test func vadUsesCapturedDurationAndDoesNotReplayOldPreroll() {
         var controller = AudioTransmissionController(vadGate: VADGate(configuration: .init(attackDuration: 0.08, releaseDuration: 0.05, speechThresholdOffsetDB: 6, initialNoiseFloorDBFS: -60)), preRollLimit: 2)
         func frame(_ id: UInt64, sample: Float, count: Int) -> PCMFrame {
-            .init(sequenceNumber: id, format: .intercomPacketAudio, capturedAt: 0, samples: Array(repeating: sample, count: count))
+            let precedingFrames = id < 10 ? Int(id) * 128 : 10 * 128 + Int(id - 10) * 4800
+            return .init(sequenceNumber: id, format: .intercomPacketAudio,
+                capturedAt: Double(precedingFrames) / 48_000, samples: Array(repeating: sample, count: count))
         }
         for id in 0..<10 { #expect(controller.process(frame: frame(UInt64(id), sample: 0.5, count: 128), level: 0.5).allSatisfy { if case .silence(let value) = $0 { value.samples.allSatisfy { $0 == 0 } } else { false } }) }
         let speech = controller.process(frame: frame(10, sample: 0.5, count: 4800), level: 0.5)

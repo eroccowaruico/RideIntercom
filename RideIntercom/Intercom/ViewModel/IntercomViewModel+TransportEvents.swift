@@ -20,7 +20,7 @@ extension IntercomViewModel {
 
     func sendStateMetadataSnapshot() {
         sendPeerProfileChallenges()
-        broadcastControl(.peerMuteState(isMuted: isMuted))
+        broadcastControl(.peerMuteState(isMuted: effectiveInputMuted))
         broadcastMetadataKeepalive()
     }
 

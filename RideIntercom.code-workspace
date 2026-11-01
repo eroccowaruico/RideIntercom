@@ -9,6 +9,10 @@
       "path": "RideIntercom/packages/Audio/AudioCore"
     },
     {
+      "name": "AudioDevice",
+      "path": "RideIntercom/packages/Audio/AudioDevice"
+    },
+    {
       "name": "AudioMixer",
       "path": "RideIntercom/packages/Audio/AudioMixer"
     },

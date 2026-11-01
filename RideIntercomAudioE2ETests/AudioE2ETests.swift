@@ -41,10 +41,10 @@ final class AudioE2ETests: XCTestCase {
             let probe = RenderedAudioProbe()
             let engine = AVAudioEngine()
             let output = SystemAudioOutputStreamBackend(engine: engine)
-            engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
+            try engine.mainMixerNode.installAudioTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
             defer { engine.mainMixerNode.removeTap(onBus: 0); try? output.stopRendering() }
             let hardware = try output.startRendering(configuration: .intercom)
-            let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+            let pipeline = AppAudioPipeline(makeEngine: { engine }, usesHardwareClock: true)
             defer { pipeline.stop() }
             let processingFailureStore = Mutex<[String]>([])
             pipeline.onTransmitPacket = { [weak pipeline] packet in
@@ -214,7 +214,7 @@ final class AudioE2ETests: XCTestCase {
         let probe = RenderedAudioProbe()
         let mixedProbe = RenderedAudioProbe(), decodedProbe = RenderedAudioProbe()
         let output = SystemAudioOutputStreamBackend(engine: outputEngine)
-        outputEngine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
+        try outputEngine.mainMixerNode.installAudioTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
         defer { outputEngine.mainMixerNode.removeTap(onBus: 0) }
         let namespace = "RideIntercom.AudioE2E.\(run).\(role)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: namespace))

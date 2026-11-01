@@ -9,14 +9,19 @@ struct BackgroundWidgetCallButtons: View {
         Text(String(localized: .init(stringLiteral: statusTitle)))
             .font(.caption)
         HStack {
-            Button(intent: BackgroundCallControlIntent(action: call.isMuted ? .unmute : .mute, reference: call.reference)) {
-                Label(call.isMuted ? String(localized: "Unmute") : String(localized: "Mute"),
-                      systemImage: call.isMuted ? "mic" : "mic.slash")
-                    .labelStyle(.iconOnly)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
+            if call.canControlMicrophone {
+                Button(intent: BackgroundCallControlIntent(action: call.isMuted ? .unmute : .mute, reference: call.reference)) {
+                    Label(call.isMuted ? String(localized: "Unmute") : String(localized: "Mute"),
+                          systemImage: call.isMuted ? "mic" : "mic.slash")
+                        .labelStyle(.iconOnly)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityValue(call.isMuted ? Text("Muted") : Text("Unmuted"))
+            } else {
+                Label("Control the microphone on your Watch", systemImage: "applewatch")
+                    .font(.caption)
             }
-            .accessibilityValue(call.isMuted ? Text("Muted") : Text("Unmuted"))
             Button(intent: BackgroundCallControlIntent(action: .end, reference: call.reference)) {
                 Label("End Call", systemImage: "phone.down.fill")
                     .labelStyle(.iconOnly)

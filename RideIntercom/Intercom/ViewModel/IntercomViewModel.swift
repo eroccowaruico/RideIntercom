@@ -1,6 +1,7 @@
 import CryptoKit
 import AVFoundation
 import AVFAudio
+import AudioDevice
 import AudioCore
 import AudioMixer
 import Codec
@@ -71,7 +72,10 @@ final class IntercomViewModel {
     var callDisconnectDeadline: Date?
     var connectionState: CallConnectionState = .idle
     var isMuted = false
+    var canControlMicrophone: Bool { !isUsingWatchAudio }
+    var effectiveInputMuted: Bool { canControlMicrophone && isMuted }
     var isVoiceActive = false
+    @ObservationIgnored var localInputObservedAt: TimeInterval?
     var isAudioReady = false
     var audioErrorMessage: String?
     var isAudioPausedForDeviceChange = false
@@ -111,14 +115,14 @@ final class IntercomViewModel {
         if audioCheckPhase == .recording {
             return audioCheckInputLevel
         }
-        guard let localMember = selectedGroup?.members.first, !isMuted else { return 0 }
+        guard let localMember = selectedGroup?.members.first, !effectiveInputMuted else { return 0 }
         return localMember.voiceLevel
     }
     var diagnosticsInputPeakLevel: Float {
         if audioCheckPhase == .recording {
             return audioCheckInputPeakLevel
         }
-        guard let localMember = selectedGroup?.members.first, !isMuted else { return 0 }
+        guard let localMember = selectedGroup?.members.first, !effectiveInputMuted else { return 0 }
         return localMember.voicePeakLevel
     }
     var diagnosticsOutputLevel: Float {
@@ -172,8 +176,10 @@ final class IntercomViewModel {
     var inviteStatusMessage: String?
     let callSession: CallSession
     let audioSessionManager: SessionManager.AudioSessionManager
-    let audioInputCapture: SessionManager.AudioInputStreamCapture
-    let audioOutputRenderer: SessionManager.AudioOutputStreamRenderer
+    let nativeAudioInputCapture: SessionManager.AudioInputStreamCapture
+    let nativeAudioOutputRenderer: SessionManager.AudioOutputStreamRenderer
+    var audioInputCapture: SessionManager.AudioInputStreamCapture
+    var audioOutputRenderer: SessionManager.AudioOutputStreamRenderer
     let callTicker: CallTicking
     let groupRepository: GroupRepository
     let appSettingsStore: AppSettingsStoring
@@ -181,6 +187,8 @@ final class IntercomViewModel {
     let localMemberIdentityStore: LocalMemberIdentityStoring
     let remoteTalkerTimeout: TimeInterval
     var inputFrameDelivery: AudioFrameDelivery?
+    var isUsingWatchAudio = false
+    var watchAudioLink: AudioDeviceConnection?
     let audioPipeline: AppAudioPipeline
     var transmitPacketCounterBaseline = 0
     var audioSessionSnapshot: SessionManager.AudioSessionSnapshot
@@ -279,13 +287,16 @@ final class IntercomViewModel {
         self.callSession = callSession ?? RideIntercomCallSessionAdapter(memberID: localMemberIdentity.memberID, internetConfiguration: internetConfiguration)
         let sessionManager = audioSessionManager ?? SessionManager.AudioSessionManager()
         self.audioSessionManager = sessionManager
-        self.audioOutputRenderer = audioOutputRenderer ?? Self.makeDefaultAudioOutputRenderer()
-        self.audioInputCapture = audioInputCapture ?? Self.makeDefaultAudioInputCapture(
-            engine: self.audioOutputRenderer.renderingEngine ?? AVAudioEngine())
+        let output = audioOutputRenderer ?? Self.makeDefaultAudioOutputRenderer()
+        let input = audioInputCapture ?? Self.makeDefaultAudioInputCapture(engine: output.renderingEngine ?? AVAudioEngine())
+        self.nativeAudioOutputRenderer = output
+        self.nativeAudioInputCapture = input
+        self.audioOutputRenderer = output
+        self.audioInputCapture = input
         if let audioPipeline {
             self.audioPipeline = audioPipeline
-        } else if let engine = self.audioOutputRenderer.renderingEngine {
-            self.audioPipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+        } else if let engine = output.renderingEngine {
+            self.audioPipeline = AppAudioPipeline(makeEngine: { engine }, usesHardwareClock: true)
         } else {
             self.audioPipeline = AppAudioPipeline()
         }

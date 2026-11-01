@@ -217,11 +217,13 @@ struct RealtimeConversationTests {
             try pipeline.updateSoundIsolation(transmit: false, receiveMaster: enabled, peers: ["peer": enabled])
             for effect in engine.attachedNodes.compactMap({ $0 as? AVAudioUnitEffect })
                 where effect.audioComponentDescription.componentSubType == kAudioUnitSubType_AUSoundIsolation {
-                let parameters = try #require(effect.auAudioUnit.parameterTree)
-                #expect(parameters.parameter(withAddress: AUParameterAddress(kAUSoundIsolationParam_SoundToIsolate))?.value
-                    == AUValue(kAUSoundIsolationSoundType_Voice))
-                #expect(parameters.parameter(withAddress: AUParameterAddress(kAUSoundIsolationParam_WetDryMixPercent))?.value
-                    == (enabled ? 50 : 100))
+                try effect.withAUAudioUnit { unit in
+                    let parameters = try #require(unit.parameterTree)
+                    #expect(parameters.parameter(withAddress: AUParameterAddress(kAUSoundIsolationParam_SoundToIsolate))?.value
+                        == AUValue(kAUSoundIsolationSoundType_Voice))
+                    #expect(parameters.parameter(withAddress: AUParameterAddress(kAUSoundIsolationParam_WetDryMixPercent))?.value
+                        == (enabled ? 50 : 100))
+                }
             }
         }
     }

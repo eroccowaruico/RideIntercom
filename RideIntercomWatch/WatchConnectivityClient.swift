@@ -4,10 +4,11 @@ import Foundation
 @MainActor
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     let client: WatchControlClient
+    let audio: WatchAudioController
     private let session: WCSession
     init(session: WCSession = .default) {
         self.session = session
-        client = WatchControlClient { request in
+        let control = WatchControlClient { request in
             guard SystemSurfaceScope.permitsSystemAccess else { throw CocoaError(.featureUnsupported) }
             let data = try JSONEncoder().encode(request)
             let response: Data = try await withCheckedThrowingContinuation { continuation in
@@ -17,6 +18,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             guard response.count <= 262_144 else { throw CocoaError(.coderReadCorrupt) }
             return try JSONDecoder().decode(WatchControlReply.self, from: response)
         }
+        client = control
+        audio = WatchAudioController(client: control)
         super.init()
     }
     func activate() {

@@ -17,8 +17,8 @@ extension AudioE2ETests {
         try input.updateVoiceProcessing(processing)
         let capture = AudioInputStreamCapture(configuration: .intercom(voiceProcessing: processing), backend: input)
         let output = SystemAudioOutputStreamBackend(engine: engine)
-        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { probe.append($0, time: $1) }
-        let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+        try engine.mainMixerNode.installAudioTap(onBus: 0, bufferSize: 1024, format: nil) { probe.append($0, time: $1) }
+        let pipeline = AppAudioPipeline(makeEngine: { engine }, usesHardwareClock: true)
         let failures = Mutex<[String]>([])
         defer {
             capture.stop(); pipeline.stop()
@@ -72,8 +72,8 @@ extension AudioE2ETests {
         let input = SpeechFileInput(samples: (0..<48000).map { Float(0.15 * sin(Double($0) * 2 * .pi * 600 / 48000)) }, engine: engine)
         try input.updateVoiceProcessing(.init(soundIsolationEnabled: false, otherAudioDuckingEnabled: true))
         let output = SystemAudioOutputStreamBackend(engine: engine)
-        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
-        let pipeline = AppAudioPipeline(makeEngine: { engine }, rendersToHardware: true)
+        try engine.mainMixerNode.installAudioTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in probe.append(buffer, time: time) }
+        let pipeline = AppAudioPipeline(makeEngine: { engine }, usesHardwareClock: true)
         let failureStore = Mutex<[String]>([])
         let rejectedReceives = Mutex<[(start: Double, end: Double)]>([])
         let delivery = AudioFrameDelivery(initiallyActive: false) { _ in }

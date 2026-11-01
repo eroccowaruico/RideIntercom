@@ -1,3 +1,4 @@
+import AudioDevice
 import AudioCore
 import Foundation
 import Logging
@@ -36,8 +37,11 @@ extension IntercomViewModel {
         }
 
         if activeGroupID != selectedGroup.id || !hasAnyActiveGroupConnection {
+            let changedInputRoute = isUsingWatchAudio != usingWatch
+            isUsingWatchAudio = usingWatch
             activeGroupID = selectedGroup.id
             resetConnectionRuntimeState()
+            if changedInputRoute { applyEffectiveInputMute() }
             bindConnectionEvents()
             let interval = usingWatch ? watchCallDisconnectInterval : callDisconnectInterval
             callDisconnectDeadline = callAccessNow().addingTimeInterval(interval.seconds)
@@ -73,6 +77,7 @@ extension IntercomViewModel {
     func startAudioPipelineIfNeeded(resumingDevice: Bool = false) {
         guard !disconnectIfTimerExpired(now: callAccessNow().timeIntervalSince1970),
               callDisconnectDeadline != nil, canStartCalls, canPrepareCallMedia,
+              !isUsingWatchAudio || watchAudioLink != nil,
               !authenticatedPeerIDs.isEmpty,
               !isAudioPausedForDeviceChange || resumingDevice,
               !isAudioReady, audioStartTask == nil else { return }
@@ -105,7 +110,7 @@ extension IntercomViewModel {
                 return
             }
             self.callSession.startMedia()
-            guard self.applyCurrentVoiceProcessingConfiguration(), self.startInputCapture(),
+            guard self.applyCurrentVoiceProcessingConfiguration() && self.startInputCapture(),
                   self.startOutputRenderer(configuration: .intercomCall), self.rebuildAudioPipeline() else {
                 self.stopAudioPipeline()
                 if resumingDevice { self.reportAudioDeviceRestartFailure() }
@@ -114,6 +119,7 @@ extension IntercomViewModel {
             self.inputFrameDelivery?.activate()
             self.callTicker.start()
             self.isAudioReady = true
+            self.watchAudioLink?.setSendingAllowed(self.isUsingWatchAudio)
             if resumingDevice {
                 self.isAudioPausedForDeviceChange = false
                 self.audioRouteNotice = nil
@@ -138,6 +144,8 @@ extension IntercomViewModel {
         audioStartTask = nil
         inputFrameDelivery?.finish()
         inputFrameDelivery = nil
+        clearLocalInputObservation()
+        watchAudioLink?.setSendingAllowed(false)
         let wasAudioReady = isAudioReady
         setOtherAudioDuckingActive(false)
         callSession.stopMedia()
@@ -168,6 +176,7 @@ extension IntercomViewModel {
     }
 
     func disconnect() {
+        stopWatchAudioLink()
         callDisconnectDeadline = nil
         callTicker.stop()
         callAccessState = CallAccessState()
@@ -177,6 +186,11 @@ extension IntercomViewModel {
         callSession.onEvent = nil
         cancelAudioCheck()
         stopAudioPipeline()
+        let wasUsingWatchAudio = isUsingWatchAudio
+        isUsingWatchAudio = false
+        audioInputCapture = nativeAudioInputCapture
+        audioOutputRenderer = nativeAudioOutputRenderer
+        if wasUsingWatchAudio { applyEffectiveInputMute() }
         callSession.disconnect()
         availableCallRoutes = []
         connectivityNotice = nil
@@ -236,7 +250,7 @@ extension IntercomViewModel {
         }
         inputFrameDelivery = delivery
         let pipeline = audioPipeline
-        pipeline.setInputMuted(isMuted)
+        pipeline.setInputMuted(effectiveInputMuted)
         audioInputCapture.setRuntimeEventHandler { [weak self] event in
             if case .inputFrame(let frame) = event {
                 guard delivery.isActive else { return }
@@ -349,12 +363,15 @@ extension IntercomViewModel {
             // Incoming speech changes the ducking level, not RemoteIO/VoiceIO.
             otherAudioDuckingEnabled: isDuckOthersEnabled,
             duckingLevel: isOtherAudioDuckingActiveInternal ? .medium : .minimum,
-            inputMuted: isMuted
+            inputMuted: effectiveInputMuted
         )
     }
 
     @discardableResult
     func applyCurrentVoiceProcessingConfiguration() -> Bool {
+        // Watch owns input hardware. Do not open the iPhone input node for
+        // ducking or mute changes while its microphone is not the source.
+        if isUsingWatchAudio { return true }
         let requested = currentVoiceProcessingConfiguration()
         let changesClock = isAudioReady
             && audioInputCapture.configuration.voiceProcessing.voiceProcessingEnabled != requested.voiceProcessingEnabled

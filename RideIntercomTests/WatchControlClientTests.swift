@@ -1,4 +1,5 @@
 import Foundation
+import RTC
 import Testing
 @testable import RideIntercom
 
@@ -8,6 +9,21 @@ struct WatchControlClientTests {
         .init(reference: reference, generatedAt: time, validUntil: time.addingTimeInterval(120),
               targets: [], title: "My name", hasCall: true, isMuted: true, state: .connecting)
     }
+    @Test func explicitAudioStartReturnsItsEndpointWithoutAddingSecretsToSnapshot() async throws {
+        let now = Date(); let state = snapshot(at: now)
+        let endpoint = RTCAudioDeviceEndpoint(name: "pair", type: "_ride-audio._udp", domain: "local.")
+        let offer = WatchAudioOffer(sessionID: UUID(), key: Data(repeating: 1, count: 32), endpoint: endpoint)
+        var actions: [WatchCallAction] = []
+        let client = WatchControlClient { request in
+            actions.append(request.action)
+            return .init(snapshot: state, problem: nil, audioEndpoint: endpoint)
+        }
+        client.setReachable(true); client.receive(state)
+        let response = await client.perform(.startAudio("saved-target", offer))
+        #expect(actions == [.startAudio("saved-target", offer)])
+        #expect(response?.audioEndpoint == endpoint && client.snapshot == state)
+    }
+
     @Test func unreachableDoesNotSendAndDoesNotReportMicrophoneSuccess() async {
         var sent = 0
         let client = WatchControlClient { _ in sent += 1; throw CancellationError() }
@@ -26,7 +42,7 @@ struct WatchControlClientTests {
         await client.perform(.setMuted(false))
         #expect(sent == 1 && client.isWaiting && client.snapshot?.isMuted == true)
         client.setReachable(false)
-        replyContinuation.resume(returning: .init(snapshot: state, problem: nil)); await task.value
+        replyContinuation.resume(returning: .init(snapshot: state, problem: nil)); _ = await task.value
         #expect(client.snapshot == nil && !client.isWaiting && client.problem == .unavailable)
     }
     @Test func expiredDisplayRefreshesOnceAndDoesNotControlAChangedCall() async {
@@ -52,6 +68,17 @@ struct WatchControlClientTests {
         client.setReachable(true); client.receive(old)
         await client.perform(.setMuted(false))
         #expect(actions == [.refresh, .setMuted(false)] && client.problem == nil)
+    }
+
+    @Test func mediaOfferIsExplicitAndNeverPartOfTheDisplaySnapshot() throws {
+        let endpoint = RTCAudioDeviceEndpoint(name: "pair", type: "_ride-audio._udp", domain: "local.")
+        let offer = WatchAudioOffer(sessionID: UUID(), key: Data(repeating: 0x5a, count: 32), endpoint: endpoint)
+        let action = WatchCallAction.startAudio("saved-target", offer)
+        #expect(try JSONDecoder().decode(WatchCallAction.self, from: JSONEncoder().encode(action)) == action)
+        let snapshot = WatchCallSnapshot(reference: "current", generatedAt: .now, validUntil: .distantFuture,
+            targets: [], title: nil, hasCall: true, isMuted: true, state: .connecting)
+        let value = try JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot)) as? [String: Any]
+        #expect(value?["key"] == nil && value?["audioOffer"] == nil && value?["endpoint"] == nil)
     }
 
 }

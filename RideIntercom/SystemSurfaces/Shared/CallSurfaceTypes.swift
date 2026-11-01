@@ -35,6 +35,7 @@ nonisolated struct CallLivePresentation: Codable, Equatable, Sendable {
     let reference: CallSurfaceReference
     var status: StandardCallStatus
     var isMuted: Bool
+    var canControlMicrophone: Bool = true
 }
 
 #if os(iOS)
@@ -43,6 +44,7 @@ nonisolated struct RideCallActivityAttributes: ActivityAttributes {
     nonisolated struct ContentState: Codable, Hashable {
         var status: StandardCallStatus
         var isMuted: Bool
+        var canControlMicrophone: Bool = true
     }
     let reference: CallSurfaceReference
 }

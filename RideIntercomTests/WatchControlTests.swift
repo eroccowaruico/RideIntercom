@@ -4,7 +4,66 @@ import Testing
 
 @MainActor
 struct WatchControlTests {
-    @Test func startsEndsAndExplicitMuteUseTheSameCallAndAreSafeToRepeat() async throws {
+    @Test func audioMeterChangesDoNotPublishControlStateButCallChangesDo() async throws {
+        let h = AppTestSupport.makeHarness(); let vm = h.viewModel
+        defer { vm.disconnect() }
+        let owner = AppCallOwner(account: vm.accountSession, viewModel: vm)
+        let now = Date()
+        let idle = owner.watchSnapshot(now: now)
+        #expect(idle.needsPublication(after: nil))
+        #expect(vm.startCall(to: .group(vm.groups[0].id), accountAccessID: vm.accountAccessID))
+        h.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { vm.isAudioReady }
+        let talking = owner.watchSnapshot(now: now)
+        #expect(talking.needsPublication(after: idle))
+        for i in 1...20 {
+            vm.setLocalVoiceLevel(Float(i) / 20)
+            vm.setVoiceActive(i.isMultiple(of: 2))
+            let updated = owner.watchSnapshot(now: now.addingTimeInterval(Double(i)))
+            #expect(!updated.needsPublication(after: talking))
+            #expect(updated != talking, "The wire snapshot must still retain fresh request expiry and reply ordering")
+        }
+        vm.applyLocalMute(true)
+        let muted = owner.watchSnapshot(now: now.addingTimeInterval(21))
+        #expect(muted.needsPublication(after: talking))
+        vm.disconnect()
+        #expect(owner.watchSnapshot().needsPublication(after: muted))
+    }
+
+    @Test func watchStartDoesNotOpenThePhoneMicrophoneBeforeItsAudioDeviceConnects() async throws {
+        let h = AppTestSupport.makeHarness(); let vm = h.viewModel
+        defer { vm.disconnect() }
+        #expect(vm.startCall(to: .group(vm.groups[0].id), accountAccessID: vm.accountAccessID, usingWatch: true))
+        let deadline = vm.callDisconnectDeadline
+        h.callSession.authenticate(["member-108"])
+        for _ in 0..<20 { await Task.yield() }
+        #expect(vm.isUsingWatchAudio)
+        #expect(!vm.isAudioReady)
+        #expect(h.inputBackend.startCount == 0)
+        #expect(vm.callDisconnectDeadline == deadline)
+        vm.disconnect()
+        #expect(!vm.isUsingWatchAudio)
+        #expect(vm.watchAudioLink == nil)
+    }
+
+    @Test func switchingToWatchStopsPhoneCaptureAndRetainsTheCallDeadline() async throws {
+        let h = AppTestSupport.makeHarness(); let vm = h.viewModel
+        defer { vm.disconnect() }
+        #expect(vm.startCall(to: .group(vm.groups[0].id), accountAccessID: vm.accountAccessID))
+        h.callSession.authenticate(["member-108"])
+        await AppTestSupport.waitUntil { vm.isAudioReady }
+        #expect(h.inputBackend.startCount == 1)
+        let deadline = vm.callDisconnectDeadline
+        vm.selectWatchAudioRoute()
+        #expect(vm.isUsingWatchAudio && !vm.isAudioReady)
+        #expect(h.inputBackend.stopCount > 0)
+        #expect(vm.callDisconnectDeadline == deadline)
+        vm.startAudioPipelineIfNeeded()
+        for _ in 0..<20 { await Task.yield() }
+        #expect(h.inputBackend.startCount == 1)
+    }
+
+    @Test func startsAndEndsAreSafeToRepeatButWatchInputRejectsPhoneMute() async throws {
         let h = AppTestSupport.makeHarness(); let vm = h.viewModel
         defer { vm.disconnect() }
         let owner = AppCallOwner(account: vm.accountSession, viewModel: vm)
@@ -18,9 +77,9 @@ struct WatchControlTests {
         #expect(vm.currentCallReference == reference)
         let running = owner.watchSnapshot(now: now)
         let mute = WatchControlRequest(.setMuted(true), snapshot: running)
-        #expect(await owner.handleWatchRequest(mute, now: now).problem == nil)
-        #expect(await owner.handleWatchRequest(mute, now: now).problem == nil)
-        #expect(vm.isMuted && h.callSession.localMuteValues == [true])
+        #expect(await owner.handleWatchRequest(mute, now: now).problem == .denied)
+        #expect(await owner.handleWatchRequest(mute, now: now).problem == .denied)
+        #expect(!vm.isMuted && h.callSession.localMuteValues == [false])
         let end = WatchControlRequest(.end, snapshot: running)
         #expect(await owner.handleWatchRequest(end, now: now).problem == nil)
         _ = await owner.handleWatchRequest(end, now: now)

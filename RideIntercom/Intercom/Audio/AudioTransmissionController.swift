@@ -13,6 +13,8 @@ nonisolated struct AudioTransmissionController {
     private let vadGate: VADGate
     private let preRollLimit: Int
     private var preRoll: [CapturedFrame] = []
+    private var inputEnd: TimeInterval?
+    private var inputFormat: AudioFormat?
     private(set) var lastAnalysis: VADGateAnalysis?
 
     var runtimeSnapshot: VADGateRuntimeSnapshot {
@@ -28,6 +30,15 @@ nonisolated struct AudioTransmissionController {
     }
 
     mutating func process(frame: PCMFrame, level: Float) -> [OutboundAudioPacket] {
+        if frame.frameCount > 0, frame.format.isValid, frame.capturedAt.isFinite {
+            if let inputEnd, inputFormat != frame.format || abs(frame.capturedAt - inputEnd) > 2 / frame.format.sampleRate {
+                // A new source interval cannot confirm or release speech held
+                // before it. Keep the same sample-continuity contract as DSP.
+                reset()
+            }
+            inputEnd = frame.capturedAt + Double(frame.frameCount) / frame.format.sampleRate
+            inputFormat = frame.format
+        }
         let analysis = analyze(level: level, frame: frame)
         preRoll.append(CapturedFrame(frame: frame, isSpeech: analysis.state == .speech))
         if analysis.state == .speech {
@@ -48,6 +59,7 @@ nonisolated struct AudioTransmissionController {
         vadGate.reset()
         lastAnalysis = nil
         preRoll.removeAll()
+        inputEnd = nil; inputFormat = nil
     }
 
     private mutating func releaseCompletedLookahead() -> [OutboundAudioPacket] {

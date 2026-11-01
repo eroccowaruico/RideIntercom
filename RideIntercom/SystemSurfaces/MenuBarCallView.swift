@@ -11,13 +11,17 @@ struct MenuBarCallView: View {
         if let call = owner.currentLivePresentation {
             Text(LocalizedStringKey(call.status.menuBarTitle))
                 .accessibilityIdentifier("menuBarCallStatus")
-            Button {
-                owner.setCallSurfaceMuted(!call.isMuted, reference: call.reference)
-            } label: {
-                Label(LocalizedStringKey(call.isMuted ? "Unmute" : "Mute"), systemImage: call.isMuted ? "mic" : "mic.slash")
+            if call.canControlMicrophone {
+                Button {
+                    owner.setCallSurfaceMuted(!call.isMuted, reference: call.reference)
+                } label: {
+                    Label(LocalizedStringKey(call.isMuted ? "Unmute" : "Mute"), systemImage: call.isMuted ? "mic" : "mic.slash")
+                }
+                .accessibilityValue(call.isMuted ? Text("Muted") : Text("Unmuted"))
+                .accessibilityIdentifier("menuBarMute")
+            } else {
+                Label("Control the microphone on your Watch", systemImage: "applewatch")
             }
-            .accessibilityValue(call.isMuted ? Text("Muted") : Text("Unmuted"))
-            .accessibilityIdentifier("menuBarMute")
             Button("End Call", role: .destructive) {
                 // A menu captured before a call switch cannot end the new call.
                 try? owner.performCallSurfaceAction(.end, reference: call.reference)

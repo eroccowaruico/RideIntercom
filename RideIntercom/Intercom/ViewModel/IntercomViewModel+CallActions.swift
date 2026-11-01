@@ -116,7 +116,7 @@ extension IntercomViewModel {
     @discardableResult
     func setCallMuted(_ muted: Bool, for reference: CallReference) -> Bool {
         guard !disconnectIfTimerExpired(now: callAccessNow().timeIntervalSince1970) else { return false }
-        guard canStartCalls, matchesCurrentCall(reference) else { return false }
+        guard canStartCalls, canControlMicrophone, matchesCurrentCall(reference) else { return false }
         applyLocalMute(muted)
         return true
     }

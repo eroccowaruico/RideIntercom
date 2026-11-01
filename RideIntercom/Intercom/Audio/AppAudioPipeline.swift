@@ -95,13 +95,15 @@ final class AppAudioPipeline {
     var onOutputFrame: ((PCMFrame) -> Void)?
 
     private let makeEngine: () -> AVAudioEngine
-    let rendersToHardware: Bool
+    private let usesHardwareClock: Bool
+    var rendersToHardware: Bool { usesHardwareClock && hardwareOutputEnabled }
     private var generation = UUID()
+    private var hardwareOutputEnabled = true
     private var frameDeliveries: [AudioFrameDelivery] = []
 
-    init(makeEngine: @escaping () -> AVAudioEngine = { AVAudioEngine() }, rendersToHardware: Bool = false) {
+    init(makeEngine: @escaping () -> AVAudioEngine = { AVAudioEngine() }, usesHardwareClock: Bool = false) {
         self.makeEngine = makeEngine
-        self.rendersToHardware = rendersToHardware
+        self.usesHardwareClock = usesHardwareClock
     }
 
 
@@ -114,6 +116,10 @@ final class AppAudioPipeline {
     func setTransmissionController(_ controller: AudioTransmissionController) { transmitter.setController(controller) }
     func applyVADSensitivity(_ sensitivity: VoiceActivitySensitivity) { transmitter.applyVADSensitivity(sensitivity) }
     func setInputMuted(_ muted: Bool) { transmitter.setMuted(muted) }
+    func setHardwareOutputEnabled(_ enabled: Bool) {
+        hardwareOutputEnabled = enabled
+        receiver.setHardwareOutputEnabled(enabled && usesHardwareClock)
+    }
     nonisolated func processMicrophoneFrame(_ frame: PCMFrame, level: Float? = nil, shouldProcess: @Sendable () -> Bool = { true }) {
         transmitter.processMicrophone(frame, level: level, shouldProcess: shouldProcess)
     }
