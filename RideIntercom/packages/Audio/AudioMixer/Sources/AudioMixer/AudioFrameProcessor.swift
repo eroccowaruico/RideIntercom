@@ -12,6 +12,8 @@ public final class AudioFrameProcessor {
     private let output: AVAudioPCMBuffer
     private var sequence: UInt64 = 0
     private let normalizer = MixerPCMStreamNormalizer()
+    private let packetDuration: TimeInterval
+    private var isFinishing = false
     private let suspendsDuringSilence: Bool
     private var silentInputDuration: TimeInterval = 0
     private var silentOutputDuration: TimeInterval = 0
@@ -22,6 +24,7 @@ public final class AudioFrameProcessor {
                 packetDuration: TimeInterval = 0.01,
                 suspendsDuringSilence: Bool = false,
                 onFrame: @escaping (PCMFrame, AudioProcessingReport) -> Void) throws {
+        self.packetDuration = packetDuration
         self.suspendsDuringSilence = suspendsDuringSilence
         mixer = try AudioMixer(audioFormat: format)
         try mixer.engine.enableManualRenderingMode(.offline, format: mixer.format, maximumFrameCount: 4096)
@@ -65,7 +68,7 @@ public final class AudioFrameProcessor {
         // Only exact digital silence can sleep. Drain declared native delay/tail
         // as well as 250 ms of zero output, so downstream codecs can flush their
         // partial packets. An audible first sample resumes in this same call.
-        let silent = suspendsDuringSilence && frame.samples.allSatisfy { $0 == 0 }
+        let silent = !isFinishing && suspendsDuringSilence && frame.samples.allSatisfy { $0 == 0 }
         if silent {
             let drained = max(0.25, bus.processingLatency + bus.processingTailTime)
             if silentInputDuration >= drained && silentOutputDuration >= 0.25 { return }
@@ -94,6 +97,38 @@ public final class AudioFrameProcessor {
             offset += Int(count)
         }
     }
+
+    /// Drain the active native chain into the existing sink on its render clock.
+    /// The caller compensates `bus.processingLatency` when selecting the input
+    /// timeline. A second finish is a no-op; later input starts a fresh stream.
+    public func finish() throws {
+        guard let end = inputEnd, let format = inputFormat else { return }
+        let duration = bus.processingLatency + bus.processingTailTime + packetDuration
+        // Reject unsupported unbounded effects instead of silently losing tail.
+        guard duration.isFinite, duration >= 0, duration <= 10 else {
+            throw AudioMixerError.pcmSourceScheduleFailed("Effect drain duration exceeds the 10 second limit")
+        }
+        let total = Int((duration * format.sampleRate).rounded(.up))
+        isFinishing = true
+        defer {
+            isFinishing = false
+            bus.resetProcessingState()
+            normalizer.reset()
+            inputEnd = nil
+            inputFormat = nil
+            silentInputDuration = 0
+            silentOutputDuration = 0
+        }
+        var offset = 0
+        while offset < total {
+            let count = min(4096, total - offset)
+            try process(.init(sequenceNumber: sequence, format: format,
+                capturedAt: end + Double(offset) / format.sampleRate,
+                samples: Array(repeating: 0, count: count * format.channelCount)))
+            offset += count
+        }
+    }
+
 }
 
 /// Used exclusively inside synchronous offline rendering on the processor's

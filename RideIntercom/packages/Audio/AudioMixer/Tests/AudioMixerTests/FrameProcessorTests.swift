@@ -262,3 +262,62 @@ func nextUtteranceAfterDiscontinuityMatchesAFreshNativeEffect(_ formatChanges: B
     }
     #expect(frames.filter { $0.capturedAt >= 1 }.flatMap(\.samples).allSatisfy { abs($0) < 0.000001 })
 }
+
+@Test func finiteNativeEffectEmitsTheFinalMarker() throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init(), suspendsDuringSilence: true) { frame, _ in frames.append(frame) }
+    let effect = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+        componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
+        componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
+    try processor.bus.addEffect(effect, id: "limiter")
+    try processor.start()
+    defer { processor.stop() }
+    let latency = processor.bus.processingLatency
+    print("finite effect latency=\(latency) tail=\(processor.bus.processingTailTime)")
+    #expect(latency > 0)
+    for index in 0..<500 {
+        let samples = (0..<480).map { sample in
+            index == 499 ? Float(0.2 * sin(Double(sample) * 2 * .pi * 997 / 48_000)) : 0
+        }
+        try processor.process(.init(sequenceNumber: UInt64(index), capturedAt: Double(index) / 100, samples: samples))
+    }
+    try processor.finish()
+    let afterFinish = frames.count
+    try processor.finish()
+    #expect(frames.count == afterFinish)
+    let finalMarker = frames.filter { $0.capturedAt >= 5 }.flatMap(\.samples).filter { abs($0) > 0.01 }.count
+    print("finite marker after input=\(finalMarker)")
+    #expect(finalMarker > 20, "The native effect's delayed final marker must be recovered")
+}
+
+@Test func finiteProcessorStartsAFreshStreamAfterFinish() throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { frame, _ in frames.append(frame) }
+    let delay = AVAudioUnitDelay()
+    delay.delayTime = 0.05; delay.feedback = 0; delay.wetDryMix = 100
+    try processor.bus.addEffect(delay, id: "delay")
+    try processor.start()
+    defer { processor.stop() }
+    try processor.process(.init(sequenceNumber: 0, capturedAt: 0, samples: Array(repeating: 0.2, count: 480)))
+    try processor.finish()
+    let start = frames.count
+    try processor.process(.init(sequenceNumber: 1, capturedAt: 1, samples: Array(repeating: 0, count: 480)))
+    try processor.finish()
+    #expect(frames.count > start)
+    #expect(frames.dropFirst(start).flatMap(\.samples).allSatisfy { abs($0) < 0.000001 })
+}
+
+@Test func finiteProcessorFlushesPartialSinkPacketOnTheRenderClock() throws {
+    var frames: [PCMFrame] = []
+    let processor = try AudioFrameProcessor(format: .init(), outputFormat: .init()) { frame, _ in frames.append(frame) }
+    try processor.start()
+    defer { processor.stop() }
+    try processor.process(.init(sequenceNumber: 0, capturedAt: 3, samples: Array(repeating: 0.2, count: 123)))
+    #expect(frames.isEmpty)
+    try processor.finish()
+    #expect(frames.count == 1)
+    let frame = try #require(frames.first)
+    #expect(abs(frame.capturedAt - 3) < 1e-9)
+    #expect(frame.samples.prefix(123).allSatisfy { abs($0 - 0.2) < 0.000001 })
+    #expect(frame.samples.dropFirst(123).allSatisfy { $0 == 0 })
+}
