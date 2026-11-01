@@ -105,3 +105,14 @@ Simulatorのnative入力確認では、Macの既定入力が48kHz、既定出力
 テスト1件成功、skip・runtime warnings 0、実行前後の362ファイルの指紋一致、Simulatorの入出力・音量の復元と停止を確認した。追加テストはコミット済みのApp APIだけを参照し、保全中Watch差分の新API・fieldに依存しない。Watchのoffer・linkを作らないため、Watch専用の分岐は通らない。GUIからの録音・再生操作は前節の設定画面テストで確認した。
 
 成立した範囲は、制御した入力内容とnative時計の下での実TX5秒timeline→録音→native再生・再開始である。比較基準は送信処理後の復号音であり、元fixtureからTXまでの音質全体をこの比較だけで保証しない。実マイクの内容は置換しているため、実機マイクの音質・音響・Bluetoothは未確認である。Mac／iPad／Watchの各経路も別に確認を続ける。前節の環境マイクが全無音だった測定不能の結果は保持し、この成功へ書き換えない。
+
+
+## Watch Simulatorの入出力固定と残るclock開始
+
+2026-11-02、所有するWatch／iPhone Simulatorペアの停止状態を確認し、Watchの入出力を互換48kHz機器へ固定して一回検証した。既存CLIの一時的なnative入力専用分岐で、通話と同じSessionManagerのcapture／rendererと共有AVAudioEngineを使った。Phoneへの到達待ちを外し、AVAudioRecorderによる事前録音は使っていない。この試験の問いはnative入力の開始可否であり、5秒録音やWatch会話の受入ではない。
+
+権限・session構成・活性化は成功し、実input hardware／client formatは以前の0Hzから48kHz monoへ変わった。capture開始は`applied`だったが、共有engineは停止状態、output hardware formatは0Hz／2chのままだった。renderer開始は`-10867`で失敗し、callback／frameは0で、native入力の成立判定は不合格である。packageの開始報告だけを入力取得の成功として扱わない。
+
+証跡は`.validation/watch-native-input-pin-20261102/`の`observations.json`・`acceptance.json`・`source-correspondence.json`・`audio-pin-state.json`。診断sourceは`99111066`と同所の`diagnostic-source.patch`で再構成でき、`diagnostic-source-basis.json`に対応を残した。実行前後の362ファイルの指紋一致、入出力・音量の復元、Macの既定機器が不変であること、所有ペアの停止を確認した。入力形式の0Hz問題は固定条件で変化したが、出力とclockの開始原因は未確定であり、Simulator固有の不可能性やAPI変更の必要性を断定しない。
+
+次の切り分けでは、稼働中のgraphへ出力nodeを初めて取得する影響と、再生データがない状態を区別する。インストール済みWatchSimulator SDKの`AVAudioEngine.h`は、出力nodeを初アクセス時に生成することと、watchOSではidle時のhardware自動停止が常に有効であることを説明している。今回のprobeは出力PCMを予約していないため、engine停止だけをnative入力APIの利用不能の証拠にしない。必要な比較を限定し、一時probeは役目を終えた時点で撤去する。
