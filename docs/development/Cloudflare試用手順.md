@@ -29,6 +29,14 @@ GitHub連携ではSettings → Builds → Branch controlのEnable Preview Builds
 
 [公式プレビュー設定](https://developers.cloudflare.com/workers/previews/configuration/)と[GitHub連携](https://developers.cloudflare.com/workers/ci-cd/builds/)を参照する。
 
+## 固定プレビューの継続運用
+
+開発先はmain、配置用の固定branchは`preview`とする。2026-10-30に設定した接続先は`https://preview-rideintercom.analog.workers.dev`。検証済みmainをpreviewへ反映し、作業用`codex/`branchを固定URLとして使わない。branchの同期とCloudflare側のbuild・配置成功は別々に確認する。
+
+このMacの`Configuration/Debug.local.xcconfig`と`server/.trial-credentials/`はmainの作業領域で保持する。Debug用の値だけであり、Release・Archive・通常の自動検証には実資格を入れない。秘密値はGitや引継ぎ文書へ転記しない。
+
+Cloudflare設定チャットから引き継いだ残件は、実SFU/TURNを通した双方向音声、実費用・停止運用、およびbuild監視pathと旧作業branchの自動build設定の確認。固定URLの作成・HTTP認証成功だけでは音声受入完了にしない。本番を含む監視pathの変更は当時の自動承認審査で拒否されており、変更済みと扱わない。実サービスの実行条件は[開発方針](../policies/開発方針.md#実サービスを使う検証の費用制約)に従う。
+
 ## Apple登録入口の保護
 
 削除時のApple認可取消には、AppleのSign in with Apple private keyから発行した有効なclient-secret JWTを環境別secret `APPLE_CLIENT_SECRET`へ登録する。client ID・team ID・key ID・有効期限をApple側設定と合わせ、期限前に更新する。値を通常変数・Git・ログへ入れない。未設定でもBearerによるアカウントデータ削除は利用できるが、Apple再認証付きの取消は503となる。実Apple受入は別途行う。
