@@ -63,7 +63,33 @@ class PlatformConfigurationTests(unittest.TestCase):
                 self.assertNotIn('RIDEINTERCOM_VALIDATION', flags)
 
     def test_repository_has_complete_minimum_platform_inputs(self):
-        self.assertEqual(self.checker.check(ROOT, self.project), [])
+        self.assertEqual(self.checker.check(ROOT), [])
+
+    def test_all_xcode_deployment_targets_use_version_27(self):
+        deployment_settings = {
+            'IPHONEOS_DEPLOYMENT_TARGET',
+            'MACOSX_DEPLOYMENT_TARGET',
+            'WATCHOS_DEPLOYMENT_TARGET',
+            'XROS_DEPLOYMENT_TARGET',
+        }
+        for config in self.project['objects'].values():
+            if config.get('isa') != 'XCBuildConfiguration':
+                continue
+            settings = config.get('buildSettings', {})
+            for setting in deployment_settings & settings.keys():
+                with self.subTest(configuration=config['name'], setting=setting):
+                    self.assertEqual(settings[setting], '27.0')
+
+    def test_platform_checker_rejects_an_old_xcode_deployment_target(self):
+        project = copy.deepcopy(self.project)
+        config = next(
+            value for value in project['objects'].values()
+            if value.get('isa') == 'XCBuildConfiguration'
+            and 'IPHONEOS_DEPLOYMENT_TARGET' in value.get('buildSettings', {})
+        )
+        config['buildSettings']['IPHONEOS_DEPLOYMENT_TARGET'] = '26.4'
+        self.assertTrue(any('IPHONEOS_DEPLOYMENT_TARGET must be 27.0' in error
+                            for error in self.checker.check(ROOT, project)))
 
     def test_named_validation_configurations_allow_mac_fixture_settings(self):
         for name in ('Debug-Validation', 'Release-Validation'):

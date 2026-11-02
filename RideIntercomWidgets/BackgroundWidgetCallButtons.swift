@@ -2,7 +2,6 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-@available(iOS 27.0, macOS 27.0, *)
 struct BackgroundWidgetCallButtons: View {
     let call: CallLivePresentation
     var body: some View {
@@ -51,11 +50,3 @@ struct BackgroundWidgetCallButtons: View {
         }
     }
 }
-
-#if os(iOS)
-enum CallWidgetAvailability {
-    static var disfavoredLocations: [WidgetLocation] {
-        if #available(iOS 27.0, *) { [] } else { [.carPlay] }
-    }
-}
-#endif

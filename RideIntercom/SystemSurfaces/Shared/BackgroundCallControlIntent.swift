@@ -11,7 +11,6 @@ nonisolated enum BackgroundCallSurfaceAction: String, AppEnum {
 
 /// WidgetKit encodes this action, but only the containing app may execute it.
 /// This selects a process; it doesn't grant background microphone privileges.
-@available(iOS 27.0, macOS 27.0, *)
 struct BackgroundCallControlIntent: AppIntent {
     static let title: LocalizedStringResource = "Call controls"
     static let supportedModes: IntentModes = .background

@@ -7,7 +7,6 @@ import Testing
 @MainActor @Suite(.serialized)
 struct BackgroundWidgetTests {
     @Test func backgroundWidgetControlsUseJapaneseAndEnglishResources() throws {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         #expect(try localized(BackgroundCallControlIntent.title, language: "ja") == "通話の操作")
         #expect(try localized(BackgroundCallControlIntent.title, language: "en") == "Call controls")
         #expect(try localized(BackgroundCallSurfaceError.stale.localizedStringResource, language: "ja")
@@ -15,14 +14,12 @@ struct BackgroundWidgetTests {
     }
 
     @Test func backgroundIntentTargetsTheAppWithoutRequiringAnUnlock() {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         #expect(BackgroundCallControlIntent.supportedModes == .background)
         #expect(BackgroundCallControlIntent.allowedExecutionTargets == .main)
         #expect(BackgroundCallControlIntent.authenticationPolicy == .alwaysAllowed)
     }
 
     @Test func preparesCurrentAccountBeforeStartingSelectedDestination() async throws {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         let actions = WidgetActionsRecorder()
         let intent = BackgroundCallControlIntent(destinationID: "current-target"); intent.actions = actions
         _ = try await intent.perform()
@@ -30,7 +27,6 @@ struct BackgroundWidgetTests {
     }
 
     @Test func failedPreparationDoesNotRunAnAction() async {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         let actions = WidgetActionsRecorder(); actions.failPreparation = true
         let intent = BackgroundCallControlIntent(destinationID: "current-target"); intent.actions = actions
         await #expect(throws: WidgetActionsRecorder.Failure.self) { _ = try await intent.perform() }
@@ -44,7 +40,6 @@ struct BackgroundWidgetTests {
     }
 
     @Test func endAndMuteDoNotWaitForAppleCredentialPreparation() async throws {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         let actions = WidgetActionsRecorder(); actions.failPreparation = true
         let reference = CallSurfaceReference(accountAccessID: UUID(), connectionGeneration: UUID(), groupID: UUID())
         let end = BackgroundCallControlIntent(action: .end, reference: reference); end.actions = actions
@@ -57,7 +52,6 @@ struct BackgroundWidgetTests {
     }
 
     @Test func explicitMuteAndUnmuteCarryTheDisplayedReferenceWithoutToggling() async throws {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         let actions = WidgetActionsRecorder()
         let reference = CallSurfaceReference(accountAccessID: UUID(), connectionGeneration: UUID(), groupID: UUID())
         let mute = BackgroundCallControlIntent(action: .mute, reference: reference); mute.actions = actions
@@ -74,7 +68,6 @@ struct BackgroundWidgetTests {
     }
 
     @Test func missingOrMalformedReferenceNeverControlsTheCurrentCall() async {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         let actions = WidgetActionsRecorder()
         let intent = BackgroundCallControlIntent(action: .end); intent.actions = actions
         await #expect(throws: (any Error).self) { _ = try await intent.perform() }
@@ -84,7 +77,6 @@ struct BackgroundWidgetTests {
     }
 
     @Test func ownerRejectsStaleMuteAndEndWithoutSwitchingTheCurrentCall() async throws {
-        guard #available(iOS 27.0, macOS 27.0, *) else { Issue.record("BackgroundWidgetTests requires iOS/macOS 27 or newer; exclude this suite on OS 26."); return }
         let h = AppTestSupport.makeHarness(), vm = h.viewModel; defer { vm.disconnect() }
         let owner = AppCallOwner(account: vm.accountSession, viewModel: vm)
         let start = BackgroundCallControlIntent(destinationID: owner.callTargets[0].entity.id); start.actions = owner

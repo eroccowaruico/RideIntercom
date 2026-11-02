@@ -8,6 +8,13 @@ import sys
 
 APP_GROUP = 'group.com.yowamushi-inc.RideIntercom.CallWidgets'
 APNS_SETTING = '$(RIDEINTERCOM_APNS_ENVIRONMENT)'
+MINIMUM_OS_VERSION = '27.0'
+DEPLOYMENT_TARGET_SETTINGS = (
+    'IPHONEOS_DEPLOYMENT_TARGET',
+    'MACOSX_DEPLOYMENT_TARGET',
+    'WATCHOS_DEPLOYMENT_TARGET',
+    'XROS_DEPLOYMENT_TARGET',
+)
 
 
 def load_project(root):
@@ -25,7 +32,30 @@ def target_settings(project, name):
     return [config['buildSettings'] for config in target_configurations(project, name)]
 
 
+def check_package_platforms(root):
+    errors = []
+    package_root = root / 'RideIntercom/packages'
+    for manifest in sorted(package_root.rglob('Package.swift')):
+        try:
+            package = json.loads(subprocess.check_output([
+                'swift', 'package', 'dump-package', '--package-path', str(manifest.parent),
+            ], cwd=root, text=True))
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            errors.append(f'{manifest.relative_to(root)}: cannot inspect SwiftPM platforms: {error}')
+            continue
+        platforms = package.get('platforms', [])
+        if not platforms:
+            errors.append(f'{manifest.relative_to(root)}: declare the minimum supported Apple OS version.')
+        for platform in platforms:
+            if platform.get('version') != MINIMUM_OS_VERSION:
+                errors.append(
+                    f"{manifest.relative_to(root)}: {platform.get('platformName')} minimum must be {MINIMUM_OS_VERSION}."
+                )
+    return errors
+
+
 def check(root, project=None):
+    inspect_repository_packages = project is None
     project = project or load_project(root)
     errors = []
     def require(condition, message):
@@ -35,6 +65,16 @@ def check(root, project=None):
         except (OSError, plistlib.InvalidFileException):
             errors.append(f'Missing or invalid platform plist: {path}'); return {}
     app_settings = target_settings(project, 'RideIntercom')
+    for config in project['objects'].values():
+        if config.get('isa') != 'XCBuildConfiguration':
+            continue
+        settings = config.get('buildSettings', {})
+        for setting in DEPLOYMENT_TARGET_SETTINGS:
+            if setting in settings:
+                require(
+                    settings[setting] == MINIMUM_OS_VERSION,
+                    f"{config.get('name')}: {setting} must be {MINIMUM_OS_VERSION}.",
+                )
     for config in target_configurations(project, 'RideIntercom'):
         settings = config['buildSettings']
         validation = config['name'] in ('Debug-Validation', 'Release-Validation')
@@ -77,6 +117,8 @@ def check(root, project=None):
     embedded = {objects[objects[key]['fileRef']].get('path') for obj in objects.values() if obj.get('isa') == 'PBXCopyFilesBuildPhase' for key in obj.get('files', [])}
     require('RideIntercomWidgets.appex' in embedded, 'App must embed Widget extension.')
     require('RideIntercomWatch.app' in embedded, 'iOS App must embed Watch companion.')
+    if inspect_repository_packages:
+        errors.extend(check_package_platforms(root))
     return errors
 
 

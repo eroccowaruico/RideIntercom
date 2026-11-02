@@ -35,9 +35,6 @@ struct SelectedCallWidget: Widget {
         .configurationDisplayName("Selected call")
         .description("Start a call with a saved user or group you choose.")
         .supportedFamilies([.systemSmall])
-        #if os(iOS)
-        .disfavoredLocations(CallWidgetAvailability.disfavoredLocations, for: [.systemSmall])
-        #endif
     }
 }
 
@@ -60,17 +57,11 @@ struct SelectedCallContent: View {
                     .font(.headline)
                     .widgetAccentable()
                 }
-                if #available(iOS 27.0, macOS 27.0, *), let call = currentCall {
+                if let call = currentCall {
                     BackgroundWidgetCallButtons(call: call)
                 } else if let destination = destination {
-                    if #available(iOS 27.0, macOS 27.0, *) {
-                        Button(intent: BackgroundCallControlIntent(destinationID: destination.id)) {
-                            Label("Start call", systemImage: "phone.fill")
-                        }
-                    } else {
-                        Button(intent: OpenCallControlIntent(destinationID: destination.id)) {
-                            Label("Start call", systemImage: "phone.fill")
-                        }
+                    Button(intent: BackgroundCallControlIntent(destinationID: destination.id)) {
+                        Label("Start call", systemImage: "phone.fill")
                     }
                 } else {
                     Text("Choose a saved user or group in the widget settings.")

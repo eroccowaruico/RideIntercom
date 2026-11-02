@@ -25,7 +25,7 @@ Widgetとの違いは、Watchでは登録済みの通話先を選べることと
 | 到達不能 | 操作をqueueへ積まず、未接続を表示する。接続復帰時に現在状態を取得し、古い開始・マイクONを自動実行しない |
 | 着信 | iPhone宛APNsの標準転送を利用する。通知内の「iPhoneで応答」はiPhoneの既存通知検証と通話開始へ渡す。Watch上の通常tapはWatch Appを開くだけで、通知到着では通話を開始しない |
 
-watchOS targetはiPhone依存の単一Appとし、最低OSは27.0。iPhone/macOSも現在のOS 27以降の開発方針へ揃える。`WKApplication=true`、`WKCompanionAppBundleIdentifier=com.yowamushi-inc.RideIntercom.RideIntercom`、`WKRunsIndependentlyOfCompanionApp=false`。Watch音声にはマイク・ローカルネットワークの用途説明、`_ride-audio._udp`、標準のaudio background modeを設定する。APNs・CarPlay専用の外部登録は追加しない。
+watchOS targetはiPhone依存の単一Appとし、最低OSは27.0。iPhone/iPad・macOSを含む各製品targetも同じ最低OSへ揃える。`WKApplication=true`、`WKCompanionAppBundleIdentifier=com.yowamushi-inc.RideIntercom.RideIntercom`、`WKRunsIndependentlyOfCompanionApp=false`。Watch音声にはマイク・ローカルネットワークの用途説明、`_ride-audio._udp`、標準のaudio background modeを設定する。APNs・CarPlay専用の外部登録は追加しない。
 
 ## 音声接続時の要求と現行の境界
 
