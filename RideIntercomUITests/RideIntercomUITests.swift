@@ -75,11 +75,7 @@ final class RideIntercomUITests: XCTestCase {
         try openSavedUserInvitation(inviter: "ui-share-\(suffix)", sharedName: existingRider)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
         openSettingsTab()
-        let picker = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
-        revealSettingsControl(picker)
-        picker.tap()
-        let standard = app.buttons["Standard"].firstMatch
-        if standard.exists { standard.tap() } else { app.menuItems["Standard"].tap() }
+        selectSettingsLayout("Standard")
         app.tabBars.buttons["Users"].tap()
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
         let savedUsers = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-"))
@@ -113,9 +109,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Invited Rider 3"].exists)
         app.terminate(); app.launch(); app.activate()
         openSettingsTab()
-        revealSettingsControl(picker)
-        picker.tap()
-        if standard.exists { standard.tap() } else { app.menuItems["Standard"].tap() }
+        selectSettingsLayout("Standard")
         app.tabBars.buttons["Groups"].tap()
         let group = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardGroup-", "Talk Group")).firstMatch
         XCTAssertTrue(group.waitForExistence(timeout: 5))
@@ -1272,13 +1266,31 @@ final class RideIntercomUITests: XCTestCase {
         }
     }
 
+    private func selectSettingsLayout(_ title: String) {
+        XCTAssertTrue(title == "Standard" || title == "Advanced", "Unknown layout: \(title)")
+        let advanced = app.tabBars.buttons["Diagnostics"].exists || app.buttons["diagnosticsTab"].exists
+        if !advanced {
+            let more = app.buttons["moreSettingsLink"].firstMatch
+            revealSettingsControl(more)
+            more.tap()
+        }
+        let picker = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3)); picker.tap()
+        let choice = app.buttons[title].firstMatch
+        if choice.exists { choice.tap() } else {
+            let menu = app.menuItems[title].firstMatch
+            XCTAssertTrue(menu.waitForExistence(timeout: 3)); menu.tap()
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["settingsScrollView"].firstMatch.waitForExistence(timeout: 5))
+    }
+
     /// Settings is a lazy Form. Navigate to the requested row rather than assuming
     /// every target is near Local Network, or a fixed number of screens from the top.
     private func revealSettingsControl(_ target: XCUIElement, fullyVisible: Bool = true,
                                        file: StaticString = #filePath, line: UInt = #line) {
         let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
         XCTAssertTrue(scroll.waitForExistence(timeout: 5), file: file, line: line)
-        let top = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
+        let top = app.descendants(matching: .any)["signOutButton"].firstMatch
         var searchedFromTop = false
         for _ in 0..<40 {
             let viewport = scroll.frame.intersection(app.frame).insetBy(dx: 0, dy: 4)

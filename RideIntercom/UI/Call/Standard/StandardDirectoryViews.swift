@@ -18,7 +18,11 @@ struct StandardUsersView: View {
                     HStack {
                         Button {
                             if viewModel.selectUser(user.id, connectIfIdle: false) { selectedTab = .call }
-                        } label: { Label(user.resolvedDisplayName, systemImage: "person.crop.circle") }
+                        } label: {
+                            Label { Text(user.resolvedDisplayName) } icon: {
+                                DestinationAvatar(isGroup: false)
+                            }
+                        }
                         .buttonStyle(.borderless)
                         .accessibilityIdentifier("standardUser-\(user.id)")
                         Spacer()

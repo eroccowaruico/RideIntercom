@@ -61,7 +61,8 @@ struct RemoteParticipantRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.l) {
-            HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xl) {
+            HStack(alignment: .top, spacing: AppSpacing.xl) {
+                DestinationAvatar(isGroup: false)
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
                     Text(member.resolvedDisplayName)
                         .font(AppTypography.rowTitle)

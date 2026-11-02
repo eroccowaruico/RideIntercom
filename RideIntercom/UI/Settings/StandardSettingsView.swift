@@ -1,11 +1,11 @@
 import SwiftUI
+import RTC
 
 struct StandardSettingsView: View {
     @Bindable var viewModel: IntercomViewModel
     @Binding var isEditingInternet: Bool
 
     var body: some View {
-        InterfaceModeSection(viewModel: viewModel)
         AccountSettingsPanel(viewModel: viewModel)
         LocalDisplayNameSection(viewModel: viewModel)
         StoreAccessSection(access: viewModel.storeAccess)
@@ -14,10 +14,18 @@ struct StandardSettingsView: View {
         CallStatusDisplaySection(viewModel: viewModel)
         InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
         Section {
-            NavigationLink("Communication") {
+            NavigationLink {
                 Form { CommunicationPanel(viewModel: viewModel) }
                     .formStyle(.grouped)
                     .navigationTitle("Communication")
+            } label: {
+                LabeledContent("Communication") {
+                    ViewThatFits(in: .horizontal) {
+                        HStack { routeNames }
+                        VStack(alignment: .trailing) { routeNames }
+                    }
+                    .foregroundStyle(.secondary)
+                }
             }
             .accessibilityIdentifier("communicationSettingsLink")
         }
@@ -27,6 +35,7 @@ struct StandardSettingsView: View {
         Section {
             NavigationLink("More Audio and Connection Settings") {
                 Form {
+                    InterfaceModeSection(viewModel: viewModel)
                     AudioSessionPanel(viewModel: viewModel)
                     TransmitCodecPanel(viewModel: viewModel)
                 }
@@ -36,5 +45,10 @@ struct StandardSettingsView: View {
             .accessibilityIdentifier("moreSettingsLink")
         }
         ResetSettingsPanel(viewModel: viewModel)
+    }
+
+    @ViewBuilder private var routeNames: some View {
+        if viewModel.isRTCTransportRouteEnabled(.multipeer) { Text("Local Network") }
+        if viewModel.isRTCTransportRouteEnabled(.webRTC) { Text("Internet") }
     }
 }

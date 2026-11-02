@@ -40,6 +40,7 @@ struct SignedInContentView: View {
             }
             Tab("Settings", systemImage: "gearshape", value: .settings) {
                 NavigationStack { SettingsView(viewModel: viewModel).navigationTitle("Settings") }
+                    .id(viewModel.interfaceMode)
             }.accessibilityIdentifier("settingsTab")
         }
         .task { await viewModel.storeAccess.start() }

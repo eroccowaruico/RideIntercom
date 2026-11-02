@@ -22,9 +22,11 @@ struct StandardCallView: View {
             CallStorageSection(viewModel: viewModel)
             if let group = viewModel.selectedGroup {
                 Section {
-                    VStack(alignment: .leading, spacing: AppSpacing.l) {
+                    VStack(spacing: AppSpacing.l) {
+                        DestinationAvatar(isGroup: group.kind == .group, diameter: 64)
                         Text(viewModel.callTitle(for: group))
                             .font(AppTypography.destinationTitle)
+                            .multilineTextAlignment(.center)
                             .accessibilityAddTraits(.isHeader)
                         HStack(spacing: AppSpacing.m) {
                             if viewModel.standardCallStatus == .connecting {
@@ -39,6 +41,7 @@ struct StandardCallView: View {
                         }
                         .font(.subheadline)
                     }
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, AppSpacing.m)
                     connectionActions(group)
                     if viewModel.canShareSelectedGroup { CallInvitationButton(viewModel: viewModel, group: group) }
@@ -67,6 +70,7 @@ struct StandardCallView: View {
                     ForEach(Array(group.members.dropFirst())) { member in
                         VStack(alignment: .leading, spacing: AppSpacing.m) {
                             HStack {
+                                DestinationAvatar(isGroup: false)
                                 Text(member.resolvedDisplayName)
                                 Spacer()
                                 Button { editingMember = .init(groupID: group.id, member: member) } label: { Label("Edit Name", systemImage: "pencil") }

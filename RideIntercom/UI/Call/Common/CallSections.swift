@@ -55,7 +55,7 @@ struct DirectoryGroupLabel: View {
                 }
             }
         } icon: {
-            Image(systemName: "person.3.fill").foregroundStyle(.tint)
+            DestinationAvatar(isGroup: true)
         }
     }
 }

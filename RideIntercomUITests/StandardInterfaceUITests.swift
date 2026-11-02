@@ -179,12 +179,49 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor
+    func testStandardDestinationStaysCenteredWhenRotating() {
+        #if os(iOS)
+        launch()
+        tab("Groups", id: "groupsTab")
+        app.buttons["standardCreateGroupButton"].tap()
+        let name = app.textFields["savedUsersGroupNameField"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        let destination = "Weekend Riders " + UUID().uuidString.prefix(4)
+        name.tap()
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + destination)
+        app.buttons["saveUserSelectionButton"].tap()
+        XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 5))
+        let title = app.staticTexts[destination].firstMatch
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft, .landscapeRight] {
+            XCUIDevice.shared.orientation = orientation
+            let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let frame = self.app.frame
+                return orientation.isLandscape ? frame.width > frame.height : frame.height > frame.width
+            }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
+            XCTAssertTrue(title.waitForExistence(timeout: 3))
+            XCTAssertTrue(title.isHittable)
+            XCTAssertEqual(title.frame.midX, app.frame.midX, accuracy: 4,
+                           "The destination stays centered within the screen after rotating")
+            screenshot("Standard destination centered after rotation \(orientation.rawValue)")
+        }
+        XCUIDevice.shared.orientation = .portrait
+        app.buttons["standardEndCallButton"].tap()
+        XCTAssertTrue(app.buttons["standardConnectButton"].waitForExistence(timeout: 3))
+        tab("Groups", id: "groupsTab")
+        let row = app.buttons.containing(.staticText, identifier: destination).firstMatch
+        row.swipeLeft()
+        app.buttons["Delete"].firstMatch.tap()
+        XCTAssertFalse(row.exists)
+        #endif
+    }
+
+    @MainActor
     func testStandardSettingsSeparatesRoutineControlsAndConfirmsReset() {
         launch()
         tab("Settings", id: "settingsTab")
-        let layout = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
-        XCTAssertTrue(layout.waitForExistence(timeout: 3))
-        XCTAssertTrue(layout.isHittable, "App Layout remains at the start of Settings")
+        XCTAssertFalse(app.descendants(matching: .any)["interfaceModePicker"].firstMatch.exists)
 
         let communication = app.buttons["communicationSettingsLink"].firstMatch
         revealStandardSettingsControl(communication)
@@ -212,6 +249,8 @@ final class StandardInterfaceUITests: XCTestCase {
         revealStandardSettingsControl(more)
         more.tap()
         XCTAssertTrue(app.navigationBars["More Settings"].waitForExistence(timeout: 3))
+        let layout = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
+        XCTAssertTrue(layout.waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.exists)
         let codec = app.descendants(matching: .any)["transmitCodecPanel"].firstMatch
         revealStandardSettingsControl(codec)
@@ -239,9 +278,12 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(confirm.waitForExistence(timeout: 3))
         confirm.tap()
         XCTAssertFalse(app.alerts.firstMatch.exists)
-        revealStandardSettingsControl(layout)
+        revealStandardSettingsControl(more)
+        more.tap()
+        XCTAssertTrue(layout.waitForExistence(timeout: 3))
         XCTAssertTrue(layout.label.contains("Standard") || (layout.value as? String)?.contains("Standard") == true,
                       "Reset keeps the selected layout")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         revealStandardSettingsControl(vad)
         XCTAssertTrue(vad.buttons["Standard"].firstMatch.isSelected,
                        "Confirmed reset restores the default VAD sensitivity")
@@ -257,7 +299,7 @@ final class StandardInterfaceUITests: XCTestCase {
         tab("設定", id: "settingsTab")
         let communication = app.buttons["communicationSettingsLink"].firstMatch
         revealStandardSettingsControl(communication)
-        XCTAssertEqual(communication.label, "通信経路")
+        XCTAssertTrue(communication.label.contains("通信経路"))
         communication.tap()
         XCTAssertTrue(app.navigationBars["通信経路"].waitForExistence(timeout: 3))
         screenshot("Japanese Communication after navigation")
@@ -289,9 +331,67 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertEqual(recording.label, "5秒録音して再生")
     }
 
+    @MainActor
+    func testStandardCommunicationSummaryAndLayoutRoundTripInLandscape() {
+        #if os(iOS)
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for japanese in [false, true] {
+            if app != nil { app.terminate() }
+            launch(japanese: japanese)
+            XCUIDevice.shared.orientation = .landscapeLeft
+            tab(japanese ? "設定" : "Settings", id: "settingsTab")
+            let link = app.buttons["communicationSettingsLink"].firstMatch
+            revealStandardSettingsControl(link)
+            link.tap()
+            let localName = japanese ? "近距離" : "Local Network"
+            let internetName = japanese ? "インターネット" : "Internet"
+            let local = app.switches[localName].firstMatch
+            let internet = app.switches[internetName].firstMatch
+            XCTAssertTrue(local.waitForExistence(timeout: 3))
+            XCTAssertTrue(internet.waitForExistence(timeout: 3))
+            if internet.value as? String != "1" { XCTAssertTrue(internet.isEnabled); internet.switches.firstMatch.tap() }
+            if local.value as? String != "1" { XCTAssertTrue(local.isEnabled); local.switches.firstMatch.tap() }
+            XCTAssertEqual(local.value as? String, "1")
+            XCTAssertEqual(internet.value as? String, "1")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            revealStandardSettingsControl(link)
+            XCTAssertTrue(link.label.contains(localName), link.debugDescription)
+            XCTAssertTrue(link.label.contains(internetName), link.debugDescription)
+            screenshot("Standard communication both routes landscape")
+            link.tap()
+            XCTAssertTrue(local.isEnabled)
+            local.switches.firstMatch.tap()
+            XCTAssertEqual(local.value as? String, "0")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            revealStandardSettingsControl(link)
+            XCTAssertFalse(link.label.contains(localName), link.debugDescription)
+            XCTAssertTrue(link.label.contains(internetName), link.debugDescription)
+            screenshot("Standard communication Internet only landscape")
+            link.tap()
+            local.switches.firstMatch.tap()
+            XCTAssertEqual(local.value as? String, "1")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            selectLayout(japanese ? "詳細" : "Advanced")
+            selectLayout(japanese ? "標準" : "Standard")
+            revealStandardSettingsControl(link)
+            XCTAssertTrue(link.label.contains(localName), link.debugDescription)
+            XCTAssertTrue(link.label.contains(internetName), link.debugDescription)
+        }
+        #endif
+    }
+
     @MainActor private func revealStandardSettingsControl(_ control: XCUIElement) {
-        for _ in 0..<8 where !control.isHittable { app.swipeUp() }
-        for _ in 0..<12 where !control.isHittable { app.swipeDown() }
+        #if os(iOS)
+        let form = app.collectionViews.firstMatch
+        #else
+        let form = app.scrollViews.firstMatch
+        #endif
+        XCTAssertTrue(form.waitForExistence(timeout: 3))
+        let lower = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+        let upper = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        // Keep the gesture inside the Form, clear of landscape system edges.
+        for _ in 0..<20 where !control.isHittable { lower.press(forDuration: 0.05, thenDragTo: upper) }
+        for _ in 0..<20 where !control.isHittable { upper.press(forDuration: 0.05, thenDragTo: lower) }
         XCTAssertTrue(control.waitForExistence(timeout: 3))
         XCTAssertTrue(control.isHittable, control.debugDescription)
     }
@@ -368,11 +468,30 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor private func selectLayout(_ title: String) {
+        let goingAdvanced = title == "Advanced" || title == "詳細"
+        XCTAssertTrue(goingAdvanced || title == "Standard" || title == "標準", "Unknown layout: \(title)")
+        if goingAdvanced {
+            let more = app.buttons["moreSettingsLink"].firstMatch
+            revealStandardSettingsControl(more)
+            more.tap()
+        }
         let picker = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
         for _ in 0..<6 where !picker.isHittable { app.swipeDown() }
         XCTAssertTrue(picker.waitForExistence(timeout: 3)); picker.tap()
         let choice = app.buttons[title].firstMatch
-        if choice.exists { choice.tap() } else { app.menuItems[title].tap() }
+        if choice.exists { choice.tap() } else {
+            let menu = app.menuItems[title].firstMatch
+            XCTAssertTrue(menu.waitForExistence(timeout: 3)); menu.tap()
+        }
+        let settings = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "Switch returns to Settings")
+        if goingAdvanced {
+            XCTAssertTrue(app.descendants(matching: .any)["interfaceModePicker"].firstMatch.waitForExistence(timeout: 3))
+            screenshot("Advanced Settings root after layout switch")
+        } else {
+            screenshot("Standard Settings root after layout switch")
+            revealStandardSettingsControl(app.buttons["moreSettingsLink"].firstMatch)
+        }
     }
 
     @MainActor private func assertPurchasesUnavailable(_ title: String) {
@@ -384,7 +503,11 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor private func screenshot(_ title: String) {
+        #if os(iOS)
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        #else
         let attachment = XCTAttachment(screenshot: app.screenshot())
+        #endif
         attachment.name = title; attachment.lifetime = .keepAlways; add(attachment)
     }
 }
