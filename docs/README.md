@@ -204,7 +204,8 @@
 | [validation/history/通信診断とTURN資格検証.md](<validation/history/通信診断とTURN資格検証.md>) | 通信診断とTURN資格の検証 |
 | [validation/history/音声エフェクト接続検証.md](<validation/history/音声エフェクト接続検証.md>) | 音声エフェクトのApp接続と自動検証 |
 | [validation/文書整理記録.md](<validation/文書整理記録.md>) | 文書構造と実装整合の点検記録 |
-| [validation/未確認事項.md](<validation/未確認事項.md>) | 未確認事項 |
+| [validation/未確認事項.md](<validation/未確認事項.md>) | 実機以外にも残るテスト・環境・外部受入と阻害条件 |
+| [validation/実機確認待ち.md](<validation/実機確認待ち.md>) | 物理端末・周辺機器・実無線での確認だけが残る範囲 |
 | [validation/自動検証範囲.md](<validation/自動検証範囲.md>) | 自動検証範囲 |
 
 ### デザイン
