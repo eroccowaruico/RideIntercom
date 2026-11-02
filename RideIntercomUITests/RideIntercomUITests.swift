@@ -365,6 +365,17 @@ final class RideIntercomUITests: XCTestCase {
         try checkGroupDeletionCanBeExercisedFromUI()
     }
 
+    /// Adding saved users only lists them locally. The sheet stays open on the
+    /// invitation step so the group key can reach them before it is dismissed.
+    @MainActor
+    private func finishSendingGroupInvitation(_ screen: String) {
+        XCTAssertTrue(app.staticTexts["sendGroupInvitationMessage"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["addedUsersInviteButton"].exists)
+        attachScreen(screen)
+        app.buttons["finishAddingUsersButton"].tap()
+        XCTAssertTrue(app.buttons["finishAddingUsersButton"].waitForNonExistence(timeout: 3))
+    }
+
     @MainActor
     func testSavedUsersSurviveGroupDeletionAndCanBeReused() throws {
         try openSavedUserInvitation(inviter: "ui-saved-rider")
@@ -394,6 +405,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "1")
         attachScreen("Saved Users Selection")
         app.buttons["saveUserSelectionButton"].tap()
+        finishSendingGroupInvitation("New Group with Saved User invitation step")
         XCTAssertTrue(app.descendants(matching: .any)["remoteParticipantRow0"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.exists)
         assertAdvancedCallHasNoManagementControls()
@@ -413,6 +425,7 @@ final class RideIntercomUITests: XCTestCase {
         toggle.switches.firstMatch.tap()
         XCTAssertEqual(toggle.value as? String, "1")
         app.buttons["saveUserSelectionButton"].tap()
+        finishSendingGroupInvitation("Saved User Added invitation step")
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
         attachScreen("Saved User Added to Existing Group management")
         closeManagementAndReturnToCall()

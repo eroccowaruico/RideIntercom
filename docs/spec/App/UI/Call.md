@@ -83,7 +83,19 @@ Groupsの`New Group`（`standardCreateGroupButton`）から標準Formを開く�
 
 鉛筆ボタン（`editUser-{UUID}`）は表示名編集を開き、本人名（`savedUserOriginalName`）も表示する。`Use Shared Name`（`resetUserNameButton`）で端末の呼び名を解除して最新の本人名へ戻せる。`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
 
-StandardではCallのParticipants、AdvancedではGroupsの管理画面に`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、参加にはInviteの共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
+StandardではCallのParticipants、AdvancedではGroupsの管理画面に`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、追加後に招待の共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
+
+保存ユーザーの追加はこの端末のメンバー一覧への記録だけであり、group鍵は相手へ届かない。鍵は招待URL（署名付きのgroup ID・名前・鍵）を相手が開いたときに相手の端末へ保存され、相手のgroup一覧へ自動で追加される。そのため、保存ユーザーを1人以上選んだCreate Group / Add Usersが成功したら、sheetを閉じずに同じsheetを招待の段階へ切り替える。
+
+| 状態 | 成立条件 | 表示 | 可能な操作 | 復帰先 |
+|---|---|---|---|---|
+| Ideal | 保存ユーザーを1人以上含む作成・追加が保存された | 見出し`Send Invitation`、相手が開くとgroupと鍵が相手の端末に追加されInternetなしで近くで会話できる旨（`sendGroupInvitationMessage`）、共有ボタン（`addedUsersInviteButton`）、追加だけでは一覧に載るだけで後からInviteでも送れる旨 | 共有、Done（`finishAddingUsersButton`） | Doneで元の画面。作成時は新groupの通話画面 |
+| Partial | 共有せずにDoneを押した | 追加済みのメンバーは一覧に残る | 管理画面のInvite（`inviteButton`）で後から共有 | 管理画面 |
+| Error | 保存に失敗した | 選択画面のまま`savedUsersErrorLabel` | 選択の変更・再試行・Cancel | 選択画面 |
+| Empty | 保存ユーザーを選ばずにgroupを作成した | 招待の段階を出さずにsheetを閉じる | 通常どおり | 新groupの通話画面 |
+| Loading | 該当しない | 保存は同期処理で、共有URLはOS共有画面の要求時に作るため待ち表示を持たない | — | — |
+
+招待の段階の表示中に対象groupが削除された場合はsheetを閉じる。共有URLは既存のInviteと同じく共有時に対象group・権利を再検証する。
 
 Users / Groupsのルート識別子`standardUsersList` / `standardGroupsList`は、モード切替前後の既存UIテストとの互換性のためAdvancedでも維持する。状態と操作の所有者は共通のViewModelであり、識別子は画面構成の共有を意味しない。Call配下はStandard・Advanced・Commonに責務ごとに配置する。
 

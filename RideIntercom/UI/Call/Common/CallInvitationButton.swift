@@ -4,6 +4,7 @@ import SwiftUI
 struct CallInvitationButton: View {
     let viewModel: IntercomViewModel
     let group: IntercomGroup
+    var accessibilityIdentifier = "inviteButton"
 
     var body: some View {
         ShareLink(item: InvitationShare(viewModel: viewModel, groupID: group.id),
@@ -13,6 +14,6 @@ struct CallInvitationButton: View {
             Label(LocalizedStringKey(group.kind == .direct ? "Share Call Invite" : "Invite"), systemImage: "square.and.arrow.up")
         }
         .accessibilityHint("Opens sharing options for this invitation.")
-        .accessibilityIdentifier("inviteButton")
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 }
