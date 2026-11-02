@@ -6,6 +6,8 @@
 
 継続開発の基準は`main`。継続作業と短期branchの統合先を`main`へ揃え、[開発方針](docs/policies/開発方針.md)に従って変更と検証をmainへ集約する。
 
+**開発の着手前と区切りには、[小さく動く単位での検証・コミットと未コミットの滞留管理](docs/policies/開発方針.md#小さく動く単位で検証・コミットする)を必ず適用する。**
+
 | 開発環境 | このcheckoutで開くファイル | 実行 |
 |---|---|---|
 | Xcode | `RideIntercom.xcodeproj` | 共有scheme `RideIntercom`、My MacまたはiOS Simulator |
