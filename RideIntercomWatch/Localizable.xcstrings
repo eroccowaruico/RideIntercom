@@ -2,6 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "Audio connection failed. Start the call again." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -12,6 +13,7 @@
       }
     },
     "Audio connection timed out. Start the call again." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -22,6 +24,7 @@
       }
     },
     "Audio device changed. Start audio again on your Watch." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -54,6 +57,7 @@
       }
     },
     "Audio playback failed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -96,6 +100,7 @@
       }
     },
     "Call" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -161,6 +166,7 @@
       }
     },
     "Choose Toggle Microphone to use a single tap." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -171,6 +177,7 @@
       }
     },
     "Connect to your iPhone to control a call." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -203,6 +210,7 @@
       }
     },
     "Could not start Watch audio. Try again." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -245,6 +253,7 @@
       }
     },
     "Microphone" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -255,6 +264,7 @@
       }
     },
     "Microphone Mode" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -265,6 +275,7 @@
       }
     },
     "Microphone unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -352,6 +363,7 @@
       }
     },
     "Talking…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
