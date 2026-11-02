@@ -65,6 +65,17 @@ class PlatformConfigurationTests(unittest.TestCase):
     def test_repository_has_complete_minimum_platform_inputs(self):
         self.assertEqual(self.checker.check(ROOT), [])
 
+    def test_icon_composer_resource_is_registered_for_app_and_watch(self):
+        app_icon = ROOT / 'RideIntercom/RideComAppIcon.icon'
+        self.assertTrue((app_icon / 'icon.json').is_file())
+        self.assertFalse((ROOT / 'RideIntercomWatch/RideComAppIcon.icon').exists())
+        watch_resource_paths = self.checker.target_resource_paths(self.project, 'RideIntercomWatch')
+        self.assertIn('RideIntercom/RideComAppIcon.icon', watch_resource_paths)
+        for target in ('RideIntercom', 'RideIntercomWatch'):
+            for settings in self.checker.target_settings(self.project, target):
+                with self.subTest(target=target):
+                    self.assertEqual(settings.get('ASSETCATALOG_COMPILER_APPICON_NAME'), 'RideComAppIcon')
+
     def test_all_xcode_deployment_targets_use_version_27(self):
         deployment_settings = {
             'IPHONEOS_DEPLOYMENT_TARGET',
@@ -120,8 +131,8 @@ class PlatformConfigurationTests(unittest.TestCase):
     def test_watch_icon_omission_is_rejected(self):
         project = copy.deepcopy(self.project)
         for settings in self.checker.target_settings(project, 'RideIntercomWatch'):
-            settings.pop('ASSETCATALOG_COMPILER_APPICON_NAME', None)
-        self.assertTrue(any('Watch AppIcon' in e for e in self.checker.check(ROOT, project)))
+            settings['ASSETCATALOG_COMPILER_APPICON_NAME'] = 'AppIcon'
+        self.assertTrue(any('RideComAppIcon resource' in e for e in self.checker.check(ROOT, project)))
 
     def test_apns_configuration_cannot_drift_from_info_and_entitlement_contract(self):
         project = copy.deepcopy(self.project)

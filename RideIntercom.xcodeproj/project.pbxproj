@@ -35,7 +35,7 @@
 		AEECFCC6A30A5A1BC41E5781 /* RideIntercomWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B2C9FBC5FDC14A34ABD74AF8 /* AudioDevice in Frameworks */ = {isa = PBXBuildFile; productRef = 85E3A593DF7549CEA117EB38 /* AudioDevice */; };
 		B89AEF130DA8CECA89175FDB /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0874A31143C7555BB4D5AC15 /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift */; };
-		C0DE1C010000000000000001 /* RideIntercom/AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C0DE1C010000000000000002 /* RideIntercom/AppIcon.icon */; };
+		C0DE1C010000000000000001 /* RideIntercom/RideComAppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C0DE1C010000000000000002 /* RideIntercom/RideComAppIcon.icon */; };
 		C5B699AE6EBBFF15F54F244A /* SessionManager in Frameworks */ = {isa = PBXBuildFile; productRef = 8B6A6437FC531740EEDEB76E /* SessionManager */; };
 		D35100000000000000000003 /* RideIntercom/Shared/Appearance.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D35100000000000000000001 /* RideIntercom/Shared/Appearance.xcassets */; };
 		D35100000000000000000004 /* RideIntercom/Shared/Appearance.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D35100000000000000000001 /* RideIntercom/Shared/Appearance.xcassets */; };
@@ -127,7 +127,7 @@
 		93F300E32F93829D0046716D /* RideIntercomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6D4C7A089FE51737098F522 /* Configuration/Validation.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Validation.xcconfig; sourceTree = SOURCE_ROOT; };
 		A9F382A78A734E6BAC3AFB82 /* RideIntercom/Shared/WatchMicrophoneIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/WatchMicrophoneIntent.swift; sourceTree = SOURCE_ROOT; };
-		C0DE1C010000000000000002 /* RideIntercom/AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = RideIntercom/AppIcon.icon; sourceTree = SOURCE_ROOT; };
+		C0DE1C010000000000000002 /* RideIntercom/RideComAppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = RideIntercom/RideComAppIcon.icon; sourceTree = SOURCE_ROOT; };
 		C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CFDE00000000000000000001 /* Configuration/Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		D35100000000000000000001 /* RideIntercom/Shared/Appearance.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = RideIntercom/Shared/Appearance.xcassets; sourceTree = SOURCE_ROOT; };
@@ -370,7 +370,7 @@
 				9391B9533088EDA000FDB74A /* Recovered References */,
 				93F300CA2F93829C0046716D /* RideIntercom */,
 				1C0A209D1EDC02B2C3B6C9AD /* RideIntercom.code-workspace */,
-				C0DE1C010000000000000002 /* RideIntercom/AppIcon.icon */,
+				C0DE1C010000000000000002 /* RideIntercom/RideComAppIcon.icon */,
 				F2FF24FCC7CD717AC0CF70D8 /* RideIntercom/SystemSurfaces/Shared */,
 				E2E000000000000000000003 /* RideIntercomAudioE2ETests */,
 				93F300DC2F93829D0046716D /* RideIntercomTests */,
@@ -643,7 +643,7 @@
 			isa = PBXResourcesBuildPhase;
 			files = (
 				D35100000000000000000004 /* RideIntercom/Shared/Appearance.xcassets in Resources */,
-				C0DE1C010000000000000001 /* RideIntercom/AppIcon.icon in Resources */,
+				C0DE1C010000000000000001 /* RideIntercom/RideComAppIcon.icon in Resources */,
 			);
 		};
 /* End PBXResourcesBuildPhase section */
@@ -819,7 +819,7 @@
 		226B0A6043DF86442317F630 /* Debug configuration for PBXNativeTarget "RideIntercomWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -910,7 +910,7 @@
 		32DEB5EEA2498D768AF8F629 /* Release configuration for PBXNativeTarget "RideIntercomWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1200,7 +1200,7 @@
 		896B4DE610B64B5309F95631 /* Debug-Validation configuration for PBXNativeTarget "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)";
@@ -1264,7 +1264,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CFDE00000000000000000001 /* Configuration/Debug.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "RideIntercom/RideIntercom-macOS.entitlements";
@@ -1328,7 +1328,7 @@
 		93F300EE2F93829D0046716D /* Release configuration for PBXNativeTarget "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "RideIntercom/RideIntercom-macOS.entitlements";
@@ -1663,7 +1663,7 @@
 		995848FB40226C6492324BE8 /* Release-Validation configuration for PBXNativeTarget "RideIntercomWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1690,7 +1690,7 @@
 		99C1716E15E15AE562A2202C /* Release-Validation configuration for PBXNativeTarget "RideIntercom" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RideIntercom/RideIntercom.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "$(RIDEINTERCOM_VALIDATION_ENTITLEMENTS)";
@@ -1753,7 +1753,7 @@
 		B98630F9FCFAF03D83091277 /* Debug-Validation configuration for PBXNativeTarget "RideIntercomWatch" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = RideComAppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = UAY8FH5FF8;
 				GENERATE_INFOPLIST_FILE = YES;

@@ -151,11 +151,11 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         from scripts.audio_e2e import source_manifest
         names = ['RideIntercomWatch/WatchApp.swift', 'RideIntercomWidgets/Widget.swift',
                  'RideIntercomWidgets/Widget.entitlements', 'Config/Test.xcconfig',
-                 'RideIntercom.xctestplan', 'RideIntercomWatch/Assets.xcassets/AppIcon.appiconset/Icon.png',
+                 'RideIntercom.xctestplan', 'RideIntercom/RideComAppIcon.icon/icon.json',
                  'RideIntercom/Assets.xcassets/Icon.imageset/Icon.svg',
                  'RideIntercom/Assets.xcassets/Logo.imageset/Logo.pdf',
                  'RideIntercom/Assets.xcassets/Photo.imageset/Photo.jpeg',
-                 'RideIntercom/AppIcon.icon/Assets/Layer.svg',
+                 'RideIntercom/RideComAppIcon.icon/Assets/Background.svg',
                  'RideIntercom/ja.lproj/InfoPlist.strings', 'RideIntercom/PrivacyInfo.xcprivacy',
                  'RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcframework.zip']
         for name in names:

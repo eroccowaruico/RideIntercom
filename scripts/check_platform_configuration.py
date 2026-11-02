@@ -32,6 +32,18 @@ def target_settings(project, name):
     return [config['buildSettings'] for config in target_configurations(project, name)]
 
 
+def target_resource_paths(project, name):
+    objects = project['objects']
+    target = next(obj for obj in objects.values() if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == name)
+    return {
+        objects[objects[file_id]['fileRef']].get('path')
+        for phase_id in target['buildPhases']
+        for phase in [objects[phase_id]]
+        if phase.get('isa') == 'PBXResourcesBuildPhase'
+        for file_id in phase.get('files', [])
+    }
+
+
 def check_package_platforms(root):
     errors = []
     package_root = root / 'RideIntercom/packages'
@@ -104,12 +116,22 @@ def check(root, project=None):
         file = root / f'RideIntercom/{locale}.lproj/InfoPlist.strings'
         text = file.read_text() if file.is_file() else ''
         require(all('"'+key+'"' in text for key in ('NSMicrophoneUsageDescription', 'NSLocalNetworkUsageDescription')), f'{locale}: OS microphone/local-network explanations need localized InfoPlist.strings.')
+    for target in ('RideIntercom', 'RideIntercomWatch'):
+        for settings in target_settings(project, target):
+            require(settings.get('ASSETCATALOG_COMPILER_APPICON_NAME') == 'RideComAppIcon', f'{target} must use the RideComAppIcon resource in every build configuration.')
+    app_icon_path = root / 'RideIntercom/RideComAppIcon.icon'
+    icon_json_path = app_icon_path / 'icon.json'
+    try:
+        icon = json.loads(icon_json_path.read_text())
+    except (OSError, ValueError):
+        icon = {}
+    require(app_icon_path.is_dir() and isinstance(icon, dict), 'App Icon must be a valid RideComAppIcon Icon Composer resource.')
+    watch_resource_paths = target_resource_paths(project, 'RideIntercomWatch')
+    require('RideIntercom/RideComAppIcon.icon' in watch_resource_paths, 'Watch Resources must reference the single RideComAppIcon resource.')
+    require(not (root / 'RideIntercomWatch/RideComAppIcon.icon').exists(), 'Watch must not contain a duplicate RideComAppIcon package.')
+    require('watchOS' in icon.get('supported-platforms', {}).get('circles', []), 'RideComAppIcon must support the watchOS circular icon variant.')
     for settings in target_settings(project, 'RideIntercomWatch'):
-        require(settings.get('ASSETCATALOG_COMPILER_APPICON_NAME') == 'AppIcon', 'Watch AppIcon must be configured in every build configuration.')
         require(settings.get('TARGETED_DEVICE_FAMILY') == '4', 'Watch must use watchOS device family.')
-    icon_path = root / 'RideIntercomWatch/Assets.xcassets/AppIcon.appiconset/Contents.json'
-    icon = json.loads(icon_path.read_text()) if icon_path.is_file() else {}
-    require(any(i.get('platform') == 'watchos' and i.get('size') == '1024x1024' and (icon_path.parent / i.get('filename', '')).is_file() for i in icon.get('images', [])), 'Watch AppIcon needs a 1024-pixel watchOS source asset.')
     watch = plist('RideIntercomWatch/Info.plist')
     bundle = app_settings[0]['PRODUCT_BUNDLE_IDENTIFIER']
     require(watch.get('WKApplication') is True and watch.get('WKRunsIndependentlyOfCompanionApp') is False and watch.get('WKCompanionAppBundleIdentifier') == bundle, 'Watch app must remain dependent on the matching iPhone app.')

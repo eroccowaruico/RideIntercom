@@ -1,5 +1,40 @@
 # 正式アイコンとLiquid Glassの検証
 
+## 2026-11-02 Xcode Icon Composer resourceの正式登録
+
+`RideIntercom/RideComAppIcon.icon`を単一の正式アイコンresourceとして登録した。AppとWatchの全configurationで`ASSETCATALOG_COMPILER_APPICON_NAME`を`RideComAppIcon`に統一し、Watch targetのResources phaseからApp側と同じPBXFileReferenceを使う。別のWatch package、asset catalog用PNG、symlinkは使わない。XcodeのAsset Compilerがplatform別variantを生成する。
+
+| 対象 | 確認内容 |
+|---|---|
+| 回帰 | platform設定15件とsource manifestを含む関連Pythonテスト41件、文書参照検査が成功 |
+| iOS / Watch | `RideIntercom` schemeのiOS Simulator build成功。埋込Watchの`Assets.car`に`RideComAppIcon`の`IconImageStack`、`Info.plist`に`CFBundlePrimaryIcon`を確認 |
+| macOS | Icon Composer resourceをmacOS Asset Compilerへ渡し、`Assets.car`と`RideComAppIcon.icns`を生成。`assetutil --info`でBackground・Road・Waveformのstackを確認 |
+| 限界 | 署名・インストール後のホーム画面/Dock/Watch実機表示とApp Store受理は未確認。Simulator placeholderについてXcode noteがあった |
+
+## 2026-11-02 Dark/Light root SVGの再生成
+
+利用者が不要pathを除去して更新した`RideComAppIcon.svg`を正本として再生成した。root直下の`dark`・`light`をappearanceとして認識し、各rootの3 groupをBackground・Road・Waveformへ対応づける。Light側groupの自動IDは、記述順ではなく参照gradient種別（radial・linear・gradientなし）とgroup数で分類する。path抽出では`visibility`を選別に使わず、各appearanceのgradient定義を出力へ保持する。Backgroundのbleed範囲からviewBoxと1354px出力を導出する。
+
+| 対象 | 確認内容 |
+|---|---|
+| 生成物 | `python3 scripts/generate_app_icons.py`成功。Light/Dark layer SVG 6点、App/Mac Light PNG 7サイズ、Watch Dark PNG 1サイズの計14点を生成。`--check`で全点一致 |
+| 入力・設定 | 正本SVGと生成SVG 6点のXML検査、`icon.json`のJSON解析が成功 |
+| Asset Compiler | 修復後の`.icon`と共通Appearance catalogをmacOS向けに隔離compileし、`AppIcon.icns`と`Assets.car`を生成 |
+| Dark solid fill | 利用者がIcon Composerで各layerへDark `fill-specializations`を保存。Asset Compiler成功。`assetutil --info`でDarkAquaのBackground / Road / WaveformがそれぞれP3 Color assetを参照し、Aquaとは異なるColor asset IDを確認。Darkの仮色は背景green、Road orange、Waveform magentaで、最終色ではない |
+| OS表示・bundle | Icon Composer preview、通常App/Watch bundle build、インストール後のDock・Home Screen・Watch実機表示は未実行。Asset Compilerのvariant生成だけでOS表示完了とは扱わない |
+
+## 2026-11-02 正本SVGの更新とグラデーション保持
+
+利用者指定の`RideComAppIcon.svg`を生成入力の正本にした。`icon` group内の意味付きID `background`・`Road`・`Waveform`を名前で対応づけ、青い放射状背景と白い道の線形グラデーションはSVG定義ごと保持する。背景は非Glassのベース、道とターコイズ波形はGlass groupとし、Icon Composer側で前景色や不透明度を上書きしない。非表示の`BackgroundJast`と非表示の旧図案は生成対象から除外する。
+
+| 対象 | 確認内容 |
+|---|---|
+| 生成物 | `python3 scripts/generate_app_icons.py --check`成功。背景・道・波形のSVG 3点とApp/Macの7サイズ・Watchの1024px PNG、計11点が一致 |
+| SVG/設定 | 入力と出力SVG 4点の`xmllint --noout`、`icon.json`のJSON解析が成功 |
+| ターゲット画像 | Appの16・32・64・128・256・512・1024pxとWatchの1024pxを確認。App/Watchの1024px PNGはbyte一致 |
+| 文書 | `python3 scripts/check_documentation.py`成功 |
+| Xcode組み込み | この変更後のIcon Composerプレビュー、Asset Compiler、App/Watch bundle buildは未実行。グラデーション保持とLiquid Glassの実機/OS描画は未確認 |
+
 ## 指示と変更範囲
 
 2026-11-01、利用者指定の`AppIcon-4,096.svg`を正式アイコンとして採用し、Liquid Glass対応とプロジェクト内のアプリアイコンの統一を行った。SVGの輪郭・配置を保持し、背景、道とシュプール、音声波形を分離した。波形の制作上の重なりは同一SVG layer内で合成する。正本内の非表示参照画像は変更せず、配布前景へ含めない。
