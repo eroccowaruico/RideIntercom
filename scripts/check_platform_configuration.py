@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import plistlib
+import re
 import subprocess
 import sys
 
@@ -26,6 +27,16 @@ def target_configurations(project, name):
     objects = project['objects']
     target = next(obj for obj in objects.values() if obj.get('isa') == 'PBXNativeTarget' and obj.get('name') == name)
     return [objects[key] for key in objects[target['buildConfigurationList']]['buildConfigurations']]
+
+
+def rtc_bonjour_services(root):
+    """Derive the declarations from the service names RTC actually uses."""
+    rtc = root / 'RideIntercom/packages/RTC/Sources/RTC/Multipeer'
+    multipeer = re.search(r'static let serviceType = "([^"]+)"', (rtc / 'MultipeerLocalRoute.swift').read_text())
+    datagram = re.search(r'static let serviceType = "([^"]+)"', (rtc / 'LocalDatagramTransport.swift').read_text())
+    if multipeer is None or datagram is None: return None
+    # Multipeer browses/advertises its service type over both TCP and UDP Bonjour records.
+    return {f'_{multipeer[1]}._tcp', f'_{multipeer[1]}._udp', datagram[1]}
 
 
 def target_settings(project, name):
@@ -110,8 +121,9 @@ def check(root, project=None):
     require(widget == {'com.apple.security.application-groups': [APP_GROUP]}, 'Widget needs only App Group access; call/audio/account/APNs stay in the App.')
     info = plist('RideIntercom/Info.plist')
     require(info.get('RideIntercomAPNsEnvironment') == APNS_SETTING, 'Info APNs environment must use the same build setting as signing.')
-    # Multipeer browses/advertises its service type over both TCP and UDP Bonjour records.
-    require(set(info.get('NSBonjourServices', [])) == {'_ride-intercom._tcp', '_ride-intercom._udp', '_ride-audio._udp'}, 'Local discovery and datagram Bonjour service declarations must agree with RTC.')
+    services = rtc_bonjour_services(root)
+    require(services is not None, 'RTC Bonjour service names must stay readable by this check.')
+    require(set(info.get('NSBonjourServices', [])) == services, 'Local discovery and datagram Bonjour service declarations must agree with RTC.')
     require(info.get('UIBackgroundModes') == ['audio'], 'Only continuing call audio needs background mode.')
     for locale in ('en', 'ja'):
         file = root / f'RideIntercom/{locale}.lproj/InfoPlist.strings'

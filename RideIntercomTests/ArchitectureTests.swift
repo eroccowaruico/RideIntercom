@@ -155,9 +155,18 @@ struct ArchitectureTests {
         let localNetworkUsage = try #require(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription") as? String)
 
         #expect(backgroundModes.contains("audio"))
-        // Multipeer needs both records of its service type; local audio uses its own UDP service.
-        #expect(Set(bonjourServices) == ["_ride-intercom._tcp", "_ride-intercom._udp", "_ride-audio._udp"])
+        // Derive the declarations from the service names RTC actually uses. Multipeer
+        // needs both records of its service type; local audio uses its own UDP service.
+        let multipeer = try Self.serviceType(in: "RideIntercom/packages/RTC/Sources/RTC/Multipeer/MultipeerLocalRoute.swift")
+        let datagram = try Self.serviceType(in: "RideIntercom/packages/RTC/Sources/RTC/Multipeer/LocalDatagramTransport.swift")
+        #expect(Set(bonjourServices) == ["_\(multipeer)._tcp", "_\(multipeer)._udp", datagram])
         #expect(!localNetworkUsage.isEmpty)
+    }
+
+    private static func serviceType(in path: String) throws -> String {
+        let source = try AppTestSupport.source(path)
+        let match = try #require(source.firstMatch(of: /static let serviceType = "([^"]+)"/))
+        return String(match.1)
     }
 
 }
