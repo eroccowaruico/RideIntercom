@@ -129,6 +129,15 @@ def check(root, project=None):
         file = root / f'RideIntercom/{locale}.lproj/InfoPlist.strings'
         text = file.read_text() if file.is_file() else ''
         require(all('"'+key+'"' in text for key in ('NSMicrophoneUsageDescription', 'NSLocalNetworkUsageDescription')), f'{locale}: OS microphone/local-network explanations need localized InfoPlist.strings.')
+    # Xcode syncs each String Catalog from the strings its owning targets extract at build time.
+    # A target that does not extract would mark its strings stale and leave a diff nobody can commit.
+    objects = project['objects']
+    project_object = next(obj for obj in objects.values() if obj.get('isa') == 'PBXProject')
+    for key in objects[project_object['buildConfigurationList']]['buildConfigurations']:
+        require(objects[key]['buildSettings'].get('SWIFT_EMIT_LOC_STRINGS') == 'YES', 'Every build configuration must extract Swift strings for String Catalog sync.')
+    for target in (obj['name'] for obj in objects.values() if obj.get('isa') == 'PBXNativeTarget'):
+        for settings in target_settings(project, target):
+            require(settings.get('SWIFT_EMIT_LOC_STRINGS', 'YES') == 'YES', f'{target} must not disable Swift string extraction.')
     for target in ('RideIntercom', 'RideIntercomWatch'):
         for settings in target_settings(project, target):
             require(settings.get('ASSETCATALOG_COMPILER_APPICON_NAME') == 'RideComAppIcon', f'{target} must use the RideComAppIcon resource in every build configuration.')
