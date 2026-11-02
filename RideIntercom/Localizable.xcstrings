@@ -1290,7 +1290,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通話先を選ぶ"
+            "value" : "接続先を選ぶ"
           }
         }
       }
@@ -3236,9 +3236,7 @@
         }
       }
     },
-    "Opus" : {
-
-    },
+    "Opus" : {},
     "Opus 24 and 32 kbps are lower-quality options. The default remains 48 kbps. Encoding bitrate is not total network usage." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4498,7 +4496,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通話を開始"
+            "value" : "接続"
           }
         }
       }
@@ -5668,6 +5666,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "以前のアカウントが削除され、新しいアカウントが登録されています。この端末には以前のアカウントのデータが残っています。"
+          }
+        }
+      }
+    },
+    "Not connected" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未接続"
+          }
+        }
+      }
+    },
+    "Long-press to choose a call." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長押しして接続先を設定"
+          }
+        }
+      }
+    },
+    "Using Apple Watch" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Watchで操作中"
           }
         }
       }
