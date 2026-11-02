@@ -429,12 +429,12 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
   </div>
 
   <h2 id="call">通話・ユーザー・グループ（Advanced）</h2>
-  <p class="note">タブは一般向けと同じく Call／Users／Groups に分け、Diagnostics と Settings を加えた5つにする。中身は詳細表示のまま。通話は相手が1人でも内部ではグループ（kind: direct）なので、Call では常にグループの実体（種類・ID・自分を含むメンバー）として見せる。</p>
+  <p class="note">タブは一般向けと同じく Call／Users／Groups に分け、Diagnostics と Settings を加えた5つにする。Users・Groups で選ぶとすぐ接続して Call へ移る（<a href="../操作の流れ見本.html">操作の流れ見本</a>）。中身は詳細表示のまま。通話は相手が1人でも内部ではグループ（kind: direct）なので、Call では常にグループの実体（種類・ID・自分を含むメンバー）として見せる。</p>
   <div class="gallery">
     <figure>
       <div class="phone tall"><div class="screen">
         <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
-        <div class="ptitle">Weekend Touring</div>
+        <div class="ptitle" style="display:flex;justify-content:space-between;align-items:center">Weekend Touring<span style="font-size:18px;color:var(--accent)" aria-label="More">⋯</span></div>
         <div class="pbody">
           <div class="hd">Call status</div>
           <div class="card">
@@ -464,16 +464,17 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="row"><b>Mika</b><span class="v">Connected · authenticated · PCM 16-bit</span><span class="x num">60%</span></div>
             <div class="row dim"><b>Yu</b><span class="v">Offline</span><span class="x"></span></div>
           </div>
+          <div class="btn gl" style="margin-top:2px">Add Saved Users</div>
         </div>
         <div class="tabbar"><span class="tab on"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Call：グループ通話</b>Call status → Input → Output → Participants。操作は Connect／Disconnect だけで、追加・招待・グループ選択は Users／Groups タブへ移す。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
+      <figcaption><b>Call：グループ通話</b>Call status → Input → Output → Participants。Participants の下でそのまま Add Saved Users。グループの設定は「…」メニュー。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
     </figure>
 
     <figure>
       <div class="phone tall"><div class="screen">
         <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
-        <div class="ptitle">Haruka</div>
+        <div class="ptitle" style="display:flex;justify-content:space-between;align-items:center">Haruka<span style="font-size:18px;color:var(--accent)" aria-label="More">⋯</span></div>
         <div class="pbody">
           <div class="hd">Call status</div>
           <div class="card">
@@ -493,10 +494,11 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="row"><b>You</b><span class="v">Naohito · local member</span><span class="x"></span></div>
             <div class="row"><b>Haruka</b><span class="v">Connected · authenticated · AAC-ELD</span><span class="x num">100%</span></div>
           </div>
+          <div class="btn gl" style="margin-top:2px">Share Call Invite</div>
         </div>
         <div class="tabbar"><span class="tab on"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Call：1対1</b>相手が1人でも同じ構成。Group に「Direct · 2 members」と内部グループのIDを出す。違いはこの種類の表示だけ。</figcaption>
+      <figcaption><b>Call：1対1</b>相手が1人でも同じ構成。Group に「Direct · 2 members」と内部グループのIDを出す。追加の代わりに Share Call Invite。</figcaption>
     </figure>
 
     <figure>
@@ -518,7 +520,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         </div>
         <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab on"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Users</b>名前の編集・削除・Share Call Invite・呼び出しは行の操作で行う。一般向けと同じ一覧に、本人名・内部の direct グループID・端末数・呼び出しの許可などの詳細を足す。行の選択で Call へ（内部グループを解決）。</figcaption>
+      <figcaption><b>Users</b>行のタップですぐ接続して呼び出す（会話中は切替を確認）。名前の編集・削除・Share Call Invite は長押し・スワイプの User Settings。一般向けと同じ一覧に、本人名・内部の direct グループID・端末数・呼び出しの許可などの詳細を足す。行の選択で Call へ（内部グループを解決）。</figcaption>
     </figure>
 
     <figure>
@@ -528,7 +530,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="pbody">
           <div class="hd">Saved Groups <span>3</span></div>
           <div class="card">
-            <div class="row"><b>Weekend Touring</b><span class="v">4 members · key ready<div class="sub mono">3f9a2c1e</div></span><span class="x"><span class="d ok"></span> Active <span class="linkt">ⓘ</span></span></div>
+            <div class="row"><b>Weekend Touring</b><span class="v">4 members · key ready<div class="sub mono">3f9a2c1e</div></span><span class="x"><span class="d ok"></span> Active</span></div>
             <div class="row"><b>Hakuba Powder</b><span class="v">6 members · key ready<div class="sub mono">a81b44d0</div></span><span class="x"></span></div>
             <div class="row"><b>Family Drive</b><span class="v">3 members · <span class="warn-t">key missing</span><div class="sub mono">0c7f3e92</div></span><span class="x"></span></div>
           </div>
@@ -537,7 +539,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         </div>
         <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab on"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Groups</b>行のⓘでグループの詳細（メンバー・Add Saved Users・削除・招待）を開く。通常グループだけを並べ、人数・鍵の状態・短縮ID・通話中を出す。保存の復旧操作（Reload Saved Groups 等）もここ。direct グループは Users 側。</figcaption>
+      <figcaption><b>Groups</b>行のタップですぐ接続（会話中は切替を確認）。長押し・スワイプの Group Settings でメンバー・名前・削除を開く。通常グループだけを並べ、人数・鍵の状態・短縮ID・通話中を出す。保存の復旧操作（Reload Saved Groups 等）もここ。direct グループは Users 側。</figcaption>
     </figure>
   </div>
 
