@@ -6,9 +6,9 @@ import PackageDescription
 let package = Package(
     name: "RTC",
     platforms: [
-        .iOS("26.4"),
-        .macOS("26.4"),
-        .watchOS("26.4"),
+        .iOS("27.0"),
+        .macOS("27.0"),
+        .watchOS("27.0"),
     ],
     products: [
         .library(

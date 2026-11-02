@@ -26,18 +26,12 @@ import Foundation
 }
 
 @Test func voiceSoundTypeUsesStableAudioUnitValue() {
-    #expect(VoiceIsolationSoundType.voice.isSupportedOnCurrentOS)
     #expect(VoiceIsolationSoundType.voice.parameterValue == AUValue(kAUSoundIsolationSoundType_Voice))
 }
 
-@Test func highQualityVoiceAvailabilityMatchesCurrentOS() {
-    if #available(iOS 18, macOS 15, *) {
-        #expect(VoiceIsolationSoundType.highQualityVoice.isSupportedOnCurrentOS)
-        #expect(VoiceIsolationSoundType.highQualityVoice.parameterValue == AUValue(kAUSoundIsolationSoundType_HighQualityVoice))
-    } else {
-        #expect(!VoiceIsolationSoundType.highQualityVoice.isSupportedOnCurrentOS)
-        #expect(VoiceIsolationSoundType.highQualityVoice.parameterValue == nil)
-    }
+@Test func highQualityVoiceUsesTheSupportedAudioUnitValue() {
+    #expect(VoiceIsolationSupport.snapshot.supportedSoundTypes.contains(.highQualityVoice))
+    #expect(VoiceIsolationSoundType.highQualityVoice.parameterValue == AUValue(kAUSoundIsolationSoundType_HighQualityVoice))
 }
 
 @Test func runtimeSnapshotIsCodableAndIndependentFromMixer() throws {

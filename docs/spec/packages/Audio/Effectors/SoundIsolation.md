@@ -20,7 +20,7 @@ SoundIsolation は Apple 標準の `AUSoundIsolation` Audio Unit を、RideCom �
 | パス | `RideIntercom/Effectors/SoundIsolation` |
 | Package 名 | `SoundIsolation` |
 | Product | `SoundIsolation` library |
-| 対応プラットフォーム | iOS 17 以降、macOS 14 以降 |
+| 対応プラットフォーム | iOS/iPadOS/macOS 27.0 以降 |
 | 使用フレームワーク | `AVFAudio`, `AudioToolbox` |
 | テスト | Swift Testing による SwiftPM テスト |
 
@@ -53,13 +53,13 @@ SoundIsolation は Apple 標準の `AUSoundIsolation` Audio Unit を、RideCom �
 
 | 設定 | 型 | 入力範囲 | Audio Unit へ渡す値 | 既定値 | 備考 |
 |---|---|---|---|---|---|
-| `soundType` | `VoiceIsolationSoundType` | `voice`, `highQualityVoice` | `kAUSoundIsolationParam_SoundToIsolate` | `voice` | `highQualityVoice` は iOS 18 以降、macOS 15 以降でのみ使用する |
+| `soundType` | `VoiceIsolationSoundType` | `voice`, `highQualityVoice` | `kAUSoundIsolationParam_SoundToIsolate` | `voice` | 両sound typeは対応する27.0以降のOSで利用する |
 | `mix` | `Float` | `0.0...1.0` | `kAUSoundIsolationParam_WetDryMixPercent` に `0...100` として渡す | `1.0` | 範囲外入力は初期化時に `0.0...1.0` へ丸める |
 
 | `VoiceIsolationSoundType` | Audio Unit 値 | OS availability |
 |---|---|---|
-| `voice` | `kAUSoundIsolationSoundType_Voice` | iOS 16 以降、macOS 13 以降 |
-| `highQualityVoice` | `kAUSoundIsolationSoundType_HighQualityVoice` | iOS 18 以降、macOS 15 以降 |
+| `voice` | `kAUSoundIsolationSoundType_Voice` | 対応する27.0以降のOS |
+| `highQualityVoice` | `kAUSoundIsolationSoundType_HighQualityVoice` | 対応する27.0以降のOS |
 
 `VoiceIsolationSoundType.highQualityVoice` はライブラリの対応OS下限より新しい定数を使うため、未対応OSでは `parameterValue` を持たない。未対応OSで `VoiceIsolationEffect.apply` に渡した場合は `VoiceIsolationError.unsupportedSoundType` を返す。
 

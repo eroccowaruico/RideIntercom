@@ -21,7 +21,7 @@ VADGate は RMS、ノイズフロア推定、ヒステリシス、hangover を�
 | パス | `RideIntercom/Effectors/VADGate` |
 | Package 名 | `VADGate` |
 | Product | `VADGate` library |
-| 対応プラットフォーム | iOS 26.4 以降、macOS 26.4 以降 |
+| 対応プラットフォーム | iOS/iPadOS/macOS 27.0 以降 |
 | 使用フレームワーク | `Foundation`、`AVFAudio`、`AudioUnit` |
 | テスト | Swift Testing による SwiftPM テスト |
 

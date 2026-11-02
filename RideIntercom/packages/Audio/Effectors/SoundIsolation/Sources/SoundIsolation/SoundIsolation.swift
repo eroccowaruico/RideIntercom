@@ -16,29 +16,12 @@ public enum VoiceIsolationSoundType: String, Codable, Equatable, Sendable {
 	case voice
 	case highQualityVoice
 
-	public var isSupportedOnCurrentOS: Bool {
-		switch self {
-		case .voice:
-			true
-		case .highQualityVoice:
-			if #available(iOS 18, macOS 15, *) {
-				true
-			} else {
-				false
-			}
-		}
-	}
-
 	var parameterValue: AUValue? {
 		switch self {
 		case .voice:
 			AUValue(kAUSoundIsolationSoundType_Voice)
 		case .highQualityVoice:
-			if #available(iOS 18, macOS 15, *) {
-				AUValue(kAUSoundIsolationSoundType_HighQualityVoice)
-			} else {
-				nil
-			}
+			AUValue(kAUSoundIsolationSoundType_HighQualityVoice)
 		}
 	}
 }
@@ -75,8 +58,8 @@ public enum VoiceIsolationSupport {
 		let allSoundTypes: [VoiceIsolationSoundType] = [.voice, .highQualityVoice]
 		return VoiceIsolationSupportSnapshot(
 			isAvailable: isAvailable,
-			supportedSoundTypes: allSoundTypes.filter(\.isSupportedOnCurrentOS),
-			unsupportedSoundTypes: allSoundTypes.filter { !$0.isSupportedOnCurrentOS }
+			supportedSoundTypes: allSoundTypes,
+			unsupportedSoundTypes: []
 		)
 	}
 }
@@ -111,7 +94,7 @@ public struct VoiceIsolationRuntimeSnapshot: Codable, Equatable, Sendable {
 	) {
 		self.configuration = configuration
 		self.support = support
-		self.state = state ?? (support.isAvailable && configuration.soundType.isSupportedOnCurrentOS ? .active : .unavailable)
+		self.state = state ?? (support.isAvailable ? .active : .unavailable)
 	}
 }
 

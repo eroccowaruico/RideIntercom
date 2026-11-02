@@ -19,7 +19,7 @@ RouteManagerは固定20ms pollingを行わず、未解決の並べ替え期限�
 | products | `RTC`、`RTCNativeWebRTC`。後者のみ同梱WebRTC binaryへ依存 |
 | カメラ | 同梱WebRTCからカメラ撮影・プレビュー・撮影位置helperの実装と公開headerを除外。音声とDataChannel通信は維持し、カメラ利用を要求しない |
 | SDK privacy manifest | 同梱ZIPの全sliceで標準リソース位置を検査。macOSは`Resources`から`Versions/A/Resources/PrivacyInfo.xcprivacy`へ到達し、上流manifestのbytesを保持する。組み立て時のみ既知の二重`Versions/A`配置を正規化し、検証・importは不正配置を拒否する |
-| OS / Swift | iOS・macOS 26.4以上、Swift 6 |
+| OS / Swift | iOS/iPadOS/macOS/watchOS 27.0以上、Swift 6 |
 | plugin | `RTCCallRoute`、`CallSessionFactory`。中継の共通契約は認証済みpeerとapplication dataの配送 |
 
 ```mermaid
@@ -260,4 +260,4 @@ UDPは確立済みflowの無線経路を自動移行しないため、`betterPat
 | 経路切替 | 有限回・期限付きのhello／ackによりflowを確立し、未認証候補は既存flowを追放しない。接続試行は5秒、helloは最大10回／0.4秒間隔、native障害後の再dialは最大5回とする。送話gateが閉じていてもhandshakeと受話は可能。nativeの置換・有限inFlightにより、同一sessionの通常path更新では鍵・sequenceを維持する。制御経路の再bootstrapへ依存せず、捨てた音声は再送しない。切替前pathからの未受信packetすべてを識別拒否する保証は設けない |
 | 停止と所有 | stopは暗号状態を先に破棄してnative資源を閉じ、古いcallbackを拒否する。同instanceの再startはエラー。終話・account／音声機器切替では新しいsession／鍵を作る。配送queue上からのsend・stopはreentrantに実行し、同queueへの同期待ちを重ねない |
 
-RTC targetのwatchOS最低版は26.4。Multipeer専用のCFNetwork初期化は同frameworkを持つOSに限定する。これはWatchでgroup通話やWebRTC binaryを利用する宣言ではない。Watchの低層通信と音声sessionの実機条件は[未確認事項](../../validation/未確認事項.md)に従い、SDK compileや端末内UDP試験を実Watchの無線・背景成立と扱わない。
+RTC targetのwatchOS deployment targetも27.0。Multipeer専用のCFNetwork初期化は同frameworkを持つOSに限定する。これはWatchでgroup通話やWebRTC binaryを利用する宣言ではない。Watchの低層通信と音声sessionの実機条件は[未確認事項](../../validation/未確認事項.md)に従い、SDK compileや端末内UDP試験を実Watchの無線・背景成立と扱わない。

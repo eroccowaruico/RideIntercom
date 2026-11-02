@@ -13,6 +13,11 @@ ARTIFACT = ROOT / 'RideIntercom/packages/RTC/BinaryArtifacts/WebRTC/WebRTC.xcfra
 
 
 class WebRTCScriptTests(unittest.TestCase):
+    def test_xcframework_build_defaults_match_supported_os_floor(self):
+        script = (SCRIPTS / 'build-webrtc-xcframework.sh').read_text()
+        self.assertIn('IOS_DEPLOYMENT_TARGET="${IOS_DEPLOYMENT_TARGET:-27.0}"', script)
+        self.assertIn('MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-27.0}"', script)
+
     def test_camera_capture_symbol_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

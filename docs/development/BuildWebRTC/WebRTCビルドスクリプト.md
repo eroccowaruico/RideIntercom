@@ -185,8 +185,8 @@ scripts/BuildWebRTC/build-current-webrtc-xcframework.sh
 | `ASSEMBLE_ONLY` | `false` | `true` の場合は既存の `src/out/*/WebRTC.framework` からxcframeworkとzipだけを作る |
 | `RUN_SWIFTPM_VALIDATION` | `true` | `scripts/BuildWebRTC/update-webrtc-binary.sh` 用。`false` の場合は `RTCNativeWebRTC` build検証を省略する |
 | `RUN_TESTS` | `true` | `scripts/BuildWebRTC/update-webrtc-binary.sh` 用。`false` の場合はRTC package testsを省略する |
-| `IOS_DEPLOYMENT_TARGET` | `26.4` | iOS sliceのdeployment target |
-| `MACOS_DEPLOYMENT_TARGET` | `26.4` | macOS sliceのdeployment target |
+| `IOS_DEPLOYMENT_TARGET` | `27.0` | iOS sliceのdeployment target |
+| `MACOS_DEPLOYMENT_TARGET` | `27.0` | macOS sliceのdeployment target |
 
 ## 既存成果物からの再組み立て
 

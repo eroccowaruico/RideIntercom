@@ -21,7 +21,7 @@ DynamicsProcessor は Apple 標準の `AUDynamicsProcessor` Audio Unit を、Rid
 | パス | `RideIntercom/Effectors/DynamicsProcessor` |
 | Package 名 | `DynamicsProcessor` |
 | Product | `DynamicsProcessor` library |
-| 対応プラットフォーム | iOS 17 以降、macOS 14 以降 |
+| 対応プラットフォーム | iOS/iPadOS/macOS 27.0 以降 |
 | 使用フレームワーク | `AVFAudio`, `AudioToolbox` |
 | テスト | Swift Testing による SwiftPM テスト |
 

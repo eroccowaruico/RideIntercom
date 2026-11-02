@@ -12,7 +12,7 @@
 | Product | `Codec` library |
 | 依存 | `AudioCore` |
 | 実装基盤 | `Foundation`, `CoreAudioTypes`, `CoreMedia`, `AVFAudio`, `AVAudioConverter`。AAC cookieの形式解釈は`CoreMedia`の公開APIを使う |
-| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降、watchOS `26.4` 以降。codecごとの条件は下表のとおり |
+| 対応プラットフォーム | iOS/iPadOS/macOS/watchOS 27.0 以降。codecごとのhardware条件は下表のとおり |
 | Swift | Swift `6` |
 | テスト | Swift Testing の SwiftPM テスト |
 

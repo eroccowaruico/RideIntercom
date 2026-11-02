@@ -24,7 +24,7 @@
 | Product | `AudioMixer` library |
 | 依存 | `AudioCore` |
 | 実装基盤 | `AVFAudio`, `AVAudioEngine`, `AVAudioMixerNode` |
-| 対応プラットフォーム | iOS `26.4` 以降、macOS `26.4` 以降 |
+| 対応プラットフォーム | iOS/iPadOS/macOS 27.0 以降 |
 | Swift | Swift `6` |
 | テスト | Swift Testing の SwiftPM テスト |
 
