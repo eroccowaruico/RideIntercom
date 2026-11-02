@@ -21,7 +21,7 @@ private final class QuantumFrames: @unchecked Sendable {
         return noErr
     }
     mixer.engine.attach(existing)
-    mixer.engine.connect(existing, to: mixer.engine.mainMixerNode, format: mixer.format)
+    try mixer.engine.connectNode(existing, to: mixer.engine.mainMixerNode, format: mixer.format)
     let bus = try mixer.createBus("shared")
     let source = try bus.addPCMSource(id: "peer")
     try mixer.routeToOutput(bus)
@@ -205,7 +205,7 @@ func testLiveEffectInsertionKeepsTimestampedRemoteVoiceAudible() async throws {
     let effect = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
         componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_AUSoundIsolation,
         componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
-    effect.auAudioUnit.parameterTree?.parameter(withAddress: AUParameterAddress(kAUSoundIsolationParam_WetDryMixPercent))?.value = 80
+    effect.withAUAudioUnit { $0.parameterTree?.parameter(withAddress: AUParameterAddress(kAUSoundIsolationParam_WetDryMixPercent))?.value = 80 }
     effect.bypass = true
     try master.addEffect(effect, id: "isolation", bypassed: true)
     let observed = QuantumFrames()

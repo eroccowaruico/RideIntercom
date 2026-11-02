@@ -17,7 +17,8 @@ final class RenderCaptureNode {
 
     init(format: AudioFormat, renderClock: MixerRenderClock, onFrame: @escaping (PCMFrame) -> Void) throws {
         state = RenderState(format: format, renderClock: renderClock, onFrame: onFrame)
-        let status = AudioUnitAddRenderNotify(node.audioUnit, Self.receive, Unmanaged.passUnretained(state).toOpaque())
+        let context = Unmanaged.passUnretained(state).toOpaque()
+        let status = node.withAudioUnit { AudioUnitAddRenderNotify($0, Self.receive, context) }
         guard status == noErr else { throw AudioMixerError.pcmSinkInstallFailed("Render notification failed: \(status)") }
     }
 
@@ -27,7 +28,8 @@ final class RenderCaptureNode {
 
     deinit {
         state.capture.finish()
-        AudioUnitRemoveRenderNotify(node.audioUnit, Self.receive, Unmanaged.passUnretained(state).toOpaque())
+        let context = Unmanaged.passUnretained(state).toOpaque()
+        _ = node.withAudioUnit { AudioUnitRemoveRenderNotify($0, Self.receive, context) }
     }
 
     private static let receive: AURenderCallback = { context, flags, time, _, count, data in

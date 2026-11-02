@@ -141,7 +141,7 @@ public final class DynamicsProcessorEffect {
 	}
 
 	private func setValue(_ value: AUValue, for address: AUParameterAddress, missingParameter: DynamicsProcessorParameter) throws {
-		guard let parameter = effect.auAudioUnit.parameterTree?.parameter(withAddress: address) else {
+		guard let parameter = effect.withAUAudioUnit({ $0.parameterTree?.parameter(withAddress: address) }) else {
 			throw DynamicsProcessorError.missingParameter(missingParameter)
 		}
 		parameter.value = value

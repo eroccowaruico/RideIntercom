@@ -80,7 +80,8 @@ public final class MixerBus {
 
 		engine.attach(node)
 		let inputBus = inputMixer.nextAvailableInputBus
-		engine.connect(node, to: inputMixer, fromBus: 0, toBus: inputBus, format: format)
+		do { try engine.connectNode(node, to: inputMixer, fromBus: 0, toBus: inputBus, format: format) }
+		catch { engine.detach(node); throw error }
 		sourceNodeIDs.insert(nodeID)
 		sourceNodeOrder.append(nodeID)
 		sourceMetadataByNodeID[nodeID] = MixerSourceMetadata(
@@ -114,8 +115,14 @@ public final class MixerBus {
 		engine.attach(player)
 		engine.attach(fader)
 		let inputBus = inputMixer.nextAvailableInputBus
-		engine.connect(player, to: fader, format: format)
-		engine.connect(fader, to: inputMixer, fromBus: 0, toBus: inputBus, format: format)
+		do {
+			try engine.connectNode(player, to: fader, format: format)
+			try engine.connectNode(fader, to: inputMixer, fromBus: 0, toBus: inputBus, format: format)
+		} catch {
+			engine.detach(player)
+			engine.detach(fader)
+			throw error
+		}
 		sourceNodeIDs.insert(nodeID)
 		sourceNodeOrder.append(nodeID)
 		sourceMetadataByNodeID[nodeID] = MixerSourceMetadata(
@@ -209,7 +216,7 @@ public final class MixerBus {
     public var processingTailTime: TimeInterval {
         metadataLock.withLock {
             effects.filter { !bypassedEffectNodeIDs.contains(ObjectIdentifier($0)) }.reduce(0) {
-                $0 + (($1 as? AVAudioUnit)?.auAudioUnit.tailTime ?? 0)
+                $0 + (($1 as? AVAudioUnit)?.withAUAudioUnit { $0.tailTime } ?? 0)
             }
         }
     }
@@ -310,8 +317,7 @@ public final class MixerBus {
 		}
 
 		if let auNode = node as? AVAudioUnit, !(node is AVAudioUnitEffect),
-		   auNode.auAudioUnit.outputBusses.count > 0 {
-			let nodeFmt = auNode.auAudioUnit.outputBusses[0].format
+		   let nodeFmt = auNode.withAUAudioUnit({ $0.outputBusses.count > 0 ? $0.outputBusses[0].format : nil }) {
 			if nodeFmt.sampleRate > 0,
 			   nodeFmt.sampleRate != format.sampleRate || nodeFmt.channelCount != format.channelCount {
 				throw AudioMixerError.incompatibleEffectNode
@@ -334,7 +340,7 @@ public final class MixerBus {
 			state: state,
 			parameters: parameters
 		)
-		rebuildChain()
+		try rebuildChain()
 	}
 
 	/// Route around disabled effects. An Audio Unit's own bypass can retain
@@ -346,7 +352,7 @@ public final class MixerBus {
 		guard bypassedEffectNodeIDs.contains(nodeID) != bypassed else { return }
 		if bypassed { bypassedEffectNodeIDs.insert(nodeID) }
 		else { bypassedEffectNodeIDs.remove(nodeID) }
-		rebuildChain()
+		try rebuildChain()
 	}
 
     /// Prepare a requested enable while the effect is still disconnected.
@@ -357,11 +363,13 @@ public final class MixerBus {
             throw AudioMixerError.unknownEffect(effectID)
         }
         guard bypassedEffectNodeIDs.contains(nodeID),
-              let unit = (effects.first { ObjectIdentifier($0) == nodeID } as? AVAudioUnit)?.auAudioUnit,
-              !unit.renderResourcesAllocated else { return }
-        for index in 0..<unit.inputBusses.count { try unit.inputBusses[index].setFormat(format) }
-        for index in 0..<unit.outputBusses.count { try unit.outputBusses[index].setFormat(format) }
-        try unit.allocateRenderResources()
+              let node = effects.first(where: { ObjectIdentifier($0) == nodeID }) as? AVAudioUnit else { return }
+        try node.withAUAudioUnit { unit throws in
+            guard !unit.renderResourcesAllocated else { return }
+            for index in 0..<unit.inputBusses.count { try unit.inputBusses[index].setFormat(format) }
+            for index in 0..<unit.outputBusses.count { try unit.outputBusses[index].setFormat(format) }
+            try unit.allocateRenderResources()
+        }
     }
 
 	public func updateEffectSnapshot(
@@ -398,7 +406,7 @@ public final class MixerBus {
 		engine.disconnectNodeOutput(removed)
 		engine.disconnectNodeInput(removed)
 		engine.detach(removed)
-		rebuildChain()
+		try rebuildChain()
 	}
 
     /// Reset the caller-driven processor's owned state without reconnecting
@@ -416,7 +424,7 @@ public final class MixerBus {
         for source in pcmSourceByNodeID.values { source.invalidatePlayout() }
     }
 
-	func rebuildChain() {
+	func rebuildChain() throws {
         if engine.isRunning { prepareForGraphChange() }
 
 		engine.disconnectNodeOutput(inputMixer)
@@ -426,11 +434,11 @@ public final class MixerBus {
 
 		var previous: AVAudioNode = inputMixer
 		for effect in effects where !bypassedEffectNodeIDs.contains(ObjectIdentifier(effect)) {
-			engine.connect(previous, to: effect, format: format)
+			try engine.connectNode(previous, to: effect, format: format)
 			previous = effect
 		}
 
-		engine.connect(previous, to: faderMixer, format: format)
+		try engine.connectNode(previous, to: faderMixer, format: format)
 	}
 
 	func deliverToSinks(_ frame: PCMFrame) throws {
@@ -449,9 +457,16 @@ public final class MixerBus {
         }
         let connections = engine.outputConnectionPoints(for: faderMixer, outputBus: 0)
         engine.attach(capture.node)
-        engine.connect(faderMixer, to: capture.node, format: format)
-        if !connections.isEmpty {
-            engine.connect(capture.node, to: connections, fromBus: 0, format: format)
+        do {
+            try engine.connectNode(faderMixer, to: capture.node, format: format)
+            if !connections.isEmpty {
+                try engine.connectNode(capture.node, to: connections, fromBus: 0, format: format)
+            }
+        } catch {
+            engine.disconnectNodeInput(capture.node)
+            engine.detach(capture.node)
+            if !connections.isEmpty { try? engine.connectNode(faderMixer, to: connections, fromBus: 0, format: format) }
+            throw error
         }
         renderCapture = capture
     }

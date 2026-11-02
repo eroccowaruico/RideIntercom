@@ -38,7 +38,7 @@ import Testing
     defer { processor.stop() }
     #expect(processor.bus.processingLatency == 0)
     #expect(processor.bus.processingTailTime == 0)
-    #expect(!delay.auAudioUnit.renderResourcesAllocated, "Disabled effects must be outside the active native graph")
+    #expect(!delay.withAUAudioUnit { $0.renderResourcesAllocated }, "Disabled effects must be outside the active native graph")
 }
 
 @Test func enablingNativeEffectPublishesLatencyBeforeTheNextFrame() throws {
@@ -51,7 +51,7 @@ import Testing
     try processor.start()
     defer { processor.stop() }
     #expect(processor.bus.processingLatency == 0)
-    #expect(!effect.auAudioUnit.renderResourcesAllocated, "Disabled SoundIsolation must not allocate a native render chain")
+    #expect(!effect.withAUAudioUnit { $0.renderResourcesAllocated }, "Disabled SoundIsolation must not allocate a native render chain")
     effect.bypass = false
     try processor.bus.setEffectBypassed(id: "isolation", bypassed: false)
     #expect(processor.bus.processingLatency > 0, "The caller needs initialized native latency to bound the transition")
@@ -67,9 +67,9 @@ import Testing
     try processor.bus.addEffect(effect, id: "isolation", bypassed: true)
     try processor.start()
     defer { processor.stop() }
-    #expect(!effect.auAudioUnit.renderResourcesAllocated)
+    #expect(!effect.withAUAudioUnit { $0.renderResourcesAllocated })
     try processor.bus.prepareEffect(id: "isolation")
-    #expect(effect.auAudioUnit.renderResourcesAllocated)
+    #expect(effect.withAUAudioUnit { $0.renderResourcesAllocated })
     #expect(processor.bus.processingLatency == 0)
     try processor.process(.init(sequenceNumber: 0, samples: Array(repeating: 0.2, count: 480)))
     #expect(frames.flatMap(\.samples).allSatisfy { abs($0 - 0.2) < 0.00001 })
@@ -81,7 +81,7 @@ import Testing
     #expect(processor.bus.processingLatency > 0)
     effect.bypass = true
     try processor.bus.setEffectBypassed(id: "isolation", bypassed: true)
-    #expect(!effect.auAudioUnit.renderResourcesAllocated, "Disabled effects must release their native resources")
+    #expect(!effect.withAUAudioUnit { $0.renderResourcesAllocated }, "Disabled effects must release their native resources")
 }
 
 @Test func frameProcessorPreservesSamplesAndClockWithoutWaitingForHardware() throws {
@@ -250,11 +250,11 @@ func nextUtteranceAfterDiscontinuityMatchesAFreshNativeEffect(_ formatChanges: B
     }
     try processor.bus.setEffectBypassed(id: "delay", bypassed: true)
     try processor.bus.prepareEffect(id: "delay")
-    #expect(delay.auAudioUnit.renderResourcesAllocated)
-    #expect(!unused.auAudioUnit.renderResourcesAllocated)
+    #expect(delay.withAUAudioUnit { $0.renderResourcesAllocated })
+    #expect(!unused.withAUAudioUnit { $0.renderResourcesAllocated })
     try processor.process(.init(sequenceNumber: 2, capturedAt: 1, samples: Array(repeating: 0, count: 480)))
-    #expect(delay.auAudioUnit.renderResourcesAllocated, "Reset retains prepared native resources")
-    #expect(!unused.auAudioUnit.renderResourcesAllocated, "Reset does not allocate an unused effect")
+    #expect(delay.withAUAudioUnit { $0.renderResourcesAllocated }, "Reset retains prepared native resources")
+    #expect(!unused.withAUAudioUnit { $0.renderResourcesAllocated }, "Reset does not allocate an unused effect")
     try processor.bus.setEffectBypassed(id: "delay", bypassed: false)
     for index in 0..<10 {
         try processor.process(.init(sequenceNumber: UInt64(index + 3), capturedAt: 1.01 + Double(index) / 100,

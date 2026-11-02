@@ -200,7 +200,7 @@ public final class MixerPCMSource {
 			let time = captureTimePlayoutDelay == nil
 				? nil : AVAudioTime(sampleTime: startSample, atRate: mixerFormat.sampleRate)
 			playerNode.scheduleBuffer(buffer, at: time, options: options)
-            if startRequested && !playerNode.isPlaying { playerNode.play() }
+            if startRequested && !playerNode.isPlaying { try playerNode.playAudio() }
 			recordSchedule(frame, normalized.report, nil)
 			return normalized.report
 		} catch let failure as AudioProcessingFailure {
@@ -212,6 +212,8 @@ public final class MixerPCMSource {
 		}
 	}
 
+	/// A rejected native start keeps the request; the next schedule retries it
+	/// and reports the failure through the schedule result.
 	public func start() {
         startRequested = true
         if adaptivePlayout, captureTimePlayoutDelay != nil, playoutAnchor == nil,
@@ -222,7 +224,7 @@ public final class MixerPCMSource {
             if let silence = try? PCMFrame(sequenceNumber: 0, format: mixerFormat, capturedAt: 0,
                 samples: Array(repeating: 0, count: mixerFormat.channelCount)).makePCMBuffer() {
                 playerNode.scheduleBuffer(silence, at: nil)
-                playerNode.play()
+                try? playerNode.playAudio()
             }
             return
         }
@@ -230,7 +232,7 @@ public final class MixerPCMSource {
         // the capture anchor are established together in offline/fixed playback.
         guard !playerNode.isPlaying,
               captureTimePlayoutDelay == nil ? scheduledEndSample > 0 : playoutAnchor != nil else { return }
-		playerNode.play()
+		try? playerNode.playAudio()
 	}
 
     func invalidatePlayout() {

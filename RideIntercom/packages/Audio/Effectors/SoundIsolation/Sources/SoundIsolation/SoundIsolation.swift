@@ -150,7 +150,7 @@ public final class VoiceIsolationEffect {
 	}
 
 	private func setValue(_ value: AUValue, for address: AUParameterAddress, missingParameter: VoiceIsolationParameter) throws {
-		guard let parameter = effect.auAudioUnit.parameterTree?.parameter(withAddress: address) else {
+		guard let parameter = effect.withAUAudioUnit({ $0.parameterTree?.parameter(withAddress: address) }) else {
 			throw VoiceIsolationError.missingParameter(missingParameter)
 		}
 		parameter.value = value

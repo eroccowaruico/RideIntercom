@@ -117,7 +117,7 @@ public final class PeakLimiterEffect {
 	}
 
 	private func setValue(_ value: AUValue, for address: AUParameterAddress, missingParameter: PeakLimiterParameter) throws {
-		guard let parameter = effect.auAudioUnit.parameterTree?.parameter(withAddress: address) else {
+		guard let parameter = effect.withAUAudioUnit({ $0.parameterTree?.parameter(withAddress: address) }) else {
 			throw PeakLimiterError.missingParameter(missingParameter)
 		}
 		parameter.value = value

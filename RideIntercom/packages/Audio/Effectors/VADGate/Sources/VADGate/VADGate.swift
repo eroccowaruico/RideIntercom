@@ -261,7 +261,7 @@ public final class VADGateEffect {
 
 	public var node: AVAudioNode { auNode }
 	public var avAudioUnit: AVAudioUnit { auNode }
-	public var vadGate: VADGate { (auNode.auAudioUnit as! AudioUnit).vadGate }
+	public var vadGate: VADGate { auNode.withAUAudioUnit { ($0 as! AudioUnit).vadGate } }
 
 	private static let componentDescription = AudioComponentDescription(
 		componentType: kAudioUnitType_Effect,

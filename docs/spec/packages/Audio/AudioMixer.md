@@ -330,6 +330,7 @@ snapshot は Codable とし、RTC runtime package report へ載せられる。
 | `pcmSinkInstallFailed` | render notify / callback setupに失敗 | throw |
 | `AudioProcessingReport.failed` | source ingress / sink egress の正規化失敗 | source / sink snapshot |
 | routing系error | graph制約違反 | throw |
+| native graph接続・再生開始の失敗 | OS 27の`connectNode`・`playAudio`がthrowした | bus作成・source追加・effect変更・route・render captureはthrowし、追加途中のnodeを回収する。`MixerPCMSource.start()`は開始要求を保持し、次の`schedule`で再試行して失敗を`pcmSourceScheduleFailed`と`lastFailure`へ出す |
 
 エラーはI/Oである。AppやDiagnosticsは throw だけでなく、snapshot上の `lastFailure` と `normalizationReport` を読む。
 

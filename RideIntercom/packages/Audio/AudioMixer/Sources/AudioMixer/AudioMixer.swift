@@ -91,7 +91,7 @@ public final class AudioMixer {
         }
 		engine.attach(bus.inputMixer)
 		engine.attach(bus.faderMixer)
-		bus.rebuildChain()
+		do { try bus.rebuildChain() } catch { bus.detach(); throw error }
 		buses[id] = bus
 		return bus
 	}
@@ -130,7 +130,7 @@ public final class AudioMixer {
 		}
 
 		let inputBus = destination.inputMixer.nextAvailableInputBus
-		engine.connect(source.outputNode, to: destination.inputMixer, fromBus: 0, toBus: inputBus, format: format)
+		try engine.connectNode(source.outputNode, to: destination.inputMixer, fromBus: 0, toBus: inputBus, format: format)
 		parentByChildID[source.id] = destination.id
 		destinationInputBusIndexByChildID[source.id] = Int(inputBus)
 	}
@@ -145,7 +145,7 @@ public final class AudioMixer {
 			throw AudioMixerError.busAlreadyRouted(outputBusID ?? source.id)
 		}
 
-		engine.connect(source.outputNode, to: engine.mainMixerNode, format: format)
+		try engine.connectNode(source.outputNode, to: engine.mainMixerNode, format: format)
 		outputBusID = source.id
 	}
 
