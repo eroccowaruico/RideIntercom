@@ -450,7 +450,6 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
   <div class="wrap">
     <div class="brand"><span class="mark"><svg viewBox="0 0 4096 4096"><use href="#appglyph"/></svg></span>RideCom デザイン見本</div>
     <nav>
-      <a href="#palette">カラー</a>
       <a href="#iphone">iPhone</a>
       <a href="#future">将来</a>
       <a href="#settings">設定</a>
@@ -469,45 +468,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
   <h1>白・青・緑の、透き通ったインカム</h1>
   <p class="lead">一般向け画面（Standard）・Watch・Widget の実装前の見本。定義の正本は <a class="link" href="../カラーテーマ.md">カラーテーマ</a> と <a class="link" href="画面構成とレイアウト.md">画面構成とレイアウト</a>。実装では SwiftUI 標準部品と OS の Material / Liquid Glass を使い、ここでのぼかしや影は質感の目安として描いている。アイコン図形は確定前の現行アイコンを流用している。</p>
 
-  <!-- ================= カラー ================= -->
-  <h2 id="palette">カラーテーマ</h2>
-  <p class="note">左がライト、右がダーク。ブランド色は主要操作・状態・声の可視化にだけ使い、画面の大部分は白／夜の紺と標準の文字色にする。</p>
-  <div class="palette">
-    <div class="swatch"><div class="chips"><div style="background:#1179C0;color:#fff">#1179C0</div><div style="background:#2F95DC;color:#fff">#2F95DC</div></div>
-      <div class="meta"><b>Ride Blue</b><code>AccentColor</code><p>App全体のtint。接続・もう一度接続等の主要操作、選択状態、Slider。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#34C77B;color:#063">#34C77B</div><div style="background:#3CC98F;color:#062">#3CC98F</div></div>
-      <div class="meta"><b>Ride Green</b><code>RideGreen</code><p>会話中・接続成功（状態色 success）。Watchの会話中の背景。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#0BA59B;color:#fff">#0BA59B</div><div style="background:#5BF3E2;color:#003">#5BF3E2</div></div>
-      <div class="meta"><b>Voice</b><code>VoiceAqua</code><p>声の可視化。メーター、話している人、Apple Watchの送話中。文字色には使わない。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#E6F1FA;color:#0E2238">#E6F1FA</div><div style="background:#050E1A;color:#fff">#050E1A</div></div>
-      <div class="meta"><b>Background Top</b><code>BackgroundTop</code><p>主要導線画面とWidgetの背景グラデーション上端。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#ECF2F8;color:#0E2238">#ECF2F8</div><div style="background:#03070D;color:#fff">#03070D</div></div>
-      <div class="meta"><b>Background Base</b><code>BackgroundBase</code><p>同グラデーション下端。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#0E2238;color:#fff">#0E2238</div><div style="background:#0E2238;color:#fff">#0E2238</div></div>
-      <div class="meta"><b>Deep Navy</b><code>DeepNavy</code><p>外観で変わらない濃紺。ロック画面のライブアクティビティの背景tint、ウィジェット（ダーク）の背景。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#FFAC33;color:#000">#FFAC33</div><div style="background:#FFB340;color:#000">#FFB340</div></div>
-      <div class="meta"><b>Warning</b><code>Warning</code><p>接続待ち・音声停止。明るい琥珀色。記号・点にだけ使い、文字色にしない。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#F5484E;color:#fff">#F5484E</div><div style="background:#FF6B6B;color:#fff">#FF6B6B</div></div>
-      <div class="meta"><b>Danger</b><code>Danger</code><p>ミュート・切断・失敗・削除。少し明るく冷たい赤。ボタンの塗りと記号に使う。</p></div></div>
-  </div>
-  <div class="gradient-demo">
-    <div style="background:linear-gradient(180deg,#E6F1FA,#ECF2F8 55%);color:#0E2238">背景グラデーション（ライト）<br><span style="font-weight:400;opacity:.7">Top → Base。カードはこの上にガラスを重ねる</span></div>
-    <div style="background:linear-gradient(180deg,#050E1A,#03070D 62%);color:#F2F6FA">背景グラデーション（ダーク）<br><span style="font-weight:400;opacity:.7">夜空の紺。ガラスは白7%程度に見える</span></div>
-  </div>
-  <h3>状態の見せ方（色＋記号＋文言）</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>状態</th><th>色</th><th>記号（SF Symbols）</th><th>文言の例</th></tr></thead>
-      <tbody>
-        <tr><td>会話中</td><td><span class="dot" style="background:var(--green)"></span>rideGreen</td><td><code>waveform</code></td><td>会話中</td></tr>
-        <tr><td>話している</td><td><span class="dot" style="background:var(--aqua)"></span>voice</td><td><code>waveform</code>（動くメーター）</td><td>話しています</td></tr>
-        <tr><td>接続待ち</td><td><span class="dot" style="background:var(--orange)"></span>warning</td><td><code>ProgressView</code></td><td>接続中（補足: 相手の参加を待っています）</td></tr>
-        <tr><td>音声停止中</td><td><span class="dot" style="background:var(--orange)"></span>warning</td><td><code>headphones</code></td><td>音声停止中</td></tr>
-        <tr><td>ミュート・エラー</td><td><span class="dot" style="background:var(--red)"></span>danger</td><td><code>mic.slash</code> / <code>exclamationmark.triangle.fill</code></td><td>ミュート中 / 音声エラー</td></tr>
-        <tr><td>未接続</td><td><span class="dot" style="background:var(--label2)"></span>neutral</td><td><code>phone</code></td><td>未接続</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <p class="note" style="margin-top:14px">色・状態の表し方・余白とサイズ・コントロール・アイコン・UI Stackは <a class="link" href="../デザインシステム見本.html">デザインシステム見本</a> を参照する。ここでは一般向け（Standard）の画面の組み合わせだけを示す。</p>
 
   <!-- ================= iPhone ================= -->
   <h2 id="iphone">iPhone（Standard）</h2>

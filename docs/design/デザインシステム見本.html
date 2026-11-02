@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RideCom デザインシステム見本</title>
+<!--
+  RideCom のデザインシステムの見本。色・状態・余白とサイズ・レイアウト・コントロール・共通コンポーネント・アイコン・UI Stack。
+  定義の正本: デザインシステム.md（共通規則・部品・寸法）、カラーテーマ.md（色）、アイコン定義.md（記号）。
+  一般向け・詳細表示の画面見本（一般向け/デザイン見本.html、詳細画面/詳細画面見本.html）はこの部品を組み合わせて描く。
+  実装は SwiftUI 標準部品と OS の Liquid Glass を使う。ここでのぼかし・影は見た目の目安。
+-->
+<style>
+:root {
+  color-scheme: light;
+  --accent: #1179C0; --green: #34C77B; --aqua: #0BA59B; --warn: #FFAC33; --red: #F5484E; --idle: #8A9099;
+  --top: #E6F1FA; --base: #ECF2F8; --card: #FFFFFF; --navy: #0E2238;
+  --label: #0B1220; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3); --sep: rgba(60,60,67,.16); --fill: rgba(118,118,128,.12);
+  --glass: rgba(255,255,255,.86); --glass-edge: rgba(17,121,192,.10);
+  --page: #FBFCFE; --pcard: #FFFFFF; --pline: #E3E8EF; --measure: #E5484D;
+}
+:root[data-scheme="dark"] {
+  color-scheme: dark;
+  --accent: #2F95DC; --green: #3CC98F; --aqua: #5BF3E2; --warn: #FFB340; --red: #FF6B6B; --idle: #7D8590;
+  --top: #050E1A; --base: #03070D; --card: #1C1C1E;
+  --label: #F2F6FA; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3); --sep: rgba(84,84,88,.55); --fill: rgba(118,118,128,.24);
+  --glass: rgba(255,255,255,.08); --glass-edge: rgba(255,255,255,.14);
+  --page: #0A0E14; --pcard: #121923; --pline: #223042; --measure: #FF6B6B;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--label); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px 80px; }
+svg.i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -2px; }
+svg.i.f, .gearbody { fill: currentColor; stroke: none; }
+.mono, code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88em; }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--pline); }
+.top .wrap { display: flex; align-items: center; gap: 14px; padding-block: 12px; flex-wrap: wrap; }
+.top b { font-size: 17px; }
+.top nav { display: flex; gap: 2px; flex-wrap: wrap; margin-left: auto; }
+.top nav a { color: var(--label2); text-decoration: none; padding: 6px 9px; border-radius: 8px; font-size: 13px; }
+.seg { display: inline-flex; background: var(--fill); border-radius: 9px; padding: 2px; }
+.seg button { border: 0; background: transparent; color: var(--label); font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--pcard); box-shadow: 0 1px 3px rgba(0,0,0,.15); font-weight: 600; }
+h1 { font-size: 26px; margin: 34px 0 6px; }
+h2 { font-size: 20px; margin: 52px 0 4px; }
+h3 { font-size: 14px; margin: 24px 0 8px; color: var(--label2); }
+.lead, .note { color: var(--label2); max-width: 860px; margin: 0; }
+.note { font-size: 12.5px; }
+a { color: var(--accent); }
+.row-flex { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; margin-top: 12px; }
+.panel { background: var(--pcard); border: 1px solid var(--pline); border-radius: 14px; padding: 14px; }
+.cap { font-size: 12px; color: var(--label2); margin-top: 6px; max-width: 320px; }
+.cap b { color: var(--label); display: block; font-size: 12.5px; }
+.tbl { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; min-width: 640px; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--pline); vertical-align: middle; }
+th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
+.chip { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 5px; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.2); }
+
+/* テーマ面 */
+.surface { background: linear-gradient(180deg, var(--top), var(--base)); border-radius: 18px; padding: 16px; }
+.glass { background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: 0 4px 14px rgba(17,121,192,.06); backdrop-filter: blur(18px) saturate(1.6); }
+.card { background: var(--card); border-radius: 12px; }
+.grp-h { font-size: 11.5px; color: var(--label2); padding: 0 6px 5px; font-weight: 600; }
+.lrow { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 44px; position: relative; font-size: 13.5px; }
+.lrow + .lrow::before { content: ""; position: absolute; top: 0; left: 12px; right: 0; border-top: .5px solid var(--sep); }
+.lrow .g { flex: 1; min-width: 0; }
+.sub { color: var(--label2); font-size: 11.5px; }
+
+/* 状態 */
+.st { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; }
+.d { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.d.ok { background: var(--green); } .d.warn { background: var(--warn); } .d.err { background: var(--red); } .d.idle { border: 1.5px dashed var(--idle); } .d.na { background: var(--idle); }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--warn) 25%, transparent); border-top-color: var(--warn); display: inline-block; }
+
+/* コントロール */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 999px; min-height: 44px; padding: 0 18px; font-weight: 600; font-size: 14.5px; }
+.btn.prom { background: var(--accent); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+.btn.gl { background: var(--glass); border: 1px solid var(--glass-edge); color: var(--accent); }
+.btn.dgl { background: var(--glass); border: 1px solid var(--glass-edge); color: var(--red); }
+.cb { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; }
+.cb.gl { background: var(--glass); border: 1px solid var(--glass-edge); color: var(--label); box-shadow: 0 4px 12px rgba(17,121,192,.08); }
+.cb.sel { background: var(--red); color: #fff; }
+.cb.end { background: var(--red); color: #fff; }
+.ctrl { display: grid; justify-items: center; gap: 4px; font-size: 11px; color: var(--label2); font-weight: 600; }
+.toggle { width: 42px; height: 25px; border-radius: 13px; background: var(--green); position: relative; flex: none; }
+.toggle::after { content: ""; position: absolute; right: 2px; top: 2px; width: 21px; height: 21px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.toggle.off { background: var(--fill); } .toggle.off::after { right: auto; left: 2px; }
+.banner { border-radius: 14px; padding: 12px 14px; display: flex; gap: 10px; background: color-mix(in srgb, var(--warn) 14%, var(--card)); max-width: 340px; }
+.banner b { display: block; font-size: 13.5px; } .banner p { margin: 2px 0 0; font-size: 12px; color: var(--label2); }
+.pend { width: 30px; height: 30px; border-radius: 50%; border: 1.5px dashed var(--label3); display: grid; place-items: center; color: var(--label2); }
+.av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--accent); }
+.reshare { font-size: 12px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: 999px; padding: 6px 10px; display: inline-flex; gap: 4px; align-items: center; }
+
+/* 寸法の注記 */
+.dim { position: relative; }
+.mk { position: absolute; font: 600 10px ui-monospace, Menlo, monospace; color: var(--measure); white-space: nowrap; }
+.hl { position: absolute; border-top: 1.5px solid var(--measure); }
+.vl { position: absolute; border-left: 1.5px solid var(--measure); }
+.box-out { outline: 1.5px dashed var(--measure); outline-offset: 0; }
+
+/* レイアウト図 */
+.lay { display: grid; gap: 4px; border: 1.5px solid var(--pline); border-radius: 12px; padding: 6px; background: linear-gradient(180deg, var(--top), var(--base)); }
+.lay div { border-radius: 6px; font-size: 10.5px; display: grid; place-items: center; text-align: center; padding: 4px; color: var(--label2); }
+.lay .h { background: color-mix(in srgb, var(--accent) 20%, var(--card)); color: var(--label); font-weight: 600; }
+.lay .c { background: var(--card); }
+.lay .s { background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+.lay .fx { outline: 1.5px dashed var(--measure); }
+
+/* 部品: 段の行・合流 */
+.srow { display: grid; grid-template-columns: 74px 1fr auto; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--sep); font-size: 12px; align-items: baseline; }
+.srow .k { color: var(--label2); }
+.nest { margin: 2px 0 4px 10px; padding-left: 8px; border-left: 1.5px solid var(--sep); font-size: 11.5px; }
+.tree { position: relative; padding-left: 14px; display: grid; gap: 6px; }
+.tree::before { content: ""; position: absolute; left: 5px; top: 12px; bottom: 16px; border-left: 2px solid var(--accent); opacity: .55; }
+.tree > div { position: relative; }
+.tree > div::before { content: ""; position: absolute; left: -10px; top: 12px; width: 9px; border-top: 2px solid var(--accent); opacity: .55; }
+.merge { background: color-mix(in srgb, var(--accent) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--sep)); border-radius: 10px; padding: 6px 9px; font-weight: 700; font-size: 12px; display: flex; }
+.merge span { margin-left: auto; color: var(--label2); font-weight: 600; }
+.ptt { width: 150px; height: 74px; border-radius: 14px 14px 34px 34px; display: grid; place-items: center; align-content: center; font-weight: 700; font-size: 12px; color: #fff; }
+
+/* アイコン */
+.ico { width: 112px; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: var(--label2); text-align: center; }
+.ico .s { width: 44px; height: 44px; display: grid; place-items: center; font-size: 24px; color: var(--label); border-radius: 12px; background: var(--pcard); border: 1px solid var(--pline); }
+.gly { --road: #7CC8F5; --wave: #5BF3E2; }
+.ctl { width: 64px; height: 64px; border-radius: 50%; position: relative; display: grid; place-items: center; background: #3E5875; color: #fff; overflow: hidden; }
+.ctl .bg { position: absolute; inset: 8px; opacity: .38; --road: #fff; --wave: #fff; }
+.ctl .bg svg, .gly svg { width: 100%; height: 100%; }
+.ctl .fg { position: relative; font-size: 20px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="phone" viewBox="0 0 24 24"><path d="M5 3h3l2 5-2.5 1.5a11 11 0 0 0 7 7L16 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="phone-down" viewBox="0 0 24 24"><path d="M2.5 14.5c5.2-5 13.8-5 19 0l-1.8 2.6-4-1.4v-2.6a12 12 0 0 0-7.4 0v2.6l-4 1.4z"/></symbol>
+  <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></symbol>
+  <symbol id="mic-slash" viewBox="0 0 24 24"><path d="M15 9.5V6a3 3 0 0 0-5.8-1.1M9 9v2a3 3 0 0 0 4.9 2.3M18.5 11a6.5 6.5 0 0 1-1 3.5M5.5 11a6.5 6.5 0 0 0 10 5.5M12 17.5V21M8.5 21h7M3.5 3.5l17 17"/></symbol>
+  <symbol id="speaker" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="wave" viewBox="0 0 24 24"><path d="M3 11v2M6.5 8v8M10 5v14M13.5 8.5v7M17 6.5v11M20.5 10.5v3"/></symbol>
+  <symbol id="person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></symbol>
+  <symbol id="person2" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 13.5a6.5 6.5 0 0 1 3.5 6"/></symbol>
+  <symbol id="person3" viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="3"/><circle cx="5.5" cy="10" r="2.3"/><circle cx="18.5" cy="10" r="2.3"/><path d="M7 19.5a5 5 0 0 1 10 0M1.5 18.5a4 4 0 0 1 5-3.7M22.5 18.5a4 4 0 0 0-5-3.7"/></symbol>
+  <symbol id="gauge" viewBox="0 0 24 24"><path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 17 4-6"/></symbol>
+  <symbol id="share" viewBox="0 0 24 24"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v9.5h14V11h-1"/></symbol>
+  <symbol id="warn" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/></symbol>
+  <symbol id="again" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5"/></symbol>
+  <symbol id="antenna" viewBox="0 0 24 24"><circle cx="12" cy="11" r="1.5"/><path d="M12 12.5V21M8.2 7.2a5.5 5.5 0 0 0 0 7.6M15.8 7.2a5.5 5.5 0 0 1 0 7.6"/></symbol>
+  <symbol id="head" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4.5" height="6.5" rx="1.5"/><rect x="16.5" y="14" width="4.5" height="6.5" rx="1.5"/></symbol>
+  <symbol id="tri" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/></symbol>
+  <symbol id="gear" viewBox="0 0 24 24"><path class="gearbody" fill-rule="evenodd" d="M9.43 4.53 L9.88 2.02 L14.12 2.02 L14.57 4.53 L15.46 4.90 L17.56 3.45 L20.55 6.44 L19.10 8.54 L19.47 9.43 L21.98 9.88 L21.98 14.12 L19.47 14.57 L19.10 15.46 L20.55 17.56 L17.56 20.55 L15.46 19.10 L14.57 19.47 L14.12 21.98 L9.88 21.98 L9.43 19.47 L8.54 19.10 L6.44 20.55 L3.45 17.56 L4.90 15.46 L4.53 14.57 L2.02 14.12 L2.02 9.88 L4.53 9.43 L4.90 8.54 L3.45 6.44 L6.44 3.45 L8.54 4.90 Z M15.3 12a3.3 3.3 0 1 0-6.6 0a3.3 3.3 0 1 0 6.6 0Z"/></symbol>
+  <symbol id="appglyph" viewBox="0 0 4096 4096"><path style="fill:var(--road,#abcee4)" fill-rule="evenodd" d="M 1383 456 C 1650.419556 479.026123 2368.491211 581.60791 2632 810 C 2694.930664 864.543945 2769.781494 974.555176 2513 1268 C 2343.983643 1461.148682 1965.029053 1766.443115 1668 2157 C 1330.293213 2601.042969 1321.248779 2858.405762 1937 3220 C 2297.187744 3431.51709 2487.590332 3492.969238 3500.249512 3610.409668 C 3187.007324 3490.306641 2564.093506 3151.549805 2327 2985 C 1947.589233 2718.477539 1998.396729 2437.076416 2156 2177 C 2349.452637 1857.764893 2594.526367 1521.443848 2825 1158 C 2956.890381 950.016113 2850.446533 767.835205 2534 661 C 2159.753174 534.651611 1575.919556 459.590332 1383 456 Z"/><path style="fill:var(--road,#abcee4)" fill-rule="evenodd" d="M 1381 456.000488 C 1656.847656 490.246338 2817.917725 670.817871 2600 1035 C 2306.771729 1525.040771 1244.679932 2060.812012 1272 2745 C 1282.195068 3000.318848 1416.143311 3114.9375 1829 3350 C 2003.144653 3449.150391 2274.79126 3579.301514 2524 3640 C 1880.769897 3644.149902 1554.733643 3572.983398 1124 3420 C 610.769531 3237.716309 501.835144 2723.558594 769 2350 C 1048.135864 1959.703125 1695.832031 1504.991943 2055 1241 C 2508.655518 907.558838 2464.95874 833.142578 2182 699.000488 C 1934.870605 581.843262 1583.11499 485.416748 1381 456.000488 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 3579.762695 2268.644531 C 3579.762695 2212.79834 3625.034912 2167.525879 3680.881104 2167.525879 C 3736.727539 2167.525879 3782 2212.79834 3782 2268.644531 L 3782 2474.041992 C 3782 2529.888184 3736.727539 2575.160645 3680.881104 2575.160645 C 3625.034912 2575.160645 3579.762695 2529.888184 3579.762695 2474.041992 L 3579.762695 2268.644531 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 3579.762695 2339.58252 C 3579.762695 2283.736084 3625.034912 2238.463623 3680.881104 2238.463623 C 3736.727539 2238.463623 3782 2283.736084 3782 2339.58252 L 3782 2544.979736 C 3782 2600.826172 3736.727539 2646.098389 3680.881104 2646.098389 C 3625.034912 2646.098389 3579.762695 2600.826172 3579.762695 2544.979736 L 3579.762695 2339.58252 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 2399.155273 2367.450684 C 2399.155273 2311.604492 2444.427734 2266.332031 2500.273926 2266.332031 C 2556.120117 2266.332031 2601.392822 2311.604492 2601.392822 2367.450684 L 2601.392822 2572.848145 C 2601.392822 2628.694336 2556.120117 2673.966797 2500.273926 2673.966797 C 2444.427734 2673.966797 2399.155273 2628.694336 2399.155273 2572.848145 L 2399.155273 2367.450684 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 3280.810547 2049.497559 C 3280.810547 1993.651367 3326.082764 1948.378662 3381.929199 1948.378662 C 3437.775391 1948.378662 3483.047852 1993.651367 3483.047852 2049.497559 L 3483.047852 2254.89502 C 3483.047852 2310.741211 3437.775391 2356.013672 3381.929199 2356.013672 C 3326.082764 2356.013672 3280.810547 2310.741211 3280.810547 2254.89502 L 3280.810547 2049.497559 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 3280.810547 2684.137207 C 3280.810547 2628.291016 3326.082764 2583.018555 3381.929199 2583.018555 C 3437.775391 2583.018555 3483.047852 2628.291016 3483.047852 2684.137207 L 3483.047852 2889.534668 C 3483.047852 2945.380859 3437.775391 2990.65332 3381.929199 2990.65332 C 3326.082764 2990.65332 3280.810547 2945.380859 3280.810547 2889.534668 L 3280.810547 2684.137207 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 3280.368652 2152.047852 L 3280.368652 2852.558105 L 3483.047852 2852.558105 L 3483.047852 2152.047852 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 2986.925537 1810.08252 C 2986.925537 1754.236328 3032.197754 1708.963867 3088.043945 1708.963867 C 3143.890381 1708.963867 3189.162842 1754.236328 3189.162842 1810.08252 L 3189.162842 2015.47998 C 3189.162842 2071.326172 3143.890381 2116.598633 3088.043945 2116.598633 C 3032.197754 2116.598633 2986.925537 2071.326172 2986.925537 2015.47998 L 2986.925537 1810.08252 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 2986.483643 1912.632813 L 2986.483643 3059.037842 L 3189.162842 3059.037842 L 3189.162842 1912.632813 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 2986.925537 2956.487793 C 2986.925537 2900.641357 3032.197754 2855.368896 3088.043945 2855.368896 C 3143.890381 2855.368896 3189.162842 2900.641357 3189.162842 2956.487793 L 3189.162842 3161.88501 C 3189.162842 3217.731445 3143.890381 3263.003662 3088.043945 3263.003662 C 3032.197754 3263.003662 2986.925537 3217.731445 2986.925537 3161.88501 L 2986.925537 2956.487793 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 2692.598389 2221.71875 L 2692.598389 2753.751953 L 2895.277832 2753.751953 L 2895.277832 2221.71875 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 2693.040527 2575.197266 C 2693.040527 2519.35083 2738.312744 2474.078369 2794.158936 2474.078369 C 2850.005371 2474.078369 2895.277832 2519.35083 2895.277832 2575.197266 L 2895.277832 2780.594482 C 2895.277832 2836.440918 2850.005371 2881.713135 2794.158936 2881.713135 C 2738.312744 2881.713135 2693.040527 2836.440918 2693.040527 2780.594482 L 2693.040527 2575.197266 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 2693.040527 2210.374512 C 2693.040527 2154.528076 2738.312744 2109.255371 2794.158936 2109.255371 C 2850.005371 2109.255371 2895.277832 2154.528076 2895.277832 2210.374512 L 2895.277832 2415.771484 C 2895.277832 2471.61792 2850.005371 2516.890381 2794.158936 2516.890381 C 2738.312744 2516.890381 2693.040527 2471.61792 2693.040527 2415.771484 L 2693.040527 2210.374512 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 1194.655151 977.018066 C 1194.655151 921.171875 1239.927368 875.89917 1295.773682 875.89917 C 1351.619995 875.89917 1396.892578 921.171875 1396.892578 977.018066 L 1396.892578 1182.415283 C 1396.892578 1238.261719 1351.619995 1283.53418 1295.773682 1283.53418 C 1239.927368 1283.53418 1194.655151 1238.261719 1194.655151 1182.415283 L 1194.655151 977.018066 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 1194.655151 1220.233398 C 1194.655151 1164.386963 1239.927368 1119.114502 1295.773682 1119.114502 C 1351.619995 1119.114502 1396.892578 1164.386963 1396.892578 1220.233398 L 1396.892578 1425.630615 C 1396.892578 1481.476807 1351.619995 1526.749268 1295.773682 1526.749268 C 1239.927368 1526.749268 1194.655151 1481.476807 1194.655151 1425.630615 L 1194.655151 1220.233398 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 1488.540283 1017.553955 C 1488.540283 961.70752 1533.8125 916.435059 1589.658813 916.435059 C 1645.505127 916.435059 1690.777588 961.70752 1690.777588 1017.553955 L 1690.777588 1222.951172 C 1690.777588 1278.797607 1645.505127 1324.070068 1589.658813 1324.070068 C 1533.8125 1324.070068 1488.540283 1278.797607 1488.540283 1222.951172 L 1488.540283 1017.553955 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 900.328186 719.812256 L 900.328186 1662.27124 L 1103.007568 1662.27124 L 1103.007568 719.812256 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 900.770142 637.530029 C 900.770142 581.683838 946.042358 536.411377 1001.888672 536.411377 C 1057.734985 536.411377 1103.007568 581.683838 1103.007568 637.530029 L 1103.007568 842.92749 C 1103.007568 898.773682 1057.734985 944.046143 1001.888672 944.046143 C 946.042358 944.046143 900.770142 898.773682 900.770142 842.92749 L 900.770142 637.530029 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 900.770142 1509.05127 C 900.770142 1453.205078 946.042358 1407.932373 1001.888672 1407.932373 C 1057.734985 1407.932373 1103.007568 1453.205078 1103.007568 1509.05127 L 1103.007568 1714.44873 C 1103.007568 1770.294922 1057.734985 1815.567383 1001.888672 1815.567383 C 946.042358 1815.567383 900.770142 1770.294922 900.770142 1714.44873 L 900.770142 1509.05127 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 606.443115 1013.69751 L 606.443115 1596.400635 L 809.122498 1596.400635 L 809.122498 1013.69751 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 606.885071 977.018066 C 606.885071 921.171875 652.157288 875.89917 708.003601 875.89917 C 763.849915 875.89917 809.122498 921.171875 809.122498 977.018066 L 809.122498 1182.415283 C 809.122498 1238.261719 763.849915 1283.53418 708.003601 1283.53418 C 652.157288 1283.53418 606.885071 1238.261719 606.885071 1182.415283 L 606.885071 977.018066 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 606.885071 1463.448486 C 606.885071 1407.602295 652.157288 1362.32959 708.003601 1362.32959 C 763.849915 1362.32959 809.122498 1407.602295 809.122498 1463.448486 L 809.122498 1668.845703 C 809.122498 1724.692139 763.849915 1769.9646 708.003601 1769.9646 C 652.157288 1769.9646 606.885071 1724.692139 606.885071 1668.845703 L 606.885071 1463.448486 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 313 1245.568115 C 313 1189.721924 358.272247 1144.449219 414.118561 1144.449219 C 469.964844 1144.449219 515.237427 1189.721924 515.237427 1245.568115 L 515.237427 1450.965576 C 515.237427 1506.811768 469.964844 1552.084229 414.118561 1552.084229 C 358.272247 1552.084229 313 1506.811768 313 1450.965576 L 313 1245.568115 Z"/><path style="fill:var(--wave,#5bf3e2)" fill-rule="evenodd" d="M 313 1260.769043 C 313 1204.922852 358.272247 1159.650391 414.118561 1159.650391 C 469.964844 1159.650391 515.237427 1204.922852 515.237427 1260.769043 L 515.237427 1466.166504 C 515.237427 1522.012695 469.964844 1567.285156 414.118561 1567.285156 C 358.272247 1567.285156 313 1522.012695 313 1466.166504 L 313 1260.769043 Z"/></symbol>
+</defs></svg>
+
+<header class="top"><div class="wrap">
+  <b>RideCom デザインシステム見本</b>
+  <nav>
+    <a href="#color">色</a><a href="#state">状態</a><a href="#size">余白とサイズ</a><a href="#layout">レイアウト</a>
+    <a href="#control">コントロール</a><a href="#component">コンポーネント</a><a href="#icon">アイコン</a><a href="#uistack">UI Stack</a><a href="#diff">StandardとAdvanced</a>
+  </nav>
+  <div class="seg" role="group" aria-label="外観"><button type="button" data-set="light" aria-pressed="true">ライト</button><button type="button" data-set="dark" aria-pressed="false">ダーク</button></div>
+</div></header>
+
+<main class="wrap">
+  <h1>RideCom デザインシステム見本</h1>
+  <p class="lead">一般向け（Standard）と詳細表示（Advanced）に共通する色・状態・寸法・レイアウト・部品の見本。規則の正本は <a href="デザインシステム.md">デザインシステム</a>、色は <a href="カラーテーマ.md">カラーテーマ</a>、記号は <a href="アイコン定義.md">アイコン定義</a>。画面ごとの見本は <a href="一般向け/デザイン見本.html">一般向け</a> と <a href="詳細画面/詳細画面見本.html">詳細表示</a>。</p>
+
+  <!-- 色 -->
+  <h2 id="color">色</h2>
+  <p class="note">StandardとAdvancedで共通。背景は淡い空色のグラデーション、内容は白いカード（ダークは`#1C1C1E`）。状態の文字は通常の文字色にし、状態色は記号・点・塗りに付ける。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>トークン</th><th>ライト</th><th>ダーク</th><th>コントラストを上げる</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td>rideBlue <code>AccentColor</code></td><td><span class="chip" style="background:#1179C0"></span>#1179C0</td><td><span class="chip" style="background:#2F95DC"></span>#2F95DC</td><td><span class="chip" style="background:#0868AA"></span>#0868AA</td><td>tint・主要操作・リンク</td></tr>
+      <tr><td>rideGreen <code>RideGreen</code></td><td><span class="chip" style="background:#34C77B"></span>#34C77B</td><td><span class="chip" style="background:#3CC98F"></span>#3CC98F</td><td><span class="chip" style="background:#0B6A47"></span>#0B6A47</td><td>成立・会話中の記号（文字には使わない）</td></tr>
+      <tr><td>voice <code>VoiceAqua</code></td><td><span class="chip" style="background:#0BA59B"></span>#0BA59B</td><td><span class="chip" style="background:#5BF3E2"></span>#5BF3E2</td><td><span class="chip" style="background:#06716B"></span>#06716B</td><td>声のメーター・話している人・送話中</td></tr>
+      <tr><td>Warning</td><td><span class="chip" style="background:#FFAC33"></span>#FFAC33</td><td><span class="chip" style="background:#FFB340"></span>#FFB340</td><td><span class="chip" style="background:#A35400"></span>#A35400</td><td>待機の記号・進行表示</td></tr>
+      <tr><td>Danger</td><td><span class="chip" style="background:#F5484E"></span>#F5484E</td><td><span class="chip" style="background:#FF6B6B"></span>#FF6B6B</td><td><span class="chip" style="background:#C4161C"></span>#C4161C</td><td>切断・ミュート中・失敗・削除</td></tr>
+      <tr><td>backgroundTop → Base</td><td><span class="chip" style="background:#E6F1FA"></span>#E6F1FA → <span class="chip" style="background:#ECF2F8"></span>#ECF2F8</td><td><span class="chip" style="background:#050E1A"></span>#050E1A → <span class="chip" style="background:#03070D"></span>#03070D</td><td>同左</td><td>画面の背景（白いカードとの差1.13以上）</td></tr>
+      <tr><td>deepNavy</td><td colspan="3"><span class="chip" style="background:#0E2238"></span>#0E2238（外観で変わらない）</td><td>ライブアクティビティの背景tint</td></tr>
+    </tbody></table></div>
+  <div class="row-flex">
+    <div><div class="surface" style="width:320px"><div class="grp-h">背景の上の白いカード</div><div class="card"><div class="lrow"><span class="g">行の文字</span><span style="color:var(--accent)">リンク</span></div><div class="lrow"><span class="g sub">補助の文字（footer・補足だけ）</span></div></div></div>
+      <div class="cap"><b>背景とカード</b>カードが背景に溶けないこと（ライト1.13以上、ダーク1.14以上）。青い文字は白いカードの上で4.65。</div></div>
+  </div>
+
+  <!-- 状態 -->
+  <h2 id="state">状態の表し方</h2>
+  <p class="note">同じ内部状態を、記号と色は共通、語だけStandardとAdvancedで変える。Waitingは故障ではなく、理由を必ず添える。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>内部状態</th><th>Standard</th><th>Advanced</th></tr></thead>
+    <tbody>
+      <tr><td>流れている・成立</td><td><span class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</span></td><td><span class="st"><span class="d ok"></span>Running</span></td></tr>
+      <tr><td>待機</td><td><span class="st"><span class="spin"></span>接続中</span>　<span class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</span></td><td><span class="st"><span class="d warn"></span>Waiting</span> <span class="sub">— Not speaking</span></td></tr>
+      <tr><td>停止・失敗</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#tri"/></svg>音声エラー</span></td><td><span class="st"><span class="d err"></span>Blocked</span> <span class="sub">— Input device disconnected</span></td></tr>
+      <tr><td>未開始・未到達</td><td><span class="st" style="color:var(--label2)"><svg class="i"><use href="#phone"/></svg>未接続</span></td><td><span class="st" style="color:var(--label2)"><span class="d idle"></span>Idle</span></td></tr>
+      <tr><td>非対応</td><td class="sub">表示しない</td><td><span class="st" style="color:var(--label2)"><span class="d na"></span>Unsupported</span></td></tr>
+    </tbody></table></div>
+
+  <!-- 余白とサイズ -->
+  <h2 id="size">余白とサイズ</h2>
+  <p class="note">赤い線と数値が寸法。左右余白はシステム既定（compact 16pt・regular 20pt）、グループの切れ目は24pt、通話中の主要操作は64pt・間隔24pt以上、切断は列の端。</p>
+  <div class="row-flex">
+    <div>
+      <div class="surface dim" style="width:330px;padding:16px">
+        <span class="hl" style="left:0;top:8px;width:16px"></span><span class="mk" style="left:2px;top:-6px">16</span>
+        <div class="grp-h">Section</div>
+        <div class="card"><div class="lrow"><span class="g">行（最小44pt）</span><span class="toggle"></span></div><div class="lrow"><span class="g">行</span><span class="sub">値 ›</span></div></div>
+        <div class="dim" style="height:24px"><span class="vl" style="left:40px;top:0;height:24px"></span><span class="mk" style="left:46px;top:6px">24 グループの切れ目</span></div>
+        <div class="grp-h">Section（次のグループ）</div>
+        <div class="card"><div class="lrow"><span class="g" style="color:var(--red)">取り消せない操作は最後に赤</span></div></div>
+      </div>
+      <div class="cap"><b>Formと設定グループの区切り</b>Section間はFormの標準。グループの切れ目だけ24pt。グループ名は画面に出さない。</div>
+    </div>
+    <div>
+      <div class="surface dim" style="width:330px;padding:22px 16px 30px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="ctrl"><span class="cb gl box-out"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
+          <div class="ctrl"><span class="cb gl"><svg class="i"><use href="#speaker"/></svg></span>スピーカー</div>
+          <div class="ctrl"><span class="cb end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
+        </div>
+        <span class="mk" style="left:16px;top:6px">64×64</span>
+        <span class="hl" style="left:84px;top:54px;width:30px"></span><span class="mk" style="left:86px;top:58px">≥24</span>
+        <span class="mk" style="right:16px;bottom:8px">切断は列の端</span>
+      </div>
+      <div class="cap"><b>円形操作ボタン列</b>iPhone 64pt（横画面・低い高さ56pt以上）、Mac 44pt。隣と24pt以上。</div>
+    </div>
+    <div class="panel" style="min-width:300px">
+      <div class="tbl" style="margin:0"><table style="min-width:0">
+        <thead><tr><th>対象</th><th>iPhone・iPad</th><th>Mac</th></tr></thead>
+        <tbody>
+          <tr><td>一般の操作</td><td>44×44</td><td>28（推奨36）</td></tr>
+          <tr><td>通話中の主要操作</td><td>64（56）</td><td>44</td></tr>
+          <tr><td>主要操作の間隔</td><td>24以上</td><td>16以上</td></tr>
+          <tr><td>取り消せない操作との距離</td><td>32以上か確認</td><td>同左</td></tr>
+          <tr><td>内容の最大幅</td><td colspan="2">1列640・2列は各560</td></tr>
+        </tbody></table></div>
+      <div class="cap"><b>大きさと距離（pt）</b>グローブ・止まっている間の短い操作に合わせ、OSの下限より大きくとる。</div>
+    </div>
+  </div>
+
+  <!-- レイアウト -->
+  <h2 id="layout">レイアウト</h2>
+  <p class="note">端末ではなく描く領域の幅と高さで切り替える。点線は固定する要素（スクロールしない）。文字と操作は安全領域の内側、背景だけ画面端まで。</p>
+  <div class="row-flex">
+    <div><div class="lay" style="width:130px;height:240px;grid-template-rows:2fr 1fr 3fr 22px"><div class="h">状態</div><div class="s">主要操作</div><div class="c">一覧</div><div class="s fx">タブ</div></div><div class="cap"><b>幅600未満</b>1列</div></div>
+    <div><div class="lay" style="width:260px;height:130px;grid-template-columns:45% 1fr;grid-template-rows:1fr 20px"><div class="h fx">状態＋主要操作（固定）</div><div class="c">一覧（スクロール）</div><div class="s fx" style="grid-column:1/3">タブ</div></div><div class="cap"><b>高さ500未満（iPhone横）</b>左列を固定</div></div>
+    <div><div class="lay" style="width:240px;height:180px;grid-template-columns:1fr 1fr;grid-template-rows:1fr 20px"><div class="h">状態＋主要操作</div><div class="c">一覧</div><div class="s fx" style="grid-column:1/3">タブ</div></div><div class="cap"><b>幅600〜1000</b>2列</div></div>
+    <div><div class="lay" style="width:320px;height:180px;grid-template-columns:70px 1fr 1fr"><div class="s fx">サイドバー</div><div class="h">状態＋主要操作</div><div class="c">一覧</div></div><div class="cap"><b>幅1000以上</b>サイドバー＋2列（各列は最大560）</div></div>
+  </div>
+
+  <!-- コントロール -->
+  <h2 id="control">コントロール</h2>
+  <p class="note">1画面に塗りの主要操作は1つ。取り消せない操作は赤。反対操作の別ボタン（「ミュート解除」等）は作らない。</p>
+  <div class="row-flex">
+    <div class="surface" style="display:grid;gap:10px;width:300px">
+      <span class="btn prom"><svg class="i f"><use href="#phone"/></svg>接続</span>
+      <span class="btn gl">補助の操作</span>
+      <span class="btn dgl">切断</span>
+      <div class="cap" style="margin:0"><b>主要・補助・取り消せない</b><code>glassProminent</code>／<code>glass</code>／<code>glass</code>＋Danger</div>
+    </div>
+    <div class="surface" style="width:300px">
+      <div style="display:flex;gap:28px;justify-content:center">
+        <div class="ctrl"><span class="cb gl"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
+        <div class="ctrl" style="color:var(--label)"><span class="cb sel"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート中</div>
+      </div>
+      <div class="cap"><b>ミュートの切替</b>記号は常に<code>mic.slash</code>。ミュート中はDangerの塗りと「ミュート中」、<code>isSelected</code>とvalue。</div>
+    </div>
+    <div class="surface" style="width:300px">
+      <div class="card"><div class="lrow"><span class="g">切替の行</span><span class="toggle"></span></div><div class="lrow"><span class="g">状態だけを表示して1階層下へ</span><span class="sub">近距離・インターネット ›</span></div></div>
+      <div class="cap"><b>Formの行</b>誤操作で困るスイッチ（通信経路など）は主画面に並べず、状態表示と「›」で1階層下へ。</div>
+    </div>
+    <div>
+      <div class="banner"><svg class="i" style="color:var(--warn);font-size:18px"><use href="#warn"/></svg><div><b>通常は変更しないでください</b><p>ここの設定を変えると、音声や接続が正しく動かなくなることがあります。初期値以外の組み合わせはテストしていません。</p></div></div>
+      <div class="cap"><b>警告バナー</b>開発者向けの高度な設定の一番上。</div>
+    </div>
+  </div>
+
+  <!-- コンポーネント -->
+  <h2 id="component">共通コンポーネント</h2>
+  <p class="note">画面別の文書と見本はこの名前で参照する。</p>
+  <div class="row-flex">
+    <div><div class="surface" style="width:300px"><div class="glass" style="border-radius:18px;padding:14px">
+      <div class="sub" style="font-weight:600"><svg class="i"><use href="#person3"/></svg> グループ・4人</div>
+      <div style="font-size:24px;font-weight:700">週末ツーリング</div>
+      <div class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</div>
+      <div class="sub"><svg class="i"><use href="#antenna"/></svg> 近距離・インターネット</div>
+    </div></div><div class="cap"><b>状態ヒーロー</b>種別・人数／名前（大）／状態／経路。1つのaccessibility要素。</div></div>
+    <div><div class="surface" style="width:280px"><div class="card" style="padding:10px">
+      <div class="lrow" style="padding:4px 0;min-height:0"><span class="pend"><svg class="i"><use href="#person"/></svg></span><span class="g">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div>
+    </div></div><div class="cap"><b>招待中の行</b>参加済みの人と同じ見た目にしない。</div></div>
+    <div><div style="display:flex;gap:10px"><div class="ptt" style="background:color-mix(in srgb,#2F95DC 30%,#0B1220);border:1.5px solid rgba(92,189,245,.65)"><svg class="i" style="font-size:20px"><use href="#mic"/></svg>押して話す</div><div class="ptt" style="background:#5BF3E2;color:#00302C"><svg class="i" style="font-size:20px"><use href="#wave"/></svg>話しています</div></div><div class="cap"><b>送話パネル（Apple Watch）</b>画面の下半分。押している間だけ送話。</div></div>
+  </div>
+  <div class="row-flex">
+    <div><div class="panel" style="width:330px">
+      <div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px"><b style="width:46px">TX</b><span class="st" style="font-size:11.5px"><span class="d ok"></span>Session</span><span class="st" style="font-size:11.5px"><span class="d ok"></span>Input</span><span class="st" style="font-size:11.5px"><span class="d warn"></span>VAD</span><span class="st" style="font-size:11.5px;color:var(--label2)"><span class="d idle"></span>TX Bus</span><span class="st" style="font-size:11.5px;color:var(--label2)"><span class="d idle"></span>Codec</span></div>
+    </div><div class="cap"><b>状態ドット列</b>全段を1行で一覧（Advanced）。</div></div>
+    <div><div class="panel" style="width:330px">
+      <div class="srow"><span class="k"><span class="d ok"></span> Input</span><span>AirPods Pro · 48 kHz mono</span><span><b>48,000</b> frames/s</span></div>
+      <div class="srow" style="border:0"><span class="k"><span class="d ok"></span> TX Bus</span><span><code>tx-bus</code> · 3 effects</span><span></span></div>
+      <div class="nest">SoundIsolation <span style="float:right;color:var(--green)">Active</span><br>PeakLimiter <span style="float:right;color:var(--green)">Active</span></div>
+    </div><div class="cap"><b>段の行</b>段名（＋ID）／状態／値／毎秒値。中身は左線付きの入れ子。</div></div>
+    <div><div class="panel" style="width:300px"><div class="tree">
+      <div class="card" style="border:1px solid var(--sep);padding:6px 9px;font-size:12px"><span class="d ok"></span> <b>Haruka</b> <span class="sub">Local · direct</span></div>
+      <div class="card" style="border:1px solid var(--sep);padding:6px 9px;font-size:12px"><span class="d warn"></span> <b>Kenta</b> <span class="sub">Relayed</span></div>
+      <div class="merge">Mix Down<span>2 routes → rx-master</span></div>
+    </div></div><div class="cap"><b>合流する木</b>相手ごとのブロックを左の線でMix Downへまとめる。</div></div>
+  </div>
+
+  <!-- アイコン -->
+  <h2 id="icon">アイコン</h2>
+  <p class="note">タブは基本形の名前を指定し、選択時の塗りはOSに任せる。システム表示ではアイコン図形のカスタムシンボルでアプリを識別する（<a href="アイコン定義.md">アイコン定義</a>）。</p>
+  <div class="row-flex">
+    <div class="ico"><span class="s"><svg class="i"><use href="#phone"/></svg></span>phone<br>通話</div>
+    <div class="ico"><span class="s"><svg class="i"><use href="#person2"/></svg></span>person.2<br>ユーザー</div>
+    <div class="ico"><span class="s"><svg class="i"><use href="#person3"/></svg></span>person.3<br>グループ</div>
+    <div class="ico"><span class="s"><svg class="i"><use href="#gauge"/></svg></span>gauge<br>Diagnostics</div>
+    <div class="ico"><span class="s"><svg class="i"><use href="#gear"/></svg></span>gearshape<br>設定</div>
+    <div class="ico"><span class="s" style="background:#000"><span class="gly" style="width:30px;height:30px"><svg viewBox="0 0 4096 4096"><use href="#appglyph"/></svg></span></span>ridecom.glyph</div>
+    <div class="ico"><span class="ctl"><span class="bg"><svg viewBox="0 0 4096 4096"><use href="#appglyph"/></svg></span><svg class="i f fg"><use href="#phone"/></svg></span>ridecom.glyph.phone</div>
+    <div class="ico"><span class="ctl"><span class="bg"><svg viewBox="0 0 4096 4096"><use href="#appglyph"/></svg></span><svg class="i fg"><use href="#again"/></svg></span>ridecom.glyph.recent</div>
+  </div>
+
+  <!-- UI Stack -->
+  <h2 id="uistack">UI Stack</h2>
+  <p class="note">画面ごとに5状態を設計する。例は状態ヒーロー。同じ位置・同じ構造のまま、状態の語・記号・主要操作だけが変わる。</p>
+  <div class="row-flex">
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</div></div></div><div class="cap"><b>Ideal</b>目的が成立</div></div>
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px;text-align:center"><div style="font-weight:700">接続先を選んでください</div><span class="btn gl" style="margin-top:8px;min-height:36px">ユーザーを選ぶ</span></div></div><div class="cap"><b>Empty</b>次の行動を示す</div></div>
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><span class="spin"></span>接続中</div><div class="sub">相手の参加を待っています</div></div></div><div class="cap"><b>Loading</b>取消できる</div></div>
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</div><div class="sub">接続は続いています</div><span class="btn prom" style="margin-top:8px;min-height:36px">音声を再開</span></div></div><div class="cap"><b>Partial</b>使える範囲と不足</div></div>
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--red)"><use href="#tri"/></svg>音声エラー</div><div class="sub">マイクを開始できませんでした</div><span class="btn gl" style="margin-top:8px;min-height:36px">もう一度試す</span></div></div><div class="cap"><b>Error</b>理由と回復手段</div></div>
+  </div>
+
+  <!-- 違い -->
+  <h2 id="diff">StandardとAdvanced</h2>
+  <p class="note">色・背景・部品・レイアウトは共通。違うのは表示の量・密度・語だけ。</p>
+  <div class="row-flex">
+    <div><div class="surface" style="width:300px"><div class="card"><div class="lrow"><span class="av"><svg class="i"><use href="#person"/></svg></span><span class="g">ハルカ<div class="sub" style="color:var(--aqua)">話しています</div></span><span class="sub">100%</span></div></div></div><div class="cap"><b>Standard</b>名前・状態・音量だけ。余白を広く。</div></div>
+    <div><div class="surface" style="width:300px"><div class="card" style="padding:4px 10px"><div class="srow"><b>Haruka</b><span>Connected · authenticated · AAC-ELD<div class="sub">RX 100/s · Buffer 24 ms · 0 dropped</div></span><span>100%</span></div></div></div><div class="cap"><b>Advanced</b>同じカードに罫線と段組みで多くの値を並べる。英語のみ。</div></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var root = document.documentElement, buttons = document.querySelectorAll('.seg button');
+  function apply(mode) { root.setAttribute('data-scheme', mode); buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === mode)); }); }
+  var initial = 'light';
+  try { if (window.matchMedia('(prefers-color-scheme: dark)').matches) initial = 'dark'; } catch (e) {}
+  apply(initial);
+  buttons.forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.set); }); });
+})();
+</script>
+</body>
+</html>

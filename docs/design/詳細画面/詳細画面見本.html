@@ -194,13 +194,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 <main class="wrap">
   <h1>相手ごとの条件が、1つのミックスへ合流するまで</h1>
   <p class="lead">詳細表示（Advanced）の見本。主な端末はiPhone。画面内は英語のみで、語は現行コードの表示語（<code>Live TX Pipeline</code>、<code>TX Bus</code>、<code>Peer Buses</code>、<code>Mix Down</code>、<code>RX Master</code>、<code>Connect</code>、<code>Participants</code>など）に合わせ、説明は現行の注記程度に留める。定義の正本は <a href="診断と詳細画面の構成.md">診断と詳細画面の構成</a>。数値は説明用の例。</p>
-  <div class="legend">
-    <span><span class="d ok"></span> Running（passing）</span>
-    <span><span class="d warn"></span> Waiting（waiting・理由を併記）</span>
-    <span><span class="d err"></span> Blocked（blocked・理由と次の操作を併記）</span>
-    <span><span class="d idle"></span> Idle（idle・上流が止まって未到達も含む）</span>
-    <span><span class="d na"></span> Unsupported（非対応）</span>
-  </div>
+  <p class="note" style="margin-top:10px">状態の語と記号・色・寸法・部品（状態ドット列・段の行・合流する木）は <a href="../デザインシステム見本.html">デザインシステム見本</a> を参照する。ここでは詳細表示（Advanced）の画面の組み合わせだけを示す。</p>
 
   <h2 id="diag">診断（Diagnostics）</h2>
   <p class="note">例: グループ通話中。Harukaは近距離で直接、KentaはHaruka経由の中継で低帯域のOpus、MikaはインターネットでPCMへフォールバック、Yuは未接続。相手ごとに送信条件と自分側の設定がばらばらな状態。</p>
