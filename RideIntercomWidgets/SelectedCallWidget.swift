@@ -29,12 +29,40 @@ struct SelectedCallWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "RideIntercom.SelectedCall", intent: SelectWidgetCallDestination.self,
             provider: SelectedCallProvider()) { entry in
-            VStack(alignment: .leading, spacing: 8) {
-                Text("RideCom").font(.headline)
-                if #available(iOS 27.0, macOS 27.0, *), let call = entry.currentCall {
+            SelectedCallContent(destination: entry.destination, currentCall: entry.currentCall)
+                .containerBackground(for: .widget) { WidgetSurfaceBackground() }
+        }
+        .configurationDisplayName("Selected call")
+        .description("Start a call with a saved user or group you choose.")
+        .supportedFamilies([.systemSmall])
+        #if os(iOS)
+        .disfavoredLocations(CallWidgetAvailability.disfavoredLocations, for: [.systemSmall])
+        #endif
+    }
+}
+
+/// Shared by WidgetKit and deterministic presentation rendering.
+struct SelectedCallContent: View {
+    let destination: WidgetCallDestination?
+    let currentCall: CallLivePresentation?
+
+    var body: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("RideCom").font(.caption)
+                if let destination = destination {
+                    Label {
+                        Text(verbatim: destination.name)
+                            .lineLimit(2)
+                            .privacySensitive()
+                    } icon: {
+                        Image(systemName: destination.kind == .user ? "person.fill" : "person.3.fill")
+                    }
+                    .font(.headline)
+                    .widgetAccentable()
+                }
+                if #available(iOS 27.0, macOS 27.0, *), let call = currentCall {
                     BackgroundWidgetCallButtons(call: call)
-                } else if let destination = entry.destination {
-                    Text(verbatim: destination.name).font(.headline).privacySensitive()
+                } else if let destination = destination {
                     if #available(iOS 27.0, macOS 27.0, *) {
                         Button(intent: BackgroundCallControlIntent(destinationID: destination.id)) {
                             Label("Start call", systemImage: "phone.fill")
@@ -52,13 +80,14 @@ struct SelectedCallWidget: Widget {
                 }
             }
             .buttonStyle(.bordered)
-            .containerBackground(.fill.tertiary, for: .widget)
-        }
-        .configurationDisplayName("Selected call")
-        .description("Start a call with a saved user or group you choose.")
-        .supportedFamilies([.systemSmall])
-        #if os(iOS)
-        .disfavoredLocations(CallWidgetAvailability.disfavoredLocations, for: [.systemSmall])
-        #endif
+
+    }
+}
+
+struct WidgetSurfaceBackground: View {
+    var body: some View {
+        LinearGradient(colors: [Color.accentColor.opacity(0.22), Color.accentColor.opacity(0.04)],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+            .background(.background)
     }
 }

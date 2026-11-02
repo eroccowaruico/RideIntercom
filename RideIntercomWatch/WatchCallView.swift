@@ -12,7 +12,10 @@ struct WatchCallView: View {
                         Label("Connect to your iPhone to control a call.", systemImage: "iphone.slash")
                     } else if let state = client.snapshot {
                         if let title = state.title {
-                            Text(title).font(.headline).accessibilityAddTraits(.isHeader)
+                            Text(title)
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityAddTraits(.isHeader)
                         }
                         Label(stateTitle(state.state), systemImage: stateSymbol(state.state))
                             .font(.subheadline)
@@ -29,6 +32,7 @@ struct WatchCallView: View {
                                         .frame(maxWidth: .infinity, minHeight: 72)
                                 }
                                 .buttonStyle(.borderedProminent)
+                                .buttonBorderShape(.roundedRectangle)
                                 .simultaneousGesture(DragGesture(minimumDistance: 0).updating($isHolding) { _, state, _ in state = true })
                                 .onChange(of: isHolding) { _, held in audio.setPressed(held) }
                                 .disabled(!audio.isReady || client.isWaiting)
@@ -65,7 +69,10 @@ struct WatchCallView: View {
                     Section("Call") {
                         ForEach(state.targets) { target in
                             VStack(alignment: .leading) {
-                                Button { Task { await audio.startCall(to: target.id) } } label: { Text(target.name) }
+                                Button { Task { await audio.startCall(to: target.id) } } label: {
+                                    Label(target.name, systemImage: "phone")
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                                     .buttonStyle(.bordered)
                                 if target.canNotify {
                                     Button("Send Call Request") { Task { await client.perform(.requestCall(target.id)) } }

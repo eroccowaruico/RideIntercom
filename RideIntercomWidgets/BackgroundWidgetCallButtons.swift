@@ -6,7 +6,7 @@ import WidgetKit
 struct BackgroundWidgetCallButtons: View {
     let call: CallLivePresentation
     var body: some View {
-        Text(String(localized: .init(stringLiteral: statusTitle)))
+        Label(String(localized: .init(stringLiteral: statusTitle)), systemImage: statusSymbol)
             .font(.caption)
         HStack {
             if call.canControlMicrophone {
@@ -20,7 +20,8 @@ struct BackgroundWidgetCallButtons: View {
                 .accessibilityValue(call.isMuted ? Text("Muted") : Text("Unmuted"))
             } else {
                 Label("Control the microphone on your Watch", systemImage: "applewatch")
-                    .font(.caption)
+                    .font(.caption2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Button(intent: BackgroundCallControlIntent(action: .end, reference: call.reference)) {
                 Label("End Call", systemImage: "phone.down.fill")
@@ -30,6 +31,15 @@ struct BackgroundWidgetCallButtons: View {
             }
         }
         .buttonStyle(.plain)
+    }
+    private var statusSymbol: String {
+        switch call.status {
+        case .chooseDestination, .ready: "phone"
+        case .connecting: "hourglass"
+        case .inCall: "waveform"
+        case .audioPaused: "headphones"
+        case .audioUnavailable: "exclamationmark.triangle.fill"
+        }
     }
     private var statusTitle: String {
         switch call.status {
