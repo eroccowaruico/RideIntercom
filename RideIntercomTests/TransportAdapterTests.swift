@@ -151,6 +151,20 @@ struct TransportAdapterTests {
         #expect(recorder.containsLinkFailure)
     }
 
+    @Test func rejectedHandshakeDoesNotEndTheCallOrBecomeAServiceError() async {
+        let rtcSession = FakeRTCCallSession()
+        let adapter = RideIntercomCallSessionAdapter(memberID: "member-local", rtcSession: rtcSession)
+        defer { withExtendedLifetime(adapter) {} }
+        let recorder = TransportEventRecorder()
+        adapter.onEvent = { event in recorder.append(event) }
+
+        await AppTestSupport.waitUntil { rtcSession.hasSubscriber }
+        rtcSession.emit(.error(.handshakeRejected(.multipeer)))
+        await AppTestSupport.waitUntil(timeout: .milliseconds(50)) { !recorder.isEmpty }
+
+        #expect(recorder.isEmpty)
+    }
+
     @Test func adapterSerializesSuspendingRTCOperations() async {
         let rtc = FakeRTCCallSession()
         rtc.prepareDelay = .milliseconds(80)

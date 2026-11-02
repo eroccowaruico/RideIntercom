@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import RTC
 import RTCNativeWebRTC
 
@@ -354,6 +355,9 @@ final class RideIntercomCallSessionAdapter: CallSession {
             if route == .webRTC { onEvent?(.serviceError(reason)) }
         case .connectionBlocked(let route, let reason):
             if route == .webRTC { onEvent?(.serviceBlocked(reason)) }
+        case .handshakeRejected(let route):
+            // The rejected peer is never authenticated; the call itself continues.
+            AppLoggers.rtc.warning("rtc.handshake.rejected", metadata: HandshakeLog.rejected(route: route))
         case .routeUnavailable,
              .signalingUnavailable,
              .unsupportedApplicationDataDelivery,
@@ -488,5 +492,11 @@ final class RideIntercomCallSessionAdapter: CallSession {
         case nil:
             "RTC RouteManager"
         }
+    }
+}
+
+enum HandshakeLog {
+    static func rejected(route: RTC.RouteKind) -> Logging.Logger.Metadata {
+        .event("rtc.handshake.rejected", ["route": "\(route.rawValue)"])
     }
 }

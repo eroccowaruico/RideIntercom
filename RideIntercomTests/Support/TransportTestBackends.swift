@@ -206,6 +206,8 @@ final class TransportEventRecorder {
         }
     }
 
+    var isEmpty: Bool { lock.withLock { events.isEmpty } }
+
     func append(_ event: TransportEvent) {
         lock.lock()
         events.append(event)

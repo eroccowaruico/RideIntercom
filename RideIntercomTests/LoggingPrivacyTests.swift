@@ -88,4 +88,11 @@ struct LoggingPrivacyTests {
         #expect(metadata.count == 4)
         #expect(!metadata.description.contains("rider-private-123"))
     }
+
+    @Test func rejectedHandshakeLogRecordsOnlyTheRoute() {
+        let metadata = HandshakeLog.rejected(route: .multipeer)
+        #expect(metadata["event"] == "rtc.handshake.rejected")
+        #expect(metadata["route"] == "multipeer")
+        #expect(metadata.count == 2)
+    }
 }
