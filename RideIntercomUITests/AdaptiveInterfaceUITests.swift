@@ -53,17 +53,9 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         app.buttons["saveUserSelectionButton"].tap()
         let end = app.buttons["standardEndCallButton"]
         assertVisible(end)
-        let mute = app.switches["standardMuteToggle"].firstMatch
+        let mute = app.buttons["standardMuteButton"].firstMatch
         assertVisible(mute)
-        // The identified SwiftUI row contains the native switch. Use that control
-        // rather than inferring its center from the row's translated layout.
-        let nativeMute = mute.switches.firstMatch
-        XCTAssertTrue(nativeMute.waitForExistence(timeout: 3), mute.debugDescription)
-        let hierarchy = XCTAttachment(string: mute.debugDescription)
-        hierarchy.name = "Mute row and native control"; hierarchy.lifetime = .keepAlways
-        add(hierarchy)
-        if (nativeMute.value as? String) != "1" { nativeMute.tap() }
-        XCTAssertEqual(nativeMute.value as? String, "1", mute.debugDescription)
+        mute.tap()
         let mutedText = japanese ? "マイクはミュート中です" : "Microphone muted"
         let status = app.staticTexts["standardMicrophoneStatus"]
         assertVisible(status)
@@ -100,6 +92,9 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         screenshot("\(japanese ? "Japanese" : "English") portrait call after settings")
         assertVisible(end)
         end.tap()
+        let confirmEnd = app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch
+        assertVisible(confirmEnd)
+        confirmEnd.tap()
         assertVisible(app.buttons["standardConnectButton"])
     }
 

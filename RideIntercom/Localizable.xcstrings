@@ -1,6 +1,26 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Speaker": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スピーカー"
+          }
+        }
+      }
+    },
+    "End Call?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切断しますか？"
+          }
+        }
+      }
+    },
     "Changing these settings can affect audio and connections.": {
       "localizations": {
         "ja": {

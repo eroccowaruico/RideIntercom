@@ -8,18 +8,18 @@
 
 Watch音声のpairが失われ、Watchでの再準備が必要な場合は、この端末のResume Audioを表示しない。Watchからの再開始案内に従う。既存pairを保持した一時停止では共通の再開操作を利用する。
 
-初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。Users / Groupsと参加者は人物を青い`person.fill`、通常グループを緑の`person.3.fill`で区別する。アイコン画像の変更機能は持たず、名前と種別を併記する。Users / GroupsはStandardとAdvancedで画面構成を分け、保存状態・共通操作と同じ意味の表示部品を共用する。Callはモードに応じた画面を使用する。接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
+初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。Users / Groupsと参加者は人物と通常グループを共通の青いアバターとし、`person.fill`／`person.3.fill`の記号で区別する。アイコン画像の変更機能は持たず、名前と種別を併記する。Users / GroupsはStandardとAdvancedで画面構成を分け、保存状態・共通操作と同じ意味の表示部品を共用する。Callはモードに応じた画面を使用する。接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
 
 | 画面・項目ID | 表示と操作 |
 |---|---|
-| Call / `standardCallScreen` | 人物・グループを区別する固定の丸いアイコンと相手名または通常グループ名を中央の見出しにし、縦・横向きとも表示領域の中央を保つ。名前は折り返す。接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う |
-| `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、終了は破壊操作のglassボタンとし、共通startCall / endCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
-| `standardMuteToggle` / `standardMicrophoneStatus` | 共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する。Watch音声選択中はマイク操作を表示せず「Watchでマイクを操作」と案内し、以前のphone mute値を状態として表示しない |
+| Call / `standardCallScreen` | 人物・グループを区別する固定の丸いアイコンと相手名または通常グループ名を中央の見出しにし、縦は1列、横のcompact高さでは左の固定列の中央を保つ。右の詳細一覧だけをスクロールし、主要操作を隠さない。名前は2行まで折り返す。接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う |
+| `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、切断はdangerの円形glassProminent。切断確認を取消すと既存通話・ミュートを維持し、確定時だけ描画時に捕捉したCallReferenceを共通endCallへ渡す。接続は共通startCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
+| `standardMuteButton` / `standardMicrophoneStatus` | 円形glassのmic.slash記号を固定し、ミュート中だけdangerの選択状態とする。共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する。Watch音声選択中はマイク操作を表示せず「Watchでマイクを操作」と案内し、以前のphone mute値を状態として表示しない |
 | `standardUsersList` | 保存済みユーザーだけを表示。相手の選択は共通selectUserで内部通話先を解決してCallへ移る。内部グループの作成や選択は要求しない。鉛筆で本人名と端末の呼び名を編集できる |
 | `standardGroupsList` | 通常グループだけを表示し、進行中の通話の実状態（接続待ち・会話中・音声停止等）を行内に示す。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
 | Current Call | 別の相手・一覧の閲覧中でも進行中の通話へ戻る／終了する操作を維持する。保存ユーザー削除で現在の通話を隠さない |
 | 招待・参加者 | 既存の署名付き共有、本人名／別名編集、通常groupへの保存ユーザー追加・削除を共用する。groupで会っただけの相手をUsersへ追加しない |
-| 入出力 | マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
+| `standardSpeakerButton` / 入出力 | 出力ミュートも円形の明示選択状態で示し、既存toggleOutputMuteへ渡す。マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
 | 復旧 | 保存読込失敗・破損の既存reload/reset操作、通話・音声のエラーと再試行案内を同じ状態から表示する |
 
 英語を原文としてString Catalogに一般画面と共通の操作・設定・アカウント案内の日本語を保持する。本人名・別名・グループ名は翻訳しない。App生成の再試行秒数、名前・人数の補間、招待・音声復旧の定型案内も翻訳対象とし、英語の単複を扱う。OSやサービスから来る任意の自由文は独自翻訳しない。Advancedの診断項目の全訳は対象外。購入商品未設定は利用不可と表示し、通知の送信・24時間利用権の完成を装わない。通話権利条件は画面側に追加しない。[共通利用権判定](../通話利用権仕様.md)が媒体準備と成立を区別し、作成不可・権利を持つ参加者待ちにはSettingsのAccessを案内する。

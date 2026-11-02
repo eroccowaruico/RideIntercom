@@ -11,7 +11,7 @@ struct DestinationAvatar: View {
             .font(.system(size: diameter * scale * 0.46, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: diameter * scale, height: diameter * scale)
-            .background((isGroup ? Color.green : Color.blue).gradient, in: Circle())
+            .background(Color.accentColor.gradient, in: Circle())
             .accessibilityLabel(isGroup ? "Group" : "User")
     }
 }

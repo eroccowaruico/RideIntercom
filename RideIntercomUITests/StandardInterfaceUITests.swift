@@ -130,8 +130,8 @@ final class StandardInterfaceUITests: XCTestCase {
         name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + groupName)
         app.buttons["saveUserSelectionButton"].tap()
         XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 5))
-        let mute = app.switches["standardMuteToggle"].firstMatch
-        if mute.value as? String != "1" { mute.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+        let mute = app.buttons["standardMuteButton"].firstMatch
+        if mute.value as? String != "Muted" { mute.tap() }
         tab("Users", id: "usersTab")
         let originalUsers = contactUserRows().count
         let previousPending = contactPendingIDs()
@@ -161,8 +161,9 @@ final class StandardInterfaceUITests: XCTestCase {
         tab("Call", id: "callTab")
         XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts[groupName].firstMatch.exists)
-        XCTAssertEqual(mute.value as? String, "1")
+        XCTAssertEqual(mute.value as? String, "Muted")
         app.buttons["standardEndCallButton"].tap()
+        app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
     }
 
     @MainActor private func contactUserRows() -> XCUIElementQuery {
@@ -191,9 +192,9 @@ final class StandardInterfaceUITests: XCTestCase {
         name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + "Standard UI " + UUID().uuidString.prefix(6))
         app.buttons["saveUserSelectionButton"].tap()
         XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 5))
-        let mute = app.switches["standardMuteToggle"].firstMatch
+        let mute = app.buttons["standardMuteButton"].firstMatch
         XCTAssertTrue(mute.waitForExistence(timeout: 3))
-        mute.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        mute.tap()
         XCTAssertTrue(app.staticTexts["standardMicrophoneStatus"].waitForExistence(timeout: 3))
         XCTAssertEqual(app.staticTexts["standardMicrophoneStatus"].label, "Microphone muted")
         tab("Settings", id: "settingsTab")
@@ -227,6 +228,7 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["standardSpeakerVolumeLabel"].label, "Speaker Volume")
         screenshot("Standard call after switching layouts")
         app.buttons["standardEndCallButton"].tap()
+        app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
         XCTAssertTrue(app.buttons["standardConnectButton"].waitForExistence(timeout: 3))
         app.terminate()
         app.launchEnvironment.removeValue(forKey: "RIDEINTERCOM_INTERFACE_FIXTURE")
@@ -343,12 +345,21 @@ final class StandardInterfaceUITests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
             XCTAssertTrue(title.waitForExistence(timeout: 3))
             XCTAssertTrue(title.isHittable)
-            XCTAssertEqual(title.frame.midX, app.frame.midX, accuracy: 4,
-                           "The destination stays centered within the screen after rotating")
+            let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
+            XCTAssertTrue(hero.waitForExistence(timeout: 3), app.debugDescription)
+            XCTAssertEqual(title.frame.midX, hero.frame.midX, accuracy: 4,
+                           "The destination stays centered within its hero after rotating")
+            if orientation.isLandscape {
+                let details = app.descendants(matching: .any)["standardCallDetailsScroll"].firstMatch
+                XCTAssertTrue(details.waitForExistence(timeout: 3))
+                XCTAssertLessThanOrEqual(hero.frame.maxX, details.frame.minX + 1,
+                                         "The hero belongs to the fixed left column")
+            }
             screenshot("Standard destination centered after rotation \(orientation.rawValue)")
         }
         XCUIDevice.shared.orientation = .portrait
         app.buttons["standardEndCallButton"].tap()
+        app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
         XCTAssertTrue(app.buttons["standardConnectButton"].waitForExistence(timeout: 3))
         tab("Groups", id: "groupsTab")
         let row = app.buttons.containing(.staticText, identifier: destination).firstMatch
