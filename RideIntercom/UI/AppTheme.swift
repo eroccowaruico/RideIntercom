@@ -102,6 +102,16 @@ extension View {
             .frame(minHeight: max(AppSize.buttonSecondaryMinHeight, platformButtonMinHeight))
     }
 
+    /// Only the call hero carries a subtle brand surface on native macOS.
+    func appCallHeroStyle() -> some View {
+        #if os(macOS)
+        self.glassEffect(.regular.tint(RideComColors.accent.opacity(0.08)),
+                         in: RoundedRectangle(cornerRadius: AppCornerRadius.card))
+        #else
+        self
+        #endif
+    }
+
     func appCallCardStyle() -> some View { appCardStyle() }
 
     func appDiagnosticsCardStyle() -> some View { appCardStyle() }
