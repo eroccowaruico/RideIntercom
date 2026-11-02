@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Add people on iPhone to call them here." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneで相手を追加すると、ここから通話できます。"
+          }
+        }
+      }
+    },
     "Audio connection failed. Start the call again." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -34,24 +44,22 @@
         }
       }
     },
-    "Audio disconnected. Start the call again." : {
-      "extractionState" : "stale",
+    "Audio paused" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "音声が切断されました。通話を開始し直してください。"
+            "value" : "音声停止中"
           }
         }
       }
     },
-    "Audio paused — check your audio device" : {
-      "extractionState" : "stale",
+    "Audio paused — check iPhone" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "音声を一時停止中 — 音声機器を確認してください"
+            "value" : "音声停止中 — iPhoneを確認"
           }
         }
       }
@@ -67,24 +75,12 @@
         }
       }
     },
-    "Audio plays on iPhone or its headphones." : {
-      "extractionState" : "stale",
+    "Audio unavailable — check iPhone" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "音声はiPhoneまたは接続したヘッドホンから流れます。"
-          }
-        }
-      }
-    },
-    "Audio unavailable — check your settings" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "音声を利用できません — 設定を確認してください"
+            "value" : "音声を使えません — iPhoneを確認"
           }
         }
       }
@@ -106,17 +102,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通話"
-          }
-        }
-      }
-    },
-    "Call on iPhone" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iPhoneで通話"
           }
         }
       }
@@ -143,6 +128,26 @@
         }
       }
     },
+    "Can't connect to iPhone" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneと接続できません"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
     "Cancel Call Request" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -154,46 +159,22 @@
         }
       }
     },
-    "Choose a call" : {
-      "extractionState" : "stale",
+    "Connected to iPhone" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通話先を選択"
+            "value" : "iPhoneに接続済み"
           }
         }
       }
     },
-    "Choose Toggle Microphone to use a single tap." : {
-      "extractionState" : "stale",
+    "Connecting" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1回のタップで操作するには「マイクのオン／オフ」を選んでください。"
-          }
-        }
-      }
-    },
-    "Connect to your iPhone to control a call." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iPhoneに接続して通話を操作してください。"
-          }
-        }
-      }
-    },
-    "Connecting — waiting for others" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "接続中 — 相手の参加を待っています"
+            "value" : "接続中"
           }
         }
       }
@@ -220,6 +201,16 @@
         }
       }
     },
+    "End" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切断"
+          }
+        }
+      }
+    },
     "End Call" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -227,6 +218,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通話を終了"
+          }
+        }
+      }
+    },
+    "End this call?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切断しますか？"
           }
         }
       }
@@ -252,6 +253,16 @@
         }
       }
     },
+    "Keep your iPhone nearby with RideCom open." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RideComを開いたiPhoneを近くに置いてください。"
+          }
+        }
+      }
+    },
     "Microphone" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -259,17 +270,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "マイク"
-          }
-        }
-      }
-    },
-    "Microphone Mode" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "マイクの操作"
           }
         }
       }
@@ -285,13 +285,12 @@
         }
       }
     },
-    "Mute iPhone microphone" : {
-      "extractionState" : "stale",
+    "Not talking" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPhoneのマイクをミュート"
+            "value" : "話していません"
           }
         }
       }
@@ -329,8 +328,17 @@
         }
       }
     },
+    "Preparing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備中"
+          }
+        }
+      }
+    },
     "Refresh" : {
-      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -362,13 +370,22 @@
         }
       }
     },
-    "Talking…" : {
-      "extractionState" : "stale",
+    "Sign in to RideCom on iPhone" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "送話中…"
+            "value" : "iPhoneでRideComにサインインしてください"
+          }
+        }
+      }
+    },
+    "Talking" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "話しています"
           }
         }
       }
@@ -439,23 +456,12 @@
         }
       }
     },
-    "Toggle Microphone" : {
+    "Try Again" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクのオン／オフ"
-          }
-        }
-      }
-    },
-    "Unmute iPhone microphone" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iPhoneのマイクをオン"
+            "value" : "もう一度試す"
           }
         }
       }

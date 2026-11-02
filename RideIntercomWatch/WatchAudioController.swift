@@ -220,11 +220,10 @@ final class WatchAudioController {
         }
     }
 
-    func setMicrophoneMode(_ mode: WatchMicrophoneIntent.Mode) {
-        guard microphoneIntent.mode != mode else { return }
-        microphoneIntent.setMode(mode)
-        setPressed(false)
-    }
+    #if DEBUG && RIDEINTERCOM_VALIDATION
+    /// Screen fixtures only: shows the ready talk panel without opening audio.
+    func applyUIFixtureReady() { isReady = true }
+    #endif
 
     func setSceneActive(_ active: Bool, isInactive: Bool = false) {
         let wasOn = microphoneIntent.isOn

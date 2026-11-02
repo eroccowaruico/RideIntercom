@@ -54,42 +54,25 @@ import Testing
         let nextSession = owner.watchSnapshot(now: now)
         #expect(nextSession.needsPublication(after: updatedFinal))
     }
-    @Test func toggleRemainsOnThroughInactiveAndExplicitOffAlwaysWorks() {
+    @Test func holdClosesOnInactiveAndCannotResumeWithoutNewPress() {
         var state = WatchMicrophoneIntent()
-        state.setMode(.toggle)
+        #expect(!state.isOn)
         state.request(true)
         #expect(state.isOn)
         state.setScene(.inactive)
-        #expect(state.isOn, "Wrist dimming must not cancel an explicitly enabled microphone")
-        state.setScene(.active)
-        #expect(state.isOn, "Returning active retains the existing toggle state")
-        state.setScene(.inactive)
-        state.request(false)
-        #expect(!state.isOn, "An explicit off request works even while inactive")
+        #expect(!state.isOn, "Wrist dimming closes push-to-talk")
         state.request(true)
         #expect(!state.isOn, "Inactive state cannot initiate a new transmission")
         state.setScene(.active)
-        #expect(!state.isOn, "Returning active must not turn the microphone on")
-    }
-
-    @Test func holdClosesOnInactiveAndCannotResumeWithoutNewPress() {
-        var state = WatchMicrophoneIntent()
-        #expect(state.mode == .hold && !state.isOn)
-        state.request(true)
-        #expect(state.isOn)
-        state.setScene(.inactive)
-        #expect(!state.isOn)
-        state.setScene(.active)
-        #expect(!state.isOn)
+        #expect(!state.isOn, "Returning active must not reopen the microphone")
         state.request(true)
         #expect(state.isOn)
         state.request(false)
         #expect(!state.isOn)
     }
 
-    @Test func backgroundAndForceCloseDoNotRestoreToggleOn() {
+    @Test func backgroundAndForceCloseRequireANewPress() {
         var state = WatchMicrophoneIntent()
-        state.setMode(.toggle)
         state.request(true)
         state.setScene(.background)
         #expect(!state.isOn)
@@ -103,19 +86,6 @@ import Testing
         #expect(!state.isOn)
         state.setScene(.inactive)
         state.setScene(.active)
-        #expect(!state.isOn)
-    }
-
-    @Test func changingModeClosesButReselectingItDoesNot() {
-        var state = WatchMicrophoneIntent()
-        state.setMode(.toggle)
-        state.request(true)
-        state.setMode(.toggle)
-        #expect(state.isOn)
-        state.setMode(.hold)
-        #expect(!state.isOn)
-        state.request(true)
-        state.setMode(.toggle)
         #expect(!state.isOn)
     }
 

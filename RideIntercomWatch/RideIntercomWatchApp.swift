@@ -8,6 +8,7 @@ struct RideIntercomWatchApp: App {
             #if DEBUG
             #if RIDEINTERCOM_VALIDATION && targetEnvironment(simulator)
             if WatchRecordingCLI.requested { WatchRecordingCheckView(connection: connection) }
+            else if WatchUIFixture.requested != nil { WatchCallRoot(connection: connection) }
             else { WatchDebugRoot(connection: connection) }
             #else
             WatchDebugRoot(connection: connection)
@@ -45,11 +46,16 @@ private struct WatchCallRoot: View {
     let connection: WatchConnectivityClient
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
-            WatchCallView(client: connection.client, audio: connection.audio)
-                .task { connection.activate() }
-                .onChange(of: scenePhase) { _, phase in
-                    connection.audio.setSceneActive(phase == .active, isInactive: phase == .inactive)
-                    if phase == .active { connection.activate() }
-                }
+        WatchCallView(client: connection.client, audio: connection.audio)
+            .task {
+                #if DEBUG && RIDEINTERCOM_VALIDATION
+                if let fixture = WatchUIFixture.requested { WatchUIFixture.apply(fixture, to: connection); return }
+                #endif
+                connection.activate()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                connection.audio.setSceneActive(phase == .active, isInactive: phase == .inactive)
+                if phase == .active { connection.activate() }
+            }
     }
 }

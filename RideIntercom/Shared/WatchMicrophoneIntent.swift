@@ -1,21 +1,14 @@
-/// Owns the user's microphone intent across Watch scene transitions.
+/// Owns push-to-talk across Watch scene transitions. The microphone is open only
+/// while pressed in the active scene; any other scene closes it until a new press.
 struct WatchMicrophoneIntent {
-    enum Mode: Hashable { case hold, toggle }
     enum Scene { case active, inactive, background }
 
-    private(set) var mode: Mode = .hold
     private(set) var scene: Scene = .active
     private(set) var isOn = false
 
-    mutating func setMode(_ mode: Mode) {
-        guard self.mode != mode else { return }
-        self.mode = mode
-        close()
-    }
-
     mutating func setScene(_ scene: Scene) {
         self.scene = scene
-        if scene == .background || (scene == .inactive && mode == .hold) { close() }
+        if scene != .active { close() }
     }
 
     mutating func request(_ on: Bool) {

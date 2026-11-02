@@ -33,7 +33,7 @@ watchOS targetはiPhone依存の単一Appとし、最低OSは27.0。iPhone/iPad�
 
 Watchの音声経路はAppまで接続済みだが、遠隔操作やローカル自動試験の応答時間を実Watch通話の遅延測定として扱わない。[製品要求](../../requirements/製品要求.md)では、iPhone経由の処理・複数段の通信により通常端末に少なくとも約100msを追加する見込みを許容している。通常端末と同じ約125msの総遅延基準は適用しない。100msは実測・固定下限・最大許容値のいずれでもなく、試作後に実際の追加量を測る。
 
-押している間だけ話すモードはこの利用体験に合わせるが、AppleのPush to Talk／CallKitへの統合は行わない。押下解除時にWatchの送話を閉じることと、既に送信済みの音声が通信・再生時間の後に相手へ届くことは区別する。古い解除要求や再接続による録音再開は許さない。codecはApple標準AACの成立性を先に確認し、未測定の電池優位を理由にOpusを既定にしない。
+押している間だけ話す操作はこの利用体験に合わせるが、AppleのPush to Talk／CallKitへの統合は行わない。押下解除時にWatchの送話を閉じることと、既に送信済みの音声が通信・再生時間の後に相手へ届くことは区別する。古い解除要求や再接続による録音再開は許さない。codecはApple標準AACの成立性を先に確認し、未測定の電池優位を理由にOpusを既定にしない。
 
 ## 実装済みの媒体接続
 
@@ -43,7 +43,7 @@ Watchの開始操作でマイク許可を確認し、非同期session activation
 
 Watch入力も共通の`AudioInputStreamCapture`を通ってiPhoneの既存`AppAudioPipeline.processMicrophoneFrame`に渡り、iPhone側のVAD・音声処理・RTC送信を通る。iPhoneの受信graphにある`rx-output`の合成・処理済みmono PCMを共通rendererからWatchへ送り、`engine-output`だけを消音する。既存engineの時計を使い、追加のmix graph、周期render timer、背景維持専用の無音音声を作らない。
 
-Watchでは押下中モードを既定とし、通常のマイク切替も標準Picker／Toggleで選べる。閉鎖時はローカル送話gateとnative入力配送を閉じ、部分AACの履歴を捨てる。モード変更、明示的なOFF、背景への移行、音声中断、接続断で閉じ、復帰だけでは再開しない。画面の暗転などinactiveへの移行では押下中モードを閉じ、通常モードですでにONにしたマイクは維持する。inactive中の新しいON要求は受け付けない。接続済みのWatchで物理音声routeが変わった場合は、形式が固定されたnative入出力を止め、Watchからの再開始を案内する。一時的な媒体pathの復旧とは区別する。押下解除で通話・受信を作り直さない。Watchのnative入出力と遠隔backendは直接接続し、App独自の音声queueやcodecを置かない。端末間の音声callbackはpackageで待機量と100msの配送寿命を制限し、古い発話を追いかけて再生しない。この上限は追加遅延の目標ではない。
+Watchのマイクは押している間だけ送話する（2026-11-01の利用者指示）。通常のマイク切替とモード選択は持たない。閉鎖時はローカル送話gateとnative入力配送を閉じ、部分AACの履歴を捨てる。押下の解除・取消、画面の暗転などinactiveへの移行、背景への移行、音声中断、接続断で閉じ、復帰だけでは再開しない。inactive中の新しい押下は受け付けない。接続済みのWatchで物理音声routeが変わった場合は、形式が固定されたnative入出力を止め、Watchからの再開始を案内する。一時的な媒体pathの復旧とは区別する。押下解除で通話・受信を作り直さない。Watchのnative入出力と遠隔backendは直接接続し、App独自の音声queueやcodecを置かない。端末間の音声callbackはpackageで待機量と100msの配送寿命を制限し、古い発話を追いかけて再生しない。この上限は追加遅延の目標ではない。
 
 2026-11-01の追加指示として、Watchの押下／マイク切替をiPhoneのミュート状態へ連動させない。押下ごとにWCSessionの制御要求・応答待ちを発生させず、Watch内のマイク入力配送と送話だけを切り替える。iPhoneの既存VAD・通話・受信回路を継続し、少量の残る通信をなくすために操作遅延や制御処理を増やさない。
 
@@ -52,6 +52,19 @@ Watch利用中はiPhoneのマイクミュート操作を無効にし、Widget・
 終了・ログアウト・別通話でpairと古い音声配送を破棄し、次の通常通話／Audio Checkに備えて元のnative backendへ戻す。Watch経路の失敗でiPhoneマイクへ自動移行せず、同じ通話を維持してWatchから再操作できる状態を返す。
 
 Watchの録音確認では、録音中のフレーム数や有音サンプル数を進捗ごとにWatchへ公開せず、状態とsessionの変更を通知する。録音終了後に確定したフレーム数・有音サンプル数を公開する。録音中は未確定の数値や無音判定をWatchに表示せず、iPhone内の実カウンタと入力メーターは維持する。
+
+## 画面構成
+
+[デザイン](../../design/一般向け/画面構成とレイアウト.md#watch)に従い、`NavigationStack`の2階層とする。通話がある間は通話画面を前面に固定し、終了で一覧へ戻る。
+
+| 画面 | 識別子 | 表示と操作 |
+|---|---|---|
+| 接続先一覧 | `watchDestinationList` | 「iPhoneに接続済み」、保存済みの相手（`watchTarget-{id}`、`person.fill`）。行タップで開始。呼出しの送信・取消は行のスワイプ操作（watchOSで長押しメニューの`contextMenu`が非推奨のため、デザインの長押しから置き換え）。footerに音声の注意書きを1回、末尾に更新。背景はaccentのグラデーション |
+| 通話画面 | `watchActiveCall` | 戻るを隠し、左上（`topBarLeading`）に切断（`watchEndCallButton`）。押すと確認（「切断しますか？」とdestructiveの「通話を終了」）。中央に相手名と状態（`watchCallStatus`）。下半分いっぱいに送話パネル。音声停止・利用不能では背景を黒にする |
+| 送話パネル | `watchHoldToTalk` | 角丸（`ConcentricRectangle`）の横長パネル。待機は「押して話す」（`mic`、淡いaccent）、押下中は「話しています」（`waveform`、voiceで塗る）、準備中は進行表示、音声停止は無効。押下の開始・解除で触覚。視差効果を減らす設定では記号の動きを止める |
+| iPhone未接続／サインアウト | `watchMessage` | 黒背景に記号と案内。未接続は「もう一度試す」で更新 |
+
+Digital Crownと`handGestureShortcut`には送話を割り当てない。文言はWatch専用のString Catalog（`RideIntercomWatch/Localizable.xcstrings`）で英語・日本語を切り替え、使われなくなったキーは削除する。検証ビルドのSimulatorでは`RIDEINTERCOM_WATCH_UI_FIXTURE`（`list`・`connecting`・`in-call`・`paused`・`signed-out`・`unreachable`）で各画面を表示し、iPhoneへは送信しない。
 
 ## 操作と状態の契約
 
@@ -81,15 +94,15 @@ snapshotの現在通話は閲覧中groupと分ける。表示状態は未ログ�
 | 境界 | 実装・受入の条件 |
 |---|---|
 | 通話の所有 | iPhoneの既存RTC接続・認証・利用権・通話世代を使う。Watchを別の参加者やWebRTC接続として追加しない。Watchから開始した音声は明示終了または自動切断期限まで入出力ともWatchに固定し、iPhoneのマイク・スピーカーへ暗黙に切り替えない。音声機器の切替・復旧で24時間の起算点や自動切断期限を更新しない |
-| 起動中の継続 | Watch Appを開いたまま手首を下げ画面が暗くなっても音声を継続する。通常モードでONにしたマイクは暗転だけではOFFにしない。押下モードのrelease・操作取消はWatchローカルの送話gateだけを閉じ、受話と通話を維持する。腕下げによる暗転と別画面へ移った背景状態を区別する |
-| 通信とnative経路 | 相手の無音・packet欠落・省電力のための音声通信停止を、Watchのnative入出力経路の破棄と結び付けない。無音を出せる再生状態を維持し、次の受話で再初期化を要求しない。この条件と通常モードの暗転中送話、押下解除中の受話継続を回帰・実機受入で確認する |
+| 起動中の継続 | Watch Appを開いたまま手首を下げ画面が暗くなっても音声と受話を継続し、送話は暗転で閉じる。押下のrelease・操作取消はWatchローカルの送話gateだけを閉じ、受話と通話を維持する。腕下げによる暗転と別画面へ移った背景状態を区別する |
+| 通信とnative経路 | 相手の無音・packet欠落・省電力のための音声通信停止を、Watchのnative入出力経路の破棄と結び付けない。無音を出せる再生状態を維持し、次の受話で再初期化を要求しない。この条件と暗転中の受話継続、押下解除中の受話継続を回帰・実機受入で確認する |
 | 音声session | Watchでは[非同期activation](https://developer.apple.com/documentation/avfaudio/avaudiosession/activate(options:completionhandler:))の実完了を待つ。途中の終了・中断・新開始に古い完了を適用せず、設定変更のたびのactivationや周期的な再activationを設けない。指定できない周波数・バッファ長・出力先等は要求値と実適用を区別する |
 | 媒体と秘密 | WatchConnectivityは操作と接続準備に限定する。既存のNetwork UDP配送・音声packetを再利用し、認証・暗号化・鮮度破棄をpackageに閉じる。グループ鍵やアカウント資格は渡さず、現在のペアと通話だけに使う一時的な媒体資格を別の明示契約で扱う。一般の表示snapshotに秘密を追加しない |
 | 既存packageとの差 | 再利用対象はiPhone–Watch間のNetwork配送・PCM入出力であり、WatchへNative WebRTCやグループ通話を移植しない。既存moduleのMultipeer専用CFNetwork/socket処理と、Watch非対応のAudio Toolbox・Audio Unit処理を分離し、必要な処理だけをWatchで使える境界を確認する |
 | 入出力と時計 | SessionManagerのcapture/render backend境界を使う。mix・エフェクト・VADはiPhoneに置き、Watch側にはAudioMixer graphを作らない。iPhoneで合成済みの単一音声をWatchへ送り、Watchは最小限の入出力・媒体codec・押下送話gateを持つ。iPhone側のmix時計とWatch側の再生時計の差・二重bufferを接続境界で検証し、出力callbackを転送できるだけで完了にしない |
 | Watchの遅延受入 | 通常端末に対して少なくとも約100ms追加する設計上の見込みを許容し、通常の約125ms総遅延ゲートを適用しない。iPhone経由・各通信段・codec・再生待ちの実測を分け、押して話すUIで許可状態と発話・受信の時間差が理解できることを確認する。固定100ms待ちを追加する実装にはしない |
 | codecと電池 | Apple標準AACを優先候補として公開APIによるdecodeを検証する。特定形式解析APIの不在とAAC全体の利用可否を区別する。Opusへの変更は十分な電池消費上の利点を比較して判断し、実機未測定の優位を採用根拠にしない |
-| ミュート | Watch選択中はiPhoneマイクを同時送信しない。押下中モードの解除・取消・中断・媒体断はWatch内の送話gateを閉じ、iPhoneの応答待ちを必要としない。受信と通話は維持し、遅れた要求・復旧だけではgateを開かない |
+| ミュート | Watch選択中はiPhoneマイクを同時送信しない。押下の解除・取消・中断・媒体断はWatch内の送話gateを閉じ、iPhoneの応答待ちを必要としない。受信と通話は維持し、遅れた要求・復旧だけではgateを開かない |
 | 実機の境界 | [TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)の制限はSimulatorで再現されない。CallKitなしの双方向音声、無音待機、画面消灯、iPhone不在・再到達、経路変更、電池消費を実Watchで確認する。activation成功・コンパイル成功をこの受入の代わりにしない |
 
 #### 背景継続の成立条件と確認待ち
