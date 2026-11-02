@@ -279,8 +279,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .land .tabbar { left: 120px; right: 120px; bottom: 10px; height: 50px; }
 .land .ctrls { margin: 10px 0 0; }
 .land .cbtn { width: 56px; height: 56px; font-size: 22px; }
+.land .sheetgrab { top: 7px; }
 .ipad { width: 820px; height: 540px; border-radius: 30px; padding: 12px; background: #1B1D21; box-shadow: 0 18px 40px rgba(14,34,56,.22), inset 0 0 0 1.5px #3A3D44; }
-.ipad .screen { border-radius: 20px; display: grid; grid-template-columns: 200px 1fr 1fr; }
+.ipad .screen { border-radius: 20px; display: grid; grid-template-columns: 170px 1fr 1.1fr; }
 .ipad .side { padding: 22px 10px; border-right: .5px solid var(--sep); background: color-mix(in srgb, var(--glass) 70%, transparent); }
 .ipad .side .it { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; }
 .ipad .side .it.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
@@ -881,7 +882,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
 
   <h2 id="layout">レイアウト（横画面・iPad・Mac）</h2>
-  <p class="note">同じ構造のまま、使える幅と高さで配置だけを変える（<a class="link" href="../デザインシステム.md">デザインシステム</a>の「レイアウトと画面サイズ」）。文字・操作は安全領域の内側、背景だけ画面端まで。</p>
+  <p class="note">一覧と通話の2種類の画面を、使える幅と高さで配置する。通話はiPhoneではシート、iPad・Macでは右の列（どちらも <code>inspector</code>）。（<a class="link" href="../デザインシステム.md">デザインシステム</a>の「レイアウトと画面サイズ」）。文字・操作は安全領域の内側、背景だけ画面端まで。</p>
   <div class="gallery">
     <figure>
       <div class="land"><div class="screen">
@@ -907,7 +908,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         </div>
         <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>iPhone 横（高さ500pt未満）</b>左列（約45%）に状態と操作列を固定し、スクロールしても操作が隠れない。操作は56ptに縮め、間隔24pt以上を保つ。右列だけスクロール。左右はDynamic Islandと角の安全領域を空ける。</figcaption>
+      <figcaption><b>iPhone 横：通話のシート（高さ500pt未満）</b>一覧は1列のまま。通話は全画面のシートで、左列（約45%）に状態と操作列を固定し、スクロールしても操作が隠れない。操作は56ptに縮め、間隔24pt以上を保つ。右列だけスクロール。左右はDynamic Islandと角の安全領域を空ける。</figcaption>
     </figure>
     <figure>
       <div class="ipad"><div class="screen">
@@ -917,7 +918,17 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="it"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="it"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
-        <div class="col"><div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
+        <div class="col">
+          <div style="font-size:22px;font-weight:700;padding:0 4px 8px">ユーザー</div>
+          <div class="group-h">前回</div>
+          <div class="group glass"><div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">週末ツーリング<div class="sub tag ok"><svg class="i"><use href="#wave"/></svg>会話中</div></span></div></div>
+          <div class="group glass">
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ</span></div>
+          </div>
+        </div>
+        <div class="col" style="border-left:.5px solid var(--sep);background:color-mix(in srgb,var(--glass) 50%,transparent)"><div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
             <div class="dest">週末ツーリング</div>
             <div class="status ok"><svg class="i"><use href="#wave"/></svg>会話中</div>
             <div class="route"><svg class="i"><use href="#antenna"/></svg>近距離・インターネット</div>
@@ -927,9 +938,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
               <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
             </div></div>
           <div class="slider" style="margin-top:8px"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">100%</span></div>
-        </div>
-        <div class="col">
-          <div class="group-h">メンバー</div>
+                  <div class="group-h">メンバー</div>
           <div class="group glass">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span><span class="tail">100%</span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%</span></div>
@@ -937,9 +946,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="group-h">招待中</div>
           <div class="group glass"><div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div></div>
-        </div>
+                </div>
       </div></div>
-      <figcaption><b>iPad（幅1000pt以上）</b>サイドバー＋2列。iPadとMacでは通話をシートにせず、選んだ接続先の通話を右側に表示する。Macも同じ配置だが、背景はグラデーションを使わずOS標準にする（デザインシステム見本の「macOS」）。左列に状態・操作列（64pt）・音量、右列にメンバーと招待中。各列は最大560pt。幅600〜1000ptではサイドバーがタブバーになり2列を保つ。600pt未満はiPhone縦と同じ1列。</figcaption>
+      <figcaption><b>iPad・Mac（幅1000pt以上）</b>サイドバー＋一覧＋右の列の通話（<code>inspector</code>）。接続していない間は通話の列を出さない。幅が狭くなると通話はシートに変わる。Macは背景をOS標準にする（デザインシステム見本の「macOS」）。</figcaption>
     </figure>
   </div>
 
