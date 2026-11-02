@@ -671,17 +671,9 @@ final class RideIntercomUITests: XCTestCase {
             add(details)
         }
         observe("Audio Check before section navigation")
-        let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.70))
-        let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.30))
-        start.press(forDuration: 0.1, thenDragTo: end)
+        revealSettingsControl(candidates[0])
         observe("Audio Check after section navigation")
-        var button = candidates.first { $0.exists && $0.isHittable && $0.isEnabled }
-        let audioCheckHeader = app.descendants(matching: .any)["audioCheckPanel"].firstMatch
-        if button == nil && audioCheckHeader.exists {
-            start.press(forDuration: 0.1, thenDragTo: end)
-            observe("Audio Check after second section navigation")
-            button = candidates.first { $0.exists && $0.isHittable && $0.isEnabled }
-        }
+        let button = candidates.first { $0.exists && $0.isHittable && $0.isEnabled }
         guard let button else { XCTFail("Audio Check button unavailable after bounded observation"); return }
         let phase = app.staticTexts["audioCheckPhaseLabel"]
         let status = app.staticTexts["audioCheckStatusLabel"]
