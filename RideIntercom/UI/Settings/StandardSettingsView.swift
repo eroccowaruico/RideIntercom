@@ -33,7 +33,7 @@ struct StandardSettingsView: View {
         VoiceActivityPanel(viewModel: viewModel)
         AudioCheckPanel(viewModel: viewModel)
         Section {
-            NavigationLink("More Audio and Connection Settings") {
+            NavigationLink("More Settings") {
                 Form {
                     InterfaceModeSection(viewModel: viewModel)
                     AudioSessionPanel(viewModel: viewModel)
