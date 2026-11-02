@@ -12,6 +12,7 @@ struct DirectInvitationContext: Codable, Equatable {
     var expiresAt: TimeInterval
     var inviterAccount: AccountPrincipal?
     var recipientAccount: AccountPrincipal?
+    var contactBootstrap: Bool? = nil
     var accountPair: AccountCallPair? {
         guard let inviterAccount, let recipientAccount else { return nil }
         return AccountCallPair(inviterAccount, recipientAccount)

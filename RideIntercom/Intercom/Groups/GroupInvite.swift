@@ -61,6 +61,7 @@ struct GroupInviteToken: Codable, Equatable {
         inviterDisplayName: String? = nil,
         recipientMemberID: String? = nil,
         recipientAccount: AccountPrincipal? = nil,
+        contactBootstrap: Bool? = nil,
         issuedAt: TimeInterval = Date().timeIntervalSince1970,
         expiresAt: TimeInterval? = nil
     ) throws -> GroupInviteToken {
@@ -69,7 +70,7 @@ struct GroupInviteToken: Codable, Equatable {
         let expiresAt = expiresAt ?? issuedAt + 7 * 24 * 60 * 60
         let grant = try authority.issue(.init(groupID: groupID, inviterMemberID: inviterMemberID, inviterDeviceKey: signer.publicKey,
                                              recipientMemberID: recipientMemberID, expiresAt: expiresAt,
-                                             inviterAccount: recipientAccount == nil ? nil : signer.principal, recipientAccount: recipientAccount))
+                                             inviterAccount: recipientAccount == nil ? nil : signer.principal, recipientAccount: recipientAccount, contactBootstrap: contactBootstrap))
         let signature = makeSignature(version: currentVersion, groupID: groupID, groupName: groupName, groupSecret: groupSecret,
             inviterMemberID: inviterMemberID, inviterDisplayName: inviterDisplayName, recipientMemberID: recipientMemberID,
             issuedAt: issuedAt, expiresAt: expiresAt, directInvitation: grant)
@@ -80,8 +81,8 @@ struct GroupInviteToken: Codable, Equatable {
     }
 
     func accept(signer: DeviceIdentitySigner, displayName: String, trust: DeviceIdentityTrust? = nil,
-                now: TimeInterval = Date().timeIntervalSince1970) throws -> AcceptedDirectInvitation {
-        try validate()
+                now: TimeInterval = Date().timeIntervalSince1970, contactBootstrap: Bool? = nil) throws -> AcceptedDirectInvitation {
+        try validate(contactBootstrap: contactBootstrap)
         guard verifySignature(), let identityProof, let grant = directInvitation else { throw GroupInviteTokenError.invalidSignature }
         guard !isExpired(now: now) else { throw GroupInviteTokenError.expired }
         let inviter = try identityProof.verify(Data(signature.utf8), purpose: .issueInvitation, memberID: inviterMemberID,
@@ -109,9 +110,9 @@ struct GroupInviteToken: Codable, Equatable {
         )
     }
 
-    func validate() throws {
+    func validate(contactBootstrap: Bool? = nil) throws {
         guard version == Self.currentVersion else { throw GroupInviteTokenError.unsupportedVersion }
-        guard let directInvitation, directInvitation.isValid,
+        guard let directInvitation, directInvitation.context.contactBootstrap == contactBootstrap, directInvitation.isValid,
               let identityProof, identityProof.publicKey == directInvitation.context.inviterDeviceKey,
               directInvitation.context.groupID == groupID,
               directInvitation.context.inviterMemberID == inviterMemberID,
@@ -190,18 +191,18 @@ enum GroupInviteTokenError: Error, Equatable {
 }
 
 enum GroupInviteTokenCodec {
-    static func joinURL(for token: GroupInviteToken) throws -> URL {
+    static func joinURL(for token: GroupInviteToken, contactBootstrap: Bool? = nil) throws -> URL {
         let data = try JSONEncoder().encode(token)
         let encodedToken = data.base64URLEncodedString()
-        guard let url = URL(string: "rideintercom://join?token=\(encodedToken)") else {
+        guard let url = URL(string: "rideintercom://\(contactBootstrap == true ? "contact" : "join")?token=\(encodedToken)") else {
             throw GroupInviteTokenError.invalidURL
         }
         return url
     }
 
-    static func decodeJoinURL(_ url: URL) throws -> GroupInviteToken {
+    static func decodeJoinURL(_ url: URL, contactBootstrap: Bool? = nil) throws -> GroupInviteToken {
         guard url.absoluteString.utf8.count <= 8192, url.scheme == "rideintercom",
-              url.host == "join",
+              url.host == (contactBootstrap == true ? "contact" : "join"),
               url.user == nil, url.password == nil, url.port == nil, url.fragment == nil, url.path.isEmpty,
               URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.count == 1,
               let encodedToken = URLComponents(url: url, resolvingAgainstBaseURL: false)?
@@ -213,7 +214,7 @@ enum GroupInviteTokenCodec {
         }
 
         let token = try JSONDecoder().decode(GroupInviteToken.self, from: data)
-        try token.validate()
+        try token.validate(contactBootstrap: contactBootstrap)
         guard token.verifySignature() else {
             throw GroupInviteTokenError.invalidSignature
         }
