@@ -13,11 +13,11 @@
 <style>
 :root {
   color-scheme: light;
-  --accent: #1584CC;
+  --accent: #1179C0;
   --green: #34C77B;
   --aqua: #0BA59B;
-  --sky: #F2F9FE;
-  --snow: #FFFFFF;
+  --sky: #E6F1FA;
+  --snow: #ECF2F8;
   --ridge: #0E2238;
   --red: #F5484E;
   --orange: #FFAC33;
@@ -25,7 +25,7 @@
   --label2: rgba(60, 60, 67, .58);
   --label3: rgba(60, 60, 67, .38);
   --sep: rgba(60, 60, 67, .16);
-  --glass: rgba(255, 255, 255, .74);
+  --glass: rgba(255, 255, 255, .86);
   --glass-edge: rgba(21, 132, 204, .10);
   --glass-shadow: 0 4px 14px rgba(21, 132, 204, .06);
   --fill: rgba(118, 118, 128, .10);
@@ -40,8 +40,8 @@
   --accent: #2F95DC;
   --green: #3CC98F;
   --aqua: #5BF3E2;
-  --sky: #0F2238;
-  --snow: #08111D;
+  --sky: #050E1A;
+  --snow: #03070D;
   --red: #FF6B6B;
   --orange: #FFB340;
   --label: #F2F6FA;
@@ -124,7 +124,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .phone { width: 300px; height: 650px; border-radius: 48px; padding: 9px; background: #1B1D21; box-shadow: 0 18px 40px rgba(14, 34, 56, .22), inset 0 0 0 1.5px #3A3D44; }
 .screen {
   position: relative; height: 100%; border-radius: 40px; overflow: hidden;
-  background: linear-gradient(180deg, var(--sky) 0%, var(--snow) 55%);
+  background: linear-gradient(180deg, var(--sky) 0%, var(--snow) 60%);
   color: var(--label); font-size: 13px; line-height: 1.45;
   line-break: strict; word-break: auto-phrase;
 }
@@ -266,6 +266,25 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .seg3 span { flex: 1; text-align: center; padding: 4px 0; border-radius: 6px; }
 .seg3 span.on { background: var(--grouped-card); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
 
+
+/* ---------- レイアウト見本 ---------- */
+.land { width: 660px; height: 312px; border-radius: 46px; padding: 9px; background: #1B1D21; box-shadow: 0 18px 40px rgba(14,34,56,.22), inset 0 0 0 1.5px #3A3D44; }
+.land .screen { display: grid; grid-template-columns: 45% 1fr; gap: 0; padding: 0 44px; }
+.land .lcol { padding: 18px 10px 70px 4px; display: flex; flex-direction: column; justify-content: center; }
+.land .rcol { padding: 18px 4px 70px 10px; overflow: hidden; }
+.land .island-v { position: absolute; left: 12px; top: 50%; width: 26px; height: 92px; margin-top: -46px; background: #000; border-radius: 20px; }
+.land .tabbar { left: 120px; right: 120px; bottom: 10px; height: 50px; }
+.land .ctrls { margin: 10px 0 0; }
+.land .cbtn { width: 56px; height: 56px; font-size: 22px; }
+.ipad { width: 820px; height: 540px; border-radius: 30px; padding: 12px; background: #1B1D21; box-shadow: 0 18px 40px rgba(14,34,56,.22), inset 0 0 0 1.5px #3A3D44; }
+.ipad .screen { border-radius: 20px; display: grid; grid-template-columns: 200px 1fr 1fr; }
+.ipad .side { padding: 22px 10px; border-right: .5px solid var(--sep); background: color-mix(in srgb, var(--glass) 70%, transparent); }
+.ipad .side .it { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.ipad .side .it.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.ipad .col { padding: 24px 16px; overflow: hidden; }
+.dim-note { position: relative; }
+.measure { font: 600 10.5px ui-monospace, Menlo, monospace; color: #E5484D; }
+
 /* ---------- Watch ---------- */
 .watch { width: 196px; height: 238px; border-radius: 54px; padding: 9px; background: #26282C; box-shadow: 0 14px 30px rgba(0,0,0,.28), inset 0 0 0 1.5px #44474D; position: relative; }
 .watch::after { content: ""; position: absolute; right: -6px; top: 58px; width: 7px; height: 34px; border-radius: 3px; background: #3A3D42; }
@@ -380,8 +399,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .control .cg svg { width: 100%; height: 100%; }
 .control .ca { position: relative; font-size: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
 .control.other { font-size: 24px; }
-.control.on { background: #fff; color: #1584CC; --road: #1584CC; --wave: #0BA59B; }
-.control.on .cg { --road: #1584CC; --wave: #0BA59B; }
+.control.on { background: #fff; color: #1179C0; --road: #1179C0; --wave: #0BA59B; }
+.control.on .cg { --road: #1179C0; --wave: #0BA59B; }
 .control.unset { opacity: .7; }
 .cc { display: flex; gap: 18px; padding: 22px; border-radius: 26px; background: linear-gradient(160deg, #50779E, #24384F); align-items: flex-start; }
 .cc figcaption { color: rgba(255,255,255,.9); text-align: center; max-width: 90px; }
@@ -435,6 +454,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
       <a href="#iphone">iPhone</a>
       <a href="#future">将来</a>
       <a href="#settings">設定</a>
+      <a href="#layout">レイアウト</a>
       <a href="#watch">Watch</a>
       <a href="#widget">Widget</a>
     </nav>
@@ -453,15 +473,15 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
   <h2 id="palette">カラーテーマ</h2>
   <p class="note">左がライト、右がダーク。ブランド色は主要操作・状態・声の可視化にだけ使い、画面の大部分は白／夜の紺と標準の文字色にする。</p>
   <div class="palette">
-    <div class="swatch"><div class="chips"><div style="background:#1584CC;color:#fff">#1584CC</div><div style="background:#2F95DC;color:#fff">#2F95DC</div></div>
+    <div class="swatch"><div class="chips"><div style="background:#1179C0;color:#fff">#1179C0</div><div style="background:#2F95DC;color:#fff">#2F95DC</div></div>
       <div class="meta"><b>Ride Blue</b><code>AccentColor</code><p>App全体のtint。接続・もう一度接続等の主要操作、選択状態、Slider。</p></div></div>
     <div class="swatch"><div class="chips"><div style="background:#34C77B;color:#063">#34C77B</div><div style="background:#3CC98F;color:#062">#3CC98F</div></div>
       <div class="meta"><b>Ride Green</b><code>RideGreen</code><p>会話中・接続成功（状態色 success）。Watchの会話中の背景。</p></div></div>
     <div class="swatch"><div class="chips"><div style="background:#0BA59B;color:#fff">#0BA59B</div><div style="background:#5BF3E2;color:#003">#5BF3E2</div></div>
       <div class="meta"><b>Voice</b><code>VoiceAqua</code><p>声の可視化。メーター、話している人、Apple Watchの送話中。文字色には使わない。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#F2F9FE;color:#0E2238">#F2F9FE</div><div style="background:#0F2238;color:#fff">#0F2238</div></div>
+    <div class="swatch"><div class="chips"><div style="background:#E6F1FA;color:#0E2238">#E6F1FA</div><div style="background:#050E1A;color:#fff">#050E1A</div></div>
       <div class="meta"><b>Background Top</b><code>BackgroundTop</code><p>主要導線画面とWidgetの背景グラデーション上端。</p></div></div>
-    <div class="swatch"><div class="chips"><div style="background:#FFFFFF;color:#0E2238">#FFFFFF</div><div style="background:#08111D;color:#fff">#08111D</div></div>
+    <div class="swatch"><div class="chips"><div style="background:#ECF2F8;color:#0E2238">#ECF2F8</div><div style="background:#03070D;color:#fff">#03070D</div></div>
       <div class="meta"><b>Background Base</b><code>BackgroundBase</code><p>同グラデーション下端。</p></div></div>
     <div class="swatch"><div class="chips"><div style="background:#0E2238;color:#fff">#0E2238</div><div style="background:#0E2238;color:#fff">#0E2238</div></div>
       <div class="meta"><b>Deep Navy</b><code>DeepNavy</code><p>外観で変わらない濃紺。ロック画面のライブアクティビティの背景tint、ウィジェット（ダーク）の背景。</p></div></div>
@@ -471,8 +491,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
       <div class="meta"><b>Danger</b><code>Danger</code><p>ミュート・切断・失敗・削除。少し明るく冷たい赤。ボタンの塗りと記号に使う。</p></div></div>
   </div>
   <div class="gradient-demo">
-    <div style="background:linear-gradient(180deg,#F2F9FE,#FFFFFF 55%);color:#0E2238">背景グラデーション（ライト）<br><span style="font-weight:400;opacity:.7">Top → Base。カードはこの上にガラスを重ねる</span></div>
-    <div style="background:linear-gradient(180deg,#0F2238,#08111D 62%);color:#F2F6FA">背景グラデーション（ダーク）<br><span style="font-weight:400;opacity:.7">夜空の紺。ガラスは白7%程度に見える</span></div>
+    <div style="background:linear-gradient(180deg,#E6F1FA,#ECF2F8 55%);color:#0E2238">背景グラデーション（ライト）<br><span style="font-weight:400;opacity:.7">Top → Base。カードはこの上にガラスを重ねる</span></div>
+    <div style="background:linear-gradient(180deg,#050E1A,#03070D 62%);color:#F2F6FA">背景グラデーション（ダーク）<br><span style="font-weight:400;opacity:.7">夜空の紺。ガラスは白7%程度に見える</span></div>
   </div>
   <h3>状態の見せ方（色＋記号＋文言）</h3>
   <div class="table-wrap">
@@ -858,7 +878,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
   </div>
 
   <h2 id="settings">設定の構成</h2>
-  <p class="note">リセットまでのスクロール全体。同じ目的のセクションを隣り合わせ、グループの切れ目を少し広い余白で区切る。左の色は右の構成図のグループに対応する。画面表示の切替と専門的な音声の設定は「開発者向けの高度な設定」へまとめ、リセットは最下部に独立して置く。</p>
+  <p class="note">リセットまでのスクロール全体。同じ目的のセクションを隣り合わせ、グループの切れ目を少し広い余白で区切る。左の色は右の構成図のグループに対応する。画面表示の切替・インターネット接続・専門的な音声の設定は「開発者向けの高度な設定」へまとめ、リセットは最下部に独立して置く。</p>
   <div class="pair">
     <figure>
       <div class="phone tall"><div class="screen form">
@@ -877,12 +897,11 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group"><div class="row"><span class="grow">通常の接続</span><span class="tail"><span class="link">3時間</span></span></div><div class="row"><span class="grow">Apple Watchから開始した接続</span><span class="tail"><span class="link">5分</span></span></div></div>
           <div class="ffoot">次に接続するときから適用します。</div>
           <div class="group-h g2"><span class="gdot"></span>呼び出しの通知</div>
-          <div class="group"><div class="row"><span class="grow">この端末で通知を受け取れます</span></div><div class="row"><span class="grow"><span class="link">通知を確認</span></span></div></div>
+          <div class="group"><div class="row"><span class="grow">呼び出しを受け取る</span><span class="toggle"></span></div></div>
+          <div class="ffoot">呼び出しを受けても、自動では接続しません。</div>
           <div class="group-h g2"><span class="gdot"></span>接続状態の表示</div>
           <div class="group"><div class="row"><span class="grow">ロック画面に接続状態を表示</span><span class="toggle offt"></span></div></div>
           <div class="gsep"></div>
-          <div class="group-h g3"><span class="gdot"></span>インターネット接続</div>
-          <div class="group"><div class="row"><span class="grow">設定済み</span><span class="tail"><svg class="i" style="color:var(--green)"><use href="#check"/></svg></span></div><div class="row"><span class="grow"><span class="link">インターネット接続を設定</span></span></div></div>
           <div class="group-h g3"><span class="gdot"></span>通信経路</div>
           <div class="group"><div class="row"><span class="grow">通信経路</span><span class="tail">近距離・インターネット<svg class="i chev"><use href="#chev"/></svg></span></div></div>
           <div class="gsep"></div>
@@ -940,6 +959,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group-h g5"><span class="gdot"></span>画面表示</div>
           <div class="group"><div class="seg3"><span class="on">標準</span><span>詳細</span></div></div>
           <div class="ffoot">詳細表示では診断と細かな設定を表示します（英語のみ）。</div>
+          <div class="group-h g5"><span class="gdot"></span>インターネット接続</div>
+          <div class="group"><div class="row"><span class="grow">設定済み</span><span class="tail"><svg class="i" style="color:var(--green)"><use href="#check"/></svg></span></div><div class="row"><span class="grow"><span class="link">インターネット接続を設定</span></span></div></div>
           <div class="group-h g4"><span class="gdot"></span>オーディオセッション</div>
           <div class="group"><div class="row"><span class="grow">セッションモード</span><span class="tail">バースト<svg class="i chev"><use href="#chev"/></svg></span></div><div class="row"><span class="grow">スピーカー出力を強制</span><span class="toggle offt"></span></div><div class="row"><span class="grow">エコーキャンセレーション</span><span class="toggle"></span></div><div class="row"><span class="grow">他のアプリ音声のダッキング</span><span class="toggle"></span></div></div>
           <div class="ffoot">バーストは通常の音声モード、ストリームは電話に近い会話向けです。</div>
@@ -954,7 +975,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>開発者向けの高度な設定</b>一般の人が入らないよう難しい名前にし、画面の一番上に「変えると動かなくなることがある」と警告を出す。画面表示（標準／詳細）の切替もここ。音声の項目は将来固定する想定。リセットはここに置かない。</figcaption>
+      <figcaption><b>開発者向けの高度な設定</b>一般の人が入らないよう難しい名前にし、画面の一番上に「変えると動かなくなることがある」と警告を出す。画面表示（標準／詳細）の切替とインターネット接続もここ。音声の項目は将来固定する想定。リセットはここに置かない。</figcaption>
     </figure>
 
     <div class="outline">
@@ -965,21 +986,90 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <li>利用権 <span>利用権の状態 · 購入を復元 · 購入内容を見る</span></li></ol></div>
       <div class="og g2"><b>接続</b><ol>
         <li>自動切断 <span>通常の接続 · Apple Watchから開始した接続</span></li>
-        <li>呼び出しの通知 <span>状態 · 通知を有効にする／確認／無効にする</span></li>
+        <li>呼び出しの通知 <span>「呼び出しを受け取る」の切替1つ（確認ボタンは置かない）</span></li>
         <li>接続状態の表示 <span>ロック画面に接続状態を表示（Macはメニューバー）</span></li></ol></div>
       <div class="og g3"><b>通信</b><ol>
-        <li>インターネット接続 <span>状態 · インターネット接続を設定（sheet）</span></li>
         <li>通信経路 ▸ <span>状態の表示だけ。設定は1階層下（近距離 · インターネット）</span></li></ol></div>
       <div class="og g4"><b>音声</b><ol>
         <li>音声の入出力 <span>入力 · 出力 · 送信する声を分離</span></li>
         <li>発話検出 <span>静かな場所／標準／騒がしい場所</span></li>
         <li>音声チェック <span>5秒録音して再生</span></li></ol></div>
       <div class="og g5"><b>高度な設定</b><ol>
-        <li>開発者向けの高度な設定 ▸ <span>警告 · 画面表示（標準／詳細）· オーディオセッション · 送信コーデック（音声は将来固定予定）</span></li></ol></div>
+        <li>開発者向けの高度な設定 ▸ <span>警告 · 画面表示（標準／詳細）· インターネット接続 · オーディオセッション · 送信コーデック（音声は将来固定予定）</span></li></ol></div>
       <div class="og g6"><b>リセット</b><ol>
         <li>リセット <span>すべての設定をリセット（確認付き）</span></li></ol></div>
       <p class="note" style="margin-top:6px">現行は画面表示が先頭、リセットは「More Audio and Connection Settings」の中。一般向けでは日常的に触る項目を上に、表示切替と専門設定を「開発者向けの高度な設定」の中へ、リセットを最下部に移す。</p>
     </div>
+  </div>
+
+
+  <h2 id="layout">レイアウト（横画面・iPad・Mac）</h2>
+  <p class="note">同じ構造のまま、使える幅と高さで配置だけを変える（<a class="link" href="../デザインシステム.md">デザインシステム</a>の「レイアウトと画面サイズ」）。文字・操作は安全領域の内側、背景だけ画面端まで。</p>
+  <div class="gallery">
+    <figure>
+      <div class="land"><div class="screen">
+        <span class="island-v"></span>
+        <div class="lcol"><div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
+            <div class="dest">週末ツーリング</div>
+            <div class="status ok"><svg class="i"><use href="#wave"/></svg>会話中</div>
+            <div class="route"><svg class="i"><use href="#antenna"/></svg>近距離・インターネット</div>
+            <div class="ctrls">
+              <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
+              <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker"/></svg></span>スピーカー</div>
+              <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
+            </div>
+        </div>
+        <div class="rcol">
+          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">100%</span></div>
+          <div class="group-h" style="margin-top:6px">メンバー</div>
+          <div class="group glass">
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span><span class="tail">100%</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">まだ接続していません</div></span></div>
+          </div>
+        </div>
+        <div class="tabbar glass">
+          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
+          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
+          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
+          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
+        </div>
+      </div></div>
+      <figcaption><b>iPhone 横（高さ500pt未満）</b>左列（約45%）に状態と操作列を固定し、スクロールしても操作が隠れない。操作は56ptに縮め、間隔24pt以上を保つ。右列だけスクロール。左右はDynamic Islandと角の安全領域を空ける。</figcaption>
+    </figure>
+    <figure>
+      <div class="ipad"><div class="screen">
+        <div class="side">
+          <div style="font-size:18px;font-weight:700;padding:0 10px 10px">RideCom</div>
+          <div class="it on"><svg class="i f"><use href="#phone"/></svg>通話</div>
+          <div class="it"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
+          <div class="it"><svg class="i"><use href="#person3"/></svg>グループ</div>
+          <div class="it"><svg class="i"><use href="#gear"/></svg>設定</div>
+        </div>
+        <div class="col"><div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
+            <div class="dest">週末ツーリング</div>
+            <div class="status ok"><svg class="i"><use href="#wave"/></svg>会話中</div>
+            <div class="route"><svg class="i"><use href="#antenna"/></svg>近距離・インターネット</div>
+            <div style="transform:scale(1.0)"><div class="ctrls" style="justify-content:flex-start;gap:24px">
+              <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
+              <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker"/></svg></span>スピーカー</div>
+              <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
+            </div></div>
+          <div class="slider" style="margin-top:8px"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">100%</span></div>
+        </div>
+        <div class="col">
+          <div class="group-h">メンバー</div>
+          <div class="group glass">
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span><span class="tail">100%</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">まだ接続していません</div></span></div>
+          </div>
+          <div class="group-h">招待中</div>
+          <div class="group glass"><div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div></div>
+        </div>
+      </div></div>
+      <figcaption><b>iPad・Mac（幅1000pt以上）</b>サイドバー＋2列。左列に状態・操作列（64pt）・音量、右列にメンバーと招待中。各列は最大560pt。幅600〜1000ptではサイドバーがタブバーになり2列を保つ。600pt未満はiPhone縦と同じ1列。</figcaption>
+    </figure>
   </div>
 
   <!-- ================= Watch ================= -->
