@@ -53,7 +53,7 @@ extension IntercomViewModel {
     func receiveInvitationReceipt(peerID: String, message: ApplicationDataMessage) {
         guard canEditSavedGroups, message.namespace == DirectInvitationReceipt.namespace, message.payload.count <= 8192,
               authenticatedPeerIDs.contains(peerID),
-              let receipt = try? JSONDecoder().decode(DirectInvitationReceipt.self, from: message.payload),
+              let receipt = message.decodedPayload(DirectInvitationReceipt.self, from: peerID),
               receipt.isValid, receipt.groupID == activeGroupID else { return }
         do {
             switch receipt.kind {

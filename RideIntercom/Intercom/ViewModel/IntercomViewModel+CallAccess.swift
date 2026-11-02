@@ -118,7 +118,7 @@ extension IntercomViewModel {
         let now = suppliedNow ?? callAccessNow().timeIntervalSince1970
         guard enforceCallAccess, canStartCalls, message.namespace == SharedCallAccess.namespace, message.payload.count <= 8192,
               authenticatedPeerIDs.contains(peerID), var state = peerProfiles[peerID], state.membershipID != nil, let verified = currentRepresentativeProfiles[peerID]?.verified,
-              let value = try? JSONDecoder().decode(SharedCallAccess.self, from: message.payload),
+              let value = message.decodedPayload(SharedCallAccess.self, from: peerID),
               value.groupID == activeGroupID, value.recipientMemberID == localMemberIdentity.memberID,
               value.challenge == state.challenge, value.revision > (state.callAccess?.revision ?? 0),
               value.activeUntil.map({ $0.isFinite && $0 > 0 }) ?? true,

@@ -2,6 +2,7 @@ import AVFoundation
 import Codec
 import Foundation
 import Logging
+import RTC
 import Testing
 @testable import RideIntercom
 
@@ -69,5 +70,22 @@ struct LoggingPrivacyTests {
         #expect(AudioPacketReception.failure(AppAudioPipelineError.notConfigured) == .unavailable)
         struct PlaybackFailure: Error {}
         #expect(AudioPacketReception.failure(PlaybackFailure()) == .failed("PlaybackFailure"))
+    }
+
+    @Test func malformedApplicationDataIsDroppedAndLoggedWithoutPayload() {
+        struct Probe: Codable, Equatable { var value: Int }
+        let valid = ApplicationDataMessage(namespace: "test.probe", payload: Data(#"{"value":7}"#.utf8))
+        #expect(valid.decodedPayload(Probe.self, from: "rider-private-123") == Probe(value: 7))
+        let malformed = ApplicationDataMessage(namespace: "test.probe", payload: Data("secret-body".utf8))
+        #expect(malformed.decodedPayload(Probe.self, from: "rider-private-123") == nil)
+
+        let metadata = ApplicationDataLog.decodeFailed(namespace: "test.probe", peerID: "rider-private-123",
+                                                       error: DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "")))
+        #expect(metadata["event"] == "rtc.application_data.decode_failed")
+        #expect(metadata["namespace"] == "test.probe")
+        #expect(metadata["errorType"] == "DecodingError")
+        #expect(metadata["peerIDHash"] != nil)
+        #expect(metadata.count == 4)
+        #expect(!metadata.description.contains("rider-private-123"))
     }
 }

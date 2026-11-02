@@ -107,7 +107,7 @@ extension IntercomViewModel {
     func receivePeerProfileChallenge(peerID: String, message: ApplicationDataMessage, now: TimeInterval = Date().timeIntervalSince1970) {
         guard canStartCalls, message.namespace == PeerProfileChallenge.namespace, message.payload.count <= 1024,
               authenticatedPeerIDs.contains(peerID), var state = peerProfiles[peerID],
-              let challenge = try? JSONDecoder().decode(PeerProfileChallenge.self, from: message.payload),
+              let challenge = message.decodedPayload(PeerProfileChallenge.self, from: peerID),
               challenge.groupID == activeGroupID, challenge.recipientMemberID == localMemberIdentity.memberID,
               now - state.lastResponseAt >= 1 else { return }
         state.remoteChallenge = challenge.nonce
@@ -147,7 +147,7 @@ extension IntercomViewModel {
         guard message.namespace == SharedDisplayName.namespace, message.payload.count <= 8192,
               authenticatedPeerIDs.contains(peerID), canEditSavedGroups, let groupID = activeGroupID,
               var state = peerProfiles[peerID],
-              let value = try? JSONDecoder().decode(SharedDisplayName.self, from: message.payload),
+              let value = message.decodedPayload(SharedDisplayName.self, from: peerID),
               value.revision > (state.verified?.revision ?? 0),
               let verified = try? value.verified(peerID: peerID, recipient: localMemberIdentity.memberID,
                   groupID: groupID, challenge: state.challenge, trust: try? internetSettingsStore.identityTrust()) else { return }

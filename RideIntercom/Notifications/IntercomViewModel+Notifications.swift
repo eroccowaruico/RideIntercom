@@ -33,7 +33,7 @@ extension IntercomViewModel {
     func receiveNotificationPermission(peerID: String, message: ApplicationDataMessage) {
         guard message.namespace == CallNotificationPermissionMessage.namespace, message.payload.count <= 8192,
               notificationExchangeContext()?.peerID == peerID,
-              let value = try? JSONDecoder().decode(CallNotificationPermissionMessage.self, from: message.payload) else { return }
+              let value = message.decodedPayload(CallNotificationPermissionMessage.self, from: peerID) else { return }
         do { try notifications.receivePermission(value, peerID: peerID) }
         catch { /* Untrusted or unrelated capabilities cannot authorize a call. */ }
     }

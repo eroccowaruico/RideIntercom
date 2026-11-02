@@ -1,5 +1,6 @@
 import Codec
 import Foundation
+import Logging
 import RTC
 
 enum ControlMessage: Equatable {
@@ -74,6 +75,27 @@ nonisolated enum AudioPacketReception: Equatable, Sendable {
         case is CodecError, is AppAudioCodecBridge.DecodingError: .decodeFailed(String(describing: type(of: error)))
         default: .failed(String(describing: type(of: error)))
         }
+    }
+}
+
+extension ApplicationDataMessage {
+    /// Callers check namespace and size first, so only a known namespace reaches the log.
+    func decodedPayload<T: Decodable>(_ type: T.Type, from peerID: String) -> T? {
+        do { return try JSONDecoder().decode(T.self, from: payload) }
+        catch {
+            AppLoggers.rtc.warning("rtc.application_data.decode_failed",
+                                   metadata: ApplicationDataLog.decodeFailed(namespace: namespace, peerID: peerID, error: error))
+            return nil
+        }
+    }
+}
+
+/// Malformed application data log metadata. The payload is never recorded.
+enum ApplicationDataLog {
+    static func decodeFailed(namespace: String, peerID: String, error: any Error) -> Logging.Logger.Metadata {
+        .event("rtc.application_data.decode_failed", [
+            "namespace": "\(namespace)", "peerID": "\(peerID)", "errorType": "\(type(of: error))"
+        ])
     }
 }
 

@@ -132,7 +132,7 @@ final class ContactInvitationSession {
                 retry()
             case .receivedApplicationData(let peer, let message):
                 guard message.namespace == DirectInvitationReceipt.namespace, message.payload.count <= 8192,
-                      peers.contains(peer), let receipt = try? JSONDecoder().decode(DirectInvitationReceipt.self, from: message.payload),
+                      peers.contains(peer), let receipt = message.decodedPayload(DirectInvitationReceipt.self, from: peer),
                       receipt.invitation?.contactBootstrap == true else { return }
                 if let issued {
                     guard !issued.isExpired(now: now()), receipt.kind == .accepted,
