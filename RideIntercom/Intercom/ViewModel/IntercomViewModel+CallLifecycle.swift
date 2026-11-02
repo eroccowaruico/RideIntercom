@@ -1,3 +1,4 @@
+import AVFAudio
 import AudioDevice
 import AudioCore
 import Foundation
@@ -135,6 +136,9 @@ extension IntercomViewModel {
             AppLoggers.audio.info("audio.media.started", metadata: .event("audio.media.started", [
                 "route": "\(self.routeLabel)", "codec": "\(self.selectedTransmitCodec.rawValue)"
             ]))
+            if let denied = MicrophonePermissionLog.denied(AVAudioApplication.shared.recordPermission) {
+                AppLoggers.app.notice("app.permission.microphone.denied", metadata: denied)
+            }
             self.refreshCallAccess()
             self.recordEstablishedCall()
         }
@@ -439,5 +443,13 @@ private extension SessionManager.AudioStreamOperationResult {
         case .failed(_):
             false
         }
+    }
+}
+
+/// Media can start with a denied microphone and send silence, so the denial is logged at media start.
+enum MicrophonePermissionLog {
+    static func denied(_ permission: AVAudioApplication.recordPermission) -> Logger.Metadata? {
+        guard permission == .denied else { return nil }
+        return .event("app.permission.microphone.denied", ["permission": "denied"])
     }
 }

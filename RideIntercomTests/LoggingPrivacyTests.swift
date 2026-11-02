@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Logging
 import Testing
@@ -51,5 +52,13 @@ struct LoggingPrivacyTests {
         #expect(metadata["groupID"] == nil)
         #expect(metadata["groupIDHash"] != nil)
         #expect(!metadata.description.contains(groupID.uuidString))
+    }
+
+    @Test func microphonePermissionLogIsEmittedOnlyWhenDenied() throws {
+        let metadata = try #require(MicrophonePermissionLog.denied(.denied))
+        #expect(metadata["event"] == "app.permission.microphone.denied")
+        #expect(metadata["permission"] == "denied")
+        #expect(MicrophonePermissionLog.denied(.granted) == nil)
+        #expect(MicrophonePermissionLog.denied(.undetermined) == nil)
     }
 }
