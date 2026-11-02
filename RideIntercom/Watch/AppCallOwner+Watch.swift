@@ -1,6 +1,11 @@
 import Foundation
 
 extension AppCallOwner {
+    /// Watch starts calls to saved people; Widget and Siri keep their broader directory.
+    private var watchCallTargets: [(entity: CallTargetEntity, destination: CallDestination)] {
+        callTargets.filter { if case .user = $0.destination { true } else { false } }
+    }
+
     /// An opaque reference to the existing account/call generation, not another call state.
     private func watchReference(_ vm: IntercomViewModel) -> String {
         let call = vm.currentCallReference
@@ -25,7 +30,7 @@ extension AppCallOwner {
                 canCancel: outgoing.reply.isLive(at: now) && [.processing, .accepted].contains(outgoing.reply.status))
         }
         return .init(reference: watchReference(vm), generatedAt: now, validUntil: now.addingTimeInterval(120),
-                     targets: callTargets.map { target in
+                     targets: watchCallTargets.map { target in
                          let canNotify: Bool
                          if case .user(let id) = target.destination { canNotify = vm.notifications.canNotify(id) }
                          else { canNotify = false }
@@ -54,7 +59,7 @@ extension AppCallOwner {
         case .refresh: return reply()
         case .startAudio(let id, let offer):
             guard offer.key.count == 32,
-                  let target = callTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
+                  let target = watchCallTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
             guard vm.startCall(to: target.destination, accountAccessID: vm.accountAccessID,
                                allowSwitchingCall: false, usingWatch: true) else { return reply(.denied) }
             do {
@@ -63,7 +68,7 @@ extension AppCallOwner {
                 return .init(snapshot: watchSnapshot(), problem: nil, audioEndpoint: endpoint)
             } catch { return reply(.unavailable) }
         case .start(let id):
-            guard let target = callTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
+            guard let target = watchCallTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
             succeeded = vm.startCall(to: target.destination, accountAccessID: vm.accountAccessID, allowSwitchingCall: false, usingWatch: true)
         #if DEBUG
         case .startAudioCheck(let offer):
@@ -82,7 +87,7 @@ extension AppCallOwner {
         case .end: succeeded = vm.endCall(vm.currentCallReference)
         case .setMuted(let value): succeeded = vm.setCallMuted(value, for: vm.currentCallReference)
         case .requestCall(let id):
-            guard let target = callTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
+            guard let target = watchCallTargets.first(where: { $0.entity.id == id }) else { return reply(.missingDestination) }
             guard case .user(let userID) = target.destination, vm.notifications.canNotify(userID) else { return reply(.denied) }
             succeeded = await vm.notifications.send(to: userID) != nil
         case .cancelCallRequest(let id):
