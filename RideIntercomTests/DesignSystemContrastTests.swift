@@ -7,8 +7,10 @@ import UIKit
 struct DesignSystemContrastTests {
     private func luminance(_ name: String, style: UIUserInterfaceStyle = .light,
                            contrast: UIAccessibilityContrast = .normal) throws -> Double {
-        let traits = UITraitCollection(traitsFrom: [UITraitCollection(userInterfaceStyle: style),
-                                                   UITraitCollection(accessibilityContrast: contrast)])
+        let traits = UITraitCollection {
+            $0.userInterfaceStyle = style
+            $0.accessibilityContrast = contrast
+        }
         let color = try #require(UIColor(named: name, in: .main, compatibleWith: traits))
             .resolvedColor(with: traits)
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
