@@ -17,7 +17,7 @@ struct DiagnosticsPresentationTests {
         h.viewModel.audioErrorMessage = nil
         h.viewModel.isMuted = false
         #expect(presentation.sessionStep.state == .blocked)
-        #expect(presentation.inputStreamStep.state == .waiting)
+        #expect(presentation.inputStreamStep.state == .muted)
         #expect(presentation.codecStep.state == .waiting)
         #expect(presentation.codecStep.detail.contains("Fallback"))
         #expect(presentation.rtcStep.accessibilityIdentifier == "pipeline-rtc-step")
@@ -34,6 +34,11 @@ struct DiagnosticsPresentationTests {
         #expect(presentation.receivePeerBuses[0].outputVolume == 0.25)
         #expect(presentation.outputStep.accessibilityIdentifier == "receive-pipeline-output-step")
         #expect(presentation.masterEffectStages.isEmpty)
+        input.isOutputMuted = true
+        #expect(ReceivePipelinePresentation(input: input).outputStep.state == .muted)
+        input.isOutputMuted = false
+        input.masterOutputVolume = 0
+        #expect(ReceivePipelinePresentation(input: input).outputStep.state == .waiting)
     }
 }
 }

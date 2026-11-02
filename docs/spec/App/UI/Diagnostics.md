@@ -7,7 +7,7 @@
 | DiagnosticsInput | 更新時にViewModelから必要な値だけsnapshot化。子ViewはViewModelを保持しない |
 | TransmitPipelinePresentation / ReceivePipelinePresentation | snapshotから状態・理由・step・peer表示を純粋に導出。副作用やObservable状態を持たない |
 | LiveTransmitPipelineView / LiveReceivePipelineView | 表示順と画面構成。既存の項目・更新周期・識別子を維持 |
-| PipelineComponents / ReceiveTransportViews / ReceiveMixViews | 必要な表示値だけ受け取る描画部品。色とアイコンの対応も描画側に置く |
+| PipelineComponents / ReceiveMixViews / DiagnosticsPipelineDetails | 必要な表示値だけ受け取る描画部品。色とアイコンの対応も描画側に置く |
 
 
 各pipeline行とeffect stageは、既存状態を色と記号で示し、VoiceOverの値に状態語と既存の詳細を含める。`passing`はPassing（checkmark）、`waiting`はWaiting（pause）、`blocked`はBlocked（octagon）、`idle`はIdle（dashed circle）とする。Passingには累計のpacket・frame数に基づく状態も含まれ、現在の流量を証明しない。特大文字では行の名前・package・詳細を折り返す。
@@ -38,12 +38,28 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 
 ## 画面構成
 
+`diagnosticsPagePicker`でOverview、TX、RX、Network、Appliedを切り替える。5ページの選択には標準menu Pickerを使う。iOSのアクセシビリティ文字サイズでは、横向きでmenuが画面に収まらずスクロールできないため、同じ識別子の標準NavigationLinkから選択List（`diagnosticsPageSelection`、選択中にcheckmark）を開き、選ぶと元の画面へ戻る。幅600pt以上ではOverview以外のページに現在のOverviewも並べる。画面内のページ選択は表示状態であり、ViewModelのsnapshotや通話状態を作り直さない。Overviewの `diagnosticsOthersCannotHearButton` はTX、`diagnosticsCannotHearButton`・`diagnosticsAudioDropsButton`・`diagnosticsAudioDelayedButton` はRXへ移動する。これらはページと該当する段へ移動し展開する案内であり、原因を自動診断した結果ではない。TXの各段とRXの相手および出力詳細は標準DisclosureGroupで開閉する。
+
+TX/RXは従来のpipeline、NetworkはLocal・Internet別にRTT、loss、jitter、送信待ち、event dropsと最後に観測した経路を表示し、経過15秒超をStaleとする。経路が一致する単一の最新metricsのみ利用し、未取得値をNot measuredとする。Overviewは既存stageから最初のblocked、なければ最初のwaiting/idle、各stage、参加者と経路を示す。TX/RXは機器、VAD、観測経路、相手別情報と出力buffer/resetを既存値から表示し、差分履歴を持たない毎秒値はNot measuredとする。Appliedはcodec、Sessionの要求と解決済み設定、stream実測sample rate、未計測のIO buffer、Unsupported、Ducking、機器、VAD、isolation、Call/InviteおよびInternet Serviceを表示する。Sessionの解決済み設定はハードウェア実測と区別し、未取得はNot measuredとする。
+
 | 項目名（日本語） | 項目ID | 目的 | 実装 | 更新周期 | 表示仕様 |
 |---|---|---|---|---|---|
 | 診断画面 | `diagnosticsScrollView` | package runtime report と App 状態を要約する | `DiagnosticsView` | 表示中0.5秒。開く時点は即時、非表示のsnapshot作成は5秒 | `TimelineView` + `ScrollView` |
 | 送信パイプライン | `liveTransmitPipelineView` | ローカル送信がどこまで進んでいるかを読む | `LiveTransmitPipelineView` | 0.5 秒 | compact row。effect chain は TX bus 内に内包表示 |
 | 受信パイプライン | `liveReceivePipelineView` | 受信音声が出力までどこまで進んでいるかを読む | `LiveReceivePipelineView` | 0.5 秒 | compact row。peer bus は複数行一覧、effect chain は該当 bus 内に内包表示。RX master FXは実グラフの内容のみを表示する |
 | 現在状態一覧 | `diagnosticsOverviewGrid` | pipeline と重複しない App 状態を見る | `DiagnosticsOverviewGrid` | 0.5 秒 | 先頭のadaptive grid。Audio Path / Call / Network Quality / Invite |
+
+### Diagnosticsの状態と遷移
+
+[UIスタック](../../../design/デザインシステム.md#uiスタック)の5状態を、既存のpackage report・snapshotの有無と各段の状態から導出する。ページ選択は表示状態だけを変え、どの状態でも全5ページへ移動できる。
+
+| 状態 | 成立条件・表示 | 操作・遷移・復帰先 |
+|---|---|---|
+| Ideal | 通話中で各段がRunning、Networkの最新metricsが15秒以内。Overviewの要約は`Running` | 症状の案内から該当ページと段へ移動して展開する。ページ選択でOverviewへ戻る |
+| Empty | 通話先・通話がなく、reportが未取得。各段はIdle、Networkは接続を促す`Not measured`の文言、Appliedの未取得値は`Not measured` | 通話はCall／Users／Groupsから開始する。Diagnosticsから通話を開始・変更しない |
+| Error | いずれかの段がBlocked（session・codec・RTC等の失敗）。Overviewの要約が最初のblockedの段と理由を示し、記号と語で色以外でも区別する | 「Others can't hear me」はTXの最初の未成立段へ移動する。復旧操作は各機能の画面（Call・Settings）で行う |
+| Partial | 一部の段がWaiting／Muted、Networkが15秒超で`Stale`、相手や経路の値が未取得。取得済みの値と`Not measured`を並べ、未取得値を推測で埋めない | 値は0.5秒ごとの更新で自然に変わる。経路の再接続はDiagnosticsから行わない |
+| Loading | 画面を開いた直後。表示時に即時のreport公開を要求し、届くまでは直前のsnapshotまたはEmptyの表示を使う。専用の読込画面は持たない | 次の0.5秒更新で該当状態へ移る |
 
 ## 送信パイプライン
 
@@ -77,9 +93,9 @@ effect chain は AudioMixer package の `MixerBusSnapshot.effectChain` を正と
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 表示仕様 | 状態・異常系の考え方 |
 |---|---|---|---|---|---|---|
-| RTC受信ステップ | `liveReceivePipelineView` | `receive-pipeline-rtc-step` | RTC RX | route、connected peer count、authenticated peer count、受信 packet count、media ownership | route と総 RX count。内側の `receive-rtc-peers` で接続 peer 名、RTC 接続状態、認証状態を一覧表示 | 受信 0 は未発話または未接続として読む |
-| Codec decodeステップ | `liveReceivePipelineView` | `receive-pipeline-codec-step` | Decode | peer ごとの `activeCodec`、peer ごとの RX count、drop count | codec の集約サマリは出さない。内側の `receive-codec-peers` で peer 名と decode codec を一覧表示 | drop は warning |
-| peer busステップ | `liveReceivePipelineView` | `receive-pipeline-peer-bus-step` | Peer Buses | `AudioMixerSnapshot` の RX peer bus、authenticated peer count、peer 別 RX / JIT / PLAY / level / volume / `receivePeerEffectChainSnapshot(peerID:)` | bus 数と RX count。下段に peer bus を複数行一覧で表示し、各 peer row 内には Mixer bus と effect chain だけを表示 | peer なしは neutral / waiting |
+| RTC受信ステップ | `liveReceivePipelineView` | `receive-pipeline-rtc-step` | RTC RX | route、connected peer count、authenticated peer count、受信 packet count、media ownership | route と総 RX count。peer別の接続・認証・経路は下の参加者内訳に表示 | 受信 0 は未発話または未接続として読む |
+| Codec decodeステップ | `liveReceivePipelineView` | `receive-pipeline-codec-step` | Decode | peer ごとの `activeCodec`、peer ごとの RX count、drop count | codec の集約サマリは出さない。peer別のdecode codecは下の参加者内訳に表示 | drop は warning |
+| peer busステップ | `liveReceivePipelineView` | `receive-pipeline-peer-bus-step` | Peer Buses | `AudioMixerSnapshot` の RX peer bus、authenticated peer count、peer 別 RX / JIT / PLAY / level / volume / `receivePeerEffectChainSnapshot(peerID:)` | bus 数と RX count。peer別の音量・FX要約・待機frame数は下の参加者内訳に表示 | peer なしは neutral / waiting |
 | receive mix downステップ | `liveReceivePipelineView` | `receive-pipeline-mix-step` | Mix Down | `AudioMixerSnapshot.routes`、peer bus count、受信 packet count | `n routes -> rx-master` として複数 peer が master に集約されることを表示 | bus なしは waiting |
 | receive master busステップ | `liveReceivePipelineView` | `receive-pipeline-master-bus-step` | RX Master | `AudioMixerSnapshot` の `rx-master`、played frame count、master volume、source bus count | source bus count と OUT volume。mix 後の 1 本の master bus として表示 | 再生 0 は waiting |
 | master effect chainステップ | `liveReceivePipelineView` | `receive-pipeline-master-effects-step` | Master FX | `AudioMixerSnapshot` の `rx-master.effectChain` + `rx-output.effectChain` から導出した `receiveMasterEffectChainSnapshot.stages` | RX Master 配下に適用される ordered stage chip として inline 表示（Isolation → master fader → 出力Limiter） | stage 単位で unavailable / bypassed を表示 |
@@ -87,28 +103,22 @@ effect chain は AudioMixer package の `MixerBusSnapshot.effectChain` を正と
 
 ## 受信 mix topology 表示
 
-`LiveReceivePipelineView` は RTC、Decode、Peer Buses の各ステップに peer 別の内訳を持つ。RTC の内側では誰が接続・認証されているかを表示し、Decode の内側では peer ごとの codec を表示し、Peer Buses の内側では Mixer bus と effect chain を表示する。
-
-`receive-pipeline-peer-bus-step` の内側にある `receive-mix-topology` では `AudioMixerSnapshot.routes` に基づいて peer bus が複数行で並び、最後に receive master bus へ mix down される構造をログなしで確認できるようにする。peer が増えても巨大な card grid へせず、各 peer は RX / JIT / PLAY / level / volume / effect chain を compact row と chip で表示する。
+`LiveReceivePipelineView` はRTC RX、Decode、Peer Busesの段を1行ずつ並べ、その下に参加者ごとの内訳（`diagnosticsReceiveDetails`）を置く。内訳の見出し`receive-mix-topology`（Participants）の下で、自分以外のメンバーを標準DisclosureGroupで開閉する。peerが増えても巨大なcard gridへせず、開いた参加者だけ詳細行を表示する。Overviewの「I can't hear someone」「Audio drops out」は全参加者を開いた状態でこの位置へ移動する。
 
 | 項目 | accessibilityIdentifier | 表示する状態 |
 |---|---|---|
-| RTC peer group | `receive-rtc-peers` | 接続対象 peer の一覧 |
-| RTC peer row | `receive-peer-rtc-{index}` | peer 名、RTC 接続状態、認証状態 |
-| Decode peer group | `receive-codec-peers` | peer ごとの decode codec 一覧 |
-| Decode peer row | `receive-peer-codec-{index}` | peer 名、decode codec、RX count |
-| peer bus 空状態 | `receive-peer-buses-empty` | 認証済み peer bus がまだない |
-| peer bus row | `receive-peer-bus-{index}` | peer 名、RX / JIT / PLAY、peer volume、peer ごとの effect summary、現在 level |
-| peer bus effect stage | `receive-peer-{index}-effect-stage-{stageID}` | その peer の `receivePeerEffectChainSnapshot(peerID:)` に含まれる stage 状態 |
+| 参加者内訳 | `diagnosticsReceiveDetails` | 見出しと参加者の一覧。通話先がなければNo participants |
+| 内訳の見出し | `receive-mix-topology` | Participants |
+| 参加者行 | メンバーIDを`id`に持つDisclosureGroup | 表示名（2行まで）。開くと、送信側のミュート（`mic.slash.fill`と語）、送信側のcodec・bitrate・VAD・isolationと報告の経過秒（15秒超はStale）、RTC RXの接続・認証・経路（Internet／Local direct／Local relayed）、Decode codec、Peer Busの音量・FX要約・待機frame数。offlineはOfflineだけを表示する。未取得値はNot measured |
 | master mix row | `receive-master-mix-card` | source bus count、総 RX、PLAY、master volume / mute、RX master effect summary、出力 level |
 
 ## 受信 effect chain 表示
 
-受信側は peer bus と receive master bus のそれぞれに ordered stages を持つ。Diagnostics は AudioMixer package snapshot 由来の `receivePeerEffectChainSnapshot(peerID:)` と `receiveMasterEffectChainSnapshot` を描画するだけで、effect の default 値や stage 配列を持たない。peer 側は全体で 1 つの共有 Peer FX 行にまとめず、各 peer row の内側へ inline 表示する。
+受信側は peer bus と receive master bus のそれぞれに ordered stages を持つ。Diagnostics は AudioMixer package snapshot 由来の `receivePeerEffectChainSnapshot(peerID:)` と `receiveMasterEffectChainSnapshot` を描画するだけで、effect の default 値や stage 配列を持たない。peer 側は全体で 1 つの共有 Peer FX 行にまとめず、参加者内訳の各参加者にstageの要約（`effectSummary`）として表示する。stage別のchipと識別子は持たない。
 
 | chain | stage | accessibilityIdentifier | package | 表示する状態 |
 |---|---|---|---|---|
-| Peer FX | SoundIsolation | `receive-peer-{index}-effect-stage-sound-isolation` | SoundIsolation | enabled / bypassed / unavailable |
+| Peer FX | SoundIsolation | 参加者内訳の`FX`要約（stage別の識別子なし） | SoundIsolation | enabled / bypassed / unavailable |
 | Master FX | SoundIsolation | `receive-master-effect-stage-sound-isolation` | SoundIsolation | enabled / bypassed / unavailable |
 | Master FX | PeakLimiter | `receive-master-effect-stage-peak-limiter` | PeakLimiter | final peak guard ready / idle |
 

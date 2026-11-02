@@ -188,7 +188,7 @@ struct ReceivePipelinePresentation {
                 title: "Output",
                 detail: input.isOutputMuted ? "Muted" : "Volume 0%",
                 icon: "speaker.slash.fill",
-                state: .waiting,
+                state: input.isOutputMuted ? .muted : .waiting,
                 accessibilityIdentifier: "receive-pipeline-output-step"
             )
         }

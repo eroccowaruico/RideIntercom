@@ -55,6 +55,7 @@ enum PipelineStepState: Equatable {
     case passing
     case waiting
     case blocked
+    case muted
     case idle
 
 

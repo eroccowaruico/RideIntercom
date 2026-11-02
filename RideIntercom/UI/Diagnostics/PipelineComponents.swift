@@ -10,6 +10,7 @@ extension PipelineStepState {
         case .passing: "checkmark.circle.fill"
         case .waiting: "pause.circle.fill"
         case .blocked: "xmark.octagon.fill"
+        case .muted: "mic.slash.fill"
         case .idle: "circle.dashed"
         }
     }
@@ -19,6 +20,7 @@ extension PipelineStepState {
         case .passing: "Passing"
         case .waiting: "Waiting"
         case .blocked: "Blocked"
+        case .muted: "Muted"
         case .idle: "Idle"
         }
     }
@@ -29,7 +31,7 @@ extension PipelineStepState {
             AppColorPalette.success
         case .waiting:
             AppColorPalette.warning
-        case .blocked:
+        case .blocked, .muted:
             AppColorPalette.danger
         case .idle:
             AppColorPalette.neutral
@@ -127,7 +129,7 @@ struct CompactPipelineStepRow: View {
 
             Text(step.detail)
                 .font(AppTypography.caption2Mono)
-                .foregroundStyle(step.state.color)
+                .foregroundStyle(AppColorPalette.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
                 .fixedSize(horizontal: true, vertical: false)
@@ -157,7 +159,7 @@ struct CompactPipelineStepRow: View {
 
                 Text(step.detail)
                     .font(AppTypography.caption2Mono)
-                    .foregroundStyle(step.state.color)
+                    .foregroundStyle(AppColorPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -200,7 +202,7 @@ struct CompactEffectChainGroup: View {
 
                     Text("\(stages.count) stages")
                         .font(AppTypography.caption2Mono)
-                        .foregroundStyle(step.state.color)
+                        .foregroundStyle(AppColorPalette.textPrimary)
                 }
 
                 LazyVGrid(columns: columns, alignment: .leading, spacing: AppSpacing.xs) {
@@ -241,7 +243,7 @@ struct EffectChainStageChip: View {
 
                 Text(stage.detail)
                     .font(AppTypography.caption2Mono)
-                    .foregroundStyle(stage.state.color)
+                    .foregroundStyle(AppColorPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

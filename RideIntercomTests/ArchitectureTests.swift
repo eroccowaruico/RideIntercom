@@ -66,7 +66,7 @@ struct ArchitectureTests {
         let transmitPipelineView = try ["LiveTransmitPipelineView", "TransmitPipelinePresentation", "PipelineComponents"].map {
             try AppTestSupport.source("RideIntercom/UI/Diagnostics/" + $0 + ".swift")
         }.joined(separator: "\n")
-        let receivePipelineView = try ["LiveReceivePipelineView", "ReceivePipelinePresentation", "ReceiveTransportViews", "ReceiveMixViews"].map {
+        let receivePipelineView = try ["LiveReceivePipelineView", "ReceivePipelinePresentation", "ReceiveMixViews", "DiagnosticsPipelineDetails"].map {
             try AppTestSupport.source("RideIntercom/UI/Diagnostics/" + $0 + ".swift")
         }.joined(separator: "\n")
         let effectChainSource = try AppTestSupport.source("RideIntercom/Intercom/ViewModel/IntercomViewModel+EffectChains.swift")
@@ -92,9 +92,8 @@ struct ArchitectureTests {
         #expect(transmitPipelineView.contains("CompactEffectChainGroup"))
         #expect(transmitPipelineView.contains("ViewThatFits(in: .horizontal)"))
         #expect(transmitPipelineView.contains("minHeight: 104") == false)
-        #expect(receivePipelineView.contains("ReceiveRTCPeersGroup"))
-        #expect(receivePipelineView.contains("ReceiveDecodePeersGroup"))
-        #expect(receivePipelineView.contains("ReceivePeerBusCompactRow"))
+        #expect(receivePipelineView.contains("DiagnosticsReceiveDetails(viewModel: viewModel, expandedStage: $expandedStage)"))
+        #expect(receivePipelineView.contains("ReceiveMasterMixGroup(step: presentation.masterBusStep"))
         #expect(receivePipelineView.contains("ReceivePeerBusCard") == false)
         #expect(receivePipelineView.contains("receiveCodecSummary") == false)
         #expect(transmitPipelineView.contains("input.transmitEffectChainSnapshot"))
@@ -105,12 +104,8 @@ struct ArchitectureTests {
         #expect(receivePipelineView.contains("activeCodec: member.activeCodec"))
         #expect(transmitPipelineView.contains("input.mixerBusSnapshot(id: \"tx-bus\")"))
         #expect(receivePipelineView.contains("input.audioMixerSnapshot.routes.filter"))
-        #expect(receivePipelineView.contains("receive-peer-rtc-\\(index)"))
-        #expect(receivePipelineView.contains("receive-peer-codec-\\(index)"))
-        #expect(receivePipelineView.contains("DEC \\(codecLabel(peer.activeCodec))"))
         #expect(receivePipelineView.contains("RTC \\(peerBus.connectionLabel)") == false)
         #expect(receivePipelineView.contains("DEC \\(codecLabel(peerBus.activeCodec))") == false)
-        #expect(receivePipelineView.contains("ViewThatFits(in: .horizontal)"))
         #expect(receivePipelineView.contains("defaultReceiveSoundIsolationEnabled") == false)
         #expect(effectChainSource.contains("var transmitEffectChainSnapshot"))
         #expect(effectChainSource.contains("func receivePeerEffectChainSnapshot"))

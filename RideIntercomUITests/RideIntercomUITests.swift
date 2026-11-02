@@ -771,6 +771,7 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     func testAdaptivePipelineStateIsReadableWithoutColor() {
         openDiagnosticsTab()
+        selectDiagnosticsPage("TX")
         let row = app.descendants(matching: .any)["pipeline-session-step"].firstMatch
         for _ in 0..<30 where !row.isHittable { app.swipeUp() }
         XCTAssertTrue(row.isHittable)
@@ -784,14 +785,16 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     func testAdaptiveDiagnosticsAndConfigurationRemainReachable() {
         openDiagnosticsTab()
+        selectDiagnosticsPage("Applied")
         let status = app.staticTexts["internetServiceCheckStatus"]
         for _ in 0..<8 where !status.isHittable { app.swipeUp() }
         XCTAssertTrue(status.exists)
         XCTAssertTrue(app.buttons["checkInternetService"].exists)
         XCTAssertFalse(app.buttons["checkInternetService"].isEnabled)
+        selectDiagnosticsPage("Network")
         let network = app.staticTexts["networkDiagnosticsSummary"]
-        for _ in 0..<8 where !network.isHittable { app.swipeUp() }
-        XCTAssertTrue(network.isHittable)
+        XCTAssertTrue(network.waitForExistence(timeout: 3))
+        XCTAssertTrue(network.isHittable, network.debugDescription)
         XCTAssertTrue(network.label.contains("Not measured"))
         attachScreen("Diagnostics Large Text Dark")
         openSettingsTab()
@@ -963,15 +966,21 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     private func checkDiagnosticsShowRealDeviceSetupIdentifiers() throws {
         showEmptyDiagnostics()
+        selectDiagnosticsPage("Network")
         XCTAssertTrue(app.staticTexts["networkDiagnosticsSummary"].waitForExistence(timeout: 3))
-
+        selectDiagnosticsPage("TX")
         XCTAssertTrue(app.descendants(matching: .any)["liveTransmitPipelineView"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["liveReceivePipelineView"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["pipeline-session-step"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["pipeline-effects-step"].exists)
+        let mixer = app.descendants(matching: .any)["pipeline-mixer-step"].firstMatch
+        XCTAssertTrue(mixer.exists)
+        mixer.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["pipeline-effects-step"].waitForExistence(timeout: 3))
+        selectDiagnosticsPage("RX")
+        XCTAssertTrue(app.descendants(matching: .any)["liveReceivePipelineView"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["receive-pipeline-mix-step"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["receive-mix-topology"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["receive-pipeline-output-step"].exists)
+        selectDiagnosticsPage("Overview")
         revealDiagnosticOverview()
         XCTAssertTrue(app.descendants(matching: .any)["realDeviceCallDebugSummaryLabel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioIOPanel"].exists)
@@ -1028,11 +1037,12 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     private func checkDiagnosticsKeepsMicrophoneIndicatorVisibleWithoutGroup() throws {
         showEmptyDiagnostics()
-
+        selectDiagnosticsPage("TX")
         XCTAssertTrue(app.descendants(matching: .any)["liveTransmitPipelineView"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["liveReceivePipelineView"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["pipeline-input-step"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["pipeline-effect-stage-vad-gate"].exists) // No invented idle Mixer effects.
+        selectDiagnosticsPage("RX")
+        XCTAssertTrue(app.descendants(matching: .any)["liveReceivePipelineView"].waitForExistence(timeout: 3))
     }
 
     @MainActor
@@ -1042,6 +1052,7 @@ final class RideIntercomUITests: XCTestCase {
 
         openDiagnosticsTab()
         XCTAssertTrue(app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch.waitForExistence(timeout: 3))
+        selectDiagnosticsPage("TX")
         XCTAssertTrue(app.descendants(matching: .any)["pipeline-session-step"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["pipeline-input-step"].firstMatch.waitForExistence(timeout: 3))
 
@@ -1202,31 +1213,22 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func openDiagnosticsTab() {
-        defer {
-            let scroll = app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch
-            for _ in 0..<6 {
-                if app.descendants(matching: .any)["audioPathSummary"].firstMatch.isHittable { break }
-                scroll.swipeDown()
-            }
-        }
-        if app.descendants(matching: .any)["liveTransmitPipelineView"].firstMatch.exists {
-            return
-        }
-        if app.tabBars.buttons["Diagnostics"].firstMatch.exists {
-            app.tabBars.buttons["Diagnostics"].firstMatch.tap()
-            return
-        }
-        if app.radioButtons["diagnosticsTab"].firstMatch.exists {
-            app.radioButtons["diagnosticsTab"].firstMatch.tap()
-            return
-        }
-        if app.buttons["diagnosticsTab"].firstMatch.exists {
-            app.buttons["diagnosticsTab"].firstMatch.tap()
-            return
-        }
-        if app.buttons["Diagnostics"].firstMatch.exists {
-            app.buttons["Diagnostics"].firstMatch.tap()
-        }
+        if app.descendants(matching: .any)["diagnosticsPagePicker"].firstMatch.exists { return }
+        if app.tabBars.buttons["Diagnostics"].firstMatch.exists { app.tabBars.buttons["Diagnostics"].firstMatch.tap() }
+        else if app.radioButtons["diagnosticsTab"].firstMatch.exists { app.radioButtons["diagnosticsTab"].firstMatch.tap() }
+        else if app.buttons["diagnosticsTab"].firstMatch.exists { app.buttons["diagnosticsTab"].firstMatch.tap() }
+        else { app.buttons["Diagnostics"].firstMatch.tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsPagePicker"].firstMatch.waitForExistence(timeout: 3))
+    }
+
+    private func selectDiagnosticsPage(_ title: String) {
+        let picker = app.descendants(matching: .any)["diagnosticsPagePicker"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3))
+        XCTAssertTrue(picker.isHittable, picker.debugDescription)
+        picker.tap()
+        let choice = app.buttons[title].firstMatch
+        XCTAssertTrue(choice.waitForExistence(timeout: 3), app.debugDescription)
+        choice.tap()
     }
 
     private func openSettingsTab() {
@@ -1277,15 +1279,12 @@ final class RideIntercomUITests: XCTestCase {
                                        file: StaticString = #filePath, line: UInt = #line) {
         let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
         XCTAssertTrue(scroll.waitForExistence(timeout: 5), file: file, line: line)
-        let top = app.descendants(matching: .any)["signOutButton"].firstMatch
-        var searchedFromTop = false
-        for _ in 0..<40 {
+        for attempt in 0..<36 {
             let viewport = scroll.frame.intersection(app.frame).insetBy(dx: 0, dy: 4)
             if target.exists && !target.frame.isEmpty
                 && (fullyVisible ? target.isHittable && viewport.contains(target.frame) : viewport.intersects(target.frame)) { return }
-            if top.exists && top.isHittable { searchedFromTop = true }
             let hasFrame = target.exists && !target.frame.isEmpty
-            let down = hasFrame ? target.frame.midY < viewport.midY : !searchedFromTop
+            let down = hasFrame ? target.frame.midY < viewport.midY : (attempt < 6 || attempt >= 30)
             let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.3 : 0.7))
             let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.7 : 0.3))
             start.press(forDuration: 0.05, thenDragTo: end)

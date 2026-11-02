@@ -59,7 +59,7 @@ struct TransmitPipelinePresentation {
                 title: "Input",
                 detail: inputStreamDetail("Muted"),
                 icon: "mic.slash.fill",
-                state: .waiting,
+                state: .muted,
                 accessibilityIdentifier: "pipeline-input-step"
             )
         }
