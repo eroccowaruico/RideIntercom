@@ -49,6 +49,7 @@ enum AppBorderWidth {
 }
 
 enum AppSize {
+    static let twoColumnMinimumWidth: CGFloat = 600
     static let callControlDiameter: CGFloat = 64
     static let callControlCompactDiameter: CGFloat = 56
     static let singleColumnMaxWidth: CGFloat = 640

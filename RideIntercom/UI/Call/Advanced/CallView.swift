@@ -5,10 +5,50 @@ struct CallView: View {
     @Bindable var viewModel: IntercomViewModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AppSpacing.screen) {
-                statusHeader
-                controls
+        CallHeightLayout { compactHeight, regularWidth in
+            GlassEffectContainer(spacing: AppSpacing.screen) {
+                if compactHeight || regularWidth {
+                    HStack(alignment: .top, spacing: AppSpacing.screen) {
+                        ScrollView {
+                            primaryColumn.padding(AppSpacing.screen)
+                        }
+                        .frame(maxWidth: AppSize.callColumnMaxWidth)
+                        ScrollView {
+                            detailColumn.padding(AppSpacing.screen)
+                        }
+                        .frame(maxWidth: AppSize.callColumnMaxWidth)
+                    }
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: AppSpacing.screen) {
+                            primaryColumn
+                            detailColumn
+                        }
+                        .padding(AppSpacing.screen)
+                        .frame(maxWidth: AppSize.singleColumnMaxWidth)
+                    }
+                }
+            }
+        }
+        .sensoryFeedback(.selection, trigger: viewModel.isMuted)
+        .sensoryFeedback(.selection, trigger: viewModel.isOutputMuted)
+        .sensoryFeedback(trigger: viewModel.hasAnyActiveGroupConnection) { old, new in
+            old && !new ? .stop : nil
+        }
+        .sensoryFeedback(trigger: viewModel.callStatus(for: viewModel.activeGroupID)) { old, new in
+            if new == .inCall && old != .inCall { return .success }
+            if new == .audioPaused && old != .audioPaused { return .warning }
+            return nil
+        }
+        .background(AppColorPalette.callScreenBackground)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("callScreen")
+    }
+
+    private var primaryColumn: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.screen) {
+            statusHeader
+            controls
                 if viewModel.selectedGroup?.kind == .direct {
                     Text(viewModel.selectedGroup.flatMap(viewModel.directCallRecipient) == nil
                          && viewModel.selectedGroup.flatMap(viewModel.directCallAccountRecipient) == nil
@@ -38,6 +78,11 @@ struct CallView: View {
                     }
                 }
 
+        }
+    }
+
+    private var detailColumn: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.screen) {
                 VStack(alignment: .leading, spacing: AppSpacing.l) {
                     Text("Participants")
                         .font(AppTypography.sectionTitle)
@@ -71,11 +116,7 @@ struct CallView: View {
                         .foregroundStyle(AppColorPalette.danger)
                         .accessibilityIdentifier("audioErrorLabel")
                 }
-            }
-            .padding(AppSpacing.screen)
         }
-        .background(AppColorPalette.callScreenBackground)
-        .accessibilityIdentifier("callScreen")
     }
 
     private var statusHeader: some View {
@@ -146,13 +187,16 @@ struct CallView: View {
                         .foregroundStyle(AppColorPalette.textSecondary)
                         .accessibilityIdentifier("outputStateLabel")
 
-                    Slider(
-                        value: Binding(
-                            get: { Double(viewModel.masterOutputVolume) },
-                            set: { viewModel.setMasterOutputVolume(Float($0)) }
-                        ),
-                        in: 0...2
-                    )
+                    Slider(value: Binding(
+                        get: { Double(viewModel.masterOutputVolume) },
+                        set: { viewModel.setMasterOutputVolume(Float($0)) }
+                    ), in: 0...2) {
+                        Text("Output Volume")
+                    } minimumValueLabel: {
+                        Image(systemName: "speaker")
+                    } maximumValueLabel: {
+                        Image(systemName: "speaker.wave.3")
+                    }
                     .accessibilityLabel("Output Volume")
                     .accessibilityValue(outputPercentLabel)
                     .accessibilityIdentifier("masterOutputSlider")
@@ -179,13 +223,14 @@ struct CallView: View {
                         .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
                 }
                 .appSecondaryButtonStyle()
-                .tint(viewModel.isOutputMuted ? AppColorPalette.danger : AppColorPalette.buttonProminentBackground)
+                .modifier(AdvancedSelectedControlStyle(isSelected: viewModel.isOutputMuted, tint: AppColorPalette.buttonProminentBackground))
+                .accessibilityAddTraits(viewModel.isOutputMuted ? .isSelected : [])
                 .accessibilityLabel(viewModel.isOutputMuted ? "Unmute Output" : "Mute Output")
                 .accessibilityValue(outputPercentLabel)
                 .accessibilityIdentifier("masterOutputMuteButton")
             }
         }
-        .appCallCardStyle()
+        .appDetailedCallHeroStyle()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("callStatusHeader")
     }

@@ -5,13 +5,25 @@ struct CallHeightLayout<Content: View>: View {
     #if os(iOS)
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     #endif
-    @ViewBuilder let content: (Bool) -> Content
+    @ViewBuilder let content: (Bool, Bool) -> Content
 
     var body: some View {
-        #if os(iOS)
-        content(verticalSizeClass == .compact)
+        GeometryReader { geometry in
+            #if os(iOS)
+            content(verticalSizeClass == .compact, geometry.size.width >= AppSize.twoColumnMinimumWidth)
+            #else
+            content(false, geometry.size.width >= AppSize.twoColumnMinimumWidth)
+            #endif
+        }
+    }
+}
+
+extension View {
+    func appDetailedCallHeroStyle() -> some View {
+        #if os(macOS)
+        self.padding(AppSpacing.xl).appCallHeroStyle()
         #else
-        content(false)
+        self.appCallCardStyle()
         #endif
     }
 }

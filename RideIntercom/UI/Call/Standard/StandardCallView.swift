@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct StandardCallView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
     @State private var addingUsers: IntercomGroup?
@@ -9,12 +10,35 @@ struct StandardCallView: View {
     @State private var confirmsEnd = false
 
     var body: some View {
-        CallHeightLayout { compactHeight in
-            if compactHeight, let group = viewModel.selectedGroup {
+        CallHeightLayout { compactHeight, regularWidth in
+            if compactHeight, dynamicTypeSize.isAccessibilitySize, let group = viewModel.selectedGroup {
+                VStack(spacing: 0) {
+                    List {
+                        Section {
+                            accessibleCompactHero(group)
+                            if viewModel.canControlMicrophone { microphoneStatus }
+                        }
+                        CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab, excludesSelected: true)
+                        CallStorageSection(viewModel: viewModel)
+                        detailSections(group)
+                        CallErrorSection(viewModel: viewModel)
+                    }
+                    .frame(maxHeight: .infinity)
+                    .clipped()
+                    .accessibilityIdentifier("standardCallDetailsScroll")
+                    VStack {
+                        primaryActions(group, compact: true, showsStatus: false)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, AppSpacing.screen)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("standardCallFixedControls")
+                }
+            } else if (compactHeight || regularWidth), let group = viewModel.selectedGroup {
                 HStack(alignment: .top, spacing: AppSpacing.screen) {
                     VStack(spacing: AppSpacing.m) {
-                        hero(group, compact: true)
-                        primaryActions(group, compact: true)
+                        hero(group, compact: compactHeight)
+                        primaryActions(group, compact: compactHeight)
                     }
                     .frame(maxWidth: AppSize.callColumnMaxWidth)
                     List {
@@ -65,6 +89,16 @@ struct StandardCallView: View {
         }
         .scrollContentBackground(.hidden)
         .background(AppColorPalette.standardScreenBackground)
+        .sensoryFeedback(.selection, trigger: viewModel.isMuted)
+        .sensoryFeedback(.selection, trigger: viewModel.isOutputMuted)
+        .sensoryFeedback(trigger: viewModel.hasAnyActiveGroupConnection) { old, new in
+            old && !new ? .stop : nil
+        }
+        .sensoryFeedback(trigger: viewModel.callStatus(for: viewModel.activeGroupID)) { old, new in
+            if new == .inCall && old != .inCall { return .success }
+            if new == .audioPaused && old != .audioPaused { return .warning }
+            return nil
+        }
         .navigationTitle("Call")
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("standardCallScreen")
@@ -86,7 +120,7 @@ struct StandardCallView: View {
         VStack(spacing: compact ? AppSpacing.xs : AppSpacing.l) {
             DestinationAvatar(isGroup: group.kind == .group, diameter: compact ? 44 : 64)
             Text(viewModel.callTitle(for: group))
-                .font(compact ? .headline : AppTypography.destinationTitle)
+                .font(AppTypography.destinationTitle)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .accessibilityAddTraits(.isHeader)
@@ -98,10 +132,36 @@ struct StandardCallView: View {
                 }
                 Text(LocalizedStringKey(viewModel.standardCallStatus.message))
                     .accessibilityIdentifier("standardCallStatus")
-            }.font(.subheadline)
+            }.font(.title3.weight(.semibold))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, compact ? 0 : AppSpacing.m)
+        .appCallHeroStyle()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("standardCallHero")
+    }
+
+    private func accessibleCompactHero(_ group: IntercomGroup) -> some View {
+        HStack(alignment: .center, spacing: AppSpacing.screen) {
+            Label {
+                Text(viewModel.callTitle(for: group)).lineLimit(2).accessibilityAddTraits(.isHeader)
+            } icon: {
+                Image(systemName: group.kind == .group ? "person.3.fill" : "person.fill")
+                    .foregroundStyle(AppColorPalette.buttonProminentBackground)
+            }
+            .font(AppTypography.destinationTitle)
+            Spacer(minLength: 0)
+            HStack {
+                if viewModel.standardCallStatus == .connecting { ProgressView().controlSize(.small) }
+                else { Image(systemName: statusSymbol).foregroundStyle(statusColor).accessibilityHidden(true) }
+                Text(LocalizedStringKey(viewModel.standardCallStatus.message))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("standardCallStatus")
+            }
+            .font(.title3.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity)
+        .appCallHeroStyle()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("standardCallHero")
     }
@@ -179,36 +239,40 @@ struct StandardCallView: View {
         }
     }
 
-    @ViewBuilder private func primaryActions(_ group: IntercomGroup, compact: Bool) -> some View {
+    private var microphoneStatus: some View {
+        Text(LocalizedStringKey(viewModel.isMuted ? "Microphone muted" : viewModel.isMicrophoneCaptureRunning ? "Microphone on" : "Microphone waiting for the call"))
+            .font(.footnote).accessibilityIdentifier("standardMicrophoneStatus")
+    }
+
+    @ViewBuilder private func primaryActions(_ group: IntercomGroup, compact: Bool, showsStatus: Bool = true) -> some View {
         let reference = viewModel.currentCallReference
         let access = viewModel.accountAccessID
         if group.id == viewModel.activeGroupID, viewModel.hasAnyActiveGroupConnection {
             let diameter = compact ? AppSize.callControlCompactDiameter : AppSize.callControlDiameter
             GlassEffectContainer(spacing: AppSpacing.callControls) {
                 ViewThatFits(in: .horizontal) {
-                    controlRow(reference: reference, diameter: diameter, vertical: false)
-                    controlRow(reference: reference, diameter: diameter, vertical: true)
+                    controlRow(reference: reference, diameter: diameter, vertical: false, horizontalLabels: compact && dynamicTypeSize.isAccessibilitySize)
+                    controlRow(reference: reference, diameter: diameter, vertical: true, horizontalLabels: compact && dynamicTypeSize.isAccessibilitySize)
                 }
             }
-            if viewModel.canControlMicrophone {
-                Text(LocalizedStringKey(viewModel.isMuted ? "Microphone muted" : viewModel.isMicrophoneCaptureRunning ? "Microphone on" : "Microphone waiting for the call"))
-                    .font(.footnote).accessibilityIdentifier("standardMicrophoneStatus")
-            }
+            .frame(maxWidth: .infinity)
+            if showsStatus && viewModel.canControlMicrophone { microphoneStatus }
         } else {
             Button(LocalizedStringKey(viewModel.hasAnyActiveGroupConnection ? "Switch to This Call" : "Connect"), systemImage: "phone") {
                 viewModel.startCall(to: .group(group.id), accountAccessID: access)
             }
-            .buttonStyle(.glassProminent).controlSize(.large)
+            .appProminentButtonStyle()
             .disabled(!viewModel.canStartCalls)
             .accessibilityIdentifier("standardConnectButton")
         }
     }
 
-    private func controlRow(reference: CallReference, diameter: CGFloat, vertical: Bool) -> some View {
+    private func controlRow(reference: CallReference, diameter: CGFloat, vertical: Bool, horizontalLabels: Bool) -> some View {
+        let controlLayout = horizontalLabels ? AnyLayout(HStackLayout(spacing: AppSpacing.xs)) : AnyLayout(VStackLayout(spacing: AppSpacing.m))
         let layout = vertical ? AnyLayout(VStackLayout(spacing: AppSpacing.m)) : AnyLayout(HStackLayout(alignment: .top, spacing: AppSpacing.callControls))
         return layout {
             if viewModel.canControlMicrophone {
-                VStack {
+                controlLayout {
                     Button { viewModel.setCallMuted(!viewModel.isMuted, for: reference) } label: {
                         Image(systemName: "mic.slash").frame(width: diameter, height: diameter)
                     }
@@ -218,25 +282,30 @@ struct StandardCallView: View {
                     .accessibilityValue(viewModel.isMuted ? "Muted" : "Unmuted")
                     .accessibilityAddTraits(viewModel.isMuted ? .isSelected : [])
                     .accessibilityIdentifier("standardMuteButton")
-                    Text(viewModel.isMuted ? "Muted" : "Mute").font(.caption)
+                    Text(viewModel.isMuted ? "Muted" : "Mute")
+                        .font(AppTypography.footnoteStrong)
+                        .fixedSize(horizontal: horizontalLabels, vertical: true)
+                        .accessibilityIdentifier("standardMuteState")
                 }
             } else {
                 Label("Control the microphone on your Watch", systemImage: "applewatch")
                     .font(.caption).accessibilityIdentifier("standardMicrophoneStatus")
             }
-            VStack {
+            controlLayout {
                 Button { viewModel.toggleOutputMute() } label: {
                     Image(systemName: "speaker.slash").frame(width: diameter, height: diameter)
                 }
-                .modifier(CallMuteButtonStyle(isMuted: viewModel.isOutputMuted))
+                .modifier(CallMuteButtonStyle(isMuted: viewModel.isOutputMuted, tint: AppColorPalette.buttonProminentBackground))
                 .buttonBorderShape(.circle)
                 .accessibilityLabel("Mute Speaker")
                 .accessibilityValue(viewModel.isOutputMuted ? "Muted" : "Unmuted")
                 .accessibilityAddTraits(viewModel.isOutputMuted ? .isSelected : [])
                 .accessibilityIdentifier("standardSpeakerButton")
-                Text("Speaker").font(.caption)
+                Text("Speaker").font(AppTypography.footnoteStrong)
+                    .fixedSize(horizontal: horizontalLabels, vertical: true)
+                    .accessibilityIdentifier("standardSpeakerControlLabel")
             }
-            VStack {
+            controlLayout {
                 Button(role: .destructive) { pendingEndReference = reference; confirmsEnd = true } label: {
                     Image(systemName: "phone.down.fill").frame(width: diameter, height: diameter)
                 }
@@ -244,7 +313,9 @@ struct StandardCallView: View {
                 .buttonBorderShape(.circle)
                 .accessibilityLabel("End Call")
                 .accessibilityIdentifier("standardEndCallButton")
-                Text("End Call").font(.caption)
+                Text("End").font(AppTypography.footnoteStrong)
+                    .fixedSize(horizontal: horizontalLabels, vertical: true)
+                    .accessibilityIdentifier("standardEndControlLabel")
             }.padding(.leading, vertical ? 0 : max(0, AppSpacing.destructiveSeparation - AppSpacing.callControls))
         }
     }
@@ -252,9 +323,18 @@ struct StandardCallView: View {
     private var audioDetails: some View {
         Section("Audio") {
             VStack(alignment: .leading) {
-                Text("Speaker Volume").accessibilityIdentifier("standardSpeakerVolumeLabel")
+                HStack {
+                    Text("Speaker Volume").accessibilityIdentifier("standardSpeakerVolumeLabel")
+                    Spacer()
+                    Text("\(Int(viewModel.masterOutputVolume * 100))%")
+                        .monospacedDigit().accessibilityIdentifier("standardSpeakerVolumeValue")
+                }
                 Slider(value: Binding(get: { Double(viewModel.masterOutputVolume) }, set: { viewModel.setMasterOutputVolume(Float($0)) }), in: 0...2) {
                     Text("Speaker Volume")
+                } minimumValueLabel: {
+                    Image(systemName: "speaker")
+                } maximumValueLabel: {
+                    Image(systemName: "speaker.wave.3")
                 }
             }
             if viewModel.supportsSoundIsolation {
@@ -278,9 +358,10 @@ private struct MemberNameSelection: Identifiable {
 
 private struct CallMuteButtonStyle: ViewModifier {
     let isMuted: Bool
+    var tint: Color = AppColorPalette.danger
     @ViewBuilder func body(content: Content) -> some View {
         if isMuted {
-            content.buttonStyle(.glassProminent).tint(AppColorPalette.danger)
+            content.buttonStyle(.glassProminent).tint(tint)
         } else {
             content.buttonStyle(.glass)
         }

@@ -14,7 +14,7 @@ struct LocalMicrophoneHeaderControl: View {
                     Label {
                         Text("Input")
                             .font(AppTypography.subheadlineStrong)
-                            .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.textSecondary)
+                            .foregroundStyle(AppColorPalette.textPrimary)
                     } icon: {
                         Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
                             .foregroundStyle(isMuted ? AppColorPalette.danger : AppColorPalette.textSecondary)
@@ -22,7 +22,7 @@ struct LocalMicrophoneHeaderControl: View {
 
                     Text(!canControlMicrophone ? "Control the microphone on your Watch" : isMuted ? "Muted" : "Unmuted")
                         .font(AppTypography.captionStrongMono)
-                        .foregroundStyle(!canControlMicrophone ? AppColorPalette.textSecondary : isMuted ? AppColorPalette.danger : AppColorPalette.success)
+                        .foregroundStyle(AppColorPalette.textPrimary)
                         .accessibilityIdentifier("localMicrophoneStateLabel")
                 }
 
@@ -37,13 +37,14 @@ struct LocalMicrophoneHeaderControl: View {
 
             if canControlMicrophone {
                 Button(action: onToggleMute) {
-                    Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
+                    Image(systemName: "mic.slash")
                         .frame(width: AppSize.tapPrimary.width, height: AppSize.tapPrimary.height)
                 }
                 .appSecondaryButtonStyle()
-                .tint(isMuted ? AppColorPalette.danger : AppColorPalette.buttonProminentBackground)
-                .accessibilityLabel(isMuted ? "Unmute" : "Mute")
+                .modifier(AdvancedSelectedControlStyle(isSelected: isMuted, tint: AppColorPalette.danger))
+                .accessibilityLabel("Mute")
                 .accessibilityValue(!canControlMicrophone ? "Control the microphone on your Watch" : isMuted ? "Muted" : "Unmuted")
+                .accessibilityAddTraits(isMuted ? .isSelected : [])
                 .accessibilityIdentifier("localMicrophoneMuteButton")
             }
         }
@@ -256,3 +257,17 @@ struct RemoteParticipantRowView: View {
     }
 }
 
+
+struct AdvancedSelectedControlStyle: ViewModifier {
+    let isSelected: Bool
+    let tint: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isSelected {
+            content.buttonStyle(.glassProminent).tint(tint)
+        } else {
+            content.buttonStyle(.glass)
+        }
+    }
+}

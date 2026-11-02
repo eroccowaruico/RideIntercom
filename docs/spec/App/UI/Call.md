@@ -12,14 +12,14 @@ Watch音声のpairが失われ、Watchでの再準備が必要な場合は、こ
 
 | 画面・項目ID | 表示と操作 |
 |---|---|
-| Call / `standardCallScreen` | 人物・グループを区別する固定の丸いアイコンと相手名または通常グループ名を中央の見出しにし、縦は1列、横のcompact高さでは左の固定列の中央を保つ。右の詳細一覧だけをスクロールし、主要操作を隠さない。名前は2行まで折り返す。接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う |
-| `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、切断はdangerの円形glassProminent。切断確認を取消すと既存通話・ミュートを維持し、確定時だけ描画時に捕捉したCallReferenceを共通endCallへ渡す。接続は共通startCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
-| `standardMuteButton` / `standardMicrophoneStatus` | 円形glassのmic.slash記号を固定し、ミュート中だけdangerの選択状態とする。共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する。Watch音声選択中はマイク操作を表示せず「Watchでマイクを操作」と案内し、以前のphone mute値を状態として表示しない |
+| Call / `standardCallScreen` | 人物・グループを区別する固定の丸いアイコンと相手名または通常グループ名を中央の見出しにし、縦は1列、横のcompact高さと幅600pt以上（iPad・Mac）では左の固定列と右の詳細一覧の2列にする。右の詳細一覧（`standardCallDetailsScroll`）だけをスクロールし、主要操作を隠さない。横のcompact高さでアクセシビリティ文字サイズのときは、上を情報一覧、下を3操作の固定領域（`standardCallFixedControls`）に分け、操作のラベルを記号の横に並べて全文を表示する。名前は2行まで折り返す。状態ヒーロー（`standardCallHero`）は名前を見出し、状態の語をtitle3 semiboldで示す。接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う。触覚は会話中への遷移でsuccess、音声停止への遷移でwarning、接続の終了でstop、マイク／出力ミュートの切替でselectionを出す |
+| `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、切断はdangerの円形glassProminentで下のラベルは`End`（日本語「切断」、`standardEndControlLabel`）。切断確認を取消すと既存通話・ミュートを維持し、確定時だけ描画時に捕捉したCallReferenceを共通endCallへ渡す。接続は共通startCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
+| `standardMuteButton` / `standardMicrophoneStatus` | 円形glassのmic.slash記号を固定し、ミュート中だけdangerの選択状態とする。下のラベル（`standardMuteState`）はMute／Mutedで状態を語でも示す。共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する。Watch音声選択中はマイク操作を表示せず「Watchでマイクを操作」と案内し、以前のphone mute値を状態として表示しない |
 | `standardUsersList` | 保存済みユーザーだけを表示。相手の選択は共通selectUserで内部通話先を解決してCallへ移る。内部グループの作成や選択は要求しない。鉛筆で本人名と端末の呼び名を編集できる |
 | `standardGroupsList` | 通常グループだけを表示し、進行中の通話の実状態（接続待ち・会話中・音声停止等）を行内に示す。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
 | Current Call | 別の相手・一覧の閲覧中でも進行中の通話へ戻る／終了する操作を維持する。保存ユーザー削除で現在の通話を隠さない |
 | 招待・参加者 | 既存の署名付き共有、本人名／別名編集、通常groupへの保存ユーザー追加・削除を共用する。groupで会っただけの相手をUsersへ追加しない |
-| `standardSpeakerButton` / 入出力 | 出力ミュートも円形の明示選択状態で示し、既存toggleOutputMuteへ渡す。マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
+| `standardSpeakerButton` / 入出力 | 出力ミュートも円形の明示選択状態とisSelected・value（Muted／Unmuted）で示し、既存toggleOutputMuteへ渡す。選択状態の塗りはアクセント色とし、隣の切断（danger）と同じ塗りを並べない。Audioのスピーカー音量は現在値の百分率（`standardSpeakerVolumeValue`）とSliderの両端の`speaker`／`speaker.wave.3`を表示する。マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
 | 復旧 | 保存読込失敗・破損の既存reload/reset操作、通話・音声のエラーと再試行案内を同じ状態から表示する |
 
 英語を原文としてString Catalogに一般画面と共通の操作・設定・アカウント案内の日本語を保持する。本人名・別名・グループ名は翻訳しない。App生成の再試行秒数、名前・人数の補間、招待・音声復旧の定型案内も翻訳対象とし、英語の単複を扱う。OSやサービスから来る任意の自由文は独自翻訳しない。Advancedの診断項目の全訳は対象外。購入商品未設定は利用不可と表示し、通知の送信・24時間利用権の完成を装わない。通話権利条件は画面側に追加しない。[共通利用権判定](../通話利用権仕様.md)が媒体準備と成立を区別し、作成不可・権利を持つ参加者待ちにはSettingsのAccessを案内する。
@@ -101,7 +101,7 @@ Usersの`manageUser-{UUID}`とGroupsの`manageGroup-{UUID}`から`groupManagemen
 
 | 項目名（日本語） | 項目ID | 目的 | 実装 | 発現条件 | 表示仕様 |
 |---|---|---|---|---|---|
-| 通話画面 | `callScreen` | 接続、音声入出力、参加者状態を一画面で扱う | `CallView` | `selectedGroup != nil` | 画面タイトルは通常group名、個別通話では相手の表示名 |
+| 通話画面 | `callScreen` | 接続、音声入出力、参加者状態を一画面で扱う | `CallView` | `selectedGroup != nil` | 画面タイトルは通常group名、個別通話では相手の表示名。横のcompact高さと幅600pt以上では、状態ヘッダーと接続操作の列、参加者とエラーの列に分けてそれぞれスクロールする。触覚はStandardと共通 |
 | 通話ステータスヘッダー | `callStatusHeader` | 通話全体の状態を最上部に集約する | `statusHeader` | 常時 | 接続、入力、出力をまとめる |
 | 接続操作 | `connectButton` / `disconnectButton` | 通話を開始・終了する | `controls` | 常時 | 接続状態に応じて表示 |
 | 参加者セクション | `call-participants-section` | 相手ごとの状態、出力調整、peer bus effect 設定を扱う | `VStack` | 常時 | 見出しと参加者領域 |
@@ -117,11 +117,11 @@ Usersの`manageUser-{UUID}`とGroupsの`manageGroup-{UUID}`から`groupManagemen
 | ローカル入力ヘッダー | `callStatusHeader` | `localMicrophoneHeaderControl` | `Input` | `GroupMember`, `Bool` | ローカル入力状態カード | Unmuted / Muted |
 | ローカル入力状態ラベル | `localMicrophoneHeaderControl` | `localMicrophoneStateLabel` | `Unmuted` / `Muted` | `isMuted` | 状態テキスト | 入力状態 |
 | ローカル入力メーター | `localMicrophoneHeaderControl` | `localMicrophoneMeter` | なし | `voiceLevel`, `voicePeakLevel`, `isMuted` | 値文字列なしのメーター | 入力レベルとピーク |
-| ローカルミュートボタン | `localMicrophoneHeaderControl` | `localMicrophoneMuteButton` | `Mute` / `Unmute` | `Bool` | アイコン付きボタン | 押下でマイクミュート反転。Watch音声選択中は操作を外し、Watchでの操作案内を表示 |
+| ローカルミュートボタン | `localMicrophoneHeaderControl` | `localMicrophoneMuteButton` | `Mute` | `Bool` | `mic.slash`固定のglassボタン。ミュート中だけdangerのglassProminentとisSelected | 押下でマイクミュート反転。Watch音声選択中は操作を外し、Watchでの操作案内を表示 |
 | マスター出力グループ | `callStatusHeader` | `outputStateLabel` | `Output` | `masterOutputVolume`, `isOutputMuted`, `receiveMasterSoundIsolationEnabled` | 出力ラベル + スライダー + Voice Isolation + ミュート | OS 音量ではなく App 最終出力 |
 | マスター出力スライダー | `callStatusHeader` | `masterOutputSlider` | `Output Volume` | `Float`, `0...2` | `1.0` が通常、`1.0` 超過は boost | マスターgain後のrx-output PeakLimiterで最終ピークを抑制 |
 | マスター出力 Voice Isolation Effect | `callStatusHeader` | `masterVoiceIsolationToggle` | `Voice Isolation` | `receiveMasterSoundIsolationEnabled`。既定 `false` | `supportsSoundIsolation == true` のとき Toggle | RX master bus の SoundIsolation effect 有効/無効 |
-| マスター出力ミュートボタン | `callStatusHeader` | `masterOutputMuteButton` | `Mute Output` / `Unmute Output` | `Bool` | ミュート時は赤系 | 入力や接続は止めない |
+| マスター出力ミュートボタン | `callStatusHeader` | `masterOutputMuteButton` | `Mute Output` / `Unmute Output` | `Bool` | ミュート時はアクセント色のglassProminentとisSelected | 入力や接続は止めない |
 | ダッキング状態アイコン | `callStatusHeader` | `duckingStatusIcon` | なし | `isDuckOthersEnabled`, `isOtherAudioDuckingActive` | 設定 ON 時のみ `waveform` | 設定 ON と実効 ON を分ける |
 
 ### 接続操作
