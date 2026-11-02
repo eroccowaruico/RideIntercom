@@ -186,7 +186,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
       <tr><td>rideBlue <code>AccentColor</code></td><td><span class="chip" style="background:#1179C0"></span>#1179C0</td><td><span class="chip" style="background:#2F95DC"></span>#2F95DC</td><td><span class="chip" style="background:#0868AA"></span>#0868AA</td><td>tint・主要操作・リンク</td></tr>
       <tr><td>rideGreen <code>RideGreen</code></td><td><span class="chip" style="background:#34C77B"></span>#34C77B</td><td><span class="chip" style="background:#3CC98F"></span>#3CC98F</td><td><span class="chip" style="background:#0B6A47"></span>#0B6A47</td><td>成立・会話中の記号（文字には使わない）</td></tr>
       <tr><td>voice <code>VoiceAqua</code></td><td><span class="chip" style="background:#0BA59B"></span>#0BA59B</td><td><span class="chip" style="background:#5BF3E2"></span>#5BF3E2</td><td><span class="chip" style="background:#06716B"></span>#06716B</td><td>声のメーター・話している人・送話中</td></tr>
-      <tr><td>Warning</td><td><span class="chip" style="background:#FFAC33"></span>#FFAC33</td><td><span class="chip" style="background:#FFB340"></span>#FFB340</td><td><span class="chip" style="background:#A35400"></span>#A35400</td><td>待機の記号・進行表示</td></tr>
+      <tr><td>Warning</td><td><span class="chip" style="background:#FFAC33"></span>#FFAC33</td><td><span class="chip" style="background:#FFB340"></span>#FFB340</td><td><span class="chip" style="background:#B06A00"></span>#B06A00</td><td>待機の記号・進行表示</td></tr>
       <tr><td>Danger</td><td><span class="chip" style="background:#F5484E"></span>#F5484E</td><td><span class="chip" style="background:#FF6B6B"></span>#FF6B6B</td><td><span class="chip" style="background:#C4161C"></span>#C4161C</td><td>切断・ミュート中・失敗・削除</td></tr>
       <tr><td>backgroundTop → Base</td><td><span class="chip" style="background:#E6F1FA"></span>#E6F1FA → <span class="chip" style="background:#ECF2F8"></span>#ECF2F8</td><td><span class="chip" style="background:#050E1A"></span>#050E1A → <span class="chip" style="background:#03070D"></span>#03070D</td><td>同左</td><td>画面の背景（白いカードとの差1.13以上）</td></tr>
       <tr><td>deepNavy</td><td colspan="3"><span class="chip" style="background:#0E2238"></span>#0E2238（外観で変わらない）</td><td>ライブアクティビティの背景tint</td></tr>
@@ -198,12 +198,13 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
   <!-- 状態 -->
   <h2 id="state">状態の表し方</h2>
-  <p class="note">同じ内部状態を、記号と色は共通、語だけStandardとAdvancedで変える。Waitingは故障ではなく、理由を必ず添える。</p>
+  <p class="note">同じ内部状態を、記号と色は共通、語だけStandardとAdvancedで変える。Waitingは故障ではなく、理由を必ず添える。ミュート（赤）と待機（琥珀色）は色覚特性やコントラスト設定で色が近くなるため、ミュートは必ずマイク・スピーカーの斜線と「ミュート中」、待機は進行表示・一時停止・ヘッドホンの記号で区別する。</p>
   <div class="tbl"><table>
     <thead><tr><th>内部状態</th><th>Standard</th><th>Advanced</th></tr></thead>
     <tbody>
       <tr><td>流れている・成立</td><td><span class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</span></td><td><span class="st"><span class="d ok"></span>Running</span></td></tr>
       <tr><td>待機</td><td><span class="st"><span class="spin"></span>接続中</span>　<span class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</span></td><td><span class="st"><span class="d warn"></span>Waiting</span> <span class="sub">— Not speaking</span></td></tr>
+      <tr><td>ミュート（本人の操作）</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>ミュート中</span></td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>Muted</span></td></tr>
       <tr><td>停止・失敗</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#tri"/></svg>音声エラー</span></td><td><span class="st"><span class="d err"></span>Blocked</span> <span class="sub">— Input device disconnected</span></td></tr>
       <tr><td>未開始・未到達</td><td><span class="st" style="color:var(--label2)"><svg class="i"><use href="#phone"/></svg>未接続</span></td><td><span class="st" style="color:var(--label2)"><span class="d idle"></span>Idle</span></td></tr>
       <tr><td>非対応</td><td class="sub">表示しない</td><td><span class="st" style="color:var(--label2)"><span class="d na"></span>Unsupported</span></td></tr>
