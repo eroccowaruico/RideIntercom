@@ -1,6 +1,46 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Sign in to verify you so only invited people can join your calls. We do not use your email address or real name.": {
+    "localizations": {
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "招待した仲間だけが通話に入れるよう、あなたを確かめるためにサインインします。メールアドレスと本名は使いません。"
+        }
+      }
+    }
+  },
+  "Changing these settings can affect audio and connections. Combinations other than the defaults have not been tested.": {
+    "localizations": {
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "ここの設定を変えると、音声や接続が正しく動かなくなることがあります。初期値以外の組み合わせはテストしていません。"
+        }
+      }
+    }
+  },
+  "Do not normally change these settings": {
+    "localizations": {
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "通常は変更しないでください"
+        }
+      }
+    }
+  },
+  "Advanced Settings for Developers": {
+    "localizations": {
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "開発者向けの高度な設定"
+        }
+      }
+    }
+  },
     "Open Settings": {
       "localizations": {
         "ja": {

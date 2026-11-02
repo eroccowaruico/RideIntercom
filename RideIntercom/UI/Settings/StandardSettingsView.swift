@@ -32,12 +32,17 @@ struct StandardSettingsView: View {
         VoiceActivityPanel(viewModel: viewModel)
         AudioCheckPanel(viewModel: viewModel)
         Section {
-            NavigationLink("More Settings") {
+            NavigationLink("Advanced Settings for Developers") {
                 Form {
                     Section {
                         Label {
-                            Text("Changing these settings can affect audio and connections.")
-                                .accessibilityIdentifier("advancedSettingsWarning")
+                            VStack(alignment: .leading, spacing: AppSpacing.s) {
+                                Text("Do not normally change these settings")
+                                    .font(.headline)
+                                    .accessibilityIdentifier("advancedSettingsWarningTitle")
+                                Text("Changing these settings can affect audio and connections. Combinations other than the defaults have not been tested.")
+                                    .accessibilityIdentifier("advancedSettingsWarning")
+                            }
                         } icon: {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(AppColorPalette.warning)
@@ -49,7 +54,7 @@ struct StandardSettingsView: View {
                     TransmitCodecPanel(viewModel: viewModel)
                 }
                 .formStyle(.grouped)
-                .navigationTitle("More Settings")
+                .navigationTitle("Advanced Settings for Developers")
             }
             .accessibilityIdentifier("moreSettingsLink")
         }

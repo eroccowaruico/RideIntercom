@@ -400,7 +400,7 @@ final class StandardInterfaceUITests: XCTestCase {
         let more = app.buttons["moreSettingsLink"].firstMatch
         revealStandardSettingsControl(more)
         more.tap()
-        XCTAssertTrue(app.navigationBars["More Settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Advanced Settings for Developers"].waitForExistence(timeout: 3))
         let layout = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
         XCTAssertTrue(layout.waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.exists)

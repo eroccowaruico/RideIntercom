@@ -31,8 +31,8 @@ final class DesignSystemSettingsUITests: XCTestCase {
             let warning = app.staticTexts["advancedSettingsWarning"].firstMatch
             XCTAssertTrue(warning.waitForExistence(timeout: 3))
             XCTAssertEqual(warning.label, japanese
-                ? "これらの設定を変更すると、音声や接続に影響することがあります。"
-                : "Changing these settings can affect audio and connections.")
+                ? "ここの設定を変えると、音声や接続が正しく動かなくなることがあります。初期値以外の組み合わせはテストしていません。"
+                : "Changing these settings can affect audio and connections. Combinations other than the defaults have not been tested.")
             let configure = app.buttons["configureInternetConnection"].firstMatch
             reveal(configure, in: app)
             configure.tap()

@@ -7,40 +7,67 @@ struct AppleSignInView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                Text("RideCom")
-                    .font(.largeTitle).fontWeight(.bold)
-                    .accessibilityAddTraits(.isHeader)
-                Text("Sign in with Apple to call your friends. Your groups and saved users stay with your account on this device.")
-                Text("We do not request your email address or real name.")
-                    .font(.callout).foregroundStyle(.secondary)
-                if hasPendingInvite {
-                    Label("Sign in to open your invitation.", systemImage: "envelope")
-                        .accessibilityIdentifier("pendingInviteSignInLabel")
+        GeometryReader { geometry in
+            ScrollView {
+                Group {
+                    if geometry.size.width > geometry.size.height && geometry.size.width >= 600 {
+                        HStack(alignment: .center, spacing: AppSpacing.l) {
+                            brand.frame(maxWidth: .infinity)
+                            signInContent.frame(maxWidth: 420)
+                        }
+                    } else {
+                        VStack(spacing: 32) {
+                            brand
+                            signInContent
+                        }
+                        .frame(maxWidth: 420)
+                    }
                 }
-                SignInWithAppleButton(.signIn, onRequest: account.prepare, onCompletion: account.complete)
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                    .frame(maxWidth: 360).frame(height: 50)
-                    .disabled(account.storageUnavailable || account.isSigningIn)
-                    .accessibilityIdentifier("signInWithAppleButton")
-                if let message = account.message {
-                    Text(LocalizedStringKey(message)).font(.callout)
-                        .accessibilityIdentifier("accountMessage")
-                    Button("Try Again") { Task { await account.reload() } }
-                        .accessibilityIdentifier("retrySignInButton")
-                }
-                Text("After signing in, you can use nearby calls without an Internet connection.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                .padding(32)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }
-            .multilineTextAlignment(.center)
-            .padding(32)
-            .frame(maxWidth: AppSize.singleColumnMaxWidth)
-            .frame(maxWidth: .infinity)
         }
         .background(AppColorPalette.standardScreenBackground)
         .accessibilityIdentifier("appleSignInScreen")
     }
+
+    private var brand: some View {
+        VStack(spacing: AppSpacing.l) {
+            Image("ridecom.glyph")
+                .resizable().scaledToFit().frame(width: 112, height: 112)
+                .foregroundStyle(.tint)
+                .accessibilityLabel("RideCom")
+                .accessibilityIdentifier("signInBrandGlyph")
+            Text("RideCom")
+                .font(.largeTitle).fontWeight(.bold)
+                .accessibilityAddTraits(.isHeader)
+        }
+    }
+
+    private var signInContent: some View {
+        VStack(spacing: AppSpacing.l) {
+            Text("Sign in to verify you so only invited people can join your calls. We do not use your email address or real name.")
+                .font(.footnote).foregroundStyle(.secondary)
+                .accessibilityIdentifier("signInReason")
+            if hasPendingInvite {
+                Label("Sign in to open your invitation.", systemImage: "envelope")
+                    .accessibilityIdentifier("pendingInviteSignInLabel")
+            }
+            SignInWithAppleButton(.signIn, onRequest: account.prepare, onCompletion: account.complete)
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                .frame(maxWidth: 360).frame(height: 50)
+                .disabled(account.storageUnavailable || account.isSigningIn)
+                .accessibilityIdentifier("signInWithAppleButton")
+            if let message = account.message {
+                Text(LocalizedStringKey(message)).font(.callout)
+                    .accessibilityIdentifier("accountMessage")
+                Button("Try Again") { Task { await account.reload() } }
+                    .accessibilityIdentifier("retrySignInButton")
+            }
+        }
+        .multilineTextAlignment(.center)
+    }
+
 }
 
 struct AccountSettingsPanel: View {
