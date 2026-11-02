@@ -556,8 +556,14 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor private func openInternetSettings() {
+        if app.descendants(matching: .any)["settingsScrollView"].firstMatch.exists,
+           !app.tabBars.buttons["Diagnostics"].exists && !app.buttons["diagnosticsTab"].exists {
+            let more = app.buttons["moreSettingsLink"].firstMatch
+            revealStandardSettingsControl(more)
+            more.tap()
+        }
         let button = app.buttons["configureInternetConnection"].firstMatch
-        for _ in 0..<6 where !button.isHittable { app.swipeUp() }
+        revealStandardSettingsControl(button)
         XCTAssertTrue(button.waitForExistence(timeout: 3)); button.tap()
     }
 
@@ -581,8 +587,9 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(status.label.contains("秒待ってから"))
         screenshot("Japanese Internet retry instruction")
         app.buttons["closeInternetConnection"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         let signOut = app.buttons["signOutButton"]
-        for _ in 0..<6 where !signOut.exists { app.swipeDown() }
+        revealStandardSettingsControl(signOut)
         XCTAssertTrue(signOut.exists)
         XCTAssertFalse(app.otherElements["appleSignInScreen"].exists)
     }
@@ -611,7 +618,7 @@ final class StandardInterfaceUITests: XCTestCase {
     @MainActor private func selectLayout(_ title: String) {
         let goingAdvanced = title == "Advanced" || title == "詳細"
         XCTAssertTrue(goingAdvanced || title == "Standard" || title == "標準", "Unknown layout: \(title)")
-        if goingAdvanced {
+        if goingAdvanced && app.descendants(matching: .any)["settingsScrollView"].firstMatch.exists {
             let more = app.buttons["moreSettingsLink"].firstMatch
             revealStandardSettingsControl(more)
             more.tap()

@@ -2,13 +2,13 @@
 
 ## 目的
 
-Standardの設定トップは淡い空色の背景、Advancedはシステムのgrouped Form背景を使う。モード切替時は新モードの設定トップへ戻り、通話・設定値は共通ViewModelに保持する。
+StandardとAdvancedの設定トップはシステムのgrouped Form背景を使い、内容の幅を最大640ptに保つ。モード切替時は新モードの設定トップへ戻り、通話・設定値は共通ViewModelに保持する。
 
 本書は Settings タブの UI 項目を定義する。
 
 ## 表示切替と共通設定
 
-App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・本人の表示名・利用権、通話設定、Internet接続、通信経路への入口、音声入出力・VAD・録音再生チェックの順に表示し、リセットを最下部に置く。通信経路はCommunication（`communicationSettingsLink`）に有効な経路を表示し、別画面で設定する。App Layout・Audio Session・送信codecはMore Settings（`moreSettingsLink`）から設定する。AdvancedはApp Layoutを先頭、通信経路を主画面に表示し、音声設定をAudio Session・Audio I/O・Voice Activity・Transmit Codec・Audio Checkの順に表示する。録音チェックの接続状態やmeterはAdvancedに限る。
+App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・本人の表示名・利用権、通話設定、通信経路への入口、音声入出力・VAD・録音再生チェックの順に表示し、リセットを最下部に置く。通信経路はCommunication（`communicationSettingsLink`）に有効な経路を表示し、別画面で設定する。More Settings（`moreSettingsLink`）には設定変更の注意（`advancedSettingsWarning`）、App Layout、Internet接続、Audio Session、送信codecを置く。Internet接続は自動化が未実装の間もここから設定できる。AdvancedはApp Layoutを先頭、通信経路とInternet接続を主画面に表示し、音声設定をAudio Session・Audio I/O・Voice Activity・Transmit Codec・Audio Checkの順に表示する。録音チェックの接続状態やmeterはAdvancedに限る。
 
 StandardのInternet接続はInternet is set up / Internet is not set upとService Addressを表示し、Appleによる接続操作を案内する。手動のDevice access token入力・保存はAdvancedだけに表示する。AdvancedはWorker URLを含め従来の項目・識別子・保存操作とDiagnosticsを維持する。両表示で同じ設定保存先と音声処理を使う。商品未設定でも配布環境を独立に確認し、テスト配布で利用可能か、判定不能ならCheck Accessを表示する。配布の権利がない場合はNot Available Yetとし、商品未設定のRestore Purchasesは表示しない。
 
@@ -112,7 +112,7 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 発現条件 | 表示仕様 | 状態 |
 |---|---|---|---|---|---|---|---|
 | 通話状態表示 | `audioCheckPanel` | `liveAudioStateLabel` | `Call` | `connectionLabel` | Advanced | 右寄せ表示 | RTCの実状態を表示。準備済みだけでLiveとしない |
-| チェック状態表示 | `audioCheckPanel` | `audioCheckPhaseLabel` | `Audio Check` | `audioCheckPhase` | Advanced | 右寄せ表示 | idle / recording / playing / completed / failed |
+| チェック状態表示 | `audioCheckPanel` | `audioCheckPhaseLabel` | `Audio Check` | `audioCheckPhase` | Advanced | 右寄せの文字と状態色の記号 | idle / recording / playing / completed / failed。文字は標準の前景色 |
 | マイク入力確認 | `audioCheckPanel` | `audioCheckInputMeter` | `Microphone Input` | `diagnosticsInputLevel`, `diagnosticsInputPeakLevel` | Advanced | 入力メーター | 権限未許可時は上がらない |
 | スピーカー出力確認 | `audioCheckPanel` | `audioCheckOutputMeter` | `Speaker Output` | `diagnosticsOutputLevel`, `diagnosticsOutputPeakLevel` | Advanced | 出力メーター | 最終出力へ回した音声を示す |
 | チェック状態メッセージ | `audioCheckPanel` | `audioCheckStatusLabel` | 状態文言 | `String` | 常時 | footnote | 実行中、完了、失敗 |

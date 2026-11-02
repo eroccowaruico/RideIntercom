@@ -20,7 +20,7 @@ struct AccountDataResetView: View {
                     .accessibilityIdentifier("accountResetSignOutButton")
                 if let message { Text(LocalizedStringKey(message)).font(.callout) }
             }
-            .padding(32).frame(maxWidth: 540).frame(maxWidth: .infinity)
+            .padding(32).frame(maxWidth: AppSize.singleColumnMaxWidth).frame(maxWidth: .infinity)
         }
         .alert("Remove the previous account data from this device?", isPresented: $confirmsRemoval) {
             Button("Remove Data", role: .destructive) {

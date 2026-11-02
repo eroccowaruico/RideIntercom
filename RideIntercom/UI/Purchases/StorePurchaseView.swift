@@ -22,6 +22,8 @@ struct StorePurchaseView: View {
                     Text(LocalizedStringKey(message)).foregroundStyle(.secondary).padding()
                 }
             }
+            .frame(maxWidth: AppSize.singleColumnMaxWidth)
+            .frame(maxWidth: .infinity)
             .navigationTitle("Purchases")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

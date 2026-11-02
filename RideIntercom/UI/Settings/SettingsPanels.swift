@@ -333,10 +333,15 @@ struct AudioCheckPanel: View {
                             .font(AppTypography.bodyStrong)
                             .foregroundStyle(AppColorPalette.textPrimary)
                             .accessibilityIdentifier("liveAudioStateLabel")
-                        Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue))
-                            .font(AppTypography.captionStrongMono)
-                            .foregroundStyle(statusColor)
-                            .accessibilityIdentifier("audioCheckPhaseLabel")
+                        HStack(spacing: AppSpacing.xs) {
+                            Image(systemName: "circle.fill")
+                                .foregroundStyle(statusColor)
+                                .accessibilityHidden(true)
+                            Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue))
+                                .foregroundStyle(.primary)
+                                .accessibilityIdentifier("audioCheckPhaseLabel")
+                        }
+                        .font(AppTypography.captionStrongMono)
                     }
                 }
 

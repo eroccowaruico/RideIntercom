@@ -12,7 +12,6 @@ struct StandardSettingsView: View {
         CallDisconnectTimerSection(viewModel: viewModel)
         CallNotificationSettingsSection(notifications: viewModel.notifications)
         CallStatusDisplaySection(viewModel: viewModel)
-        InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
         Section {
             NavigationLink {
                 Form { CommunicationPanel(viewModel: viewModel) }
@@ -35,7 +34,17 @@ struct StandardSettingsView: View {
         Section {
             NavigationLink("More Settings") {
                 Form {
+                    Section {
+                        Label {
+                            Text("Changing these settings can affect audio and connections.")
+                                .accessibilityIdentifier("advancedSettingsWarning")
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(AppColorPalette.warning)
+                        }
+                    }
                     InterfaceModeSection(viewModel: viewModel)
+                    InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
                     AudioSessionPanel(viewModel: viewModel)
                     TransmitCodecPanel(viewModel: viewModel)
                 }

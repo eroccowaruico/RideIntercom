@@ -9,7 +9,7 @@ struct AppleSignInView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                Text("Welcome to RideCom")
+                Text("RideCom")
                     .font(.largeTitle).fontWeight(.bold)
                     .accessibilityAddTraits(.isHeader)
                 Text("Sign in with Apple to call your friends. Your groups and saved users stay with your account on this device.")
@@ -35,9 +35,10 @@ struct AppleSignInView: View {
             }
             .multilineTextAlignment(.center)
             .padding(32)
-            .frame(maxWidth: 540)
+            .frame(maxWidth: AppSize.singleColumnMaxWidth)
             .frame(maxWidth: .infinity)
         }
+        .background(AppColorPalette.standardScreenBackground)
         .accessibilityIdentifier("appleSignInScreen")
     }
 }

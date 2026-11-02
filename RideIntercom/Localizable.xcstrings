@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Changing these settings can affect audio and connections.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これらの設定を変更すると、音声や接続に影響することがあります。"
+          }
+        }
+      }
+    },
     "Invitations" : {
       "localizations" : {
         "ja" : {

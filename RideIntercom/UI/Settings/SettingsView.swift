@@ -13,10 +13,8 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .scrollContentBackground(viewModel.interfaceMode == .standard ? .hidden : .visible)
-        .background {
-            if viewModel.interfaceMode == .standard { AppColorPalette.standardScreenBackground }
-        }
+        .frame(maxWidth: AppSize.singleColumnMaxWidth)
+        .frame(maxWidth: .infinity)
         .accessibilityIdentifier("settingsScrollView")
         .sheet(isPresented: $isEditingInternet) {
             NavigationStack {

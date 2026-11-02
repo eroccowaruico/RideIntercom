@@ -133,7 +133,7 @@ struct AccountDeletionProgressView: View {
                         }
                     }
                 }
-            }.padding(32).frame(maxWidth: 540).frame(maxWidth: .infinity)
+            }.padding(32).frame(maxWidth: AppSize.singleColumnMaxWidth).frame(maxWidth: .infinity)
         }
         .task {
             await account.resumeDeletion()
