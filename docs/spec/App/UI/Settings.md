@@ -227,3 +227,7 @@ Internetログインの再試行案内は、待ち時間を数値のままString
 | 表示失敗 | なし | iOSのLive Activity要求失敗時、通話継続とOFF→ONによる再試行を案内 |
 
 表示と対象照合は[システム表示と通話操作](../システム表示と通話操作.md)を正とする。各OSで利用できる表示用の1スイッチだけを示す。
+
+## モードごとの画面構成と共通部品
+
+`UI/Settings`内の`StandardSettingsView`と`AdvancedSettingsView`が各モードのSection構成と順序を持つ。`SettingsView`は共通のFormとInternet設定sheetの状態を所有し、`SettingsPanels`は両画面で意味の同じ設定部品を提供する。設定値と実処理は既存のIntercomViewModelへ集約し、モードごとに複製しない。アクセシビリティIDと設定の保存・反映・リセットの契約は共通で維持する。

@@ -27,18 +27,26 @@ class DocumentationTests(unittest.TestCase):
             (root / 'docs/orphan.md').write_text('Still useful information')
             self.assertTrue(any('not reachable' in error for error in DOCS.check(root)))
 
-    def test_new_settings_control_requires_specification(self):
+    def test_settings_controls_in_each_file_require_specification(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); self.fixture(root)
-            source = root / 'RideIntercom/UI/Settings/SettingsView.swift'
-            source.parent.mkdir(parents=True)
-            source.write_text('.accessibilityIdentifier("newSetting")')
+            settings = root / 'RideIntercom/UI/Settings'
+            settings.mkdir(parents=True)
+            (settings / 'SettingsView.swift').write_text('.accessibilityIdentifier("rootSetting")')
+            (settings / 'SettingsPanels.swift').write_text('.accessibilityIdentifier("panelSetting")')
+            (settings / 'StandardSettingsView.swift').write_text('.accessibilityIdentifier("standardSetting")')
+            other = root / 'RideIntercom/UI/Call'
+            other.mkdir(parents=True)
+            (other / 'CallView.swift').write_text('.accessibilityIdentifier("otherFeature")')
             spec = root / 'docs/spec/App/UI/Settings.md'
             spec.parent.mkdir(parents=True)
-            spec.write_text('# Settings')
+            spec.write_text('# Settings\n`rootSetting`')
             (root / 'docs/guide.md').write_text('[settings](spec/App/UI/Settings.md)')
-            self.assertTrue(any('newSetting' in error for error in DOCS.check(root)))
-            spec.write_text('# Settings\n`newSetting`')
+            errors = DOCS.check(root)
+            self.assertTrue(any('panelSetting' in error for error in errors))
+            self.assertTrue(any('standardSetting' in error for error in errors))
+            self.assertFalse(any('otherFeature' in error for error in errors))
+            spec.write_text('# Settings\n`rootSetting` `panelSetting` `standardSetting`')
             self.assertEqual(DOCS.check(root), [])
 
     def test_empty_document_directory_is_rejected(self):

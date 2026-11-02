@@ -64,11 +64,13 @@ def check(root):
         pending.extend(edges.get(item, set()) - reached)
     for document in sorted(documents - reached):
         errors.append(f'{document.relative_to(root)}: not reachable from README')
-    ui = root / 'RideIntercom/UI/Settings/SettingsView.swift'
+    ui = root / 'RideIntercom/UI/Settings'
     specification = root / 'docs/spec/App/UI/Settings.md'
     if ui.exists() and specification.exists():
         content = specification.read_text()
-        for identifier in sorted(set(UI_ID.findall(ui.read_text()))):
+        identifiers = {identifier for source in ui.glob('*.swift')
+                       for identifier in UI_ID.findall(source.read_text())}
+        for identifier in sorted(identifiers):
             if f'`{identifier}`' not in content:
                 errors.append(f'Settings.md: undocumented UI identifier {identifier}')
     return errors
