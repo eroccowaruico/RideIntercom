@@ -110,6 +110,75 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor
+    func testAdvancedCallLeavesGroupCreationInGroups() {
+        launch()
+        tab("Settings", id: "settingsTab")
+        selectLayout("Advanced")
+        tab("Call", id: "callTab")
+        // A previous run can retain a selected call. Both states keep management
+        // out of Call; chooser navigation is asserted when no call is selected.
+        let empty = app.descendants(matching: .any)["advancedCallEmptyState"].firstMatch
+        let selected = app.descendants(matching: .any)["callScreen"].firstMatch
+        XCTAssertTrue(empty.waitForExistence(timeout: 3) || selected.exists)
+        for identifier in ["createGroupButton", "standardCreateGroupButton", "showGroupsButton", "groupSelectionList"] {
+            XCTAssertFalse(app.descendants(matching: .any)[identifier].firstMatch.exists,
+                           "Advanced Call exposes a group management entry: \(identifier)")
+        }
+        if empty.exists {
+            let chooseUser = app.buttons["chooseUserButton"].firstMatch
+            let chooseGroup = app.buttons["chooseGroupButton"].firstMatch
+            XCTAssertEqual(chooseUser.label, "Choose a User")
+            XCTAssertEqual(chooseGroup.label, "Choose a Group")
+            screenshot("Advanced Call without a selected destination")
+            chooseUser.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3))
+            tab("Call", id: "callTab")
+            chooseGroup.tap()
+        } else {
+            tab("Groups", id: "groupsTab")
+        }
+        let groups = app.descendants(matching: .any)["standardGroupsList"].firstMatch
+        XCTAssertTrue(groups.waitForExistence(timeout: 3))
+        let groupRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-"))
+        let previousCount = groupRows.count
+        let create = app.buttons["standardCreateGroupButton"].firstMatch
+        XCTAssertTrue(create.waitForExistence(timeout: 3))
+        create.tap()
+        let name = app.textFields["savedUsersGroupNameField"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        screenshot("Advanced Groups new group form")
+        app.buttons["closeSavedUsersButton"].tap()
+        XCTAssertTrue(groups.waitForExistence(timeout: 3))
+        XCTAssertFalse(name.exists)
+        XCTAssertEqual(groupRows.count, previousCount, "Cancel keeps the saved groups unchanged")
+
+        create.tap()
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        let groupName = "Advanced Groups " + UUID().uuidString.prefix(6)
+        name.tap()
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + groupName)
+        app.buttons["saveUserSelectionButton"].tap()
+        XCTAssertTrue(selected.waitForExistence(timeout: 5))
+        let disconnect = app.buttons["disconnectButton"].firstMatch
+        XCTAssertTrue(disconnect.waitForExistence(timeout: 5))
+        for identifier in ["createGroupButton", "standardCreateGroupButton", "showGroupsButton", "groupSelectionList"] {
+            XCTAssertFalse(app.descendants(matching: .any)[identifier].firstMatch.exists,
+                           "Creating from Groups must return to Call without management entries: \(identifier)")
+        }
+        screenshot("Advanced Call after creating a named group from Groups")
+        disconnect.tap()
+        XCTAssertTrue(app.buttons["connectButton"].firstMatch.waitForExistence(timeout: 5))
+        tab("Groups", id: "groupsTab")
+        let created = app.buttons.containing(.staticText, identifier: groupName).firstMatch
+        XCTAssertTrue(created.waitForExistence(timeout: 3))
+        created.swipeLeft()
+        let delete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        delete.tap()
+        XCTAssertFalse(created.exists)
+    }
+
+    @MainActor
     func testStandardSettingsSeparatesRoutineControlsAndConfirmsReset() {
         launch()
         tab("Settings", id: "settingsTab")

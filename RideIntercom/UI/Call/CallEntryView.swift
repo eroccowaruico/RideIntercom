@@ -3,25 +3,27 @@ import RTC
 
 struct CallEntryView: View {
     @Bindable var viewModel: IntercomViewModel
+    @Binding var selectedTab: AppTab
 
     var body: some View {
         Group {
             if viewModel.selectedGroup == nil {
-                GroupSelectionView(viewModel: viewModel)
-                    .navigationTitle("Groups")
+                List {
+                    CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
+                    StandardStorageSection(viewModel: viewModel)
+                    Section {
+                        ContentUnavailableView("Ready to Talk", systemImage: "phone", description: Text("Choose someone or a group to call."))
+                        Button("Choose a User") { selectedTab = .users }
+                            .accessibilityIdentifier("chooseUserButton")
+                        Button("Choose a Group") { selectedTab = .groups }
+                            .accessibilityIdentifier("chooseGroupButton")
+                    }
+                }
+                .accessibilityIdentifier("advancedCallEmptyState")
+                .navigationTitle("Call")
             } else {
                 CallView(viewModel: viewModel)
                     .navigationTitle(viewModel.selectedCallTitle)
-                    .toolbar {
-                        ToolbarItem(placement: .navigation) {
-                            Button {
-                                viewModel.showGroupSelection()
-                            } label: {
-                                Label("Groups", systemImage: "person.3.fill")
-                            }
-                            .accessibilityIdentifier("showGroupsButton")
-                        }
-                    }
             }
         }
         .safeAreaInset(edge: .top) {

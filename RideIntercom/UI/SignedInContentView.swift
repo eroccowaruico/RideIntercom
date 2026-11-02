@@ -11,7 +11,7 @@ struct SignedInContentView: View {
                     if viewModel.interfaceMode == .standard {
                         StandardCallView(viewModel: viewModel, selectedTab: $selectedTab)
                     } else {
-                        CallEntryView(viewModel: viewModel)
+                        CallEntryView(viewModel: viewModel, selectedTab: $selectedTab)
                     }
                 }
             }.accessibilityIdentifier("callTab")

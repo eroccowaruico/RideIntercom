@@ -176,7 +176,7 @@ final class RideIntercomUITests: XCTestCase {
         app.buttons["saveLocalDisplayNameButton"].tap()
         XCTAssertTrue(app.staticTexts["localDisplayNameSaved"].waitForExistence(timeout: 3))
         try openSavedUserInvitation(inviter: "ui-name-rider", sharedName: "Mountain Rider")
-        openGroupsTab(); app.buttons["savedUsersButton"].tap()
+        openGroupsTab(); app.buttons["standardCreateGroupButton"].tap()
         let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 3)); edit.tap()
         let original = app.descendants(matching: .any)["savedUserOriginalName"].firstMatch
@@ -205,7 +205,7 @@ final class RideIntercomUITests: XCTestCase {
         let reset = app.descendants(matching: .any)["accountDataResetScreen"].firstMatch
         let remove = app.buttons["removePreviousAccountDataButton"]
         XCTAssertTrue(reset.exists)
-        XCTAssertFalse(app.buttons["createGroupButton"].exists)
+        XCTAssertFalse(app.buttons["standardCreateGroupButton"].exists)
         remove.tap()
         let confirm = app.buttons["confirmAccountDataResetButton"].firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 3))
@@ -259,7 +259,7 @@ final class RideIntercomUITests: XCTestCase {
         app.terminate(); app.launch(); app.activate() // The isolated native-login fixture signs in again.
         openGroupsTab()
         XCTAssertFalse(app.buttons["disconnectButton"].exists)
-        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "groupRow-")).firstMatch.exists)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-")).firstMatch.exists)
     }
 
     @MainActor
@@ -276,7 +276,7 @@ final class RideIntercomUITests: XCTestCase {
         confirmation.tap()
         XCTAssertTrue(app.buttons["signInWithAppleButton"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["disconnectButton"].exists)
-        XCTAssertFalse(app.buttons["createGroupButton"].exists)
+        XCTAssertFalse(app.buttons["standardCreateGroupButton"].exists)
         attachScreen("Signed Out Apple Login")
     }
 
@@ -330,8 +330,8 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     func testDirectCallsReuseUserDestinationWithoutAddingParticipants() throws {
         try openSavedUserInvitation(inviter: "ui-direct-rider")
-        openGroupsTab()
-        let user = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "userCall-")).firstMatch
+        openUsersTab()
+        let user = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-")).firstMatch
         XCTAssertTrue(user.waitForExistence(timeout: 3))
         user.tap()
         XCTAssertTrue(app.staticTexts["directCallHelpLabel"].waitForExistence(timeout: 3))
@@ -343,26 +343,28 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.buttons["inviteButton"].exists)
         attachScreen("Individual Call with Saved User")
         openGroupsTab()
-        XCTAssertTrue(app.buttons["activeDirectCallButton"].waitForExistence(timeout: 3))
-        XCTAssertFalse(app.buttons["groupRow-Direct Call"].exists)
+        XCTAssertTrue(app.buttons["standardCurrentCallButton"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-")).containing(.staticText, identifier: "Direct Call").firstMatch.exists)
         attachScreen("Users and Groups with Current Individual Call")
         app.terminate(); app.launch(); app.activate()
-        openGroupsTab()
+        openUsersTab()
         XCTAssertTrue(user.waitForExistence(timeout: 3))
         user.tap()
         XCTAssertTrue(app.staticTexts["directCallHelpLabel"].waitForExistence(timeout: 3))
+        if app.buttons["connectButton"].exists { app.buttons["connectButton"].tap() }
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
         // Removing the directory entry leaves the selected call and its stop control available.
         openGroupsTab()
-        app.buttons["savedUsersButton"].tap()
+        app.buttons["standardCreateGroupButton"].tap()
         let toggle = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
         toggle.swipeLeft()
         app.buttons["Delete"].firstMatch.tap()
         XCTAssertTrue(toggle.waitForNonExistence(timeout: 3))
         app.buttons["closeSavedUsersButton"].tap()
+        openUsersTab()
         XCTAssertFalse(user.exists)
-        app.buttons["activeDirectCallButton"].tap()
+        app.buttons["standardCurrentCallButton"].tap()
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["inviteButton"].exists)
         XCTAssertTrue(app.staticTexts["directCallHelpLabel"].label.contains("removed from Saved Users"))
@@ -378,7 +380,7 @@ final class RideIntercomUITests: XCTestCase {
         // Restart only here: this case explicitly verifies persisted users.
         app.terminate(); app.launch(); app.activate()
         openGroupsTab()
-        app.buttons["savedUsersButton"].tap()
+        app.buttons["standardCreateGroupButton"].tap()
         let firstUser = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
         XCTAssertTrue(firstUser.waitForExistence(timeout: 3))
         let toggle = app.switches[firstUser.identifier]
@@ -411,7 +413,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
         attachScreen("Saved User Added to Existing Group")
         openGroupsTab()
-        app.buttons["savedUsersButton"].tap()
+        app.buttons["standardCreateGroupButton"].tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
         toggle.swipeLeft()
         let delete = app.buttons["Delete"].firstMatch
@@ -420,12 +422,12 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(toggle.waitForNonExistence(timeout: 3))
         attachScreen("Saved User Removed while Group Remains")
         app.buttons["closeSavedUsersButton"].tap()
-        app.buttons["groupRow-Talk Group"].firstMatch.tap()
+        talkGroupRows.firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
         try checkGroupDeletionCanBeExercisedFromUI()
         app.terminate(); app.launch(); app.activate()
         openGroupsTab()
-        app.buttons["savedUsersButton"].tap()
+        app.buttons["standardCreateGroupButton"].tap()
         XCTAssertFalse(toggle.exists)
         app.buttons["closeSavedUsersButton"].tap()
     }
@@ -540,7 +542,7 @@ final class RideIntercomUITests: XCTestCase {
         // Cmd-U uses the same recovery UI and checks the resulting disk files.
         let status = app.descendants(matching: .any)["groupStorageStatus"].firstMatch
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["createGroupButton"].isEnabled)
+        XCTAssertFalse(app.buttons["standardCreateGroupButton"].isEnabled)
         XCTAssertFalse(app.descendants(matching: .any)["groupErrorLabel"].exists)
         app.buttons["reloadSavedGroupsButton"].tap()
         XCTAssertTrue(status.exists)
@@ -551,11 +553,11 @@ final class RideIntercomUITests: XCTestCase {
         attachScreen("Confirm Saved Groups Reset")
         cancel.tap()
         XCTAssertTrue(status.exists)
-        XCTAssertFalse(app.buttons["createGroupButton"].isEnabled)
+        XCTAssertFalse(app.buttons["standardCreateGroupButton"].isEnabled)
         app.buttons["resetSavedGroupsButton"].tap()
         app.alerts.buttons["confirmResetSavedGroupsButton"].firstMatch.tap()
         XCTAssertTrue(status.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["createGroupButton"].isEnabled)
+        XCTAssertTrue(app.buttons["standardCreateGroupButton"].isEnabled)
         app.terminate()
         app.launchEnvironment["RIDEINTERCOM_GROUP_RECOVERY_FIXTURE"] = try XCTUnwrap(app.launchEnvironment["RIDEINTERCOM_GROUP_RECOVERY_FIXTURE"])
             .replacingOccurrences(of: "prepare:", with: "verify:")
@@ -594,8 +596,8 @@ final class RideIntercomUITests: XCTestCase {
         try checkVoiceActivityAndHandoverCanBeExercisedFromUI()
         for _ in 0..<3 { try checkDisconnectAndReconnectButtonsTransitionInCall() }
         attachScreen("Call")
-        try checkShowGroupsButtonReturnsFromCallToGroupSelection()
-        app.buttons.matching(identifier: "groupRow-Talk Group").firstMatch.tap()
+        try checkGroupsTabReturnsFromCallToGroupDirectory()
+        talkGroupRows.firstMatch.tap()
         try checkGroupDeletionCanBeExercisedFromUI()
         try checkDiagnosticsKeepsMicrophoneIndicatorVisibleWithoutGroup()
         try checkDiagnosticsShowRealDeviceSetupIdentifiers()
@@ -992,14 +994,14 @@ final class RideIntercomUITests: XCTestCase {
     private func checkGroupDeletionCanBeExercisedFromUI() throws {
         openGroupsTab()
 
-        let groupRows = app.buttons.matching(identifier: "groupRow-Talk Group")
+        let groupRows = talkGroupRows
         let initialCount = groupRows.count
         let groupRow = groupRows.firstMatch
         XCTAssertTrue(groupRow.waitForExistence(timeout: 3))
         groupRow.swipeLeft()
         XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 2))
         app.buttons["Delete"].tap()
-        XCTAssertLessThan(app.buttons.matching(identifier: "groupRow-Talk Group").count, initialCount)
+        XCTAssertLessThan(talkGroupRows.count, initialCount)
     }
 
     @MainActor
@@ -1015,7 +1017,7 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     private func checkTabNavigationShowsExpectedRootSections() throws {
         openGroupsTab()
-        XCTAssertTrue(app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["standardGroupsList"].firstMatch.waitForExistence(timeout: 3))
 
         openDiagnosticsTab()
         XCTAssertTrue(app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch.waitForExistence(timeout: 3))
@@ -1036,13 +1038,14 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     @MainActor
-    private func checkShowGroupsButtonReturnsFromCallToGroupSelection() throws {
-
+    private func checkGroupsTabReturnsFromCallToGroupDirectory() throws {
         XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["showGroupsButton"].firstMatch.waitForExistence(timeout: 3))
-        app.buttons["showGroupsButton"].firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["createGroupButton"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["showGroupsButton"].exists)
+        XCTAssertFalse(app.buttons["createGroupButton"].exists)
+        XCTAssertFalse(app.buttons["standardCreateGroupButton"].exists)
+        openGroupsTab()
+        XCTAssertTrue(app.descendants(matching: .any)["standardGroupsList"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["standardCreateGroupButton"].firstMatch.exists)
     }
 
     @MainActor
@@ -1083,14 +1086,22 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["audioInputProcessingSummaryLabel"].firstMatch.exists)
     }
 
+    private var talkGroupRows: XCUIElementQuery {
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-"))
+            .containing(.staticText, identifier: "Talk Group")
+    }
+
     private func createTalkGroupAndOpenCall() {
         openGroupsTab()
         removeExistingTalkGroups()
-        let createButton = app.buttons["createGroupButton"].firstMatch.exists
-            ? app.buttons["createGroupButton"].firstMatch
-            : app.buttons["Create Talk Group"].firstMatch
+        let createButton = app.buttons["standardCreateGroupButton"].firstMatch
         XCTAssertTrue(createButton.waitForExistence(timeout: 3))
         createButton.tap()
+        let name = app.textFields["savedUsersGroupNameField"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        name.tap()
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + "Talk Group")
+        app.buttons["saveUserSelectionButton"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["callScreen"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Participants"].waitForExistence(timeout: 3))
     }
@@ -1101,54 +1112,25 @@ final class RideIntercomUITests: XCTestCase {
         openDiagnosticsTab()
     }
 
-    private var isGroupSelectionVisible: Bool {
-        app.descendants(matching: .any)["groupSelectionList"].firstMatch.exists
-            || app.staticTexts["Recent Groups"].firstMatch.exists
+    private func openDirectoryTab(_ title: String, identifier: String, root: String) {
+        if app.descendants(matching: .any)[root].firstMatch.exists { return }
+        let identified = app.buttons[identifier].firstMatch
+        if identified.exists { identified.tap() }
+        else if app.radioButtons[identifier].firstMatch.exists { app.radioButtons[identifier].firstMatch.tap() }
+        else {
+            let button = app.tabBars.buttons[title].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 3))
+            button.tap()
+        }
+        XCTAssertTrue(app.descendants(matching: .any)[root].firstMatch.waitForExistence(timeout: 3))
     }
 
     private func openGroupsTab() {
-        if isGroupSelectionVisible {
-            return
-        }
-        if app.tabBars.buttons["Call"].firstMatch.exists {
-            app.tabBars.buttons["Call"].firstMatch.tap()
-            if isGroupSelectionVisible {
-                return
-            }
-        }
-        if app.buttons["Call"].firstMatch.exists {
-            app.buttons["Call"].firstMatch.tap()
-            if isGroupSelectionVisible {
-                return
-            }
-        }
-        if app.radioButtons["callTab"].firstMatch.exists {
-            app.radioButtons["callTab"].firstMatch.tap()
-            if isGroupSelectionVisible {
-                return
-            }
-        }
-        if app.buttons["callTab"].firstMatch.exists {
-            app.buttons["callTab"].firstMatch.tap()
-            if isGroupSelectionVisible {
-                return
-            }
-        }
-        if app.buttons["showGroupsButton"].firstMatch.exists {
-            app.buttons["showGroupsButton"].firstMatch.tap()
-            return
-        }
-        if app.tabBars.buttons["Groups"].firstMatch.exists {
-            app.tabBars.buttons["Groups"].firstMatch.tap()
-            return
-        }
-        if app.radioButtons["groupsTab"].firstMatch.exists {
-            app.radioButtons["groupsTab"].firstMatch.tap()
-            return
-        }
-        if app.buttons["Groups"].firstMatch.exists {
-            app.buttons["Groups"].firstMatch.tap()
-        }
+        openDirectoryTab("Groups", identifier: "groupsTab", root: "standardGroupsList")
+    }
+
+    private func openUsersTab() {
+        openDirectoryTab("Users", identifier: "usersTab", root: "standardUsersList")
     }
 
     private func openDiagnosticsTab() {
@@ -1260,7 +1242,7 @@ final class RideIntercomUITests: XCTestCase {
     private func removeExistingTalkGroups() {
         openGroupsTab()
 
-        let groupRows = app.buttons.matching(identifier: "groupRow-Talk Group")
+        let groupRows = talkGroupRows
         while groupRows.count > 0 {
             let countBeforeDelete = groupRows.count
             let groupRow = groupRows.firstMatch
@@ -1271,13 +1253,14 @@ final class RideIntercomUITests: XCTestCase {
             XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
             deleteButton.tap()
 
-            XCTAssertLessThan(app.buttons.matching(identifier: "groupRow-Talk Group").count, countBeforeDelete)
+            XCTAssertLessThan(talkGroupRows.count, countBeforeDelete)
         }
     }
 
     private func waitForVisibleRoot(in app: XCUIApplication) -> Bool {
-        app.descendants(matching: .any)["groupSelectionList"].firstMatch.waitForExistence(timeout: 3)
-            || app.buttons["createGroupButton"].firstMatch.waitForExistence(timeout: 3)
-            || app.staticTexts["Recent Groups"].firstMatch.waitForExistence(timeout: 3)
+        app.descendants(matching: .any)["advancedCallEmptyState"].firstMatch.waitForExistence(timeout: 3)
+            || app.descendants(matching: .any)["callScreen"].firstMatch.exists
+            || app.descendants(matching: .any)["standardGroupsList"].firstMatch.exists
+            || app.descendants(matching: .any)["standardCallScreen"].firstMatch.exists
     }
 }

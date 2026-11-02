@@ -8,7 +8,7 @@
 
 Watch音声のpairが失われ、Watchでの再準備が必要な場合は、この端末のResume Audioを表示しない。Watchからの再開始案内に従う。既存pairを保持した一時停止では共通の再開操作を利用する。
 
-初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。AdvancedでもUsers / Groupsは同じ一覧を使用し、Callは詳細表示と従来のGroups導線を維持する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
+初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。AdvancedでもUsers / Groupsは同じ一覧を使用し、Callは詳細表示を使用し、接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
 
 | 画面・項目ID | 表示と操作 |
 |---|---|
@@ -29,29 +29,9 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 
 Connect・Disconnect・ローカルマイクの操作は[通話先と操作対象の共通境界](../通信仕様.md#通話先と操作対象の共通境界)を使う。描画時の通話先・通話世代・設定値を保持し、遅れた終了やミュートが別の通話に作用しないようにする。
 
-## グループ選択画面
+## Advancedの接続先未選択
 
-### 親セクション
-
-| 項目名（日本語） | 項目ID | 目的 | 実装 | 発現条件 | 表示仕様 |
-|---|---|---|---|---|---|
-| グループ選択画面 | `groupSelectionList` | 接続対象グループを選ぶ起点を提供する | `GroupSelectionView` | `selectedGroup == nil` | `navigationTitle("Groups")` |
-| 最近のグループ一覧 | `groupSelectionList` | 過去に保持したグループを一覧表示する | `List > Section("Recent Groups")` | `selectedGroup == nil` | グループ一覧の親コンテナ |
-| グループ選択ツールバー | `call-groups-toolbar` | 新しいグループを作成する | `ToolbarItem(placement: .primaryAction)` | `selectedGroup == nil` | 右上に新規作成ボタン |
-
-### 子項目
-
-| 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 表示仕様 | 異常系の考え方 |
-|---|---|---|---|---|---|---|
-| 空状態メッセージ | `groupSelectionList` | なし | `Create a group to start a call.` | 固定文字列 | カード風表示 | データ不足をエラー扱いしない |
-| グループ行 | `groupSelectionList` | `groupRow-{group.name}` | グループ名 | `IntercomGroup` | 行全体タップで選択 | 選択だけでは既存接続を奪わない |
-| グループアイコン | `groupRow-{group.name}` | なし | なし | `activeGroupID == group.id` | `person.3`。接続中は success 色 | 選択中だけでは強調しない |
-| グループ名 | `groupRow-{group.name}` | なし | `group.name` | `String` | 最大 2 行 | 空表示にしない |
-| メンバー数 | `groupRow-{group.name}` | なし | `"{n} members"` | `Int` | 補助テキスト | 接続中人数ではなく保存メンバー数 |
-| 遷移インジケーター | `groupRow-{group.name}` | なし | なし | 固定 SF Symbol | `chevron.right` | なし |
-| スワイプ削除 | `groupRow-{group.name}` | なし | `Delete` | 対象 `group.id` | 破壊操作 | フルスワイプ不可 |
-| コンテキスト削除 | `groupRow-{group.name}` | なし | `Delete` | 対象 `group.id` | context menu | swipe と同一意味 |
-| グループ作成ボタン | `call-groups-toolbar` | `createGroupButton` | `Create Talk Group` | Action | 右上ボタン | 押下で `Talk Group` を作成して選択 |
+Callに接続先が選ばれていないときは、`chooseUserButton`と`chooseGroupButton`からUsers / Groupsタブへ移動する。現在の通話があるときはCurrent Callから戻れ、保存データの復旧操作とエラーも表示する。グループの一覧と新規作成はGroupsタブが提供する。タブ移動や選択だけでは既存通話を切り替えない。
 
 ## ユーザー指定の個別通話
 
@@ -79,7 +59,6 @@ CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。�
 | 項目名（日本語） | 項目ID | 目的 | 実装 | 発現条件 | 表示仕様 |
 |---|---|---|---|---|---|
 | 通話画面 | `callScreen` | 接続、音声入出力、参加者状態を一画面で扱う | `CallView` | `selectedGroup != nil` | 画面タイトルは通常group名、個別通話では相手の表示名 |
-| 通話ツールバー | `call-toolbar` | グループ一覧へ戻る導線 | toolbar | 常時 | 左上に `Groups` |
 | 通話ステータスヘッダー | `callStatusHeader` | 通話全体の状態を最上部に集約する | `statusHeader` | 常時 | 接続、入力、出力をまとめる |
 | 接続/招待操作領域 | `call-primary-controls` | 主要操作をまとめる | `controls` | 常時 | 横幅に応じて横並びまたは縦並び |
 | 参加者セクション | `call-participants-section` | 相手ごとの状態、出力調整、peer bus effect 設定を扱う | `VStack` | 常時 | 見出しと参加者領域 |
@@ -106,7 +85,6 @@ CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。�
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 表示仕様 | 異常系の考え方 |
 |---|---|---|---|---|---|---|
-| グループ一覧戻りボタン | `call-toolbar` | `showGroupsButton` | `Groups` | Action | 左上ボタン | 接続は維持する |
 | 接続ボタン | `call-primary-controls` | `connectButton` | `Connect` | `canDisconnectCall == false` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
 | 切断ボタン | `call-primary-controls` | `disconnectButton` | `Disconnect` | `canDisconnectCall == true` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
 | 招待ボタン | `call-primary-controls` | `inviteButton` | `Invite` | `canShareSelectedGroup` | `ShareLink` / `GroupInvitationShare` | ログイン・保存状態・所属・宛先から表示可否を判断。共有データ要求時に対象IDと権限を再確認してURLを発行する。共有画面の表示・取消やURLの共有だけでは参加者を追加しない |
@@ -188,4 +166,4 @@ resetでrider identity・音声設定・Internet資格は変更しない。退�
 
 ## 共通の操作表現
 
-StandardとAdvancedの接続・音声再開には標準`glassProminent`、補助操作には`glass`のButtonStyleを使う。Advancedの参加者操作・既存Groups導線と、Form内の設定コントロールを維持する。Standardの背景は淡い空色のグラデーション、Advancedの本文・診断背景は既存のシステムMaterialと背景を保ち、共通の青いtintで揃える。
+StandardとAdvancedの接続・音声再開には標準`glassProminent`、補助操作には`glass`のButtonStyleを使う。Advancedの参加者操作と、Form内の設定コントロールを維持する。Standardの背景は淡い空色のグラデーション、Advancedの本文・診断背景は既存のシステムMaterialと背景を保ち、共通の青いtintで揃える。
