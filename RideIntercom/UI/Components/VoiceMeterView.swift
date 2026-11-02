@@ -31,7 +31,7 @@ struct VoiceMeterView: View {
             if showsValueText {
                 Text(isMuted ? "MUTED" : "LEVEL \(indicator.levelPercent)  PEAK \(indicator.peakPercent)")
                     .font(AppTypography.caption2Mono)
-                    .foregroundStyle(isMuted ? AppColorPalette.danger : meterColor)
+                    .foregroundStyle(AppColorPalette.textPrimary)
                     .accessibilityIdentifier("voiceMeterValueLabel")
             }
         }
@@ -52,15 +52,6 @@ struct VoiceMeterView: View {
             return AppColorPalette.danger
         }
 
-        switch indicator.intensity {
-        case .silent:
-            return AppColorPalette.neutral
-        case .low:
-            return AppColorPalette.info
-        case .medium:
-            return AppColorPalette.success
-        case .high:
-            return AppColorPalette.warning
-        }
+        return indicator.intensity == .silent ? AppColorPalette.neutral : AppColorPalette.voiceLevel
     }
 }

@@ -5,20 +5,15 @@ enum AppColorPalette {
     static let textSecondary: Color = .secondary
     static let textTertiary: Color = .secondary.opacity(0.72)
 
-    static let danger: Color = .red
-    static let success: Color = .green
-    static let warning: Color = .orange
-    static let info: Color = .blue
+    static let danger = RideComColors.danger
+    static let success = RideComColors.success
+    static let warning = RideComColors.warning
+    static let info = RideComColors.accent
+    static let voiceLevel = RideComColors.voiceLevel
     static let neutral: Color = .secondary
 
-    static let standardScreenBackground = LinearGradient(
-        colors: [Color("BackgroundTop"), Color("BackgroundBase")],
-        startPoint: .top,
-        endPoint: .bottom
-    )
-    static let callScreenBackground: Color = Color.secondary.opacity(0.08)
-    static let cardMaterial: Material = .regularMaterial
-    static let diagnosticsCardMaterial: Material = .thinMaterial
+    static let standardScreenBackground = RideComColors.screenBackground
+    static let callScreenBackground = RideComColors.screenBackground
     #if os(macOS)
     static let panelSurface: Color = Color(nsColor: .windowBackgroundColor)
     #else
@@ -41,6 +36,8 @@ enum AppSpacing {
     static let xl: CGFloat = 12
     static let xxl: CGFloat = 14
     static let screen: CGFloat = 16
+    static let callControls: CGFloat = 24
+    static let destructiveSeparation: CGFloat = 32
 }
 
 enum AppCornerRadius {
@@ -52,6 +49,10 @@ enum AppBorderWidth {
 }
 
 enum AppSize {
+    static let callControlDiameter: CGFloat = 64
+    static let callControlCompactDiameter: CGFloat = 56
+    static let singleColumnMaxWidth: CGFloat = 640
+    static let callColumnMaxWidth: CGFloat = 560
     static let tapPrimary = CGSize(width: 44, height: 44)
     static let buttonPrimaryMinHeight: CGFloat = 44
     static let buttonSecondaryMinHeight: CGFloat = 36
@@ -89,6 +90,8 @@ extension View {
 
     func appProminentButtonStyle() -> some View {
         buttonStyle(.glassProminent)
+            .controlSize(.large)
+            .font(AppTypography.bodyStrong)
             .tint(AppColorPalette.buttonProminentBackground)
             .foregroundStyle(AppColorPalette.buttonProminentForeground)
             .frame(minHeight: max(AppSize.buttonPrimaryMinHeight, platformButtonMinHeight))
@@ -99,19 +102,14 @@ extension View {
             .frame(minHeight: max(AppSize.buttonSecondaryMinHeight, platformButtonMinHeight))
     }
 
-    func appCallCardStyle() -> some View {
-        appCardStyle(background: AnyShapeStyle(AppColorPalette.cardMaterial))
-    }
+    func appCallCardStyle() -> some View { appCardStyle() }
 
-    func appDiagnosticsCardStyle() -> some View {
-        appCardStyle(background: AnyShapeStyle(AppColorPalette.diagnosticsCardMaterial))
-    }
+    func appDiagnosticsCardStyle() -> some View { appCardStyle() }
 
-    private func appCardStyle(background: AnyShapeStyle, borderColor: Color = AppColorPalette.cardBorder) -> some View {
+    private func appCardStyle() -> some View {
         let shape = RoundedRectangle(cornerRadius: AppCornerRadius.card)
         return padding(AppSpacing.xl)
-            .background(background)
-            .overlay(shape.stroke(borderColor, lineWidth: AppBorderWidth.card))
-            .clipShape(shape)
+            .glassEffect(.regular, in: shape)
+            .overlay(shape.stroke(AppColorPalette.cardBorder, lineWidth: AppBorderWidth.card))
     }
 }
