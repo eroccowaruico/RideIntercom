@@ -245,6 +245,23 @@ struct NotificationClientTests {
         #expect(NotificationHTTPStub.requests.isEmpty)
     }
 
+    @Test func notificationPermissionDenialIsDistinctFromRegistrationFailure() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        fixture.permission = false
+        await fixture.notifications.enable()
+        #expect(fixture.notifications.authorizationDenied)
+        #expect(!fixture.notifications.isEnabled)
+        fixture.permission = true
+        await fixture.notifications.refresh()
+        #expect(!fixture.notifications.authorizationDenied)
+        #expect(!fixture.notifications.isEnabled)
+        #expect(fixture.registerCount == 0)
+        await fixture.notifications.enable()
+        #expect(!fixture.notifications.authorizationDenied)
+        #expect(fixture.notifications.isEnabled)
+        #expect(fixture.registerCount == 1)
+    }
+
     @Test func missingServiceCredentialsStillAllowLocalDisableAndUnregister() async throws {
         let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
         await fixture.notifications.enable()

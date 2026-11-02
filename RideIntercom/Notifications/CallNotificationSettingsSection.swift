@@ -1,24 +1,58 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct CallNotificationSettingsSection: View {
     let notifications: CallNotifications
+    @Environment(\.openURL) private var openURL
+
     var body: some View {
-        Section("Call Notifications") {
-            Text(LocalizedStringKey(notifications.receivesNotifications ? "Notifications are ready on this device." : "Notifications are not ready on this device."))
-            Button("Check Notifications") { Task { await notifications.refresh() } }
-                .disabled(notifications.isBusy).accessibilityIdentifier("checkCallNotifications")
-            if notifications.isEnabled {
-                Button("Disable Notifications") { Task { await notifications.disable() } }
-                    .disabled(notifications.isBusy)
-                    .accessibilityIdentifier("disableCallNotifications")
-            } else {
-                Button("Enable Notifications") { Task { await notifications.enable() } }
-                    .disabled(!notifications.canRegisterNotifications || notifications.isBusy)
-                    .accessibilityIdentifier("enableCallNotifications")
+        Section {
+            HStack {
+                Toggle("Receive Call Requests", isOn: Binding(
+                    get: { notifications.isEnabled },
+                    set: { enabled in
+                        Task { if enabled { await notifications.enable() } else { await notifications.disable() } }
+                    }
+                ))
+                .disabled((!notifications.canRegisterNotifications && !notifications.isEnabled) || notifications.isBusy)
+                .accessibilityIdentifier("receiveCallNotificationsToggle")
+                if notifications.isBusy { ProgressView() }
             }
-            if let message = notifications.message { Text(LocalizedStringKey(message)).foregroundStyle(.secondary) }
-            if !notifications.canRegisterNotifications { Text("Set up Internet calling to use notifications.").foregroundStyle(.secondary) }
+            if notifications.authorizationDenied && notifications.canRegisterNotifications {
+                Button("Open Settings") { openNotificationSettings() }
+                    .accessibilityIdentifier("openNotificationSettings")
+            } else if notifications.canRegisterNotifications && notifications.isEnabled && !notifications.receivesNotifications && notifications.message != nil {
+                Button("Try Again") { Task { await notifications.enable() } }
+                    .disabled(notifications.isBusy)
+                    .accessibilityIdentifier("retryCallNotifications")
+            }
+        } header: {
+            Text("Call Notifications")
+        } footer: {
+            if !notifications.isBusy {
+                Text(status).accessibilityIdentifier("callNotificationsStatus")
+            }
         }
+        .task { await notifications.refresh() }
+    }
+
+    private var status: LocalizedStringKey {
+        if !notifications.canRegisterNotifications { return "Internet connection is required to receive call requests." }
+        if notifications.authorizationDenied { return "Notifications are not allowed in system settings." }
+        if !notifications.isEnabled { return "Turn this on to receive call requests on this device." }
+        if notifications.receivesNotifications { return "Call requests do not connect automatically." }
+        if notifications.message != nil { return "Could not enable call requests. Try again." }
+        return "Setting up call requests."
+    }
+
+    private func openNotificationSettings() {
+        #if os(iOS)
+        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+        #elseif os(macOS)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") { openURL(url) }
+        #endif
     }
 }
 

@@ -1,6 +1,86 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Open Settings": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を開く"
+          }
+        }
+      }
+    },
+    "Setting up call requests.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼び出しの通知を設定しています。"
+          }
+        }
+      }
+    },
+    "Could not enable call requests. Try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼び出しを受け取れるように設定できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Call requests do not connect automatically.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼び出しを受けても、自動では接続しません。"
+          }
+        }
+      }
+    },
+    "Turn this on to receive call requests on this device.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ONにすると、仲間からの呼び出しをこの端末で受け取ります。"
+          }
+        }
+      }
+    },
+    "Notifications are not allowed in system settings.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知がシステム設定で許可されていません。"
+          }
+        }
+      }
+    },
+    "Internet connection is required to receive call requests.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼び出しを受け取るにはインターネット接続が必要です。"
+          }
+        }
+      }
+    },
+    "Receive Call Requests": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼び出しを受け取る"
+          }
+        }
+      }
+    },
     "Speaker": {
       "localizations": {
         "ja": {
@@ -1387,7 +1467,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通話の通知"
+            "value" : "呼び出しの通知"
           }
         }
       }

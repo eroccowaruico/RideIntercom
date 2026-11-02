@@ -5,6 +5,7 @@ import Observation
 @MainActor @Observable
 final class CallNotifications {
     private(set) var receivesNotifications = false
+    private(set) var authorizationDenied = false
     private(set) var isBusy = false
     private(set) var message: String?
     private(set) var outgoing: Outgoing?
@@ -90,6 +91,7 @@ final class CallNotifications {
         do {
             let granted = try await requestAuthorization()
             guard current(context, generation: expected) else { return }
+            authorizationDenied = !granted
             guard granted else {
                 receivesNotifications = false
                 if isEnabled { await disable() }
@@ -111,9 +113,15 @@ final class CallNotifications {
         }
         guard let context = serviceAccess() else { return }
         let expected = generation
+        if authorizationDenied && !isEnabled {
+            let granted = await authorizationGranted()
+            guard current(context, generation: expected) else { return }
+            if granted { authorizationDenied = false }
+        }
         if isEnabled {
             let granted = await authorizationGranted()
             guard current(context, generation: expected) else { return }
+            authorizationDenied = !granted
             if granted { register() }
             else {
                 await disable()

@@ -55,9 +55,8 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 
 | 項目 | ID | 操作・状態 |
 |---|---|---|
-| Enable Notifications | `enableCallNotifications` | native Internet登録済みの本人がOSのalert/sound許可を明示的に求める。実配送を確認済みとは表示しない |
-| Check Notifications | `checkCallNotifications` | 保存の再読取、現在のOS許可と宛先登録、OFFの取消pendingを再確認。許可シートを自動で出さない |
-| Disable Notifications | `disableCallNotifications` | この端末を即時OFFにし、宛先を取消。登録資格が読めなくても操作できる。失敗してもtapと前面表示を拒否し、取消を再試行できる |
+| Receive Call Requests | `receiveCallNotificationsToggle` | 端末の受信希望を切り替える。ONは明示的にOS許可を要求して登録し、OFFは即時に受信を止め取消を試みる。資格未設定かつOFFでは無効。すでにONのまま資格を失った場合はOFFにできる |
+| 状態 | `callNotificationsStatus` | 設定を開いたときと前景復帰に状態を確認する。許可シートは自動で出さない。OS拒否は設定画面への入口、登録失敗は再試行を示す |
 
 Standard/Advancedで同じモデルを使用する。SavedUserの編集には相手ごとのAllow Call Requests、Send Call Request、Cancel Call Requestを置く。許可は相手と1対1で接続すると共有する。group内だけの相手や自分の別端末を候補へ昇格させず、通知の受付を通話成立と表示しない。詳細は[通知仕様](../通知仕様.md)を参照する。
 
