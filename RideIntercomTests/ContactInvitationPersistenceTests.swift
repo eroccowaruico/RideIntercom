@@ -67,7 +67,7 @@ struct ContactInvitationPersistenceTests {
         let (b0, _) = friend.make()
         try b0.viewModel.acceptContactInviteURL(url)
         #expect(b0.viewModel.savedRemoteUsers.map(\.memberIDs) == [["persist-author"]])
-        #expect(b0.viewModel.groups.isEmpty)
+        #expect(b0.viewModel.regularGroups.isEmpty)
         b0.viewModel.stopContactInvitationSession()
         let (b, friendTransport) = friend.make()
         #expect(b.viewModel.savedRemoteUsers.map(\.memberIDs) == [["persist-author"]])
@@ -87,7 +87,16 @@ struct ContactInvitationPersistenceTests {
         #expect(reloadedA.viewModel.savedRemoteUsers.map(\.memberIDs) == [["persist-friend"]])
         #expect(reloadedB.viewModel.savedRemoteUsers.map(\.memberIDs) == [["persist-author"]])
         #expect(reloadedB.viewModel.pendingContactInvitations.isEmpty)
-        #expect(reloadedA.viewModel.groups.isEmpty && reloadedB.viewModel.groups.isEmpty)
+        #expect(reloadedA.viewModel.regularGroups.isEmpty && reloadedB.viewModel.regularGroups.isEmpty)
+        // The invitation alone completes the pair call: both sides already hold one
+        // call key, so a nearby call needs no further exchange or Internet service.
+        #expect(reloadedA.viewModel.selectUser(try #require(reloadedA.viewModel.savedRemoteUsers.first).id))
+        #expect(reloadedB.viewModel.selectUser(try #require(reloadedB.viewModel.savedRemoteUsers.first).id))
+        let call = try #require(reloadedA.viewModel.selectedGroup?.id)
+        #expect(reloadedB.viewModel.selectedGroup?.id == call)
+        let key = try #require(try reloadedA.viewModel.groupRepository.credential(for: call))
+        #expect(try reloadedB.viewModel.groupRepository.credential(for: call) == key)
+        #expect(!String(decoding: try author.store.snapshot.encoded(), as: UTF8.self).contains(key.secret))
         #expect(a.callSession.connectedGroup == nil && b.callSession.connectedGroup == nil)
         #expect(authorTransport.startMediaCallCount == 0 && friendTransport.startMediaCallCount == 0)
     }
@@ -120,7 +129,9 @@ struct ContactInvitationPersistenceTests {
         #expect(!reloaded.viewModel.resumeContactInvitation(id))
         #expect(throws: (any Error).self) { try reloaded.viewModel.acceptContactInviteURL(url) }
         #expect(reloaded.viewModel.savedRemoteUsers.isEmpty)
-        #expect(friend.credentials.values.isEmpty)
+        // Like any direct call, the registered pair call outlives its user but cannot be started.
+        #expect(friend.credentials.values.count == 1)
+        #expect(reloaded.viewModel.regularGroups.isEmpty)
     }
 
     @Test func contactWaitingDoesNotTakeOverARegularCall() throws {
@@ -193,7 +204,9 @@ struct ContactInvitationPersistenceTests {
         let (reloaded, _) = author.make()
         #expect(!reloaded.viewModel.resumeContactInvitation(id))
         #expect(reloaded.viewModel.savedRemoteUsers.isEmpty)
-        #expect(author.credentials.values.isEmpty)
+        // Like any direct call, the registered pair call outlives its user but cannot be started.
+        #expect(author.credentials.values.count == 1)
+        #expect(reloaded.viewModel.regularGroups.isEmpty)
     }
 
     @Test func ordinaryCallStartAndSignOutStopContactTransportWithoutErasingPending() throws {
@@ -261,8 +274,12 @@ struct ContactInvitationPersistenceTests {
         let (reloadedA, _) = author.make(), (reloadedB, _) = friend.make()
         #expect(reloadedA.viewModel.savedRemoteUsers.map(\.memberIDs) == [[friendID]])
         #expect(reloadedB.viewModel.savedRemoteUsers.map(\.memberIDs) == [[authorID]])
-        #expect(reloadedA.viewModel.groups.isEmpty && reloadedB.viewModel.groups.isEmpty)
+        #expect(reloadedA.viewModel.regularGroups.isEmpty && reloadedB.viewModel.regularGroups.isEmpty)
         #expect(reloadedB.viewModel.pendingContactInvitations.isEmpty)
+        // The real RTC notification leaves both sides with one pair call key.
+        let call = IntercomGroup.directCallID(memberIDs: [authorID, friendID])
+        let key = try #require(try reloadedA.viewModel.groupRepository.credential(for: call))
+        #expect(try reloadedB.viewModel.groupRepository.credential(for: call) == key)
     }
 
 }

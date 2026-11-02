@@ -22,7 +22,7 @@ struct ContactBootstrapTests {
         #expect(a.savedRemoteUsers.isEmpty)
         #expect(b.savedRemoteUsers.map(\.memberIDs) == [["contact-author"]])
         #expect(a.groups.isEmpty)
-        #expect(b.groups.isEmpty)
+        #expect(b.regularGroups.isEmpty)
         #expect(friendNotification.sentApplicationDataMessages.isEmpty)
 
         friendNotification.authenticate(["contact-author"])
@@ -46,8 +46,12 @@ struct ContactBootstrapTests {
         })
         friendNotification.onEvent?(.receivedApplicationData(peerID: "contact-author", message: acknowledgement))
         #expect(b.savedRemoteUsers.map(\.memberIDs) == [["contact-author"]])
-        #expect(a.groups.isEmpty, "Contact bootstrap is never an ordinary group")
-        #expect(b.groups.isEmpty)
+        #expect(a.regularGroups.isEmpty, "Contact bootstrap is never an ordinary group")
+        #expect(b.regularGroups.isEmpty)
+        let call = IntercomGroup.directCallID(memberIDs: ["contact-author", "contact-friend"])
+        #expect(a.groups.map(\.id) == [call] && b.groups.map(\.id) == [call])
+        let key = try #require(try a.groupRepository.credential(for: call))
+        #expect(try b.groupRepository.credential(for: call) == key, "Both sides finish the invitation with one pair call key")
         #expect(author.callSession.startMediaCallCount == 0)
         #expect(friend.callSession.startMediaCallCount == 0)
     }

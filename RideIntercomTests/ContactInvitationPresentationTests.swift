@@ -87,6 +87,6 @@ struct ContactInvitationPresentationTests {
         #expect(friend.callSession.disconnectCallCount == disconnects)
         #expect(friend.callSession.connectedGroup?.id == group.id)
         #expect(notification.connectedGroup == nil)
-        #expect(friend.viewModel.groups.count == 1)
+        #expect(friend.viewModel.regularGroups.map(\.id) == [group.id])
     }
 }

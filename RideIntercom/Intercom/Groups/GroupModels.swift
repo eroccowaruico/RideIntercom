@@ -238,7 +238,8 @@ struct IntercomGroup: Identifiable, Equatable {
         self.accountDevices = accountDevices
     }
 
-    /// Identifies a pair, never supplies a credential. Keys remain random and private.
+    /// Identifies a pair, never supplies a credential. The key comes from the contact
+    /// invitation both devices completed, or from a direct invitation that carries it.
     static func directCallID(memberIDs: [String]) -> UUID {
         let input = "rideintercom.direct-call.v1|" + memberIDs.sorted().joined(separator: "|")
         var bytes = Array(SHA256.hash(data: Data(input.utf8)).prefix(16))

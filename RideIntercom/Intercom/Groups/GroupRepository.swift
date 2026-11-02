@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// The manifest replacement is the sole commit point. Keys are immutable versions;
@@ -431,7 +432,8 @@ extension GroupRepository {
         }
     }
 
-    func acceptContactInvitation(_ token: GroupInviteToken, accepted: AcceptedDirectInvitation, now: TimeInterval) throws {
+    func acceptContactInvitation(_ token: GroupInviteToken, accepted: AcceptedDirectInvitation,
+                                 localDisplayName: String, now: TimeInterval) throws {
         try token.validate(contactBootstrap: true)
         guard let snapshot, let context = token.directInvitation?.context,
               accepted.receipt.invitation == context, accepted.receipt.inviteeMemberID == localMemberID,
@@ -445,10 +447,12 @@ extension GroupRepository {
             return
         }
         let payload = ContactInvitationPayload(token: token, receipt: accepted.receipt)
-        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+        let inviter = GroupMember(id: accepted.inviter.memberID, displayName: token.inviterDisplayName ?? "Inviter")
+        let call = try contactDirectCall(with: inviter, localDisplayName: localDisplayName, token: token,
+                                         groups: try snapshot.groups.map { try $0.group() })
+        try update(call.groups, credential: call.credential) { next in
             next.contactInvitations.removeAll { $0.expiresAt <= now }
-            try Self.remember(.init(id: accepted.inviter.memberID, displayName: token.inviterDisplayName ?? "Inviter"),
-                              identity: accepted.inviter, in: &next)
+            try Self.remember(inviter, identity: accepted.inviter, in: &next)
             let reference = try self.prepareKey(payload.encodedSecret())
             next.contactInvitations.append(.init(id: context.id, direction: .incoming, expiresAt: context.expiresAt,
                 credentialReference: reference, receiptID: accepted.receipt.id,
@@ -456,7 +460,7 @@ extension GroupRepository {
         }
     }
 
-    func confirmContactInvitation(_ verified: VerifiedDirectInvitation, now: TimeInterval) throws {
+    func confirmContactInvitation(_ verified: VerifiedDirectInvitation, localDisplayName: String, now: TimeInterval) throws {
         let receipt = verified.receipt
         guard let snapshot, let context = receipt.invitation, context.contactBootstrap == true,
               receipt.inviterMemberID == localMemberID, now < context.expiresAt,
@@ -470,15 +474,35 @@ extension GroupRepository {
         var payload = try contactInvitationPayload(context.id)
         guard payload.token.directInvitation?.context == context else { throw GroupStorageError.identityConflict }
         payload.receipt = receipt
-        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+        let recipient = GroupMember(id: verified.identity.memberID, displayName: receipt.displayName)
+        let call = try contactDirectCall(with: recipient, localDisplayName: localDisplayName, token: payload.token,
+                                         groups: try snapshot.groups.map { try $0.group() })
+        try update(call.groups, credential: call.credential) { next in
             guard let index = next.contactInvitations.firstIndex(where: { $0.id == context.id }) else { throw GroupStorageError.invalidUpdate }
-            try Self.remember(.init(id: verified.identity.memberID, displayName: receipt.displayName), identity: verified.identity, in: &next)
+            try Self.remember(recipient, identity: verified.identity, in: &next)
             next.contactInvitations[index].credentialReference = try self.prepareKey(payload.encodedSecret())
             next.contactInvitations[index].state = .confirmed
             next.contactInvitations[index].receiptID = receipt.id
             next.contactInvitations[index].peerMemberID = verified.identity.memberID
             next.contactInvitations[index].peerDeviceKey = verified.identity.publicKey
         }
+    }
+
+    /// A contact invitation completes the pair call in the same commit as the user.
+    /// Both sides derive one call key from the invitation secret they already share,
+    /// so a nearby call needs no later key exchange or Internet service. A
+    /// re-invitation replaces an earlier key on both sides.
+    private func contactDirectCall(with remote: GroupMember, localDisplayName: String, token: GroupInviteToken,
+                                   groups: [IntercomGroup]) throws -> (groups: [IntercomGroup], credential: GroupAccessCredential) {
+        guard let localMemberID else { throw GroupStorageError.invalidUpdate }
+        let members = [GroupMember(id: localMemberID, displayName: localDisplayName), remote]
+        let id = IntercomGroup.directCallID(memberIDs: members.map(\.id))
+        let call = try groups.first { $0.id == id } ?? IntercomGroup(id: id, name: "Direct Call", members: members, kind: .direct)
+        guard call.kind == .direct else { throw GroupStorageError.identityConflict }
+        let key = HKDF<SHA256>.deriveKey(inputKeyMaterial: SymmetricKey(data: Data(token.groupSecret.utf8)),
+            salt: Data("rideintercom.contact-direct-call.v1".utf8), info: Data(id.uuidString.utf8), outputByteCount: 32)
+        let secret = key.withUnsafeBytes { Data($0).base64EncodedString() }
+        return ([call] + groups.filter { $0.id != id }, .init(groupID: id, secret: secret))
     }
 
     func contactInvitationPayload(_ id: UUID) throws -> ContactInvitationPayload {

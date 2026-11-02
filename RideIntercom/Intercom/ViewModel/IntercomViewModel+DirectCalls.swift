@@ -59,13 +59,26 @@ extension IntercomViewModel {
             }
             let group = try IntercomGroup(id: id, name: "Direct Call", members: members, kind: .direct,
                                          accountPair: pair, accountDevices: devices)
-            let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
+            // A contact invitation already gave both sides one key for this device pair.
+            // Reuse it when the call resolves by account, so neither side invents another key.
+            let contactCall = remoteIDs.count == 1
+                ? IntercomGroup.directCallID(memberIDs: [localMemberIdentity.memberID, remoteIDs[0]]) : nil
+            let secret = try contactCall.flatMap { try groupRepository.credential(for: $0)?.secret }
+                ?? SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
             try groupRepository.save([group] + groups, credential: .init(groupID: id, secret: secret))
             refreshGroupStorageStatus()
             groups.insert(group, at: 0)
             selectGroup(group, connectIfIdle: connectIfIdle)
             return true
         } catch { reportGroupStorageError(error); return false }
+    }
+
+    /// Contact registration commits the pair call. Keep it in the in-memory list so
+    /// a later save of that list cannot drop it; a live call keeps its runtime state.
+    func adoptStoredDirectCall(with memberID: String) {
+        let id = IntercomGroup.directCallID(memberIDs: [localMemberIdentity.memberID, memberID])
+        guard !groups.contains(where: { $0.id == id }), let stored = groupRepository.storedGroup(id) else { return }
+        groups.insert(stored, at: 0)
     }
 
     /// Merge durable membership without resetting live mute, audio or connection state.

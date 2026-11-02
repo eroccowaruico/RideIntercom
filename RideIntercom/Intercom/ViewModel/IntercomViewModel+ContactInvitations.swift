@@ -32,7 +32,9 @@ extension IntercomViewModel {
         let signer = try internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID)
         let acceptance = try token.accept(signer: signer, displayName: localMemberIdentity.displayName,
             trust: internetSettingsStore.identityTrust(), now: callAccessNow().timeIntervalSince1970, contactBootstrap: true)
-        try groupRepository.acceptContactInvitation(token, accepted: acceptance, now: callAccessNow().timeIntervalSince1970)
+        try groupRepository.acceptContactInvitation(token, accepted: acceptance,
+            localDisplayName: localMemberIdentity.displayName, now: callAccessNow().timeIntervalSince1970)
+        adoptStoredDirectCall(with: acceptance.inviter.memberID)
         refreshGroupStorageStatus()
         _ = resumeContactInvitation(try contactID(token))
     }
@@ -65,7 +67,9 @@ extension IntercomViewModel {
                 confirmReceipt: { [weak self] verified in
                     guard let self, self.canEditSavedGroups, self.accountAccessID == access,
                           self.contactInvitationID == id, verified.receipt.invitation?.id == id else { throw ContactInvitationError.unavailable }
-                    try self.groupRepository.confirmContactInvitation(verified, now: self.callAccessNow().timeIntervalSince1970)
+                    try self.groupRepository.confirmContactInvitation(verified, localDisplayName: self.localMemberIdentity.displayName,
+                        now: self.callAccessNow().timeIntervalSince1970)
+                    self.adoptStoredDirectCall(with: verified.identity.memberID)
                     self.refreshGroupStorageStatus()
                 }, acknowledged: { [weak self] in
                     guard let self, self.canEditSavedGroups, self.accountAccessID == access,
