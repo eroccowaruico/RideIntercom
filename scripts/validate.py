@@ -323,6 +323,7 @@ def main():
     python = sys.executable
     runner.run('development-setup', [python, 'scripts/check_development_setup.py'])
     runner.run('documentation', [python, 'scripts/check_documentation.py'])
+    runner.run('string-catalogs', [python, 'scripts/check_string_catalogs.py'])
     mode = args.mode
     swift_needed = mode in ('all', 'headless', 'packages', 'pair', 'macos', 'ios', 'ios-ui')
     node_needed = mode in ('all', 'headless', 'worker', 'pair', 'scripts')
