@@ -29,3 +29,10 @@ Mac buildのwarningは0。Watchでは既知の`AppIntents.framework`依存なし
 正式採用前は、紺・白・ターコイズの道路と音声波形の仮アイコンを内蔵image generationで新規生成し、`sips`で各寸法へ変換して登録していた。当時は正式デザイン承認済みとは扱っていなかった。旧`開発環境.md`にあった生成指示を履歴として保持する。
 
 > Create a temporary production-quality app icon for RideIntercom, a group voice intercom app used by riders while moving. Square 1024x1024 full bleed opaque image, no transparency, no rounded outside corners, no mockup or surrounding margin. Deep navy background with a simple bold original turquoise and white emblem combining two flowing road lanes and a compact sound wave / conversation motif. Clean geometric vector-like rendering, highly legible at 60 pixels, minimal shapes, balanced centered composition, premium restrained style. No text, no letters, no logos, no Apple SF Symbols, no gradients that reduce contrast. This is the actual icon artwork filling the entire canvas.
+
+
+## 共有カスタム記号の追加
+
+2026-11-02、改訂デザインの `ridecom.glyph` を共通 `Shared/Appearance.xcassets` のsymbolsetとして作成した。インストール済みSF Symbols 27の実Template v4.0を基に、正本Road.svgの2pathとWaveform.svgの23pathを3つのmasterへ均等変換で配置した。d・fill-rule・順序を保持し、ブランド形状に架空のweight変形を加えていない。重なるpathを一つのsymbol layerへまとめると穴が生じることをnative描画で確認し、各pathを独立paint layerにして原形を保持した。Roadはprimary、Waveformはsecondaryの色roleを持ち、mono/paletteで利用できる。
+
+独立macOS actool compile、NSImageの名前読込とsymbol configurationが成功し、正本SVGとnative mono/palette画像を比較した。`.validation/design-glyph-targets-20261102` の標準iOS Simulator buildでApp・Widget・Watchすべてのcatalog組込みが成功、入力指紋も一致した。証跡は `/tmp/ridecom-glyph-check` のRESULT.md・Load.swift・actool.log・native画像。この単位は記号資産の成立確認であり、サインイン・Island等への実配置は後続の画面単位で確認する。
