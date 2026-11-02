@@ -25,6 +25,7 @@ extension IntercomViewModel {
             groupErrorMessage = "Group key is missing. Open a valid invite or create a new group."
             return
         }
+        stopContactInvitationSession()
         groupErrorMessage = nil
         connectivityNotice = nil
         internetFailureDetail = nil
@@ -177,6 +178,7 @@ extension IntercomViewModel {
     }
 
     func disconnect() {
+        stopContactInvitationSession()
         stopWatchAudioLink()
         callDisconnectDeadline = nil
         callTicker.stop()

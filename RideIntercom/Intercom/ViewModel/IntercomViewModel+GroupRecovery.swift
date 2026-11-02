@@ -30,6 +30,7 @@ extension IntercomViewModel {
         return nil
     }
     func refreshGroupStorageStatus() {
+        contactInvitationRevision = UUID()
         savedUsers = groupRepository.users
         applySavedUserNames()
         groupsMissingKeys = groupRepository.missingCredentialGroupIDs
@@ -51,6 +52,7 @@ extension IntercomViewModel {
             groupErrorMessage = "Disconnect before reloading saved groups."
             return
         }
+        stopContactInvitationSession()
         do {
             groups = try groupRepository.load(localMemberID: localMemberIdentity.memberID)
             selectedGroup = nil; groupStorageIssue = nil; groupErrorMessage = nil

@@ -64,7 +64,7 @@ struct VerifiedContactTests {
         #expect(restarted.users.first?.deviceKeys == nil)
         #expect(restarted.pendingInvitation(for: group.id) == nil)
         #expect(try restarted.credential(for: group.id)?.secret == "group-key")
-        #expect(try f.file.read()?.version == 8)
+        #expect(try f.file.read()?.version == 9)
     }
 
     private func group(_ member: String) throws -> IntercomGroup {

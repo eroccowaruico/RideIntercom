@@ -71,7 +71,7 @@ enum AppleAccountFixture {
         } else {
             let snapshot = try GroupSnapshot.decode(Data(contentsOf: manifest))
             let archives = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            guard snapshot.version == 8, snapshot.groups.isEmpty,
+            guard snapshot.version == 9, snapshot.groups.isEmpty,
                   try archives.contains(where: { path in
                       guard path.lastPathComponent.hasPrefix("groups-corrupt-"), path.pathExtension == "json",
                             path.resolvingSymlinksInPath().standardizedFileURL.path == path.standardizedFileURL.path else { return false }

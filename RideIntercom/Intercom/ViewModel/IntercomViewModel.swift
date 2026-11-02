@@ -18,6 +18,12 @@ final class IntercomViewModel {
     let accountSession: AppleAccountSession
     let accountUserID: String?
     let invitationAuthority: DirectInvitationAuthority
+    @ObservationIgnored var contactSessionFactory: (() -> CallSession)?
+    @ObservationIgnored var contactInvitationSession: ContactInvitationSession?
+    @ObservationIgnored var contactInvitationID: UUID?
+    @ObservationIgnored var contactInvitationExpiryTask: Task<Void, Never>?
+    @ObservationIgnored var contactNotificationAttemptDuration: Duration = .seconds(60)
+    var contactInvitationRevision = UUID()
     let accountAccessID: UUID
     var menuBarEnabled = false
     var liveActivityEnabled = false

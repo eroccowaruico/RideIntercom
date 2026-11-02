@@ -14,6 +14,8 @@ final class ContactInvitationSession {
     private let trust: DeviceIdentityTrust?
     private let now: () -> TimeInterval
     private let confirm: (VerifiedDeviceProof, String) throws -> Void
+    private let confirmReceipt: ((VerifiedDirectInvitation) throws -> Void)?
+    private let acknowledged: (() throws -> Void)?
     private var issued: GroupInviteToken?
     private var received: (token: GroupInviteToken, accepted: AcceptedDirectInvitation)?
     private var boundReceipt: DirectInvitationReceipt?
@@ -27,22 +29,57 @@ final class ContactInvitationSession {
          displayName: String, trust: DeviceIdentityTrust? = nil,
          routes: Set<RTC.RouteKind> = AppRTCTransportRoutePolicy.supportedRoutes,
          now: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 },
+         confirmReceipt: ((VerifiedDirectInvitation) throws -> Void)? = nil,
+         acknowledged: (() throws -> Void)? = nil,
          confirm: @escaping (VerifiedDeviceProof, String) throws -> Void) {
         self.transport = transport; self.authority = authority; self.signer = signer
+        self.confirmReceipt = confirmReceipt; self.acknowledged = acknowledged
         self.name = displayName; self.trust = trust; self.routes = routes; self.now = now; self.confirm = confirm
         transport.onEvent = { [weak self] event in self?.receive(event) }
     }
 
     func issue() throws -> URL {
         guard !isStopped, issued == nil, received == nil else { throw GroupInviteTokenError.incompatibleCall }
-        let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
-        let token = try GroupInviteToken.make(authority: authority, signer: signer,
-            groupID: UUID(), groupName: "Contact Invitation", groupSecret: secret,
-            inviterMemberID: signer.memberID, inviterDisplayName: name, contactBootstrap: true,
-            issuedAt: now())
+        let token = try Self.makeToken(authority: authority, signer: signer, displayName: name, now: now())
         issued = token
         try start(token)
         return try GroupInviteTokenCodec.joinURL(for: token, contactBootstrap: true)
+    }
+
+    static func makeToken(authority: DirectInvitationAuthority, signer: DeviceIdentitySigner,
+                          displayName: String, now: TimeInterval) throws -> GroupInviteToken {
+        let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
+        return try GroupInviteToken.make(authority: authority, signer: signer,
+            groupID: UUID(), groupName: "Contact Invitation", groupSecret: secret,
+            inviterMemberID: signer.memberID, inviterDisplayName: displayName, contactBootstrap: true, issuedAt: now)
+    }
+
+    /// Restores an account-owned checkpoint after its registration was committed.
+    /// It never calls the recipient registration callback again.
+    func restore(_ payload: ContactInvitationPayload) throws {
+        guard !isStopped, issued == nil, received == nil else { throw GroupInviteTokenError.incompatibleCall }
+        let token = payload.token
+        try token.validate(contactBootstrap: true)
+        guard !token.isExpired(now: now()), token.verifySignature() else { throw GroupInviteTokenError.expired }
+        if token.inviterMemberID == signer.memberID {
+            guard token.identityProof?.publicKey == signer.publicKey else { throw GroupStorageError.identityConflict }
+            if let receipt = payload.receipt {
+                guard receipt.invitation == token.directInvitation?.context,
+                      try authority.verify(receipt, trust: trust, now: now()) != nil else { throw GroupStorageError.identityConflict }
+                boundReceipt = receipt
+                isConfirmed = true
+            }
+            issued = token
+        } else {
+            let accepted = try token.accept(signer: signer, displayName: payload.receipt?.displayName ?? name,
+                                            trust: trust, now: now(), contactBootstrap: true)
+            guard let receipt = payload.receipt, receipt.id == accepted.receipt.id,
+                  receipt.inviteeDeviceKey == signer.publicKey,
+                  receipt.proof == accepted.receipt.proof else { throw GroupStorageError.identityConflict }
+            received = (token, accepted)
+            isConfirmed = true
+        }
+        try start(token)
     }
 
     func accept(_ url: URL) throws {
@@ -105,7 +142,8 @@ final class ContactInvitationSession {
                     if let boundReceipt {
                         guard boundReceipt.id == receipt.id, boundReceipt.inviteeDeviceKey == receipt.inviteeDeviceKey else { return }
                     } else {
-                        try confirm(verified.identity, receipt.displayName)
+                        if let confirmReceipt { try confirmReceipt(verified) }
+                        else { try confirm(verified.identity, receipt.displayName) }
                         boundReceipt = receipt
                         isConfirmed = true
                     }
@@ -122,6 +160,7 @@ final class ContactInvitationSession {
                     guard unsigned == expected else { return }
                     _ = try proof.verify(receipt.acknowledgementMessage(), purpose: .acknowledgeInvitation,
                                          memberID: peer, trust: trust, now: Date(timeIntervalSince1970: now()))
+                    try acknowledged?()
                     isAcknowledged = true
                     failure = nil
                 }

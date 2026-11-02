@@ -12,6 +12,7 @@ final class GroupRepository {
     private(set) var missingCredentialGroupIDs: Set<UUID> = []
     private(set) var needsCleanup = false
     var users: [SavedUser] { snapshot?.users ?? [] }
+    var contactInvitations: [ContactInvitationRecord] { snapshot?.contactInvitations ?? [] }
 
     init(store: GroupStoring, credentials: GroupCredentialStoring, legacy: LegacyGroupReader? = nil) {
         self.store = store; self.credentials = credentials; self.legacy = legacy
@@ -23,7 +24,7 @@ final class GroupRepository {
         do {
             var current = try store.read() ?? migrate(localMemberID: localMemberID)
             _ = try validateIdentity(current, localMemberID: localMemberID)
-            if current.version < 8 {
+            if current.version < 9 {
                 current = current.upgraded()
                 try store.commit(current)
                 guard try store.read() == current else { throw GroupStorageError.verificationFailed }
@@ -365,7 +366,7 @@ final class GroupRepository {
             record.pendingInvitation = old?.pendingInvitation
             record.receivedInvitationIDs = old?.receivedInvitationIDs ?? []
             return record
-        }, users: users ?? previous.users)
+        }, users: users ?? previous.users, contactInvitations: previous.contactInvitations)
         try modify(&next)
         next.synchronizeUserReferences()
         do { _ = try next.encoded() }
@@ -391,7 +392,7 @@ final class GroupRepository {
 
     private func cleanup(_ current: GroupSnapshot) {
         do {
-            let live = Set(current.groups.compactMap(\.credentialReference))
+            let live = Set(current.groups.compactMap(\.credentialReference) + current.contactInvitations.compactMap(\.credentialReference))
             for reference in try credentials.references().subtracting(live) { try credentials.delete(reference: reference) }
             try legacy?.cleanup()
             needsCleanup = false
@@ -410,5 +411,111 @@ final class GroupRepository {
         guard try store.read() == empty else { isWritable = false; throw GroupStorageError.verificationFailed }
         snapshot = empty; isWritable = true; missingCredentialGroupIDs = []
         cleanup(empty)
+    }
+}
+
+extension GroupRepository {
+    func stageContactInvitation(_ token: GroupInviteToken, now: TimeInterval) throws {
+        try token.validate(contactBootstrap: true)
+        guard let snapshot, let context = token.directInvitation?.context,
+              token.inviterMemberID == localMemberID, !token.isExpired(now: now), token.verifySignature(),
+              !snapshot.contactInvitations.contains(where: { $0.id == context.id }) else { throw GroupStorageError.invalidUpdate }
+        guard let proof = token.identityProof else { throw GroupStorageError.invalidUpdate }
+        _ = try proof.verify(Data(token.signature.utf8), purpose: .issueInvitation, memberID: token.inviterMemberID)
+        let payload = ContactInvitationPayload(token: token)
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            next.contactInvitations.removeAll { $0.expiresAt <= now }
+            let reference = try self.prepareKey(payload.encodedSecret())
+            next.contactInvitations.append(.init(id: context.id, direction: .outgoing,
+                expiresAt: context.expiresAt, credentialReference: reference))
+        }
+    }
+
+    func acceptContactInvitation(_ token: GroupInviteToken, accepted: AcceptedDirectInvitation, now: TimeInterval) throws {
+        try token.validate(contactBootstrap: true)
+        guard let snapshot, let context = token.directInvitation?.context,
+              accepted.receipt.invitation == context, accepted.receipt.inviteeMemberID == localMemberID,
+              accepted.inviter.memberID == token.inviterMemberID, !token.isExpired(now: now) else { throw GroupStorageError.invalidUpdate }
+        if let existing = snapshot.contactInvitations.first(where: { $0.id == context.id }) {
+            guard existing.direction == .incoming, existing.state == .pending,
+                  existing.receiptID == accepted.receipt.id,
+                  existing.peerMemberID == accepted.inviter.memberID,
+                  existing.peerDeviceKey == accepted.inviter.publicKey else { throw GroupStorageError.invalidUpdate }
+            // Reopening an existing pending link must not recreate a deleted user.
+            return
+        }
+        let payload = ContactInvitationPayload(token: token, receipt: accepted.receipt)
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            next.contactInvitations.removeAll { $0.expiresAt <= now }
+            try Self.remember(.init(id: accepted.inviter.memberID, displayName: token.inviterDisplayName ?? "Inviter"),
+                              identity: accepted.inviter, in: &next)
+            let reference = try self.prepareKey(payload.encodedSecret())
+            next.contactInvitations.append(.init(id: context.id, direction: .incoming, expiresAt: context.expiresAt,
+                credentialReference: reference, receiptID: accepted.receipt.id,
+                peerMemberID: accepted.inviter.memberID, peerDeviceKey: accepted.inviter.publicKey))
+        }
+    }
+
+    func confirmContactInvitation(_ verified: VerifiedDirectInvitation, now: TimeInterval) throws {
+        let receipt = verified.receipt
+        guard let snapshot, let context = receipt.invitation, context.contactBootstrap == true,
+              receipt.inviterMemberID == localMemberID, now < context.expiresAt,
+              let old = snapshot.contactInvitations.first(where: { $0.id == context.id }),
+              old.direction == .outgoing, old.canResume else { throw GroupStorageError.invalidUpdate }
+        if old.state == .confirmed {
+            guard old.receiptID == receipt.id, old.peerMemberID == verified.identity.memberID,
+                  old.peerDeviceKey == verified.identity.publicKey else { throw GroupStorageError.identityConflict }
+            return
+        }
+        var payload = try contactInvitationPayload(context.id)
+        guard payload.token.directInvitation?.context == context else { throw GroupStorageError.identityConflict }
+        payload.receipt = receipt
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            guard let index = next.contactInvitations.firstIndex(where: { $0.id == context.id }) else { throw GroupStorageError.invalidUpdate }
+            try Self.remember(.init(id: verified.identity.memberID, displayName: receipt.displayName), identity: verified.identity, in: &next)
+            next.contactInvitations[index].credentialReference = try self.prepareKey(payload.encodedSecret())
+            next.contactInvitations[index].state = .confirmed
+            next.contactInvitations[index].receiptID = receipt.id
+            next.contactInvitations[index].peerMemberID = verified.identity.memberID
+            next.contactInvitations[index].peerDeviceKey = verified.identity.publicKey
+        }
+    }
+
+    func contactInvitationPayload(_ id: UUID) throws -> ContactInvitationPayload {
+        guard isWritable, let snapshot else { throw IntercomGroupError.storageUnavailable }
+        try store.lock(); defer { store.unlock() }
+        guard try store.read() == snapshot else { isWritable = false; throw GroupStorageError.changedByAnotherProcess }
+        guard let record = snapshot.contactInvitations.first(where: { $0.id == id }), record.canResume,
+              let reference = record.credentialReference, let secret = try credentials.secret(reference: reference) else { throw GroupStorageError.invalidUpdate }
+        let payload = try ContactInvitationPayload.decodeSecret(secret, record: record)
+        guard (record.direction == .outgoing) == (payload.token.inviterMemberID == localMemberID) else { throw GroupStorageError.identityConflict }
+        return payload
+    }
+
+    func removeExpiredContactInvitations(now: TimeInterval) throws {
+        guard now.isFinite, let snapshot else { throw GroupStorageError.invalidUpdate }
+        guard snapshot.contactInvitations.contains(where: { $0.expiresAt <= now }) else { return }
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            next.contactInvitations.removeAll { $0.expiresAt <= now }
+        }
+    }
+
+    func completeContactNotification(_ id: UUID) throws {
+        guard let snapshot, let record = snapshot.contactInvitations.first(where: { $0.id == id }),
+              record.direction == .incoming, record.state == .pending else { throw GroupStorageError.invalidUpdate }
+        try setContactInvitationState(id, state: .delivered)
+    }
+
+    func cancelContactInvitation(_ id: UUID) throws {
+        try setContactInvitationState(id, state: .cancelled)
+    }
+
+    private func setContactInvitationState(_ id: UUID, state: ContactInvitationRecord.State) throws {
+        guard let snapshot, snapshot.contactInvitations.contains(where: { $0.id == id }) else { throw GroupStorageError.invalidUpdate }
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            guard let index = next.contactInvitations.firstIndex(where: { $0.id == id }) else { throw GroupStorageError.invalidUpdate }
+            next.contactInvitations[index].state = state
+            next.contactInvitations[index].credentialReference = nil
+        }
     }
 }
