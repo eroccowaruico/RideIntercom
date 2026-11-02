@@ -45,6 +45,8 @@ public enum CallSessionError: Error, Equatable, Sendable {
     case signalingUnavailable(RouteKind)
     case connectionFailed(RouteKind, String)
     case connectionBlocked(RouteKind, String)
+    /// A peer reached the control channel but failed group authentication.
+    case handshakeRejected(RouteKind)
     case unsupportedApplicationDataDelivery(RouteKind, ApplicationDataDelivery)
     case unsupportedAudioCodec(RouteKind, requested: [RTCAudioCodecIdentifier], supported: [RTCAudioCodecIdentifier])
 }

@@ -303,6 +303,23 @@ import Testing
     await route.stopConnection()
 }
 
+@Test func rejectedHandshakeIsForwardedAsItsOwnError() async throws {
+    let local = FakeRoute(kind: .multipeer)
+    let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer], preferredRoute: .multipeer, selectionMode: .singleRoute, fallbackDelay: 0)
+    let manager = RouteManager(routes: [local], configuration: configuration)
+    let recorded = CallEventRecorder(), events = manager.events
+    let listener = Task { for await event in events { await recorded.append(event) } }
+    defer { listener.cancel() }
+    await manager.prepare(makeRequest(configuration: configuration)); await manager.startConnection()
+    local.yield(.error(.multipeer, .handshakeRejected(.multipeer)))
+    for _ in 0..<100 where !(await recorded.values.contains(.error(.handshakeRejected(.multipeer)))) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    let values = await recorded.values
+    #expect(values.contains(.error(.handshakeRejected(.multipeer))))
+    #expect(!values.contains { if case .error(.connectionFailed) = $0 { true } else { false } })
+}
+
 @Test(arguments: [false, true])
 func blockedRouteWaitsForExplicitRestartAndPreservesOtherRoutes(localAvailable: Bool) async throws {
     let internet = FakeRoute(kind: .webRTC), local = FakeRoute(kind: .multipeer)

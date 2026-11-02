@@ -119,7 +119,7 @@ public actor MultipeerLocalRoute: RTCCallRoute {
         switch payload {
         case .handshake(let handshake):
             guard transport?.accept(handshake, from: peerID) == true else {
-                eventSource.yield(.error(kind, .connectionFailed(kind, "Multipeer handshake rejected")))
+                eventSource.yield(.error(kind, .handshakeRejected(kind)))
                 return
             }
             eventSource.yield(.stateChanged(kind, .authenticated))

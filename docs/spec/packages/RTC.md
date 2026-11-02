@@ -64,7 +64,7 @@ flowchart LR
 
 | 境界 | 制約 |
 |---|---|
-| Local接続 | MCSession暗号化必須。同一groupHash discovery/contextとshared secretのhandshake。切断peerの登録解除、旧session通知拒否 |
+| Local接続 | MCSession暗号化必須。同一groupHash discovery/contextとshared secretのhandshake。切断peerの登録解除、旧session通知拒否。handshakeの検証に失敗したpeerは認証せず、`connectionFailed`と区別した`CallSessionError.handshakeRejected(route)`を通知する。拒否理由・secret・peerの申告値は含めない |
 | peer識別 | MCPeerIDは`CallStartRequest.localPeer.id`。表示名の変更でInternet側と別人にならない |
 | Internet接続 | Workerの端末資格・同一room購読認可。SFU App Secretはサーバーのみ |
 | 中継envelope | `rtc.group-relay.v2`。session、origin、epoch、sequence、path、body、Internet ready状態。招待由来のgroup keyでAES-GCM暗号化。Foundation binary PropertyListのCodingKeysを短縮し、packetごとのmetadata量を減らす。独自parserや信頼ありの辞書同期は導入しない。v1参加者との混在は不可 |
