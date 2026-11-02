@@ -199,31 +199,36 @@ struct FiniteAudioCheckDeliveryTests {
         }
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(macOS)
     @Test func nativeRecordingCheckUsesThePreparedGraphForTwoCycles() async throws {
         let h = AppTestSupport.makeHarness(groups: [])
         let vm = makeNativeViewModel(h)
         defer { vm.cancelAudioCheck(); vm.audioPipeline.onOutputFrame = nil }
         for _ in 0..<2 {
-            var renderedFrames = 0
-            vm.startAudioCheck()
+            var renderedFramesByRate: [Double: Int] = [:]
+            #expect(vm.startAudioCheck())
             let output = vm.audioPipeline.onOutputFrame
             vm.audioPipeline.onOutputFrame = { frame in
                 output?(frame)
-                if vm.audioCheckPhase == .playing { renderedFrames += frame.frameCount }
+                if vm.audioCheckPhase == .playing {
+                    renderedFramesByRate[frame.format.sampleRate, default: 0] += frame.frameCount
+                }
             }
-            await AppTestSupport.waitUntil(timeout: .seconds(8)) { vm.audioCheckPhase == .playing || vm.audioCheckPhase == .failed }
+            // Native device preparation and the five-second sample budget are
+            // separate deadlines, as in the production first-input watchdog.
+            await AppTestSupport.waitUntil(timeout: .seconds(8)) {
+                vm.audioCheckRecordedFrameCount > 0 || vm.audioCheckPhase == .failed
+            }
+            await AppTestSupport.waitUntil(timeout: .seconds(7)) { vm.audioCheckPhase == .playing || vm.audioCheckPhase == .failed }
             #expect(vm.audioCheckPhase == .playing, "Native capture must reach five seconds: \(vm.audioCheckStatusMessage), input=\(String(describing: vm.lastInputStreamOperationReport?.result)), voice=\(String(describing: vm.lastVoiceProcessingOperationReport?.result))")
             #expect(vm.audioCheckRecordedFrameCount == 240_000)
             await AppTestSupport.waitUntil(timeout: .seconds(7)) { vm.audioCheckPhase == .completed || vm.audioCheckPhase == .failed }
             #expect(vm.audioCheckPhase == .completed)
-            #expect(renderedFrames >= 240_000, "Native output must render the complete five-second timeline")
+            let renderedDuration = renderedFramesByRate.reduce(0.0) { $0 + Double($1.value) / $1.key }
+            #expect(renderedDuration >= 5, "Native output must render the complete five-second timeline; frames=\(renderedFramesByRate), output=\(String(describing: vm.lastOutputStreamOperationReport))")
             #expect(h.callSession.startMediaCallCount == 0)
         }
     }
-    #endif
-
-    #if os(iOS)
     private func makeNativeViewModel(_ h: AppTestSupport.Harness) -> IntercomViewModel {
         IntercomViewModel(accountSession: h.viewModel.accountSession, enforceCallAccess: false,
             callSession: h.callSession, groupRepository: h.viewModel.groupRepository,
@@ -231,7 +236,9 @@ struct FiniteAudioCheckDeliveryTests {
             localMemberIdentityStore: h.viewModel.localMemberIdentityStore,
             invitationAuthority: h.viewModel.invitationAuthority, callTicker: NoOpCallTicker())
     }
+    #endif
 
+    #if os(iOS)
     @Test func nativeCallCaptureContinuesAfterPipelinePreparationAndRestart() async throws {
         // Only account/control/transport use fixtures. Native capture, DSP and
         // the shared hardware engine follow the ordinary call lifecycle.

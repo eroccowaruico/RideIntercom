@@ -118,6 +118,7 @@ final class AppAudioPipeline {
     func finishMicrophone() throws { try transmitter.finishMicrophone() }
     func startPreparedOutput() throws { try receiver.start() }
     func beginFinitePlayback() { frameDeliveries.forEach { $0.activate() } }
+    var audioCheckDrainDuration: TimeInterval { receiver.playbackDrainDuration(peer: "audio-check") }
     var transmitEncodingFailureCount: Int { transmitter.failureCount }
     var inputObservation: AudioInputObservation { transmitter.inputObservation }
     var vadRuntimeSnapshot: VADGateRuntimeSnapshot { transmitter.vadSnapshot }

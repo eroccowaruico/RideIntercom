@@ -133,6 +133,15 @@ nonisolated final class AppAudioReceiver: @unchecked Sendable {
         }
     }
 
+    func playbackDrainDuration(peer: String) -> TimeInterval {
+        lock.withLock {
+            guard let source = sources[peer] else { return 0 }
+            // Include downstream effects/device latency and two 20 ms meter
+            // packets so stopping cannot discard the final rendered samples.
+            return source.bufferedDuration + source.playerNode.outputPresentationLatency + 0.04
+        }
+    }
+
     func updateOutput(masterVolume: Float, isMuted: Bool, peers: [String: Float]) {
         lock.lock(); defer { lock.unlock() }
         configuration.masterOutputVolume = min(2, max(0, masterVolume))

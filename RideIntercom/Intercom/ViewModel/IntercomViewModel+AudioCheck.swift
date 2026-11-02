@@ -183,11 +183,17 @@ extension IntercomViewModel {
         audioCheckTask?.cancel()
         audioCheckTask = Task { [weak self] in
             try? await Task.sleep(for: playbackDuration)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard self?.audioCheckGeneration == generation else { return }
-                self?.completeAudioCheckPlayback()
+            guard let self, !Task.isCancelled, self.audioCheckGeneration == generation else { return }
+            let drain = self.audioCheckWatchSessionID == nil ? self.audioPipeline.audioCheckDrainDuration : 0
+            guard drain.isFinite, drain <= 1 else {
+                self.audioCheckPhase = .failed
+                self.audioCheckStatusMessage = "Audio playback failed"
+                self.stopAudioCheckOwnedPipeline()
+                return
             }
+            try? await Task.sleep(for: .seconds(max(0, drain)))
+            guard !Task.isCancelled, self.audioCheckGeneration == generation else { return }
+            self.completeAudioCheckPlayback()
         }
     }
 
