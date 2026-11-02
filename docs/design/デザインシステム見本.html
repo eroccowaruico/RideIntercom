@@ -325,6 +325,10 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     <div><div class="surface" style="width:280px"><div class="card" style="padding:10px">
       <div class="lrow" style="padding:4px 0;min-height:0"><span class="pend"><svg class="i"><use href="#person"/></svg></span><span class="g">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div>
     </div></div><div class="cap"><b>招待中の行</b>参加済みの人と同じ見た目にしない。</div></div>
+    <div><div class="surface" style="width:300px;padding:12px">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:22px;background:var(--glass);border:1px solid var(--glass-edge);font-size:13px"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg><b>週末ツーリング</b><span class="sub">会話中</span><span style="margin-left:auto"><svg class="i"><use href="#mic-slash"/></svg></span></div>
+      <div style="display:flex;justify-content:space-around;margin-top:8px;padding:6px;border-radius:24px;background:var(--glass);border:1px solid var(--glass-edge);font-size:10px;color:var(--label2)"><span><svg class="i"><use href="#person2"/></svg> ユーザー</span><span><svg class="i"><use href="#person3"/></svg> グループ</span><span><svg class="i"><use href="#gear"/></svg> 設定</span></div>
+    </div><div class="cap"><b>通話のアクセサリ</b>接続中だけタブバーの上に出す（<code>tabViewBottomAccessory</code>）。タップで通話のシート、長押しで切断。スクロールするとタブバーの中央に小さく収まる。</div></div>
     <div><div style="display:flex;gap:10px"><div class="ptt" style="background:color-mix(in srgb,#2F95DC 30%,#0B1220);border:1.5px solid rgba(92,189,245,.65)"><svg class="i" style="font-size:20px"><use href="#mic"/></svg>押して話す</div><div class="ptt" style="background:#5BF3E2;color:#00302C"><svg class="i" style="font-size:20px"><use href="#wave"/></svg>話しています</div></div><div class="cap"><b>送話パネル（Apple Watch）</b>画面の下半分。押している間だけ送話。</div></div>
   </div>
   <div class="row-flex">
@@ -345,9 +349,9 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
   <!-- アイコン -->
   <h2 id="icon">アイコン</h2>
-  <p class="note">タブは基本形の名前を指定し、選択時の塗りはOSに任せる。システム表示ではアイコン図形のカスタムシンボルでアプリを識別する（<a href="アイコン定義.md">アイコン定義</a>）。</p>
+  <p class="note">タブはユーザー・グループ・設定（Advancedは診断を加える）で、通話はタブにしない。基本形の名前を指定し、選択時の塗りはOSに任せる。システム表示ではアイコン図形のカスタムシンボルでアプリを識別する（<a href="アイコン定義.md">アイコン定義</a>）。</p>
   <div class="row-flex">
-    <div class="ico"><span class="s"><svg class="i"><use href="#phone"/></svg></span>phone<br>通話</div>
+    <div class="ico"><span class="s"><svg class="i"><use href="#phone"/></svg></span>phone<br>接続の操作</div>
     <div class="ico"><span class="s"><svg class="i"><use href="#person2"/></svg></span>person.2<br>ユーザー</div>
     <div class="ico"><span class="s"><svg class="i"><use href="#person3"/></svg></span>person.3<br>グループ</div>
     <div class="ico"><span class="s"><svg class="i"><use href="#gauge"/></svg></span>gauge<br>Diagnostics</div>

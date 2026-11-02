@@ -111,6 +111,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .merge .r { margin-left: auto; font-weight: 600; color: var(--label2); font-size: 10px; }
 .down { text-align: center; color: var(--label3); font-size: 11px; line-height: 1; }
 
+.sheetgrab { position: absolute; left: 50%; top: 44px; width: 34px; height: 5px; margin-left: -17px; border-radius: 3px; background: var(--label3); }
 .tabbar { position: absolute; left: 14px; right: 14px; bottom: 16px; height: 52px; border-radius: 26px; display: flex; justify-content: space-around; align-items: center; background: color-mix(in srgb, var(--card) 85%, transparent); border: 1px solid var(--line); backdrop-filter: blur(14px); }
 .tab { display: grid; justify-items: center; font-size: 9.5px; font-weight: 600; color: var(--label2); gap: 1px; }
 .tab svg { font-size: 17px; }
@@ -232,7 +233,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="btns"><span>Others can't hear me</span><span>I can't hear someone</span><span>Audio drops out</span><span>Audio is delayed</span></div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>Overview（スクロール全体）</b>判定2行、Live TX／RX Pipelineの全段を状態ドットで1行ずつ、ParticipantsとNetworkを1行ずつ。ここだけで全体を一覧できる。</figcaption>
     </figure>
@@ -264,7 +265,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             </div>
           </div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>TX（Live TX Pipeline）</b>Session → Input → VAD → TX Bus → Codec → RTC。TX Busの中のeffect（packageのstage名のまま）と、RTCから経路ごとへの分岐を入れ子で示す。</figcaption>
     </figure>
@@ -316,7 +317,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="row" style="border-top:1px solid var(--line)"><span class="k"><span class="d ok"></span> Output</span><span class="v">AirPods Pro · 48 kHz stereo<div class="sub">Buffered 20 ms · 0 resets</div></span><span class="x"><span class="meter"><i style="width:62%"></i></span></span></div>
           </div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>RX（Live RX Pipeline・スクロール全体）</b>相手ごとに Sender（相手の端末の条件）→ RTC RX → Decode → Peer Bus（自分側の設定）を入れ子で並べ、左の線が Mix Down へ合流し、RX Master → Master FX → Output へ続く。</figcaption>
     </figure>
@@ -349,7 +350,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="foot">RTT measures this device's ICE connection, not audio delay. Event drops occur inside this device. Paths show the last authenticated reception, not guaranteed reachability.</div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>Network</b>現行の1つの長文を、経路（Local・Internet）ごとのカードと相手ごとのPathへ分ける。注記は現行の文をそのまま使う。</figcaption>
     </figure>
@@ -386,7 +387,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="foot">Checks configuration and device authorization without starting a call. Audio Check in Settings tests this device's microphone and speaker.</div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>Applied</b>設定の要求値と実際の値を並べ、違う行だけ⚠。Call と Internet Service の確認（現行の文言のまま）もここ。</figcaption>
     </figure>
@@ -422,14 +423,14 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="row"><span class="k"><span class="d ok"></span> RTC</span><span class="v">Local + Internet / Relay · Audio Paused</span><span class="x"></span></div>
           </div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab on"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>機器の切断</b>判定で止まった段（Input）と次の操作が分かる。接続と中継は維持（Connected / Audio Paused）。</figcaption>
     </figure>
   </div>
 
   <h2 id="call">通話・ユーザー・グループ（Advanced）</h2>
-  <p class="note">タブは一般向けと同じく Call／Users／Groups に分け、Diagnostics と Settings を加えた5つにする。Users・Groups で選ぶとすぐ接続して Call へ移る（<a href="../操作の流れ見本.html">操作の流れ見本</a>）。中身は詳細表示のまま。通話は相手が1人でも内部ではグループ（kind: direct）なので、Call では常にグループの実体（種類・ID・自分を含むメンバー）として見せる。</p>
+  <p class="note">タブは一般向けと同じく通話をタブにせず、Users（最初）・Groups・Diagnostics・Settings の4つにする。Users・Groups で選ぶとすぐ接続して通話のシート（Call）を開く（<a href="../操作の流れ見本.html">操作の流れ見本</a>）。中身は詳細表示のまま。通話は相手が1人でも内部ではグループ（kind: direct）なので、Call では常にグループの実体（種類・ID・自分を含むメンバー）として見せる。</p>
   <div class="gallery">
     <figure>
       <div class="phone tall"><div class="screen">
@@ -466,9 +467,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="btn gl" style="margin-top:2px">Add Saved Users</div>
         </div>
-        <div class="tabbar"><span class="tab on"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>Call：グループ通話</b>Call status → Input → Output → Participants。Participants の下でそのまま Add Saved Users。グループの設定は「…」メニュー。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
+      <figcaption><b>Call（シート）：グループ通話</b>Call status → Input → Output → Participants。Participants の下でそのまま Add Saved Users。グループの設定は「…」メニュー。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
     </figure>
 
     <figure>
@@ -496,9 +497,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="btn gl" style="margin-top:2px">Share Call Invite</div>
         </div>
-        <div class="tabbar"><span class="tab on"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>Call：1対1</b>相手が1人でも同じ構成。Group に「Direct · 2 members」と内部グループのIDを出す。追加の代わりに Share Call Invite。</figcaption>
+      <figcaption><b>Call（シート）：1対1</b>相手が1人でも同じ構成。Group に「Direct · 2 members」と内部グループのIDを出す。追加の代わりに Share Call Invite。</figcaption>
     </figure>
 
     <figure>
@@ -506,8 +507,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="sbar"><span>9:41</span><span class="island"></span><span></span></div>
         <div class="ptitle">Users</div>
         <div class="pbody">
-          <div class="hd">Current Call</div>
-          <div class="card"><div class="row"><b>Weekend Touring</b><span class="v">Group · Connected</span><span class="x linkt">Open</span></div></div>
+          <div class="hd">Recent</div>
+          <div class="card"><div class="row"><b>Weekend Touring</b><span class="v">Group · 4 members<div class="sub mono">3f9a2c1e</div></span><span class="x"></span></div></div>
           <div class="hd">Saved Users <span>3</span></div>
           <div class="card">
             <div class="row"><b>Haruka</b><span class="v">Direct 7c1e90ab · 2 devices · Call requests allowed<div class="sub">Name shared by this person: Haruka</div></span><span class="x"><span class="d ok"></span> Online</span></div>
@@ -518,9 +519,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="card"><div class="row"><b>Riku</b><span class="v">Not joined · expires in 6 days</span><span class="x linkt">Share</span></div></div>
           <div class="foot">Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.</div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab on"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div style="position:absolute;left:14px;right:14px;bottom:76px;height:38px;border-radius:20px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 10px;font-size:11px"><span class="d ok"></span><b>Weekend Touring</b><span style="color:var(--label2)">Connected</span><span style="margin-left:auto;font-size:14px"><svg class="i"><use href="#mic-slash"/></svg></span></div><div class="tabbar"><span class="tab on"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Users</b>行のタップですぐ接続して呼び出す（会話中は切替を確認）。名前の編集・削除・Share Call Invite は長押し・スワイプの User Settings。一般向けと同じ一覧に、本人名・内部の direct グループID・端末数・呼び出しの許可などの詳細を足す。行の選択で Call へ（内部グループを解決）。</figcaption>
+      <figcaption><b>Users（最初の画面）</b>行のタップですぐ接続して呼び出す（会話中は切替を確認）。名前の編集・削除・Share Call Invite は長押し・スワイプの User Settings。一般向けと同じ一覧に、本人名・内部の direct グループID・端末数・呼び出しの許可などの詳細を足す。行の選択で Call へ（内部グループを解決）。</figcaption>
     </figure>
 
     <figure>
@@ -537,7 +538,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="foot">Direct groups for saved users are listed in Users.</div>
           <div class="card"><div class="frow"><span class="g linkt">Create Talk Group</span></div><div class="frow"><span class="g linkt">Reload Saved Groups</span></div></div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab on"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab on"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>Groups</b>行のタップですぐ接続（会話中は切替を確認）。長押し・スワイプの Group Settings でメンバー・名前・削除を開く。通常グループだけを並べ、人数・鍵の状態・短縮ID・通話中を出す。保存の復旧操作（Reload Saved Groups 等）もここ。direct グループは Users 側。</figcaption>
     </figure>
@@ -588,7 +589,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="card"><div class="frow"><span class="g redtext">Reset All Settings</span></div></div>
           <div class="foot">Resets audio and call settings to their default values. Saved groups and members are not changed.</div>
         </div>
-        <div class="tabbar"><span class="tab"><svg class="i"><use href="#phone"/></svg>Call</span><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab on"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
+        <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab on"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
       <figcaption><b>設定（詳細・スクロール全体）</b>グループの切れ目は少し広い余白で区切る。リセットは最後に独立したセクションとして置く。</figcaption>
     </figure>

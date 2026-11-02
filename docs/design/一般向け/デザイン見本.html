@@ -200,6 +200,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
 .spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid color-mix(in srgb, currentColor 25%, transparent); border-top-color: currentColor; display: inline-block; }
 
+.sheetgrab { position: absolute; left: 50%; top: 46px; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: var(--label3); }
+.screen.sheetlike { margin-top: 0; }
 .tabbar {
   position: absolute; left: 14px; right: 14px; bottom: 18px; height: 58px; border-radius: 30px;
   display: flex; justify-content: space-around; align-items: center; padding: 0 6px;
@@ -474,7 +476,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
   <!-- ================= iPhone ================= -->
   <h2 id="iphone">iPhone（Standard）</h2>
-  <p class="note">上から「状態把握 → 主要操作 → 一覧 → 補助」。各状態で主要操作は1つだけ塗りのボタンにする。右上の切替でダーク表示も確認できる。</p>
+  <p class="note">タブはユーザー（最初）・グループ・設定。通話はタブにせず、選んだときに開くシートと、接続中にタブバーの上に出る通話表示で扱う（<a class="link" href="../操作の流れ見本.html">操作の流れ見本</a>）。各状態で主要操作は1つだけ塗りのボタンにする。右上の切替でダーク表示も確認できる。</p>
 
   <div class="gallery">
     <!-- サインイン -->
@@ -490,73 +492,18 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
       </div></div>
       <figcaption><b>サインイン</b>アプリの説明は置かず、アイコンと名前だけ。ボタンの直前にサインインが必要な理由を1文だけ置く。ボタンはOS標準の Sign in with Apple。</figcaption>
     </figure>
-
-    <!-- 通話 未選択 -->
+    <!-- 名前の入力 -->
     <figure>
       <div class="phone"><div class="screen">
         <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
-        <div class="navbar"></div>
-        <div class="ltitle">通話</div>
-        <div class="body">
-          <div class="empty">
-            <div class="glyph"><svg viewBox="0 0 4096 4096"><use href="#appglyph"/></svg></div>
-            <h4>接続先を選んでください</h4>
-          </div>
-          <div class="group-h" style="margin-top:14px">前回の接続先</div>
-          <div class="glass card">
-            <div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
-            <div style="font-size:17px;font-weight:700;margin:2px 0 10px">週末ツーリング</div>
-            <div class="btn prom"><svg class="i"><use href="#again"/></svg>もう一度接続</div>
-          </div>
-          <div class="stack">
-            <div class="btn gl"><svg class="i"><use href="#person2"/></svg>ユーザーを選ぶ</div>
-            <div class="btn gl"><svg class="i"><use href="#person3"/></svg>グループを選ぶ</div>
-          </div>
-        </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
+        <div class="body" style="padding-top:70px">
+          <div style="font-size:26px;font-weight:700;padding:0 4px">あなたの名前</div>
+          <p class="note" style="padding:4px 4px 14px">仲間に表示される名前です。本名でなくてかまいません。</p>
+          <div class="group glass"><div class="row"><span class="grow" style="color:var(--label3)">例: ナオ</span></div></div>
+          <div class="btn prom" style="margin-top:18px;opacity:.45">はじめる</div>
         </div>
       </div></div>
-      <figcaption><b>通話：未選択</b>前回の接続先があれば「もう一度接続」を主操作に。なければ選ぶボタン2つだけ（選ぶとすぐ接続）。説明文は置かない。流れは <a class="link" href="../操作の流れ見本.html">操作の流れ見本</a>。</figcaption>
-    </figure>
-
-    <!-- 通話 未接続 -->
-    <figure>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
-        <div class="navbar"></div>
-        <div class="body" style="padding-top:4px">
-          <div class="glass card" style="margin-bottom:14px">
-            <div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
-            <div class="dest">週末ツーリング</div>
-            <div class="status idle"><svg class="i"><use href="#phone"/></svg>未接続</div>
-            <div class="stack" style="margin-top:14px">
-              <div class="btn prom"><svg class="i f"><use href="#phone"/></svg>もう一度接続</div>
-            </div>
-          </div>
-          <div class="group-h">メンバー</div>
-          <div class="group glass">
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ</span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ</span></div>
-          </div>
-          <div class="group-h">招待中</div>
-          <div class="group glass">
-            <div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div>
-          </div>
-          <div class="btn gl" style="justify-content:flex-start"><svg class="i"><use href="#plus"/></svg>メンバーを追加</div>
-        </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
-      </div></div>
-      <figcaption><b>通話：切断後（未接続）</b>一覧で選ぶと接続中から始まるため、未接続の通話画面は切断した後だけ。主操作は「もう一度接続」。参加前の人は「招待中」（未参加）に分け、届かなかったときだけ再共有する。</figcaption>
+      <figcaption><b>名前の入力（サインイン直後）</b>名前を一度も保存していなければ出す。閉じられない。名前が空の間は「はじめる」を押せない。既定の「You」のまま仲間へ伝えない。</figcaption>
     </figure>
 
     <!-- メンバーを追加 -->
@@ -601,14 +548,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <p class="note" style="padding:0 4px">相手もRideComで接続するとつながります。通知は送りません。</p>
         </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
+        <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話：接続待ち</b>状態「接続中」と補足の2行。進行表示だけ warning 色。成功・失敗の色を確定表示しない。</figcaption>
+      <figcaption><b>通話のシート：接続待ち</b>一覧で選ぶとこのシートが開く。状態「接続中」と補足の2行。進行表示だけ warning 色。成功・失敗の色を確定表示しない。</figcaption>
     </figure>
 
     <!-- 通話 会話中 -->
@@ -636,14 +578,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">まだ接続していません</div></span></div>
           </div>
         </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
+        <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話：会話中</b>ミュート（常に斜線入りのマイクの切替）・スピーカー・切断を円形ガラスボタンで横並び。塗りの主操作は置かない。話している人だけ voice 色の波形と文言。</figcaption>
+      <figcaption><b>通話のシート：会話中</b>下へ閉じても接続は続き、タブバーの上の通話表示から戻れる。ミュート（常に斜線入りのマイクの切替）・スピーカー・切断を円形ガラスボタンで横並び。塗りの主操作は置かない。話している人だけ voice 色の波形と文言。</figcaption>
     </figure>
 
     <!-- 通話 ミュート -->
@@ -669,14 +606,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
         </div>
         <div class="accessory glass" style="display:none"></div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
+        <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話：ミュート中（1対1）</b>ミュートボタンが red の選択状態になり、文言が「ミュート中」に。100%超はブースト。</figcaption>
+      <figcaption><b>通話のシート：ミュート中（1対1）</b>ミュートボタンが red の選択状態になり、文言が「ミュート中」に。100%超はブースト。</figcaption>
     </figure>
 
     <!-- 通話 音声停止 -->
@@ -701,14 +633,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
           </div>
         </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
+        <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話：音声停止（Partial）</b>理由と「接続は続いている」ことを示し、主操作を「音声を再開」に切り替える。</figcaption>
+      <figcaption><b>通話のシート：音声停止（Partial）</b>理由と「接続は続いている」ことを示し、主操作を「音声を再開」に切り替える。</figcaption>
     </figure>
 
     <!-- ユーザー -->
@@ -718,6 +645,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="navbar"><span class="navbtn" style="color:var(--accent)"><svg class="i"><use href="#plus"/></svg></span></div>
         <div class="ltitle">ユーザー</div>
         <div class="body">
+          <div class="group-h">前回</div>
+          <div class="group glass"><div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">週末ツーリング<div class="sub">グループ・4人</div></span><svg class="i chev"><use href="#chev"/></svg></div></div>
           <div class="group glass">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub tag ok"><svg class="i"><use href="#wave"/></svg>会話中</div></span><svg class="i chev"><use href="#chev"/></svg></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><svg class="i chev"><use href="#chev"/></svg></div>
@@ -735,13 +664,12 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <span class="mini" aria-label="ミュート"><svg class="i"><use href="#mic-slash"/></svg></span>
         </div>
         <div class="tabbar glass">
-          <div class="tab"><svg class="i f"><use href="#phone"/></svg>通話</div>
           <div class="tab on"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
           <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>ユーザー（会話中）</b>右上 + で新しい相手を追加すると、その人宛ての招待の共有画面が開く。参加前は「招待中」（未参加）に分けて再共有だけを出す。会話中はタブバー上のミニ表示（ミュートの切替付き）から戻れる。</figcaption>
+      <figcaption><b>ユーザー（最初の画面・会話中）</b>行をタップするとすぐ接続して通話のシートを開く（会話中は切替を確認）。右上 + で新しい相手を招待。参加前は「招待中」（未参加）。会話中はタブバーの上の通話表示から戻れる（スクロールするとタブバーの中央に小さく収まる）。</figcaption>
     </figure>
 
     <!-- グループ -->
@@ -758,7 +686,6 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
         </div>
         <div class="tabbar glass">
-          <div class="tab"><svg class="i f"><use href="#phone"/></svg>通話</div>
           <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
           <div class="tab on"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
@@ -795,12 +722,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <p class="note" style="padding:0 4px">応答がないまま期限が過ぎると「応答がありませんでした」と表示し、もう一度呼び出せます。</p>
         </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
+        <div class="sheetgrab"></div>
       </div></div>
       <figcaption><b>呼び出し中（1対1）</b>通知で相手を呼び出している間。接続待ちと同じ型で、主操作は取り消し。応答・拒否・期限切れはこの位置の状態文で示す。</figcaption>
     </figure>
@@ -817,12 +739,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="stack" style="margin-top:14px"><div class="btn prom"><svg class="i f"><use href="#phone"/></svg>この端末で接続</div></div>
           </div>
         </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
+        <div class="sheetgrab"></div>
       </div></div>
       <figcaption><b>別の端末へ切り替わった（後勝ち）</b>同じユーザーが別の端末で接続した側を優先する案。旧端末は理由を示し、主操作で取り戻せる（袋小路にしない）。端末数の上限は未確定。</figcaption>
     </figure>
@@ -884,7 +801,6 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="ffoot">音声と接続の設定を初期値に戻します。グループ・ユーザー・ログインは変わりません。</div>
         </div>
         <div class="tabbar glass">
-          <div class="tab"><svg class="i f"><use href="#phone"/></svg>通話</div>
           <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
           <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
@@ -903,7 +819,6 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="ffoot">どちらか1つは必要です。変更すると接続し直します。</div>
         </div>
         <div class="tabbar glass">
-          <div class="tab"><svg class="i f"><use href="#phone"/></svg>通話</div>
           <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
           <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
@@ -932,7 +847,6 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="ffoot">使えない形式は自動で切り替わります。</div>
         </div>
         <div class="tabbar glass">
-          <div class="tab"><svg class="i f"><use href="#phone"/></svg>通話</div>
           <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
           <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
@@ -991,12 +905,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">まだ接続していません</div></span></div>
           </div>
         </div>
-        <div class="tabbar glass">
-          <div class="tab on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
-          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
-        </div>
+        <div class="sheetgrab"></div>
       </div></div>
       <figcaption><b>iPhone 横（高さ500pt未満）</b>左列（約45%）に状態と操作列を固定し、スクロールしても操作が隠れない。操作は56ptに縮め、間隔24pt以上を保つ。右列だけスクロール。左右はDynamic Islandと角の安全領域を空ける。</figcaption>
     </figure>
@@ -1004,8 +913,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
       <div class="ipad"><div class="screen">
         <div class="side">
           <div style="font-size:18px;font-weight:700;padding:0 10px 10px">RideCom</div>
-          <div class="it on"><svg class="i f"><use href="#phone"/></svg>通話</div>
-          <div class="it"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
+          <div class="it on"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
           <div class="it"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="it"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
@@ -1031,7 +939,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group glass"><div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div></div>
         </div>
       </div></div>
-      <figcaption><b>iPad（幅1000pt以上）</b>サイドバー＋2列。Macも同じ配置だが、背景はグラデーションを使わずOS標準にする（デザインシステム見本の「macOS」）。左列に状態・操作列（64pt）・音量、右列にメンバーと招待中。各列は最大560pt。幅600〜1000ptではサイドバーがタブバーになり2列を保つ。600pt未満はiPhone縦と同じ1列。</figcaption>
+      <figcaption><b>iPad（幅1000pt以上）</b>サイドバー＋2列。iPadとMacでは通話をシートにせず、選んだ接続先の通話を右側に表示する。Macも同じ配置だが、背景はグラデーションを使わずOS標準にする（デザインシステム見本の「macOS」）。左列に状態・操作列（64pt）・音量、右列にメンバーと招待中。各列は最大560pt。幅600〜1000ptではサイドバーがタブバーになり2列を保つ。600pt未満はiPhone縦と同じ1列。</figcaption>
     </figure>
   </div>
 
