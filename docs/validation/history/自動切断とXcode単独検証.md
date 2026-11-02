@@ -52,6 +52,22 @@ Xcodeが省くことのある親packagesの例外だけに検査を依存させ�
 
 各native runは404入力の前後一致を確認し、生成counterの増分だけを許容した。native検証後のsource差分はPythonのWidget削除fixture1ファイルのみで、別のPython全107件の成功で確認した。App・project・配布物の処理は再変更していない。初回iPhone失敗の診断収集ではXcode内部のsimctl検索エラーも発生したが、xcresult・失敗理由・元logを保持し、global xcode-selectの変更で解消したとは扱わない。
 
+## 2026-11-02の再確認
+
+利用者の「念のため」の再確認指示に対し、`fc9af519`の実装と自動試験を照合した。選択肢は1分・3分・5分・10分・15分・30分・1時間・2時間・3時間・6時間・8時間・12時間・24時間の13値で、無制限はない。通常3時間・Watch 5分を別keyで保存し、範囲外の保存値は初期値へ戻す。不一致はなく、実装・仕様は変更していない。
+
+| 再確認した条件 | 対応する試験 |
+|---|---|
+| 13値・無制限なし・初期値・通常／Watchの独立保存 | `CallDisconnectTimerTests.supportedDurationsAreFiniteAndSettingsRoundTripIndependently` |
+| 全値が境界時刻で終了し、tickerを止める | `everyIntervalExpiresAtItsBoundary` |
+| 一時切断・自動復帰・重複開始・mute・設定変更で期限を延長しない | `reconnectAndDuplicateStartDoNotExtendTheCurrentDeadline` |
+| Watch開始はWatch用時間を使い、重複開始で更新せず、通常設定へ混入しない | `watchStartUsesItsOwnSettingWithoutChangingThePhoneSetting` |
+| 期限後の遅れた接続成立・mute解除で通話を復活させない | `delayedRecoveryAfterTheDeadlineCannotRestartAudio`、`expiredStartBeforeTheNextTickEndsTheCallWithoutStartingAnother`、`watchSnapshotCannotUnmutePastAShorterCallDeadlineBeforeTheNextTick`、`microphoneToggleCannotUnmuteAnExpiredCallBeforeTheNextTick` |
+| 手動終了・切替で旧期限を破棄し、次の明示開始は可能 | `manualSwitchAndStopDiscardThePreviousDeadline` |
+| 音声機器の切替で期限を更新しない | `WatchControlTests.switchingToWatchStopsPhoneCaptureAndRetainsTheCallDeadline`、`deviceChangeAtTheDeadlineDoesNotPauseTheNextCall` |
+
+Macで`CallDisconnectTimerTests`・`WatchControlTests`・`WatchAudioIntegrationTests`の28件が成功した。実OSの背景・ロック・画面消灯・長い復旧中の期限動作は引き続き[未確認事項](../未確認事項.md#自動切断の実os受入)で扱う。
+
 ## 受入の範囲
 
 Apple HIGのAccessibility・Layout・SF Symbolsを確認し、既存のForm／Section／Pickerと`timer` symbol、標準の可変高さ・ラベルを使った。UI試験による操作確認と、実VoiceOver・実OS背景動作は区別する。
