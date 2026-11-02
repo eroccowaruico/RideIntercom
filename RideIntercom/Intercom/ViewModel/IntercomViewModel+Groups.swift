@@ -2,6 +2,7 @@ import AVFoundation
 import Codec
 import CryptoKit
 import Foundation
+import Logging
 import OSLog
 import RTC
 import SessionManager
@@ -206,9 +207,11 @@ extension IntercomViewModel {
     func acceptInviteURL(_ url: URL, now: TimeInterval = Date().timeIntervalSince1970) throws {
         groupErrorMessage = nil
         inviteStatusMessage = nil
+        let accepted: IntercomGroup?
         do {
-            try applyInviteURL(url, now: now)
+            accepted = try applyInviteURL(url, now: now)
         } catch {
+            AppLoggers.app.warning("app.deeplink.invite.rejected", metadata: InviteDeepLinkLog.rejected(error))
             // Storage and account failures already carry their own recovery action.
             if groupErrorMessage == nil {
                 switch error {
@@ -225,9 +228,15 @@ extension IntercomViewModel {
             }
             throw error
         }
+        if let accepted {
+            AppLoggers.app.info("app.deeplink.invite.accepted", metadata: InviteDeepLinkLog.accepted(groupID: accepted.id, kind: accepted.kind))
+        } else {
+            AppLoggers.app.warning("app.deeplink.invite.rejected", metadata: InviteDeepLinkLog.rejected(reason: "conflicting_direct_invitation"))
+        }
     }
 
-    private func applyInviteURL(_ url: URL, now: TimeInterval) throws {
+    /// Returns the joined group, or nil when a crossed direct invitation keeps the existing call.
+    private func applyInviteURL(_ url: URL, now: TimeInterval) throws -> IntercomGroup? {
         guard canStartCalls else {
             groupErrorMessage = groupStorageNotice
             throw IntercomGroupError.storageUnavailable
@@ -267,7 +276,7 @@ extension IntercomViewModel {
            keepsLocalKey {
             selectGroup(existing)
             groupErrorMessage = "You both created a call invitation. Share this call's invitation so you use the same call."
-            return
+            return nil
         }
         if let existing = groups.first(where: { $0.id == token.groupID }), previous?.secret == token.groupSecret {
             let name = token.inviterDisplayName ?? savedUsers.first { $0.memberIDs.contains(token.inviterMemberID) }?.displayName ?? "Inviter"
@@ -276,9 +285,10 @@ extension IntercomViewModel {
                 refreshStoredAccountCall(token.groupID)
                 refreshGroupStorageStatus()
             } catch { reportGroupStorageError(error); throw error }
-            selectGroup(groups.first { $0.id == existing.id } ?? existing)
+            let joined = groups.first { $0.id == existing.id } ?? existing
+            selectGroup(joined)
             inviteStatusMessage = "JOINED \(existing.name)"
-            return
+            return joined
         }
         guard activeGroupID != token.groupID else {
             groupErrorMessage = "This invitation changes the active group key. Disconnect before opening it again."
@@ -324,5 +334,36 @@ extension IntercomViewModel {
         if selectedGroup?.id == group.id { selectedGroup = nil }
         selectGroup(group)
         inviteStatusMessage = "JOINED \(token.groupName)"
+        return group
+    }
+}
+
+/// Invitation deep-link log metadata. Records only the outcome category, never the token or raw group ID.
+enum InviteDeepLinkLog {
+    static func accepted(groupID: UUID, kind: IntercomGroup.Kind) -> Logging.Logger.Metadata {
+        .event("app.deeplink.invite.accepted", ["groupID": "\(groupID.uuidString)", "kind": "\(kind.rawValue)"])
+    }
+
+    static func rejected(_ error: any Error) -> Logging.Logger.Metadata {
+        rejected(reason: reason(for: error))
+    }
+
+    static func rejected(reason: String) -> Logging.Logger.Metadata {
+        .event("app.deeplink.invite.rejected", ["reason": "\(reason)"])
+    }
+
+    private static func reason(for error: any Error) -> String {
+        switch error {
+        case GroupInviteTokenError.expired: "expired"
+        case GroupInviteTokenError.unsupportedVersion: "unsupported_version"
+        case GroupInviteTokenError.invalidURL, GroupInviteTokenError.invalidTokenEncoding,
+             GroupInviteTokenError.invalidSignature: "unverified"
+        case GroupInviteTokenError.wrongRecipient: "wrong_recipient"
+        case GroupInviteTokenError.incompatibleCall: "incompatible_call"
+        case GroupInviteTokenError.activeGroupKeyChanged: "active_group_key_changed"
+        case GroupInviteTokenError.accountVerificationRequired: "account_verification_required"
+        case IntercomGroupError.storageUnavailable: "storage_unavailable"
+        default: "other"
+        }
     }
 }
