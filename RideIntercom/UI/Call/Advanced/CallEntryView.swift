@@ -10,7 +10,7 @@ struct CallEntryView: View {
             if viewModel.selectedGroup == nil {
                 List {
                     CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
-                    StandardStorageSection(viewModel: viewModel)
+                    CallStorageSection(viewModel: viewModel)
                     Section {
                         ContentUnavailableView("Ready to Talk", systemImage: "phone", description: Text("Choose someone or a group to call."))
                         Button("Choose a User") { selectedTab = .users }

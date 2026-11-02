@@ -8,7 +8,7 @@
 
 Watch音声のpairが失われ、Watchでの再準備が必要な場合は、この端末のResume Audioを表示しない。Watchからの再開始案内に従う。既存pairを保持した一時停止では共通の再開操作を利用する。
 
-初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。AdvancedでもUsers / Groupsは同じ一覧を使用し、Callは詳細表示を使用し、接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
+初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。Users / GroupsはStandardとAdvancedで画面構成を分け、保存状態・共通操作と同じ意味の表示部品を共用する。Callはモードに応じた画面を使用する。接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
 
 | 画面・項目ID | 表示と操作 |
 |---|---|
@@ -37,20 +37,30 @@ Callに接続先が選ばれていないときは、`chooseUserButton`と`choose
 
 | 項目 | 表示・操作 |
 |---|---|
-| Users | 直接招待関係として保存した相手名を`userCall-{UUID}`の行に表示。共通の`selectUser`へ渡し、双方の確認済みアカウントがあれば別端末でも同じ二人の内部通話先を解決する。自分の別端末は対象外。削除済み・未知のUUIDは画面外から渡しても拒否する |
-| Current Call | 進行中の個別通話を`activeDirectCallButton`で開く。ユーザー一覧から相手を削除しても終了操作へ戻れる |
-| Recent Groups | kind=groupだけを表示。個別通話の内部ID・group作成操作を要求しない |
-| 個別通話の画面 | タイトルは相手名。`directCallHelpLabel`は初回の招待共有と、通知を送らないことを説明。保存ユーザーを削除した後は、現在の通話を維持しDisconnectで終了できる説明へ切り替える。既存通話中はConnectまで切り替えない |
-| Share Call Invite | `inviteButton`は特定の相手宛ての署名付き招待をOS共有画面へ渡す。保存ユーザー削除後は表示しない。通常groupのInviteとは宛先制約が異なる |
+| Users | 直接招待関係として保存した相手名を`standardUser-{UUID}`の行に表示。共通の`selectUser`へ渡し、双方の確認済みアカウントがあれば別端末でも同じ二人の内部通話先を解決する。自分の別端末は対象外。削除済み・未知のUUIDは画面外から渡しても拒否する |
+| Current Call | 進行中の個別通話を`standardCurrentCallButton`で開く。ユーザー一覧から相手を削除しても終了操作へ戻れる |
+| Groups | kind=groupだけを表示。個別通話の内部ID・group作成操作を要求しない |
+| 個別通話の画面 | タイトルは相手名。Advancedの`directCallHelpLabel`は通常時に個別通話であることを示し、保存ユーザー削除後は現在の通話と終了操作を維持する旨を表示する。既存通話中はConnectまで切り替えない |
+| Share Call Invite | StandardではCall、AdvancedではUsersの管理画面に置く`inviteButton`は特定の相手宛ての署名付き招待をOS共有画面へ渡す。保存ユーザー削除後は表示しない。通常groupのInviteとは宛先制約が異なる |
 | 参加者操作 | 個別通話ではAdd Saved Users、参加者Delete、招待枠の追加を提供しない。ミュート・音量・音声効果・Disconnectは既存の共通操作を使う |
 
 ## 保存済みユーザーの操作
 
-Groupsの`Saved Users`（`savedUsersButton`）から標準Formを開く。名前入力（`savedUsersGroupNameField`）、ユーザー選択（`selectUser-{UUID}`）、`Create Group`（`saveUserSelectionButton`）で保存済みの相手を使うグループを作成する。`Cancel`（`closeSavedUsersButton`）では変更しない。
+Groupsの`New Group`（`standardCreateGroupButton`）から標準Formを開く。名前入力（`savedUsersGroupNameField`）、ユーザー選択（`selectUser-{UUID}`）、`Create Group`（`saveUserSelectionButton`）で保存済みの相手を使うグループを作成する。`Cancel`（`closeSavedUsersButton`）では変更しない。
 
 鉛筆ボタン（`editUser-{UUID}`）は表示名編集を開き、本人名（`savedUserOriginalName`）も表示する。`Use Shared Name`（`resetUserNameButton`）で端末の呼び名を解除して最新の本人名へ戻せる。`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
 
-CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、参加にはInviteの共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
+StandardではCallのParticipants、AdvancedではGroupsの管理画面に`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、参加にはInviteの共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
+
+Users / Groupsのルート識別子`standardUsersList` / `standardGroupsList`は、モード切替前後の既存UIテストとの互換性のためAdvancedでも維持する。状態と操作の所有者は共通のViewModelであり、識別子は画面構成の共有を意味しない。Call配下はStandard・Advanced・Commonに責務ごとに配置する。
+
+## Advancedの管理画面
+
+Usersの`manageUser-{UUID}`とGroupsの`manageGroup-{UUID}`から`groupManagementView`を開く。操作時に対象を明示的に選択し、Usersでは必要なdirect groupを準備する。これは表示と管理対象の選択であり、進行中の通話を切り替えない。選択が失敗した場合は管理画面を開かない。
+
+管理画面は対象group IDと種別を固定し、保存一覧の現在値を表示する。対象の消失、種別不一致、選択変更、directの保存ユーザー消失では管理操作を表示せず、開いている子画面を閉じる。追加・編集の開始と遅延削除でも対象を再確認し、招待は共有時にも対象IDと権限を再検証する。`closeGroupManagementButton`で閉じる。
+
+通常groupの管理画面にはメンバー一覧、名前編集、削除、`addSavedUsersButton`、`inviteButton`を置く。directの管理画面には保存ユーザーの名前編集と`inviteButton`を置く。Callの参加者は状態と音声操作のみを表示する。StandardのCallにある招待・参加者管理は維持する。
 
 ## 通話画面
 
@@ -60,7 +70,7 @@ CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。�
 |---|---|---|---|---|---|
 | 通話画面 | `callScreen` | 接続、音声入出力、参加者状態を一画面で扱う | `CallView` | `selectedGroup != nil` | 画面タイトルは通常group名、個別通話では相手の表示名 |
 | 通話ステータスヘッダー | `callStatusHeader` | 通話全体の状態を最上部に集約する | `statusHeader` | 常時 | 接続、入力、出力をまとめる |
-| 接続/招待操作領域 | `call-primary-controls` | 主要操作をまとめる | `controls` | 常時 | 横幅に応じて横並びまたは縦並び |
+| 接続操作 | `connectButton` / `disconnectButton` | 通話を開始・終了する | `controls` | 常時 | 接続状態に応じて表示 |
 | 参加者セクション | `call-participants-section` | 相手ごとの状態、出力調整、peer bus effect 設定を扱う | `VStack` | 常時 | 見出しと参加者領域 |
 | 音声エラー表示領域 | `audioErrorLabel` | 音声系失敗を可視化する | `Text` | `audioErrorMessage != nil` | 赤文字 |
 
@@ -81,13 +91,12 @@ CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。�
 | マスター出力ミュートボタン | `callStatusHeader` | `masterOutputMuteButton` | `Mute Output` / `Unmute Output` | `Bool` | ミュート時は赤系 | 入力や接続は止めない |
 | ダッキング状態アイコン | `callStatusHeader` | `duckingStatusIcon` | なし | `isDuckOthersEnabled`, `isOtherAudioDuckingActive` | 設定 ON 時のみ `waveform` | 設定 ON と実効 ON を分ける |
 
-### 接続/招待操作
+### 接続操作
 
 | 項目名（日本語） | 親項目 | 項目ID | ラベル | データ仕様 | 表示仕様 | 異常系の考え方 |
 |---|---|---|---|---|---|---|
-| 接続ボタン | `call-primary-controls` | `connectButton` | `Connect` | `canDisconnectCall == false` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
-| 切断ボタン | `call-primary-controls` | `disconnectButton` | `Disconnect` | `canDisconnectCall == true` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
-| 招待ボタン | `call-primary-controls` | `inviteButton` | `Invite` | `canShareSelectedGroup` | `ShareLink` / `GroupInvitationShare` | ログイン・保存状態・所属・宛先から表示可否を判断。共有データ要求時に対象IDと権限を再確認してURLを発行する。共有画面の表示・取消やURLの共有だけでは参加者を追加しない |
+| 接続ボタン | `callScreen` | `connectButton` | `Connect` | `canDisconnectCall == false` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
+| 切断ボタン | `callScreen` | `disconnectButton` | `Disconnect` | `canDisconnectCall == true` | 主要ボタン | 音声起動失敗と接続失敗を分ける |
 
 ## 参加者
 
@@ -97,13 +106,12 @@ CallのParticipantsに`Add Saved Users`（`addSavedUsersButton`）を置く。�
 | 参加者空状態 | `call-participants-section` | `emptyRemoteParticipantsLabel` | `No remote riders` | 固定文字列 | 空状態カード | 相手不在 |
 | 参加者カード行 | `call-participants-section` | `remoteParticipantRow{index}` | 参加者カード | `GroupMember`, `remoteOutputVolumes[member.id]`, `remoteSoundIsolationEnabled[member.id]` | 1 参加者 1 カード | 受信音声がなくても存在 |
 | 参加者名 | `remoteParticipantRow{index}` | `participantName{index}` | `member.displayName` | `String` | 最大 2 行 | 保存名 |
-| 接続/認証アイコン | `remoteParticipantRow{index}` | `participantStatusSummary{index}` | なし | `connectionState`, `authenticationState` | Wi-Fi 系 + 認証系 | 接続軸と認証軸を分ける |
+| 接続/認証状態 | `remoteParticipantRow{index}` | `participantStatusSummary{index}` | 状態の文字 | `connectionState`, `authenticationState` | Wi-Fi 系 + 認証系の記号と文字 | 接続軸と認証軸を分ける |
 | コーデック表示 | `remoteParticipantRow{index}` | `participantAudioPipelineState{index}` | `PCM 16-bit` など | `AudioCodecIdentifier?` | `Label`。未観測は `--` | 最後に観測した codec |
 | 参加者入力メーター | `remoteParticipantRow{index}` | `participantVoiceLevel{index}` | なし | `voiceLevel`, `voicePeakLevel`, `isMuted` | 値文字列なし | 受信後デコード済みレベル |
 | 参加者出力値 | `remoteParticipantRow{index}` | `participantOutputValue{index}` | `{n}%` | `remoteOutputVolumes[member.id]` | 補助テキスト | peer source fader |
 | 参加者出力スライダー | `remoteParticipantRow{index}` | `participantOutputSlider{index}` | `{name} Output` | `Double`, `0...1`。未設定時 `1.0` | 個別出力スライダー | マスター出力とは別。peer source faderへ即時反映 |
 | 参加者 Voice Isolation Effect | `remoteParticipantRow{index}` | `participantVoiceIsolationToggle{index}` | `Voice Isolation` | `remoteSoundIsolationEnabled[member.id]`。未設定時 `false` | `supportsSoundIsolation == true` のとき Toggle | 該当 peer bus の SoundIsolation effect 有効/無効 |
-| 参加者削除 | `remoteParticipantRow{index}` | なし | `Delete` | 対象 `member.id` | swipe / context menu | ローカルメンバーは対象外 |
 
 ## エラー表示
 
@@ -152,13 +160,13 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 | reloadSavedGroupsButton | Reload Saved Groups | 通話中は無効でDisconnectを案内。未知schemaも無効。成功時は一覧を再構成し選択とerrorを解除 |
 | resetSavedGroupsButton | Reset Saved Groups and Users… | 破損時のみ標準destructive Button。標準alertに影響、退避、再招待の必要性を表示 |
 | confirmResetSavedGroupsButton / cancelResetSavedGroupsButton | Reset Saved Groups / Cancel | 確認後だけ通話を終了し、元データ退避→空manifest commit→group鍵回収。Cancelを明示し、取り消しなら変更なし |
-| createGroupButton | Create Talk Group | 保存読込に失敗している間は無効。鍵欠落・回収待ちだけなら他groupの利用を妨げない |
+| standardCreateGroupButton | New Group | 保存読込に失敗している間は無効。鍵欠落・回収待ちだけなら他groupの利用を妨げない |
 
 resetでrider identity・音声設定・Internet資格は変更しない。退避失敗なら元データを保持してerrorを表示する。一般commandの待機上限超過はCallの案内から、停止完了後の明示Connectを促す。
 
 ### グループ内の名前編集
 
-参加者名（`participantName{index}`）は名前編集ボタン。対象groupを固定したFormで、`groupMemberNameField`にこの端末の呼び名、`groupMemberOriginalName`に本人名を表示する。`saveGroupMemberNameButton`で保存、`resetGroupMemberNameButton`で本人名へ戻す。保存ユーザーなら一覧の呼び名も更新し、それ以外は対象groupだけへ保存する。編集を理由にユーザー登録・通知をしない。
+AdvancedではGroups管理画面の参加者名から、StandardではCallの参加者名から名前編集を開く。対象groupを固定したFormで、`groupMemberNameField`にこの端末の呼び名、`groupMemberOriginalName`に本人名を表示する。`saveGroupMemberNameButton`で保存、`resetGroupMemberNameButton`で本人名へ戻す。保存ユーザーなら一覧の呼び名も更新し、それ以外は対象groupだけへ保存する。編集を理由にユーザー登録・通知をしない。
 
 ### Standardの直近通話
 

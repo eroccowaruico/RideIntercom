@@ -3,7 +3,6 @@ import RTC
 
 struct CallView: View {
     @Bindable var viewModel: IntercomViewModel
-    @State private var addingUsersToGroup: IntercomGroup?
 
     var body: some View {
         ScrollView {
@@ -12,8 +11,9 @@ struct CallView: View {
                 controls
                 if viewModel.selectedGroup?.kind == .direct {
                     Text(viewModel.selectedGroup.flatMap(viewModel.directCallRecipient) == nil
+                         && viewModel.selectedGroup.flatMap(viewModel.directCallAccountRecipient) == nil
                          ? "This user was removed from Saved Users. Your current call stays available until you disconnect."
-                         : "Share this call's invitation with the other person the first time. Both of you can then reopen the same call from Users. Opening the call does not send a notification.")
+                         : "Individual call")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("directCallHelpLabel")
@@ -42,16 +42,6 @@ struct CallView: View {
                     Text("Participants")
                         .font(AppTypography.sectionTitle)
                         .foregroundStyle(AppColorPalette.textSecondary)
-                    if viewModel.selectedGroup?.kind == .group {
-                        Button("Add Saved Users", systemImage: "person.badge.plus") {
-                            addingUsersToGroup = viewModel.selectedGroup
-                        }
-                        .buttonStyle(.glass)
-                        .controlSize(.large)
-                        .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: viewModel.selectedGroup?.id).isEmpty
-                                  || (viewModel.selectedGroup?.members.count ?? 8) >= IntercomGroup.maximumMemberCount)
-                        .accessibilityIdentifier("addSavedUsersButton")
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -71,9 +61,6 @@ struct CallView: View {
                                 member: member
                             )
                             .accessibilityIdentifier("remoteParticipantRow\(index)")
-                            .appDeleteActions(isEnabled: viewModel.selectedGroup?.kind == .group) {
-                                removeMember(member.id)
-                            }
                         }
                     }
                 }
@@ -89,7 +76,6 @@ struct CallView: View {
         }
         .background(AppColorPalette.callScreenBackground)
         .accessibilityIdentifier("callScreen")
-        .sheet(item: $addingUsersToGroup) { group in SavedUsersView(viewModel: viewModel, groupID: group.id) }
     }
 
     private var statusHeader: some View {
@@ -212,11 +198,6 @@ struct CallView: View {
         Array(viewModel.selectedGroup?.members.dropFirst() ?? [])
     }
 
-    private func removeMember(_ memberID: GroupMember.ID) {
-        guard let selectedGroup = viewModel.selectedGroup else { return }
-        viewModel.removeMember(memberID, from: selectedGroup.id)
-    }
-
     private var outputPercentLabel: String {
         outputStateLabel
     }
@@ -241,12 +222,7 @@ struct CallView: View {
         viewModel.isOtherAudioDuckingActive ? "Active" : "Enabled"
     }
 
-    private var controls: some View {
-        ViewThatFits(in: .horizontal) {
-            controlStack(horizontal: true)
-            controlStack(horizontal: false)
-        }
-    }
+    private var controls: some View { primaryConnectionButton }
 
     private var primaryConnectionButton: some View {
         let reference = viewModel.currentCallReference
@@ -273,37 +249,6 @@ struct CallView: View {
         .appProminentButtonStyle()
         .controlSize(.large)
         .accessibilityValue(viewModel.callPresenceLabel)
-    }
-
-    private func inviteLink(_ group: IntercomGroup) -> some View {
-        CallInvitationButton(viewModel: viewModel, group: group)
-            .appSecondaryButtonStyle()
-            .controlSize(.large)
-    }
-
-    @ViewBuilder
-    private func controlStack(horizontal: Bool) -> some View {
-        let spacing = AppSpacing.l
-        Group {
-            if horizontal {
-                HStack(spacing: spacing) {
-                    primaryConnectionButton
-                    inviteAction
-                }
-            } else {
-                VStack(alignment: .leading, spacing: spacing) {
-                    primaryConnectionButton
-                    inviteAction
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var inviteAction: some View {
-        if viewModel.canShareSelectedGroup, let group = viewModel.selectedGroup {
-            inviteLink(group)
-        }
     }
 
     private var connectionIconName: String {

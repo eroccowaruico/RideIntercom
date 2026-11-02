@@ -55,7 +55,6 @@ struct LocalMicrophoneHeaderControl: View {
 }
 
 struct RemoteParticipantRowView: View {
-    @State private var editingGroup: IntercomGroup?
     @Bindable var viewModel: IntercomViewModel
     let index: Int
     let member: GroupMember
@@ -64,12 +63,7 @@ struct RemoteParticipantRowView: View {
         VStack(alignment: .leading, spacing: AppSpacing.l) {
             HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xl) {
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    Button { editingGroup = viewModel.selectedGroup } label: {
-                        Label(member.resolvedDisplayName, systemImage: "pencil")
-                            .frame(minHeight: 44, alignment: .leading)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Edit name for \(member.resolvedDisplayName)")
+                    Text(member.resolvedDisplayName)
                         .font(AppTypography.rowTitle)
                         .lineLimit(2)
                         .accessibilityIdentifier("participantName\(index)")
@@ -81,7 +75,10 @@ struct RemoteParticipantRowView: View {
                             .foregroundStyle(authIconColor)
                     }
                     .font(AppTypography.footnoteStrong)
-                    .accessibilityIdentifier("participantStatusSummary\(index)")
+                    Text(statusSummary)
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColorPalette.textSecondary)
+                        .accessibilityIdentifier("participantStatusSummary\(index)")
                 }
 
                 Spacer()
@@ -105,9 +102,6 @@ struct RemoteParticipantRowView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(member.resolvedDisplayName)
         .accessibilityValue("\(statusSummary), \(codecLabel)")
-        .sheet(item: $editingGroup) { group in
-            GroupMemberNameView(viewModel: viewModel, groupID: group.id, member: member)
-        }
     }
 
     private var participantMeter: some View {
@@ -261,33 +255,3 @@ struct RemoteParticipantRowView: View {
     }
 }
 
-struct GroupRowView: View {
-    let title: String
-    let subtitle: String
-    let iconColor: Color
-
-    var body: some View {
-        HStack(spacing: AppSpacing.xl) {
-            Image(systemName: "person.3")
-                .foregroundStyle(iconColor)
-                .frame(width: AppSize.iconM)
-
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                Text(title)
-                    .font(AppTypography.rowTitle)
-                    .lineLimit(2)
-                Text(subtitle)
-                    .font(AppTypography.subheadline)
-                    .foregroundStyle(AppColorPalette.textSecondary)
-            }
-
-            Spacer(minLength: AppSpacing.xl)
-
-            Image(systemName: "chevron.right")
-                .font(AppTypography.footnoteStrong)
-                .foregroundStyle(AppColorPalette.textTertiary)
-        }
-        .appCallCardStyle()
-        .contentShape(Rectangle())
-    }
-}

@@ -19,7 +19,7 @@ struct StandardCallView: View {
                 }
             }
             CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab, excludesSelected: true)
-            StandardStorageSection(viewModel: viewModel)
+            CallStorageSection(viewModel: viewModel)
             if let group = viewModel.selectedGroup {
                 Section {
                     VStack(alignment: .leading, spacing: AppSpacing.l) {
@@ -100,7 +100,7 @@ struct StandardCallView: View {
                     Button("Choose a Group") { selectedTab = .groups }
                 }
             }
-            StandardErrorSection(viewModel: viewModel)
+            CallErrorSection(viewModel: viewModel)
         }
         .scrollContentBackground(.hidden)
         .background(AppColorPalette.standardScreenBackground)
@@ -189,42 +189,3 @@ private struct MemberNameSelection: Identifiable {
     var id: String { member.id }
 }
 
-struct CurrentCallSection: View {
-    let viewModel: IntercomViewModel
-    @Binding var selectedTab: AppTab
-    var excludesSelected = false
-    var body: some View {
-        if let id = viewModel.activeGroupID, viewModel.hasAnyActiveGroupConnection,
-           !excludesSelected || viewModel.selectedGroup?.id != id,
-           let group = viewModel.groups.first(where: { $0.id == id }) {
-            Section("Current Call") {
-                Button {
-                    viewModel.selectGroup(group, connectIfIdle: false)
-                    selectedTab = .call
-                } label: { Label(viewModel.callTitle(for: group), systemImage: "phone.fill") }
-                .accessibilityIdentifier("standardCurrentCallButton")
-            }
-        }
-    }
-}
-
-struct StandardErrorSection: View {
-    let viewModel: IntercomViewModel
-    var body: some View {
-        if let message = viewModel.groupErrorMessage, message != viewModel.groupStorageNotice {
-            Section { Label(LocalizedStringKey(message), systemImage: "exclamationmark.circle") }
-        }
-    }
-}
-
-struct StandardStorageSection: View {
-    let viewModel: IntercomViewModel
-    var body: some View {
-        if let message = viewModel.groupStorageNotice {
-            GroupStorageSection(message: message, canReset: viewModel.groupStorageIssue == .corrupted,
-                canReload: viewModel.activeGroupID == nil && viewModel.groupStorageIssue != .unsupportedVersion,
-                reloadRequiresDisconnect: viewModel.activeGroupID != nil,
-                reload: viewModel.reloadSavedGroups, reset: viewModel.resetSavedGroups)
-        }
-    }
-}

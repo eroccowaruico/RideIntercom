@@ -59,7 +59,7 @@ struct ArchitectureTests {
 
     @Test func uiSourcesAreSplitByScreenResponsibility() throws {
         let contentView = try AppTestSupport.source("RideIntercom/UI/ContentView.swift")
-        let callView = try AppTestSupport.source("RideIntercom/UI/Call/CallView.swift")
+        let callView = try AppTestSupport.source("RideIntercom/UI/Call/Advanced/CallView.swift")
         let settingsView = try AppTestSupport.source("RideIntercom/UI/Settings/SettingsView.swift")
         let diagnosticsView = try AppTestSupport.source("RideIntercom/UI/Diagnostics/DiagnosticsView.swift")
         let transmitPipelineView = try ["LiveTransmitPipelineView", "TransmitPipelinePresentation", "PipelineComponents"].map {
@@ -85,7 +85,7 @@ struct ArchitectureTests {
         #expect(diagnosticsView.contains("struct DiagnosticsView"))
         #expect(callView.contains("masterVoiceIsolationToggle"))
         #expect(callView.contains("RemoteParticipantRowView"))
-        let participantViews = try AppTestSupport.source("RideIntercom/UI/Call/ParticipantViews.swift")
+        let participantViews = try AppTestSupport.source("RideIntercom/UI/Call/Advanced/ParticipantViews.swift")
         #expect(participantViews.contains("participantOutputSlider"))
         #expect(participantViews.contains("participantVoiceIsolationToggle"))
         #expect(transmitPipelineView.contains("CompactEffectChainGroup"))

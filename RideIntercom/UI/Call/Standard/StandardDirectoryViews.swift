@@ -8,7 +8,7 @@ struct StandardUsersView: View {
     var body: some View {
         List {
             CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
-            StandardStorageSection(viewModel: viewModel)
+            CallStorageSection(viewModel: viewModel)
             Section {
                 if viewModel.savedRemoteUsers.isEmpty {
                     ContentUnavailableView("No Saved Users", systemImage: "person.2",
@@ -30,12 +30,10 @@ struct StandardUsersView: View {
             } footer: {
                 Text("Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.")
             }
-            StandardErrorSection(viewModel: viewModel)
+            CallErrorSection(viewModel: viewModel)
         }
-        .scrollContentBackground(viewModel.interfaceMode == .standard ? .hidden : .automatic)
-        .background {
-            if viewModel.interfaceMode == .standard { AppColorPalette.standardScreenBackground }
-        }
+        .scrollContentBackground(.hidden)
+        .background(AppColorPalette.standardScreenBackground)
         .navigationTitle("Users")
         .accessibilityIdentifier("standardUsersList")
         .sheet(item: $editingUser) { user in SavedUserNameView(viewModel: viewModel, user: user) }
@@ -51,7 +49,7 @@ struct StandardGroupsView: View {
     var body: some View {
         List {
             CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
-            StandardStorageSection(viewModel: viewModel)
+            CallStorageSection(viewModel: viewModel)
             Section {
                 if viewModel.regularGroups.isEmpty {
                     ContentUnavailableView("No Groups Yet", systemImage: "person.3", description: Text("Create a group or open an invitation from a friend."))
@@ -61,30 +59,16 @@ struct StandardGroupsView: View {
                         viewModel.selectGroup(group, connectIfIdle: false)
                         selectedTab = .call
                     } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                                Text(group.name)
-                                if group.id == viewModel.activeGroupID && viewModel.hasAnyActiveGroupConnection {
-                                    Text(LocalizedStringKey(viewModel.callStatus(for: group.id).message))
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        } icon: {
-                            Image(systemName: "person.3.fill")
-                                .foregroundStyle(.tint)
-                        }
+                        DirectoryGroupLabel(viewModel: viewModel, group: group)
                     }
                     .accessibilityIdentifier("standardGroup-\(group.id)")
                     .appDeleteActions { viewModel.deleteGroup(group.id) }
                 }
             }
-            StandardErrorSection(viewModel: viewModel)
+            CallErrorSection(viewModel: viewModel)
         }
-        .scrollContentBackground(viewModel.interfaceMode == .standard ? .hidden : .automatic)
-        .background {
-            if viewModel.interfaceMode == .standard { AppColorPalette.standardScreenBackground }
-        }
+        .scrollContentBackground(.hidden)
+        .background(AppColorPalette.standardScreenBackground)
         .navigationTitle("Groups")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

@@ -16,10 +16,22 @@ struct SignedInContentView: View {
                 }
             }.accessibilityIdentifier("callTab")
             Tab("Users", systemImage: "person.2", value: .users) {
-                NavigationStack { StandardUsersView(viewModel: viewModel, selectedTab: $selectedTab) }
+                NavigationStack {
+                    if viewModel.interfaceMode == .standard {
+                        StandardUsersView(viewModel: viewModel, selectedTab: $selectedTab)
+                    } else {
+                        AdvancedUsersView(viewModel: viewModel, selectedTab: $selectedTab)
+                    }
+                }
             }.accessibilityIdentifier("usersTab")
             Tab("Groups", systemImage: "person.3", value: .groups) {
-                NavigationStack { StandardGroupsView(viewModel: viewModel, selectedTab: $selectedTab) }
+                NavigationStack {
+                    if viewModel.interfaceMode == .standard {
+                        StandardGroupsView(viewModel: viewModel, selectedTab: $selectedTab)
+                    } else {
+                        AdvancedGroupsView(viewModel: viewModel, selectedTab: $selectedTab)
+                    }
+                }
             }.accessibilityIdentifier("groupsTab")
             if viewModel.interfaceMode == .advanced {
                 Tab("Diagnostics", systemImage: "gauge", value: .diagnostics) {

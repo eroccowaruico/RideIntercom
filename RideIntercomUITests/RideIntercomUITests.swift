@@ -54,16 +54,16 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     func testInvitationShareUsesSystemSheetAndReturnsToCall() throws {
         createTalkGroupAndOpenCall()
+        assertAdvancedCallHasNoManagementControls()
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
+        openTalkGroupManagement()
+        XCTAssertTrue(app.buttons["addSavedUsersButton"].exists)
+        copyManagementInvitation()
+        attachScreen("Advanced group management after native invitation sharing")
+        closeManagementAndReturnToCall()
         XCTAssertTrue(app.descendants(matching: .any)["emptyRemoteParticipantsLabel"].firstMatch.waitForExistence(timeout: 3))
-        let invite = app.buttons["inviteButton"]
-        XCTAssertTrue(invite.waitForExistence(timeout: 3))
-        invite.tap()
-        let copy = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
-        XCTAssertTrue(copy.waitForExistence(timeout: 5), "The native share sheet must offer the invitation URL")
-        attachScreen("Invitation Native Share Sheet")
-        copy.tap()
-        XCTAssertTrue(invite.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["emptyRemoteParticipantsLabel"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
+        assertAdvancedCallHasNoManagementControls()
         XCTAssertFalse(app.staticTexts["groupErrorLabel"].exists)
     }
 
@@ -340,7 +340,17 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.buttons["connectButton"].exists)
         app.buttons["connectButton"].tap()
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["inviteButton"].exists)
+        assertAdvancedCallHasNoManagementControls()
+        openUsersTab()
+        let userID = String(user.identifier.dropFirst("standardUser-".count))
+        let manageUser = app.buttons["manageUser-" + userID].firstMatch
+        XCTAssertTrue(manageUser.waitForExistence(timeout: 3))
+        manageUser.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupManagementView"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["addSavedUsersButton"].exists)
+        copyManagementInvitation()
+        closeManagementAndReturnToCall()
+        XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
         attachScreen("Individual Call with Saved User")
         openGroupsTab()
         XCTAssertTrue(app.buttons["standardCurrentCallButton"].waitForExistence(timeout: 3))
@@ -364,6 +374,7 @@ final class RideIntercomUITests: XCTestCase {
         app.buttons["closeSavedUsersButton"].tap()
         openUsersTab()
         XCTAssertFalse(user.exists)
+        XCTAssertFalse(manageUser.exists, "Removed users cannot open invitation management")
         app.buttons["standardCurrentCallButton"].tap()
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["inviteButton"].exists)
@@ -379,17 +390,23 @@ final class RideIntercomUITests: XCTestCase {
         try checkGroupDeletionCanBeExercisedFromUI()
         // Restart only here: this case explicitly verifies persisted users.
         app.terminate(); app.launch(); app.activate()
-        openGroupsTab()
-        app.buttons["standardCreateGroupButton"].tap()
-        let firstUser = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
-        XCTAssertTrue(firstUser.waitForExistence(timeout: 3))
-        let toggle = app.switches[firstUser.identifier]
-        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch.tap()
+        openUsersTab()
+        let manageUser = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "manageUser-")).firstMatch
+        XCTAssertTrue(manageUser.waitForExistence(timeout: 3))
+        manageUser.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupManagementView"].firstMatch.waitForExistence(timeout: 3))
+        app.buttons["Edit Name"].firstMatch.tap()
         let field = app.textFields["savedUserNameField"]
         XCTAssertTrue(field.waitForExistence(timeout: 3))
         field.tap()
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (field.value as? String ?? "").count) + "Alex")
         app.buttons["saveUserNameButton"].tap()
+        closeManagementAndReturnToCall()
+        openGroupsTab()
+        app.buttons["standardCreateGroupButton"].tap()
+        let firstUser = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
+        XCTAssertTrue(firstUser.waitForExistence(timeout: 3))
+        let toggle = app.switches[firstUser.identifier]
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
         XCTAssertTrue(toggle.label.contains("Alex"))
         toggle.switches.firstMatch.tap()
@@ -398,10 +415,15 @@ final class RideIntercomUITests: XCTestCase {
         app.buttons["saveUserSelectionButton"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["remoteParticipantRow0"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.exists)
+        assertAdvancedCallHasNoManagementControls()
+        openTalkGroupManagement()
         XCTAssertTrue(app.buttons["inviteButton"].exists)
-        attachScreen("Group Created from Saved User")
+        attachScreen("Group Created from Saved User management")
+        closeManagementAndReturnToCall()
         try checkGroupDeletionCanBeExercisedFromUI()
         createTalkGroupAndOpenCall()
+        assertAdvancedCallHasNoManagementControls()
+        openTalkGroupManagement()
         let add = app.buttons["addSavedUsersButton"]
         for _ in 0..<4 where !add.isHittable { app.swipeUp() }
         XCTAssertTrue(add.isEnabled)
@@ -411,7 +433,10 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "1")
         app.buttons["saveUserSelectionButton"].tap()
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
-        attachScreen("Saved User Added to Existing Group")
+        attachScreen("Saved User Added to Existing Group management")
+        closeManagementAndReturnToCall()
+        XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
+        assertAdvancedCallHasNoManagementControls()
         openGroupsTab()
         app.buttons["standardCreateGroupButton"].tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
@@ -424,6 +449,26 @@ final class RideIntercomUITests: XCTestCase {
         app.buttons["closeSavedUsersButton"].tap()
         talkGroupRows.firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
+        assertAdvancedCallHasNoManagementControls()
+        openTalkGroupManagement()
+        let participant = app.buttons["Alex"].firstMatch
+        XCTAssertTrue(participant.waitForExistence(timeout: 3))
+        participant.tap()
+        let memberName = app.textFields["groupMemberNameField"]
+        XCTAssertTrue(memberName.waitForExistence(timeout: 3))
+        memberName.tap()
+        memberName.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (memberName.value as? String)?.count ?? 0) + "Group Alex")
+        app.buttons["saveGroupMemberNameButton"].tap()
+        let renamed = app.buttons["Group Alex"].firstMatch
+        XCTAssertTrue(renamed.waitForExistence(timeout: 3))
+        attachScreen("Advanced group participant name edited in management")
+        renamed.swipeLeft()
+        let removeMember = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(removeMember.waitForExistence(timeout: 3))
+        removeMember.tap()
+        XCTAssertTrue(renamed.waitForNonExistence(timeout: 3))
+        closeManagementAndReturnToCall()
+        XCTAssertTrue(app.descendants(matching: .any)["emptyRemoteParticipantsLabel"].firstMatch.waitForExistence(timeout: 3))
         try checkGroupDeletionCanBeExercisedFromUI()
         app.terminate(); app.launch(); app.activate()
         openGroupsTab()
@@ -899,7 +944,8 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.sliders.firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Mute Output"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Mute"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["inviteButton"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["inviteButton"].exists)
+        XCTAssertFalse(app.buttons["addSavedUsersButton"].exists)
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["emptyRemoteParticipantsLabel"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.descendants(matching: .any)["callAudioOutputPicker"].exists)
@@ -910,7 +956,8 @@ final class RideIntercomUITests: XCTestCase {
     private func checkManualAddRiderButtonIsNotShownInCallUI() throws {
 
         XCTAssertFalse(app.buttons["Add Rider"].exists)
-        XCTAssertTrue(app.buttons["inviteButton"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["inviteButton"].exists)
+        XCTAssertFalse(app.buttons["addSavedUsersButton"].exists)
     }
 
     @MainActor
@@ -928,7 +975,8 @@ final class RideIntercomUITests: XCTestCase {
 
         XCTAssertFalse(app.buttons["Add Rider"].exists)
         XCTAssertFalse(app.buttons["removeParticipantButton0"].exists)
-        XCTAssertTrue(app.buttons["inviteButton"].exists)
+        XCTAssertFalse(app.buttons["inviteButton"].exists)
+        XCTAssertFalse(app.buttons["addSavedUsersButton"].exists)
     }
 
     @MainActor
@@ -1076,6 +1124,53 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["vadAnalysisStatus"].firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioIOApplyStateLabel"].firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioInputProcessingSummaryLabel"].firstMatch.exists)
+    }
+
+    private func assertAdvancedCallHasNoManagementControls() {
+        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
+        for identifier in ["inviteButton", "addSavedUsersButton", "showGroupsButton", "createGroupButton",
+                           "standardCreateGroupButton", "editParticipantNameButton0", "removeParticipantButton0"] {
+            XCTAssertFalse(app.buttons[identifier].exists, "Management control remains in Advanced Call: \(identifier)")
+        }
+        XCTAssertFalse(app.buttons["Edit Name"].exists)
+        XCTAssertFalse(app.buttons.containing(.staticText, identifier: "participantName0").firstMatch.exists)
+        XCTAssertFalse(app.buttons["Delete"].exists)
+    }
+
+    private func openTalkGroupManagement() {
+        openGroupsTab()
+        let group = talkGroupRows.firstMatch
+        XCTAssertTrue(group.waitForExistence(timeout: 3))
+        let groupID = String(group.identifier.dropFirst("standardGroup-".count))
+        let manage = app.buttons["manageGroup-" + groupID].firstMatch
+        XCTAssertTrue(manage.waitForExistence(timeout: 3))
+        manage.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupManagementView"].firstMatch.waitForExistence(timeout: 3))
+    }
+
+    private func copyManagementInvitation() {
+        let invite = app.buttons["inviteButton"].firstMatch
+        XCTAssertTrue(invite.waitForExistence(timeout: 3))
+        invite.tap()
+        let copy = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 5), "Native sharing offers the invitation URL")
+        attachScreen("Directory management invitation native share sheet")
+        copy.tap()
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["groupManagementView"].firstMatch.exists)
+        XCTAssertTrue(invite.exists)
+    }
+
+    private func closeManagementAndReturnToCall() {
+        let close = app.buttons["closeGroupManagementButton"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 3))
+        close.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupManagementView"].firstMatch.waitForNonExistence(timeout: 3))
+        let call = app.buttons["callTab"].firstMatch
+        if call.exists { call.tap() }
+        else if app.radioButtons["callTab"].exists { app.radioButtons["callTab"].tap() }
+        else { app.tabBars.buttons["Call"].tap() }
+        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
     }
 
     private var talkGroupRows: XCUIElementQuery {
