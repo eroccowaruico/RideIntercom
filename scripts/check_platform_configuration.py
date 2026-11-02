@@ -110,7 +110,8 @@ def check(root, project=None):
     require(widget == {'com.apple.security.application-groups': [APP_GROUP]}, 'Widget needs only App Group access; call/audio/account/APNs stay in the App.')
     info = plist('RideIntercom/Info.plist')
     require(info.get('RideIntercomAPNsEnvironment') == APNS_SETTING, 'Info APNs environment must use the same build setting as signing.')
-    require(set(info.get('NSBonjourServices', [])) == {'_ride-intercom._tcp', '_ride-audio._udp'}, 'Local discovery and datagram Bonjour service declarations must agree with RTC.')
+    # Multipeer browses/advertises its service type over both TCP and UDP Bonjour records.
+    require(set(info.get('NSBonjourServices', [])) == {'_ride-intercom._tcp', '_ride-intercom._udp', '_ride-audio._udp'}, 'Local discovery and datagram Bonjour service declarations must agree with RTC.')
     require(info.get('UIBackgroundModes') == ['audio'], 'Only continuing call audio needs background mode.')
     for locale in ('en', 'ja'):
         file = root / f'RideIntercom/{locale}.lproj/InfoPlist.strings'

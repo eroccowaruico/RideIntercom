@@ -155,7 +155,8 @@ struct ArchitectureTests {
         let localNetworkUsage = try #require(Bundle.main.object(forInfoDictionaryKey: "NSLocalNetworkUsageDescription") as? String)
 
         #expect(backgroundModes.contains("audio"))
-        #expect(bonjourServices.contains("_ride-intercom._tcp"))
+        // Multipeer needs both records of its service type; local audio uses its own UDP service.
+        #expect(Set(bonjourServices) == ["_ride-intercom._tcp", "_ride-intercom._udp", "_ride-audio._udp"])
         #expect(!localNetworkUsage.isEmpty)
     }
 

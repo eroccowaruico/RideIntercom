@@ -7,7 +7,7 @@
 | 領域 | リポジトリの設定 | 外部で成立させること |
 |---|---|---|
 | Appleログイン | 全通話で認証必須。AppのiOS/macOS entitlementにSign in with Apple | 対象App IDのcapabilityと、そのcapabilityを含む両OSのprofile。実Apple認証・取消・復帰 |
-| 近距離通信 | `NSBonjourServices`は`_ride-intercom._tcp`と`_ride-audio._udp`。ローカルネットワーク説明を日英で同梱 | 各端末でローカルネットワークを許可。固定BonjourとUDP unicastなのでmulticastの制限付きentitlementは追加しない |
+| 近距離通信 | `NSBonjourServices`はMultipeer用の`_ride-intercom._tcp`・`_ride-intercom._udp`（Multipeerは同じservice typeをTCP・UDPの両方で扱うため両方必須）と、Local音声用の`_ride-audio._udp`。ローカルネットワーク説明を日英で同梱 | 各端末でローカルネットワークを許可。固定BonjourとUDP unicastなのでmulticastの制限付きentitlementは追加しない |
 | マイク・継続音声 | 日英のマイク説明、macOS audio-input、Appのaudio background mode | 各端末のマイク許可。実Bluetooth・中断・ロック中通話の受入。カメラ、連絡先、位置情報、Watchマイクは要求しない |
 | Mac sandbox | Appはsandboxとnetwork client/serverを有効。UDPの送受信に両方向が必要 | 通常sandboxの実起動と実通信。自動unitでsandboxを無効にした結果とは区別 |
 | Widgetの選択用共有 | AppとWidgetに同じApp Group。Widgetは資格を持たず、Appが投影を書きextensionは読む | 両App IDへのgroup割当と両profileのgroup許可。署名済みの実App/extension間で共有できること |
