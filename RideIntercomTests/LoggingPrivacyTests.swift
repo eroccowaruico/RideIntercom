@@ -1,4 +1,5 @@
 import AVFoundation
+import Codec
 import Foundation
 import Logging
 import Testing
@@ -60,5 +61,13 @@ struct LoggingPrivacyTests {
         #expect(metadata["permission"] == "denied")
         #expect(MicrophonePermissionLog.denied(.granted) == nil)
         #expect(MicrophonePermissionLog.denied(.undetermined) == nil)
+    }
+
+    @Test func receivedAudioFailuresSeparateCodecDecodeErrorsForTheirOwnLogEvent() {
+        #expect(AudioPacketReception.failure(CodecError.malformedPayload(.opus)) == .decodeFailed("CodecError"))
+        #expect(AudioPacketReception.failure(AppAudioCodecBridge.DecodingError.invalidFormat) == .decodeFailed("DecodingError"))
+        #expect(AudioPacketReception.failure(AppAudioPipelineError.notConfigured) == .unavailable)
+        struct PlaybackFailure: Error {}
+        #expect(AudioPacketReception.failure(PlaybackFailure()) == .failed("PlaybackFailure"))
     }
 }

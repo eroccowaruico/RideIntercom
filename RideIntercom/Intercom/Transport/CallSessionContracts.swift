@@ -1,3 +1,4 @@
+import Codec
 import Foundation
 import RTC
 
@@ -63,7 +64,17 @@ struct LocalNetworkEvent: Equatable {
 nonisolated enum AudioPacketReception: Equatable, Sendable {
     case processed(level: Float)
     case unavailable
+    case decodeFailed(String)
     case failed(String)
+
+    /// Codec decode failures get their own event; other receive failures stay pipeline-level.
+    static func failure(_ error: any Error) -> AudioPacketReception {
+        switch error {
+        case AppAudioPipelineError.notConfigured: .unavailable
+        case is CodecError, is AppAudioCodecBridge.DecodingError: .decodeFailed(String(describing: type(of: error)))
+        default: .failed(String(describing: type(of: error)))
+        }
+    }
 }
 
 enum TransportEvent: Equatable {

@@ -14,6 +14,16 @@ extension IntercomViewModel {
         switch reception {
         case .processed(let measured): level = measured
         case .unavailable: return
+        case .decodeFailed(let errorType):
+            AppLoggers.audio.warning(
+                "audio.codec.decode_failed",
+                metadata: .event("audio.codec.decode_failed", [
+                    "codec": "\(received.packet.codec.rawValue)",
+                    "errorType": "\(errorType)",
+                    "isRecoverable": "true"
+                ])
+            )
+            return
         case .failed(let errorType):
             AppLoggers.audio.warning(
                 "audio.pipeline.receive_failed",

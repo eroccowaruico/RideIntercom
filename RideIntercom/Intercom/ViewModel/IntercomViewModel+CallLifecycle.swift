@@ -235,10 +235,8 @@ extension IntercomViewModel {
             do {
                 let frame = try pipeline.processReceivedAudioPacket(received)
                 return .processed(level: (try? AudioSignalMeter.measure(frame).rms) ?? 0)
-            } catch AppAudioPipelineError.notConfigured {
-                return .unavailable
             } catch {
-                return .failed(String(describing: type(of: error)))
+                return .failure(error)
             }
         }
         callSession.onEvent = { [weak self] event in
