@@ -37,13 +37,13 @@
 		B89AEF130DA8CECA89175FDB /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0874A31143C7555BB4D5AC15 /* RideIntercom/SystemSurfaces/Shared/SystemSurfaceScope.swift */; };
 		C0DE1C010000000000000001 /* RideIntercom/AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C0DE1C010000000000000002 /* RideIntercom/AppIcon.icon */; };
 		C5B699AE6EBBFF15F54F244A /* SessionManager in Frameworks */ = {isa = PBXBuildFile; productRef = 8B6A6437FC531740EEDEB76E /* SessionManager */; };
+		D35100000000000000000003 /* RideIntercom/Shared/Appearance.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D35100000000000000000001 /* RideIntercom/Shared/Appearance.xcassets */; };
+		D35100000000000000000004 /* RideIntercom/Shared/Appearance.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D35100000000000000000001 /* RideIntercom/Shared/Appearance.xcassets */; };
+		D35100000000000000000005 /* RideIntercom/Shared/RideComColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35100000000000000000002 /* RideIntercom/Shared/RideComColors.swift */; };
+		D35100000000000000000006 /* RideIntercom/Shared/RideComColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35100000000000000000002 /* RideIntercom/Shared/RideComColors.swift */; };
 		DC36F3422B1E25D249364967 /* RTC in Frameworks */ = {isa = PBXBuildFile; productRef = 2B44E19C9FE402C8B4453651 /* RTC */; };
 		E1FA6A96A55CF6A201DD62BC /* RideIntercom/Shared/WatchControlMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FF1CEF8CC38869E15C83735 /* RideIntercom/Shared/WatchControlMessage.swift */; };
 		FA53F9AE53A8243587C739B6 /* Codec in Frameworks */ = {isa = PBXBuildFile; productRef = 2F9C992A138EE52EE1027EC2 /* Codec */; };
-		D35100000000000000000003 /* Appearance.xcassets */ = {isa = PBXBuildFile; fileRef = D35100000000000000000001 /* Appearance.xcassets */; };
-		D35100000000000000000004 /* Appearance.xcassets */ = {isa = PBXBuildFile; fileRef = D35100000000000000000001 /* Appearance.xcassets */; };
-		D35100000000000000000005 /* RideComColors.swift */ = {isa = PBXBuildFile; fileRef = D35100000000000000000002 /* RideComColors.swift */; };
-		D35100000000000000000006 /* RideComColors.swift */ = {isa = PBXBuildFile; fileRef = D35100000000000000000002 /* RideComColors.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -130,10 +130,10 @@
 		C0DE1C010000000000000002 /* RideIntercom/AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = RideIntercom/AppIcon.icon; sourceTree = SOURCE_ROOT; };
 		C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideIntercomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CFDE00000000000000000001 /* Configuration/Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		D35100000000000000000001 /* RideIntercom/Shared/Appearance.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = RideIntercom/Shared/Appearance.xcassets; sourceTree = SOURCE_ROOT; };
+		D35100000000000000000002 /* RideIntercom/Shared/RideComColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/RideComColors.swift; sourceTree = SOURCE_ROOT; };
 		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomAudioE2ETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		D35100000000000000000001 /* Appearance.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = RideIntercom/Shared/Appearance.xcassets; sourceTree = SOURCE_ROOT; };
-		D35100000000000000000002 /* RideComColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/RideComColors.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -338,8 +338,8 @@
 		9391B9533088EDA000FDB74A /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				D35100000000000000000001 /* Appearance.xcassets */,
-				D35100000000000000000002 /* RideComColors.swift */,
+				D35100000000000000000001 /* RideIntercom/Shared/Appearance.xcassets */,
+				D35100000000000000000002 /* RideIntercom/Shared/RideComColors.swift */,
 				24CAD00D525C7DAC722B6173 /* RideIntercom/Localizable.xcstrings */,
 				A9F382A78A734E6BAC3AFB82 /* RideIntercom/Shared/WatchMicrophoneIntent.swift */,
 				7FF1CEF8CC38869E15C83735 /* RideIntercom/Shared/WatchControlMessage.swift */,
@@ -615,7 +615,7 @@
 		799114B9B7ECDF193B6B5BA2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
-				D35100000000000000000003 /* Appearance.xcassets */,
+				D35100000000000000000003 /* RideIntercom/Shared/Appearance.xcassets in Resources */,
 				60BF422F1B3694AA5E84F16C /* RideIntercom/Localizable.xcstrings in Resources */,
 			);
 		};
@@ -642,7 +642,7 @@
 		E7EB92C43053404206E9EDE7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
-				D35100000000000000000004 /* Appearance.xcassets */,
+				D35100000000000000000004 /* RideIntercom/Shared/Appearance.xcassets in Resources */,
 				C0DE1C010000000000000001 /* RideIntercom/AppIcon.icon in Resources */,
 			);
 		};
@@ -673,7 +673,7 @@
 		5B31C0880D75768F3D909B2F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
-				D35100000000000000000005 /* RideComColors.swift */,
+				D35100000000000000000005 /* RideIntercom/Shared/RideComColors.swift in Sources */,
 			);
 		};
 		93F300C42F93829C0046716D /* Sources */ = {
@@ -694,7 +694,7 @@
 		95D4EA3192569FCBA891B147 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
-				D35100000000000000000006 /* RideComColors.swift */,
+				D35100000000000000000006 /* RideIntercom/Shared/RideComColors.swift in Sources */,
 				A9F382A78A734E6BAC3AFB81 /* RideIntercom/Shared/WatchMicrophoneIntent.swift in Sources */,
 				E1FA6A96A55CF6A201DD62BC /* RideIntercom/Shared/WatchControlMessage.swift in Sources */,
 				76FFE8A75AF524B511A8BA4F /* RideIntercom/Shared/WatchControlClient.swift in Sources */,
