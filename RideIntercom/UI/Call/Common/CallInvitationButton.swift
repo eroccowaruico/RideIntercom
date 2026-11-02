@@ -6,7 +6,7 @@ struct CallInvitationButton: View {
     let group: IntercomGroup
 
     var body: some View {
-        ShareLink(item: GroupInvitationShare(viewModel: viewModel, groupID: group.id),
+        ShareLink(item: InvitationShare(viewModel: viewModel, groupID: group.id),
                   subject: Text("RideCom Invite"),
                   message: Text("Join me for a call on RideCom."),
                   preview: SharePreview(Text(viewModel.callTitle(for: group)))) {

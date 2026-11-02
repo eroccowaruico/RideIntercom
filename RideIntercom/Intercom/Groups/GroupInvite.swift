@@ -192,7 +192,9 @@ enum GroupInviteTokenError: Error, Equatable {
 
 enum GroupInviteTokenCodec {
     static func joinURL(for token: GroupInviteToken, contactBootstrap: Bool? = nil) throws -> URL {
-        let data = try JSONEncoder().encode(token)
+        let encoder = JSONEncoder()
+        if contactBootstrap == true { encoder.outputFormatting = [.sortedKeys] }
+        let data = try encoder.encode(token)
         let encodedToken = data.base64URLEncodedString()
         guard let url = URL(string: "rideintercom://\(contactBootstrap == true ? "contact" : "join")?token=\(encodedToken)") else {
             throw GroupInviteTokenError.invalidURL

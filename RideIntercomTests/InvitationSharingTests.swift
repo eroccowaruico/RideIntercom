@@ -28,9 +28,9 @@ struct InvitationSharingTests {
         let vm = h.viewModel; defer { vm.disconnect() }
         let group = try #require(vm.groups.first); vm.selectedGroup = group
         let reads = keychain.readCount
-        let share = GroupInvitationShare(viewModel: vm, groupID: group.id)
+        let share = InvitationShare(viewModel: vm, groupID: group.id)
         #expect(vm.canShareSelectedGroup)
-        #expect(GroupInvitationShare.exportedContentTypes().contains(.url))
+        #expect(InvitationShare.exportedContentTypes().contains(.url))
         #expect(keychain.readCount == reads)
         #expect(vm.setLocalDisplayName("Updated Rider"))
         let bytes = try await share.exported(as: .url)
@@ -48,7 +48,7 @@ struct InvitationSharingTests {
         let h = AppTestSupport.makeHarness(accountSession: account.session)
         let vm = h.viewModel; defer { vm.disconnect() }
         let group = try #require(vm.groups.first); vm.selectedGroup = group
-        let share = GroupInvitationShare(viewModel: vm, groupID: group.id)
+        let share = InvitationShare(viewModel: vm, groupID: group.id)
         switch change {
         case "selection":
             let other = try #require(vm.groups.last)
@@ -67,7 +67,7 @@ struct InvitationSharingTests {
             invitationAuthority: DirectInvitationAuthority(keychain: keychain, namespace: "stale-share"))
         let vm = h.viewModel; defer { vm.disconnect() }
         let group = try #require(vm.groups.first); vm.selectedGroup = group
-        let share = GroupInvitationShare(viewModel: vm, groupID: group.id)
+        let share = InvitationShare(viewModel: vm, groupID: group.id)
         #expect(vm.canShareSelectedGroup)
         h.groupStore.snapshot.generation = UUID()
         await #expect(throws: (any Error).self) { try await share.exported(as: .url) }

@@ -9,10 +9,11 @@ struct StandardUsersView: View {
         List {
             CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
             CallStorageSection(viewModel: viewModel)
+            PendingContactInvitationsSection(viewModel: viewModel)
             Section {
                 if viewModel.savedRemoteUsers.isEmpty {
                     ContentUnavailableView("No Saved Users", systemImage: "person.2",
-                        description: Text("Share a group invitation or accept someone's invitation to save each other."))
+                        description: Text("Invite someone, or accept an invitation to save each other."))
                 }
                 ForEach(viewModel.savedRemoteUsers) { user in
                     HStack {
@@ -39,6 +40,13 @@ struct StandardUsersView: View {
         .scrollContentBackground(.hidden)
         .background(AppColorPalette.standardScreenBackground)
         .navigationTitle("Users")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Invite Someone", systemImage: "plus") { viewModel.beginContactInvitationPresentation() }
+                    .disabled(!viewModel.canEditSavedGroups)
+                    .accessibilityIdentifier("inviteContactButton")
+            }
+        }
         .accessibilityIdentifier("standardUsersList")
         .sheet(item: $editingUser) { user in SavedUserNameView(viewModel: viewModel, user: user) }
     }

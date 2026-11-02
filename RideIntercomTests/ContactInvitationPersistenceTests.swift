@@ -231,4 +231,38 @@ struct ContactInvitationPersistenceTests {
         #expect(throws: (any Error).self) { try GroupSnapshot.decode(JSONSerialization.data(withJSONObject: json)) }
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func nativeVMNotificationCommitsBothUsersAndSurvivesDiskReload() async throws {
+        let suffix = String(UUID().uuidString.prefix(8))
+        let authorID = "native-vm-author-" + suffix, friendID = "native-vm-friend-" + suffix
+        let author = Fixture(authorID), friend = Fixture(friendID)
+        let (a, _) = author.make(), (b, _) = friend.make()
+        a.viewModel.contactSessionFactory = { RideIntercomCallSessionAdapter(memberID: authorID) }
+        b.viewModel.contactSessionFactory = { RideIntercomCallSessionAdapter(memberID: friendID) }
+        a.viewModel.enabledRTCTransportRoutes = [.multipeer]
+        b.viewModel.enabledRTCTransportRoutes = [.multipeer]
+        defer { a.viewModel.stopContactInvitationSession(); b.viewModel.stopContactInvitationSession() }
+        let url = try #require(a.viewModel.makeContactInviteURL())
+        #expect(a.viewModel.savedRemoteUsers.isEmpty)
+        #expect(b.viewModel.previewContactInvitation(url))
+        #expect(b.viewModel.savedRemoteUsers.isEmpty)
+        #expect(b.viewModel.acceptPresentedContactInvitation())
+        #expect(b.viewModel.savedRemoteUsers.map(\.memberIDs) == [[authorID]])
+        let deadline = ContinuousClock.now + .seconds(10)
+        while (a.viewModel.savedRemoteUsers.isEmpty || !b.viewModel.pendingContactInvitations.isEmpty), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(a.viewModel.savedRemoteUsers.map(\.memberIDs) == [[friendID]], "Actual RTC acceptance notification reaches the author's atomic registration")
+        #expect(b.viewModel.pendingContactInvitations.isEmpty, "Actual acknowledgement completes the recipient's durable notification")
+        #expect(b.viewModel.contactInvitationID == nil)
+        #expect(a.callSession.connectedGroup == nil && b.callSession.connectedGroup == nil)
+        #expect(a.callSession.startMediaCallCount == 0 && b.callSession.startMediaCallCount == 0)
+        a.viewModel.stopContactInvitationSession(); b.viewModel.stopContactInvitationSession()
+        let (reloadedA, _) = author.make(), (reloadedB, _) = friend.make()
+        #expect(reloadedA.viewModel.savedRemoteUsers.map(\.memberIDs) == [[friendID]])
+        #expect(reloadedB.viewModel.savedRemoteUsers.map(\.memberIDs) == [[authorID]])
+        #expect(reloadedA.viewModel.groups.isEmpty && reloadedB.viewModel.groups.isEmpty)
+        #expect(reloadedB.viewModel.pendingContactInvitations.isEmpty)
+    }
+
 }

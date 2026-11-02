@@ -5,6 +5,7 @@ extension IntercomViewModel {
         _ = contactInvitationRevision
         let now = callAccessNow().timeIntervalSince1970
         return groupRepository.contactInvitations.filter { $0.canResume && now < $0.expiresAt }
+            .sorted { $0.expiresAt > $1.expiresAt }
     }
 
     /// Direct contact consent is independent of the right to create a group.
@@ -20,7 +21,7 @@ extension IntercomViewModel {
             _ = resumeContactInvitation(try contactID(token))
             return url
         } catch {
-            groupErrorMessage = "Could not save this invitation. Try again."
+            contactInvitationMessage = "Could not save this invitation. Try again."
             return nil
         }
     }
@@ -91,12 +92,12 @@ extension IntercomViewModel {
                 do {
                     try self.groupRepository.removeExpiredContactInvitations(now: self.callAccessNow().timeIntervalSince1970)
                     self.refreshGroupStorageStatus()
-                } catch { self.groupErrorMessage = "Could not update this invitation. Try again." }
+                } catch { self.contactInvitationMessage = "Could not update this invitation. Try again." }
             }
             return true
         } catch {
             stopContactInvitationSession()
-            groupErrorMessage = "This invitation could not be resumed. Try again."
+            contactInvitationMessage = "This invitation could not be resumed. Try again."
             return false
         }
     }

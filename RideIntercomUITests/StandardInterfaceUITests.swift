@@ -38,6 +38,147 @@ final class StandardInterfaceUITests: XCTestCase {
         #endif
     }
 
+    #if os(iOS)
+    @MainActor
+    func testStandardContactShareCancelAndCopyDoNotRegisterUsers() throws {
+        launch()
+        tab("Groups", id: "groupsTab")
+        let originalGroups = contactGroupRows().count
+        tab("Users", id: "usersTab")
+        let originalUsers = contactUserRows().count
+        let originalPending = contactPendingIDs()
+        let plus = app.buttons["inviteContactButton"].firstMatch
+        XCTAssertTrue(plus.waitForExistence(timeout: 3))
+        plus.tap()
+        let share = app.buttons["shareContactInvitationButton"].firstMatch
+        XCTAssertTrue(share.waitForExistence(timeout: 3))
+        XCTAssertEqual(share.label, "Share Invitation")
+        screenshot("Standard contact invitation before native sharing")
+        share.tap()
+        let copy = nativeInvitationCopyAction()
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        screenshot("Contact invitation native sharing")
+        app.swipeDown()
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(share.waitForExistence(timeout: 3))
+        share.tap()
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        copy.tap()
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(share.waitForExistence(timeout: 3))
+        app.buttons["closeContactInvitationButton"].tap()
+        XCTAssertEqual(contactUserRows().count, originalUsers)
+        XCTAssertEqual(contactPendingIDs().subtracting(originalPending).count, 1,
+                       "Cancel and Copy reuse the one explicitly created pending invitation")
+        tab("Groups", id: "groupsTab")
+        XCTAssertEqual(contactGroupRows().count, originalGroups)
+        tab("Users", id: "usersTab")
+        screenshot("Shared contact invitation remains pending without a fabricated user")
+    }
+
+    @MainActor
+    func testJapaneseContactPreviewCancelThenAcceptPersistsOnlyTheInviter() throws {
+        launch(japanese: true)
+        tab("グループ", id: "groupsTab")
+        let originalGroups = contactGroupRows().count
+        tab("ユーザー", id: "usersTab")
+        let originalUsers = contactUserRows().count
+        let originalPending = contactPendingIDs()
+        let suffix = String(UUID().uuidString.prefix(8))
+        let inviterName = "招待者 " + suffix
+        let url = try InvitationURLFixture.make(inviter: "ui-contact-" + suffix, sharedName: inviterName, contact: true)
+        app.open(url)
+        let preview = app.descendants(matching: .any)["contactInvitationPreview"].firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[inviterName].firstMatch.exists)
+        let accept = app.buttons["acceptContactInvitationButton"].firstMatch
+        let cancel = app.buttons["cancelContactInvitationButton"].firstMatch
+        XCTAssertEqual(accept.label, "招待を受け入れる")
+        XCTAssertEqual(cancel.label, "キャンセル")
+        screenshot("Japanese signed contact invitation preview")
+        cancel.tap()
+        XCTAssertTrue(preview.waitForNonExistence(timeout: 3))
+        tab("ユーザー", id: "usersTab")
+        XCTAssertEqual(contactUserRows().count, originalUsers)
+        XCTAssertEqual(contactPendingIDs(), originalPending)
+        XCTAssertFalse(app.staticTexts[inviterName].exists)
+        app.open(url)
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        accept.tap()
+        XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts[inviterName].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertEqual(contactUserRows().count, originalUsers + 1)
+        screenshot("Japanese accepted contact saved while notification remains separate")
+        tab("グループ", id: "groupsTab")
+        XCTAssertEqual(contactGroupRows().count, originalGroups)
+        app.terminate(); app.launch(); app.activate()
+        tab("ユーザー", id: "usersTab")
+        XCTAssertTrue(app.staticTexts[inviterName].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(contactUserRows().count, originalUsers + 1)
+    }
+
+    @MainActor
+    func testContactPendingRetryAndLocalCancellationKeepAnExistingCall() throws {
+        launch()
+        tab("Groups", id: "groupsTab")
+        app.buttons["standardCreateGroupButton"].tap()
+        let name = app.textFields["savedUsersGroupNameField"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        let groupName = "Contact waiting " + UUID().uuidString.prefix(6)
+        name.tap()
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + groupName)
+        app.buttons["saveUserSelectionButton"].tap()
+        XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 5))
+        let mute = app.switches["standardMuteToggle"].firstMatch
+        if mute.value as? String != "1" { mute.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+        tab("Users", id: "usersTab")
+        let originalUsers = contactUserRows().count
+        let previousPending = contactPendingIDs()
+        let plus = app.buttons["inviteContactButton"].firstMatch
+        XCTAssertTrue(plus.waitForExistence(timeout: 3))
+        plus.tap()
+        XCTAssertTrue(app.buttons["closeContactInvitationButton"].waitForExistence(timeout: 3))
+        app.buttons["closeContactInvitationButton"].tap()
+        let added = try XCTUnwrap(contactPendingIDs().subtracting(previousPending).first)
+        let row = app.buttons[added].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        row.tap()
+        let retry = app.buttons["retryContactInvitationButton"].firstMatch
+        XCTAssertTrue(retry.waitForExistence(timeout: 3))
+        retry.tap()
+        let status = app.staticTexts["contactInvitationStatus"].firstMatch
+        XCTAssertEqual(status.label, "Waiting for the current call to end.")
+        screenshot("Contact retry waits while the current call remains connected")
+        app.buttons["cancelPendingContactInvitationButton"].tap()
+        let confirm = app.alerts.buttons["confirmCancelContactInvitationButton"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "on this device")).firstMatch.exists)
+        screenshot("Contact cancellation describes local retries")
+        confirm.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(contactUserRows().count, originalUsers)
+        tab("Call", id: "callTab")
+        XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts[groupName].firstMatch.exists)
+        XCTAssertEqual(mute.value as? String, "1")
+        app.buttons["standardEndCallButton"].tap()
+    }
+
+    @MainActor private func contactUserRows() -> XCUIElementQuery {
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-"))
+    }
+    @MainActor private func contactGroupRows() -> XCUIElementQuery {
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-"))
+    }
+    @MainActor private func contactPendingIDs() -> Set<String> {
+        Set(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "pendingContactInvitation-")).allElementsBoundByIndex.map(\.identifier))
+    }
+    @MainActor private func nativeInvitationCopyAction() -> XCUIElement {
+        app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
+    }
+    #endif
+
     @MainActor
     func testStandardLayoutKeepsCallAcrossAdvancedSwitchAndPersistsChoice() throws {
         launch()

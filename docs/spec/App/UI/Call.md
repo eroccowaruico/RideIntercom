@@ -29,6 +29,39 @@ Call は通話開始、接続維持、参加者確認、入出力の最小操作
 
 Connect・Disconnect・ローカルマイクの操作は[通話先と操作対象の共通境界](../通信仕様.md#通話先と操作対象の共通境界)を使う。描画時の通話先・通話世代・設定値を保持し、遅れた終了やミュートが別の通話に作用しないようにする。
 
+## 新しい相手への直接招待
+
+Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存・表示状態・操作は同じViewModelを参照する。通常groupを作らず、共有しただけでユーザー／メンバーを表示しない。署名と保存・再送の条件は[新規相手招待の通知処理](../通信仕様.md#新規相手招待の通知処理)に従う。
+
+| 項目ID | 表示・操作 |
+|---|---|
+| `inviteContactButton` | Usersの＋。押した時点で一件の招待を保存し、共通の共有sheetを開く。通常group作成の購入条件を流用せず、ログインと保存可能性を確認する |
+| `contactInvitationSheet` / `shareContactInvitationButton` | Share InvitationからOS標準の共有先を選ぶ。InvitationShareは保存した同一tokenを使用し、export時にログイン世代・期限・取消・鍵を再確認する。共有の取消・Copyで新しい招待やユーザーを増やさない |
+| `pendingContactInvitation-<UUID>` | Invitationsの独立した行（登録完了後の確認通知の再送も区別して表示）。招待／受諾通知の待機状態を表示し、通常の保存ユーザーと区別する |
+| `contactInvitationStatus` | 未受諾、保存済みの相手、受諾通知の送信待ち・一時停止・配達確認を区別する。通常通話中の通知は通話終了待ちとし、接続や共有だけで成功と表示しない |
+| `retryContactInvitationButton` | 明示的に通知を再開する。通常通話を奪わず、通信は最大60秒。表示用の独自timerを持たず、共通VMの通知所有IDと保存状態から表示を更新する |
+| `cancelPendingContactInvitationButton` / `confirmCancelContactInvitationButton` | 標準の破壊的確認で、この端末の再試行を停止し保存pendingを取り消す。共有済みURLの相手側での遠隔失効を保証する文言にしない |
+| `closeContactInvitationButton` | sheetを閉じ、所有している通知接続を停止する。未完pendingは明示再試行用に残す |
+| `contactInvitationPreview` | `rideintercom://contact`をログイン後にViewModelで署名・期限・宛先検証して表示する。URLを開くだけではユーザー／pending／署名鍵を保存しない |
+| `acceptContactInvitationButton` / `cancelContactInvitationButton` | Accept Invitationで初めて相手をUsersへ保存し、Users画面へ移る。通話とミュートは維持する。Cancelは保存せず閉じる |
+
+共有・受諾sheetのpresentationは共通VMで一つだけ保持する。Users画面を離れる時、共有sheetを閉じる時、Appがbackgroundになる時は通知接続を止め、保存済みの相手とpendingを維持する。英語と日本語の定型文をString Catalogで切り替え、本人名を翻訳しない。
+
+### Contact招待のUIスタックと遷移
+
+[UIスタック](../../../design/デザインシステム.md#uiスタック)の5状態を、既存の保存状態・通知所有ID・presentationから導出する。登録の成立と通知の配達は別に扱い、一端の表示から両端の登録完了を推測しない。
+
+| 状態 | 成立条件・表示 | 操作・遷移・復帰先 |
+|---|---|---|
+| Ideal | 相手がこの端末のUsersへ保存済み。作者はContact added、受諾側は保存済みと通知の状態を別々に表示する。通知完了は配達確認後の文言を使う | Usersから相手を選べる。作者の確定済み招待は再共有せず、必要な確認通知だけを再送できる。CloseでUsersへ戻る |
+| Empty | 初回（Blank）または最後の保存相手の削除後、Usersが0件。No Saved Usersと招待／受諾の案内を表示し、招待も0件ならInvitations sectionを出さない | ＋で一件だけ発行して共有sheetへ。共有取消・CopyはUsersを増やさず、保存した招待だけを残す。初回と削除後は追加の履歴フラグを持たず、現在の0件から同じ空表示を使う |
+| Error | 署名・期限・宛先の検証失敗はUsersに再招待案内、保存／再開／取消の失敗は対象sheetに説明を表示する。消失・期限切れの対象は利用不可表示、export時の失効は共有を拒否する | 既存のUsers・通話・保存pendingを維持する。再試行、Close／CancelでUsersへ戻る、新しいURLを受け取る。受諾の保存失敗ではpreviewを保持して戻れる |
+| Partial | 検証済みpreviewだが未受諾、または相手の登録済み／未登録と通知の未完了が組み合わさる状態。登録済み・通話終了待ち・一時停止を明示し、招待行を相手の行へ代用しない | previewのAcceptで初めて登録し、Cancelは無書込。通知は明示Retryまたはローカル取消。通常通話を奪わず、保存した相手とpendingを保持してUsersへ戻る |
+| Loading | 通知所有IDが対象IDと一致する間。未受諾を待つ文言／保存済みで受諾通知を送信中の文言を表示し、Emptyや配達済みと区別する | Retryは同じ招待の通知を使い、新規発行を重ねない。配達でIdeal、通話開始・background・所有画面の閉鎖・最大60秒で保存済みのPartialへ移る。取消は確認後に停止する |
+
+検索結果のEmptyは検索機能がないため対象外。発行・署名検証・明示受諾のローカル保存は同期処理であり、別のLoading画面やUI用timerを作らず、非同期通知の状態を上表で表示する。操作不可は5状態とは別に、ログインと保存状態に基づく既存のDisabled条件を併用する。
+
+
 ## Advancedの接続先未選択
 
 Callに接続先が選ばれていないときは、`chooseUserButton`と`chooseGroupButton`からUsers / Groupsタブへ移動する。現在の通話があるときはCurrent Callから戻れ、保存データの復旧操作とエラーも表示する。グループの一覧と新規作成はGroupsタブが提供する。タブ移動や選択だけでは既存通話を切り替えない。

@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 /// Keep secret material out of view evaluation. The system requests the URL
 /// when it exports the share item; authorization is checked again at that time.
-nonisolated struct GroupInvitationShare: Transferable {
+nonisolated struct InvitationShare: Transferable {
     private let makeURL: @MainActor @Sendable () throws -> URL
 
     @MainActor
@@ -14,6 +14,15 @@ nonisolated struct GroupInvitationShare: Transferable {
                 throw CocoaError(.userCancelled)
             }
             return url
+        }
+    }
+
+    @MainActor
+    init(viewModel: IntercomViewModel, contactInvitationID: UUID) {
+        let access = viewModel.accountAccessID
+        makeURL = { [weak viewModel] in
+            guard let viewModel else { throw CocoaError(.userCancelled) }
+            return try viewModel.contactInvitationURLForSharing(contactInvitationID, expectedAccountAccessID: access)
         }
     }
 

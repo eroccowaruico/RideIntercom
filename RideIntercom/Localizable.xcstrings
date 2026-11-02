@@ -1,6 +1,346 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Invitations" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待"
+          }
+        }
+      }
+    },
+    "Stop Retrying Notification" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知の再試行を停止"
+          }
+        }
+      }
+    },
+    "Stop Retrying Notification?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知の再試行を停止しますか？"
+          }
+        }
+      }
+    },
+    "Contact added. Confirmation can be resent." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手を追加しました。確認の通知を再送できます。"
+          }
+        }
+      }
+    },
+    "This invitation was already accepted. Confirmation can be resent." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この招待は受け入れ済みです。確認の通知を再送できます。"
+          }
+        }
+      }
+    },
+    "Invite someone, or accept an invitation to save each other." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手を招待するか、届いた招待を受け入れると、お互いを連絡先に保存できます。"
+          }
+        }
+      }
+    },
+    "Contact saved. The acceptance notification was delivered." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手を保存しました。受諾の通知が届いたことを確認しました。"
+          }
+        }
+      }
+    },
+    "Invite Someone" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい相手を招待"
+          }
+        }
+      }
+    },
+    "Acceptance Notification" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受諾の通知"
+          }
+        }
+      }
+    },
+    "Invitation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待"
+          }
+        }
+      }
+    },
+    "Contact Invitation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連絡先への招待"
+          }
+        }
+      }
+    },
+    "Share Invitation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待を共有"
+          }
+        }
+      }
+    },
+    "Add me on RideCom." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RideComで私を連絡先に追加してください。"
+          }
+        }
+      }
+    },
+    "Sharing does not register a person. Their acceptance will identify them." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有だけでは相手は登録されません。相手が受け入れると、誰が受け入れたかを確認できます。"
+          }
+        }
+      }
+    },
+    "Expires %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有効期限：%@"
+          }
+        }
+      }
+    },
+    "Retry Notification" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知を再試行"
+          }
+        }
+      }
+    },
+    "Cancel Pending Invitation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待機中の招待を取り消す"
+          }
+        }
+      }
+    },
+    "Cancel This Pending Invitation?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この待機中の招待を取り消しますか？"
+          }
+        }
+      }
+    },
+    "Keep Pending Invitation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待機中の招待を残す"
+          }
+        }
+      }
+    },
+    "Stops retries on this device. A link already shared may still be accepted until it expires." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末での再試行を停止します。共有済みのリンクは、有効期限まで相手が受け入れられる場合があります。"
+          }
+        }
+      }
+    },
+    "Accept Invitation" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待を受け入れる"
+          }
+        }
+      }
+    },
+    "Accepting saves this person to Users. Your current call stays connected." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受け入れると、この相手がユーザー一覧に保存されます。現在の通話はそのまま続きます。"
+          }
+        }
+      }
+    },
+    "This invitation is no longer available." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この招待は利用できなくなりました。"
+          }
+        }
+      }
+    },
+    "Contact saved. Waiting for the current call to end." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手を保存しました。現在の通話が終わるまで通知は待機します。"
+          }
+        }
+      }
+    },
+    "Waiting for the current call to end." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在の通話が終わるまで通知は待機します。"
+          }
+        }
+      }
+    },
+    "Contact saved. Sending the acceptance notification." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手を保存しました。受諾の通知を送信しています。"
+          }
+        }
+      }
+    },
+    "Waiting for an acceptance." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手の受諾を待っています。"
+          }
+        }
+      }
+    },
+    "Contact saved. Retry the acceptance notification when ready." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手を保存しました。準備ができたら受諾の通知を再試行してください。"
+          }
+        }
+      }
+    },
+    "Invitation saved. Retry when ready." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待を保存しました。準備ができたら再試行してください。"
+          }
+        }
+      }
+    },
+    "Could not save this invitation. Try again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この招待を保存できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "This invitation could not be resumed. Try again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この招待の通知を再開できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "Could not update this invitation. Try again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この招待を更新できませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "This invitation could not be accepted. Ask the sender for a new invitation." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この招待を受け入れられませんでした。送信者に新しい招待を依頼してください。"
+          }
+        }
+      }
+    },
+    "Could not cancel this pending invitation. Try again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この待機中の招待を取り消せませんでした。もう一度お試しください。"
+          }
+        }
+      }
+    },
     "Individual call" : {
       "localizations" : {
         "ja" : {

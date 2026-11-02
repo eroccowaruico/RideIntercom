@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SignedInContentView: View {
-    let viewModel: IntercomViewModel
+    @Bindable var viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
 
     var body: some View {
@@ -43,6 +43,18 @@ struct SignedInContentView: View {
                     .id(viewModel.interfaceMode)
             }.accessibilityIdentifier("settingsTab")
         }
+        .sheet(item: $viewModel.contactInvitationPresentation) { presentation in
+            switch presentation {
+            case .sharing(let id):
+                ContactInvitationSheet(viewModel: viewModel, invitationID: id)
+            case .accepting(let preview):
+                ContactInvitationAcceptanceView(viewModel: viewModel, preview: preview) { selectedTab = .users }
+            }
+        }
+        .onChange(of: selectedTab) { previous, current in
+            if previous == .users && current != .users { viewModel.stopContactInvitationSession() }
+        }
+        .onDisappear { viewModel.stopContactInvitationSession() }
         .task { await viewModel.storeAccess.start() }
         .task { await viewModel.notifications.refresh() }
         .onChange(of: viewModel.interfaceMode) { _, mode in selectedTab = selectedTab.available(in: mode) }

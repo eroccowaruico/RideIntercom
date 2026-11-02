@@ -27,6 +27,7 @@ struct ContentView: View {
         .task { await owner.refreshAccountForForeground() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await owner.refreshAccountForForeground() } }
+            if phase == .background { viewModel?.stopContactInvitationSession() }
         }
         .onChange(of: owner.viewModel?.accountAccessID) { previous, _ in
             if previous != nil { pendingInviteURL = nil }
@@ -37,13 +38,18 @@ struct ContentView: View {
         }
         .onOpenURL { url in
             if url.scheme == "rideintercom", url.host == "call" { selectedTab = .call; return }
-            guard !account.deletion.blocksSignIn, url.scheme == "rideintercom", url.host == "join" else { return }
+            guard !account.deletion.blocksSignIn, url.scheme == "rideintercom", url.host == "join" || url.host == "contact" else { return }
             if let viewModel, viewModel.canStartCalls { openInvitation(url, in: viewModel) }
             else { pendingInviteURL = url }
         }
     }
 
     private func openInvitation(_ url: URL, in viewModel: IntercomViewModel) {
+        if url.host == "contact" {
+            selectedTab = .users
+            _ = viewModel.previewContactInvitation(url)
+            return
+        }
         selectedTab = .call
         // The common operation preserves the reason and recovery action for every entry point.
         try? viewModel.acceptInviteURL(url)

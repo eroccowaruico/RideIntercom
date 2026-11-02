@@ -82,23 +82,31 @@ final class RideIntercomUITests: XCTestCase {
         let savedUserCount = savedUsers.count
         app.tabBars.buttons["Call"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
+        revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
         let invite = app.buttons["inviteButton"]
+        revealStandardCallElement(invite)
         XCTAssertTrue(invite.waitForExistence(timeout: 3))
+        revealStandardCallElement(invite)
         invite.tap()
         let copy = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
         // Dismiss without choosing a share destination.
         app.swipeDown()
         XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        revealStandardCallElement(invite)
         XCTAssertTrue(invite.waitForExistence(timeout: 5))
+        revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
+        revealStandardCallElement(invite)
         invite.tap()
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
         copy.tap()
         XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        revealStandardCallElement(invite)
         XCTAssertTrue(invite.waitForExistence(timeout: 5))
+        revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
         XCTAssertFalse(app.staticTexts["Invited Rider 3"].exists)
@@ -114,9 +122,25 @@ final class RideIntercomUITests: XCTestCase {
         let group = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardGroup-", "Talk Group")).firstMatch
         XCTAssertTrue(group.waitForExistence(timeout: 5))
         group.tap()
-        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 5))
+        revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
+        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
         XCTAssertFalse(app.staticTexts["Invited Rider 3"].exists)
+    }
+
+    @MainActor
+    private func revealStandardCallElement(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        let list = app.collectionViews["standardCallScreen"]
+        XCTAssertTrue(list.waitForExistence(timeout: 3), file: file, line: line)
+        for down in [false, true] {
+            for _ in 0..<6 {
+                if element.exists && element.isHittable { return }
+                let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.3 : 0.7))
+                let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.7 : 0.3))
+                start.press(forDuration: 0.05, thenDragTo: end)
+            }
+        }
+        XCTAssertTrue(element.isHittable, "Expected the Call control after scrolling", file: file, line: line)
     }
 
     #endif
@@ -278,46 +302,9 @@ final class RideIntercomUITests: XCTestCase {
 
     @MainActor
     private func openSavedUserInvitation(inviter: String, sharedName: String? = nil) throws {
-        let groupID = UUID()
-        let secret = "ui-test-invitation-key"
-        let issuedAt = floor(Date().timeIntervalSince1970)
-        let expiresAt = issuedAt + 3600
-        let version = 6
         let signingKey = invitationKeys[inviter] ?? P256.Signing.PrivateKey()
         invitationKeys[inviter] = signingKey
-        func base64url(_ bytes: Data) -> String {
-            bytes.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
-        }
-        let publicKey = base64url(signingKey.publicKey.x963Representation)
-        // Synthetic remote inviter capability. The UI test never contacts a real account.
-        struct Context: Encodable { let id: UUID; let groupID: UUID; let inviterMemberID: String; let inviterDeviceKey: String; let expiresAt: Double }
-        struct Grant: Encodable { let context: Context; let secret: String }
-        let grant = Grant(context: .init(id: UUID(), groupID: groupID, inviterMemberID: inviter, inviterDeviceKey: publicKey, expiresAt: expiresAt),
-                          secret: Data(repeating: 42, count: 32).base64EncodedString())
-        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        let grantData = try encoder.encode(grant)
-        let fields = [String(version), groupID.uuidString, "Talk Group", secret, inviter, String(format: "%.3f", issuedAt),
-                      String(format: "%.3f", expiresAt), "", Data((sharedName ?? "").utf8).base64EncodedString(), grantData.base64EncodedString()]
-        let message = fields.joined(separator: "|")
-        let signature = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: SymmetricKey(data: Data(secret.utf8)))
-            .map { String(format: "%02x", $0) }.joined()
-        var signed = Data("rideintercom.device-proof.v1\0".utf8)
-        for field in [Data("issueInvitation".utf8), Data(inviter.utf8), Data(publicKey.utf8), Data(), Data(), Data(signature.utf8)] {
-            var count = UInt32(field.count).bigEndian
-            withUnsafeBytes(of: &count) { signed.append(contentsOf: $0) }
-            signed.append(field)
-        }
-        let identityProof = ["publicKey": publicKey, "signature": base64url(try signingKey.signature(for: signed).rawRepresentation)]
-        var object: [String: Any] = [
-            "version": version, "groupID": groupID.uuidString, "groupName": "Talk Group", "groupSecret": secret,
-            "inviterMemberID": inviter, "issuedAt": issuedAt, "expiresAt": expiresAt,
-            "directInvitation": try JSONSerialization.jsonObject(with: grantData), "signature": signature, "identityProof": identityProof
-        ]
-        object["inviterDisplayName"] = sharedName
-        let token = try JSONSerialization.data(withJSONObject: object)
-        let encoded = token.base64EncodedString().replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
-        app.open(try XCTUnwrap(URL(string: "rideintercom://join?token=\(encoded)")))
+        app.open(try InvitationURLFixture.make(inviter: inviter, sharedName: sharedName, signingKey: signingKey))
         XCTAssertTrue(app.descendants(matching: .any)["remoteParticipantRow0"].firstMatch.waitForExistence(timeout: 5))
     }
 
