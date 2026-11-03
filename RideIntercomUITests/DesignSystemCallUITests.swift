@@ -231,11 +231,14 @@ final class DesignSystemCallUITests: XCTestCase {
         guard app.frame.width >= 600, app.frame.height >= 500 else {
             throw XCTSkip("Requires an iPad or other regular-width viewport at least 600 by 500 points")
         }
+        // Wide screens keep the list and open the call as a single column on its right.
         let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
-        let details = app.descendants(matching: .any)["standardCallDetailsScroll"].firstMatch
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-")).firstMatch
         XCTAssertTrue(hero.waitForExistence(timeout: 5))
-        XCTAssertTrue(details.waitForExistence(timeout: 5))
-        XCTAssertLessThanOrEqual(hero.frame.maxX, details.frame.minX + 1)
+        XCTAssertTrue(row.exists && row.isHittable, "The list stays usable beside the call")
+        XCTAssertLessThanOrEqual(row.frame.maxX, hero.frame.minX + 1)
+        XCTAssertFalse(app.descendants(matching: .any)["standardCallDetailsScroll"].firstMatch.exists,
+                       "The call column is one column")
         XCTAssertTrue(app.buttons["standardMuteButton"].firstMatch.isHittable)
         XCTAssertTrue(app.buttons["standardSpeakerButton"].firstMatch.isHittable)
         XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.isHittable)
