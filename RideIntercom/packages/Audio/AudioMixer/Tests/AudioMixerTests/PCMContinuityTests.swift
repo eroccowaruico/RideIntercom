@@ -657,3 +657,42 @@ private func renderedSpeechGaps(utterances: Int, stallEvery: Double, stall: Doub
     #expect(source.playoutAdjustmentCount >= 1, "The local jump expires queued speech")
     #expect(source.bufferedDuration <= 0.035, "A local render event is not link jitter: \(source.bufferedDuration)")
 }
+
+@Test func backlogBeyondThePlayoutWindowIsNotLearnedAsJitter() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 480)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("backlog")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
+    // Ten calm packets, then 500 ms without arrivals (a start-up backlog or a
+    // local outage), then the twenty held packets at once.
+    var local = 0.0
+    func schedule(_ index: Int, arrived: Double) throws {
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: 1000 + Double(index) * 0.01,
+            samples: Array(repeating: 0.3, count: 480)), arrivedAt: 50 + arrived)
+    }
+    for index in 0..<10 {
+        try schedule(index, arrived: local + 0.013)
+        Thread.sleep(forTimeInterval: 0.002)
+        #expect(try engine.renderOffline(480, to: output) == .success); local += 0.01
+    }
+    for _ in 0..<50 { #expect(try engine.renderOffline(480, to: output) == .success); local += 0.01 }
+    for index in 10..<30 { try schedule(index, arrived: local) }
+    Thread.sleep(forTimeInterval: 0.002)
+    #expect(try engine.renderOffline(480, to: output) == .success); local += 0.01
+    // The sender pauses: quiet packets may release the queued backlog, but only
+    // down to whatever wait was learned.
+    for index in 30..<80 {
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: 1000 + Double(index) * 0.01,
+            samples: Array(repeating: 0, count: 480)), arrivedAt: 50 + local)
+        Thread.sleep(forTimeInterval: 0.002)
+        #expect(try engine.renderOffline(480, to: output) == .success); local += 0.01
+    }
+    #expect(source.bufferedDuration <= 0.035, "A delay the window cannot absorb is not link jitter: \(source.bufferedDuration)")
+}
