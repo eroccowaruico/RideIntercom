@@ -462,5 +462,65 @@ class AudioE2ELifecycleTests(unittest.TestCase):
                 process.kill(); process.wait()
 
 
+
+class SimulatorAudioDeviceTests(unittest.TestCase):
+    """The Simulator's duplex I/O opens only when input and output share one host device."""
+    DEVICES = {'inputDevices': [{'uid': 'wave', 'name': 'Wave'}, {'uid': 'mic', 'name': 'Display Mic'}],
+               'outputDevices': [{'uid': 'wave', 'name': 'Wave'}, {'uid': 'speaker', 'name': 'Display Speaker'}]}
+    HOST = [{'_name': 'Wave', 'coreaudio_device_input': 1, 'coreaudio_device_output': 2,
+             'coreaudio_device_srate': 48000, 'coreaudio_default_audio_input_device': 'spaudio_yes'},
+            {'_name': 'Display Mic', 'coreaudio_device_input': 1, 'coreaudio_device_srate': 96000},
+            {'_name': 'Display Speaker', 'coreaudio_device_output': 8, 'coreaudio_device_srate': 96000,
+             'coreaudio_default_audio_output_device': 'spaudio_yes'}]
+
+    def test_selects_the_single_48_khz_device_with_both_directions(self):
+        self.assertEqual(audio.shared_host_audio_device(self.DEVICES, self.HOST), 'wave')
+
+    def test_rejects_hosts_without_one_unambiguous_duplex_device(self):
+        only_split = [item for item in self.HOST if item['_name'] != 'Wave']
+        with self.assertRaises(ValueError):
+            audio.shared_host_audio_device(self.DEVICES, only_split)
+        twins = {key: value + [{'uid': 'other', 'name': 'Other'}] for key, value in self.DEVICES.items()}
+        other = dict(self.HOST[0], _name='Other')
+        other.pop('coreaudio_default_audio_input_device')
+        self.assertEqual(audio.shared_host_audio_device(twins, self.HOST + [other]), 'wave',
+                         'The host default input wins over another eligible device')
+        plain = [dict(item) for item in self.HOST]
+        plain[0].pop('coreaudio_default_audio_input_device')
+        with self.assertRaises(ValueError):
+            audio.shared_host_audio_device(twins, plain + [other])
+
+    def test_pins_both_directions_and_restores_the_original_selection(self):
+        calls = []
+        state = {'audioInputDevice': {'systemDefault': {}}, 'audioOutputDevice': {'systemDefault': {}}, 'volume': 60}
+
+        def run(args):
+            calls.append(args)
+            if args[:4] == ['xcrun', 'devicectl', 'device', 'info']:
+                return dict(state)
+            if args[:4] == ['xcrun', 'devicectl', 'list', 'audioDevices']:
+                return self.DEVICES
+            if args[0] == 'system_profiler':
+                return {'SPAudioDataType': [{'_items': self.HOST}]}
+            selected = {'audioInputDevice': args[args.index('--input-device') + 1],
+                        'audioOutputDevice': args[args.index('--output-device') + 1]}
+            for key, value in selected.items():
+                state[key] = {'systemDefault': {}} if value == 'systemDefault' else {'device': {'_0': value}}
+            return {}
+
+        pin = audio.SimulatorAudioPin('sim', run)
+        self.assertEqual(pin.pin(), 'wave')
+        self.assertEqual(state['audioInputDevice'], {'device': {'_0': 'wave'}})
+        self.assertEqual(state['audioOutputDevice'], {'device': {'_0': 'wave'}})
+        pin.restore()
+        self.assertEqual(state['audioInputDevice'], {'systemDefault': {}})
+        self.assertEqual(state['audioOutputDevice'], {'systemDefault': {}})
+        settings = [args for args in calls if args[:4] == ['xcrun', 'devicectl', 'device', 'settings']]
+        self.assertEqual(len(settings), 2)
+        pin.restore()
+        self.assertEqual(len([args for args in calls if args[:4] == ['xcrun', 'devicectl', 'device', 'settings']]), 2,
+                         'Restore is idempotent')
+
+
 if __name__ == '__main__':
     unittest.main()

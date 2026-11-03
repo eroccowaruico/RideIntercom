@@ -32,6 +32,79 @@ def source_manifest():
     return dict(head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), files=files)
 
 
+def shared_host_audio_device(devices, host_items):
+    """Return the one 48 kHz host device that both captures and renders.
+
+    The iOS Simulator opens one duplex I/O. Following separate host defaults
+    (for example a USB microphone and a display speaker) leaves its native
+    input at 0 Hz, so the measurement never reaches the audio path."""
+    inputs = {device['uid']: device['name'] for device in devices['inputDevices']}
+    outputs = {device['uid']: device['name'] for device in devices['outputDevices']}
+    by_name = {item.get('_name'): item for item in host_items}
+    eligible = [uid for uid, name in inputs.items() if outputs.get(uid) == name
+                and (item := by_name.get(name)) is not None and item.get('coreaudio_device_input', 0) >= 1
+                and item.get('coreaudio_device_output', 0) >= 1 and item.get('coreaudio_device_srate') == 48000]
+    for default in ('coreaudio_default_audio_input_device', 'coreaudio_default_audio_output_device'):
+        preferred = [uid for uid in eligible if default in by_name[inputs[uid]]]
+        if len(preferred) == 1:
+            return preferred[0]
+    if len(eligible) != 1:
+        raise ValueError('Connect exactly one 48 kHz host audio device with both input and output, '
+                         f'or make it the default input; found {len(eligible)}')
+    return eligible[0]
+
+
+class SimulatorAudioPin:
+    """Pin the owned Simulator's input and output to one host device for a run."""
+    def __init__(self, simulator, run_json):
+        self.simulator = simulator
+        self.run_json = run_json
+        self.original = None
+
+    @staticmethod
+    def _selection(value):
+        if value == {'systemDefault': {}}:
+            return 'systemDefault'
+        # devicectl encodes a pinned device as {"device": {"_0": uid}}.
+        uid = value.get('device', {}).get('_0') if isinstance(value, dict) else None
+        if not uid:
+            raise ValueError('Unrecognized Simulator audio selection: ' + json.dumps(value))
+        return uid
+
+    def _info(self):
+        return self.run_json(['xcrun', 'devicectl', 'device', 'info', 'audio', '--device', self.simulator, '--json-output', '-'])
+
+    def _select(self, input_device, output_device):
+        self.run_json(['xcrun', 'devicectl', 'device', 'settings', 'audio', '--device', self.simulator,
+                       '--input-device', input_device, '--output-device', output_device, '--json-output', '-'])
+
+    def pin(self):
+        before = self._info()
+        original = (self._selection(before['audioInputDevice']), self._selection(before['audioOutputDevice']))
+        devices = self.run_json(['xcrun', 'devicectl', 'list', 'audioDevices', '--json-output', '-'])
+        host = [item for group in self.run_json(['system_profiler', 'SPAudioDataType', '-json'])['SPAudioDataType']
+                for item in group.get('_items', [])]
+        uid = shared_host_audio_device(devices, host)
+        self.original = original
+        self._select(uid, uid)
+        after = self._info()
+        if (self._selection(after['audioInputDevice']), self._selection(after['audioOutputDevice'])) != (uid, uid):
+            raise RuntimeError('Simulator audio device selection did not apply')
+        return uid
+
+    def restore(self):
+        if self.original is None:
+            return
+        original, self.original = self.original, None
+        self._select(*original)
+
+
+def run_devicectl_json(args):
+    output = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60, check=True).stdout
+    data = json.loads(output)
+    return data.get('result', data) if args[0] == 'xcrun' else data
+
+
 def configure_test_run(source, purpose, platform, namespace, environment, identifiers=None):
     data = plistlib.loads(source.read_bytes())
     targets = [target for config in data['TestConfigurations'] for target in config['TestTargets']]
@@ -211,6 +284,7 @@ def execute(args, runner, resource_root):
         speechPair=args.speech_pair, pipelineOnly=args.pipeline_only, realtimeOnly=args.realtime_only, groupOnly=args.group_only, codecOnly=args.codec_only, switchesOnly=args.switches_only,
         output='system AVAudioEngine render tap'), indent=2) + '\n')
     simulator = None
+    audio_pin = None
     leases = [SimulatorLease(runner, resource_root / name) for name in ['reusable.json', 'ephemeral.json']]
     lease = leases[int(args.ephemeral)]
     sources = source_manifest()
@@ -237,6 +311,13 @@ def execute(args, runner, resource_root):
         command('simulator-boot', ['xcrun', 'simctl', 'boot', simulator], 60)
         (out / 'simulator-id.txt').write_text(simulator + '\n')
         command('simulator-ready', ['xcrun', 'simctl', 'bootstatus', simulator, '-b'], 180)
+        audio_pin = SimulatorAudioPin(simulator, run_devicectl_json)
+        try:
+            device = audio_pin.pin()
+        except (ValueError, KeyError, subprocess.SubprocessError) as error:
+            runner.record('simulator-audio-device', [], 'failed', 1, time.monotonic(), str(error))
+            raise RuntimeError('simulator-audio-device failed; see ' + str(out))
+        runner.record('simulator-audio-device', [], 'passed', 0, time.monotonic(), 'Input and output pinned to ' + device)
         endpoints = [('a', 'mac', 'platform=macOS,arch=arm64'),
                      ('b', 'ios', 'platform=iOS Simulator,id=' + simulator)]
         products_by_platform = build_audio_hosts(runner, endpoints, args.configuration, args.clean_build)
@@ -343,6 +424,12 @@ def execute(args, runner, resource_root):
         # A second Ctrl-C must not skip teardown. SIGKILL is recovered next run.
         previous = {sig: signal.signal(sig, signal.SIG_IGN) for sig in [signal.SIGINT, signal.SIGTERM]}
         try:
+            if audio_pin is not None:
+                try:
+                    audio_pin.restore()
+                    runner.record('simulator-audio-restore', [], 'passed', 0, time.monotonic())
+                except (ValueError, KeyError, subprocess.SubprocessError) as error:
+                    runner.record('simulator-audio-restore', [], 'failed', 1, time.monotonic(), str(error))
             if lease.acquired:
                 lease.cleanup('cleanup')
         finally:
