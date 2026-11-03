@@ -1604,6 +1604,16 @@
         }
       }
     },
+    "Connect to the person or group you choose when adding this control." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "追加するときに選んだユーザーまたはグループに接続します。"
+          }
+        }
+      }
+    },
     "Connect with Apple" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2270,6 +2280,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "グループ・%lld人"
+          }
+        }
+      }
+    },
+    "Set a destination" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続先を設定"
+          }
+        }
+      }
+    },
+    "Set the destination again" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続先を設定し直してください"
           }
         }
       }

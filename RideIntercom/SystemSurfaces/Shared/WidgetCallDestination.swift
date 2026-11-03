@@ -74,3 +74,29 @@ struct SelectWidgetCallDestination: WidgetConfigurationIntent {
     @Parameter(title: "Call destination") var destination: WidgetCallDestination?
     init() {}
 }
+
+/// What a destination Control shows. The Control Center cannot show a picker, so the
+/// destination is chosen when the Control is added and the state comes from the app's snapshot.
+nonisolated enum CallControlState: Equatable, Sendable {
+    case unconfigured
+    case ready(WidgetCallDestination)
+    case inCall(WidgetCallDestination)
+    /// The chosen destination was removed or the app has not published destinations.
+    case unavailable
+
+    init(configured: WidgetCallDestination?, snapshot: WidgetDestinationSnapshot?) {
+        guard let configured else { self = .unconfigured; return }
+        guard let current = snapshot?.destinations.first(where: { $0.id == configured.id }) else {
+            self = .unavailable; return
+        }
+        self = snapshot?.currentCall(for: current) != nil ? .inCall(current) : .ready(current)
+    }
+}
+
+#if os(iOS)
+struct SelectControlCallDestination: ControlConfigurationIntent {
+    static let title: LocalizedStringResource = "Select a call destination"
+    @Parameter(title: "Call destination") var destination: WidgetCallDestination?
+    init() {}
+}
+#endif
