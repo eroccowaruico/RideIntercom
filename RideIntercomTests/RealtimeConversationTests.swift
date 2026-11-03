@@ -12,13 +12,14 @@ import VADGate
 extension AppTests {
 @MainActor
 struct RealtimeConversationTests {
-    @Test func callReceiveWindowCanLearnAHundredMillisecondWiFiStall() {
+    @Test func callReceiveWindowBoundsStartupAndLearnsWiFiJitter() {
         let window = AppAudioPipelineConfiguration.callReceiveMaximumBufferedDuration
         let start = AppAudioPipelineConfiguration.callReceivePlayoutDelay
-        // AudioMixer learns at most half of the window minus the start wait,
-        // so the burst released behind a stall still fits. Wi-Fi between
-        // iPhones holds a peer for about 100 ms; learning adds two 10 ms packets.
-        #expect((window - start) / 2 >= 0.1 + 0.02)
+        // Audio queued before the output clock runs is rebuilt beyond the
+        // window: a wider window keeps that start-up delay for the whole call.
+        #expect(window <= 0.12)
+        // AudioMixer learns up to half of the window minus the start wait.
+        #expect((window - start) / 2 >= 0.05, "Learns at least 50 ms of extra Wi-Fi transit")
         #expect(start <= 0.002, "A calm link keeps the low-delay start")
     }
 
