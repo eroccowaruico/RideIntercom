@@ -149,24 +149,30 @@ private struct WatchActiveCallView: View {
 
     private var isStopped: Bool { state == .audioPaused || state == .audioUnavailable }
 
-    @ViewBuilder private var status: some View {
-        HStack(spacing: 4) {
-            switch state {
-            case .connecting, .idle, .signedOut:
-                ProgressView().tint(RideComColors.warning).frame(width: 16, height: 16)
-                Text("Connecting")
-            case .inCall:
-                Image(systemName: "waveform").foregroundStyle(RideComColors.success)
-                Text("In a call")
-            case .audioPaused:
-                Image(systemName: "headphones").foregroundStyle(RideComColors.warning)
-                Text("Audio paused — check iPhone")
-            case .audioUnavailable:
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(RideComColors.danger)
-                Text("Audio unavailable — check iPhone")
+    private var status: some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 4) {
+                switch state {
+                case .connecting, .idle, .signedOut:
+                    ProgressView().tint(RideComColors.warning).frame(width: 16, height: 16)
+                    Text("Connecting")
+                case .inCall:
+                    Image(systemName: "waveform").foregroundStyle(RideComColors.success)
+                    Text("In a call")
+                case .audioPaused:
+                    Image(systemName: "headphones").foregroundStyle(RideComColors.warning)
+                    Text("Audio paused")
+                case .audioUnavailable:
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(RideComColors.danger)
+                    Text("Audio unavailable")
+                }
+            }
+            .font(.footnote)
+            // The reason sits on its own line rather than after a dash.
+            if isStopped {
+                Text("Check your iPhone").font(.caption2).foregroundStyle(.secondary)
             }
         }
-        .font(.footnote)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("watchCallStatus")
     }

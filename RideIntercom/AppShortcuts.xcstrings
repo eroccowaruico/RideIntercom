@@ -14,8 +14,8 @@
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "${applicationName}で通話を終了"
+            "state" : "translated",
+            "value" : "${applicationName}で切断"
           }
         }
       }
@@ -33,8 +33,8 @@
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "${applicationName}で最近の通話を再開"
+            "state" : "translated",
+            "value" : "${applicationName}で前回の接続先に接続"
           }
         }
       }
@@ -68,8 +68,8 @@
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "${applicationName}で通話を開始"
+            "state" : "translated",
+            "value" : "${applicationName}で接続"
           }
         }
       }

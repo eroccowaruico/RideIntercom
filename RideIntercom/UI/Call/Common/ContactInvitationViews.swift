@@ -8,15 +8,33 @@ struct PendingContactInvitationsSection: View {
         if !viewModel.pendingContactInvitations.isEmpty {
             Section("Invitations") {
                 ForEach(viewModel.pendingContactInvitations) { record in
-                    Button { viewModel.showContactInvitation(record.id) } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label(LocalizedStringKey(record.direction == .incoming ? "Acceptance Notification" : "Invitation"),
-                                  systemImage: "envelope")
-                            Text(LocalizedStringKey(viewModel.contactInvitationStatus(for: record)))
-                                .font(.subheadline).foregroundStyle(Color.secondary)
+                    // Not-yet-joined people never look like saved users: a dashed person and an inline re-share.
+                    let outgoing = record.direction == .outgoing
+                    HStack {
+                        Button { viewModel.showContactInvitation(record.id) } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label(LocalizedStringKey(outgoing ? "Invitation" : "Acceptance Notification"),
+                                      systemImage: outgoing ? "person.crop.circle.dashed" : "envelope")
+                                Text(LocalizedStringKey(viewModel.contactInvitationStatus(for: record)))
+                                    .font(.subheadline).foregroundStyle(Color.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("pendingContactInvitation-\(record.id)")
+                        if outgoing && record.state == .pending {
+                            ShareLink(item: InvitationShare(viewModel: viewModel, contactInvitationID: record.id),
+                                      subject: Text("RideCom Invite"), message: Text("Add me on RideCom."),
+                                      preview: SharePreview(Text("RideCom Invite"))) {
+                                Text("Share Again").font(.subheadline)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("reshareContactInvitation-\(record.id)")
                         }
                     }
-                    .accessibilityIdentifier("pendingContactInvitation-\(record.id)")
                 }
             }
         }

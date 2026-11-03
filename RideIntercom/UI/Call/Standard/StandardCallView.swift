@@ -1,4 +1,5 @@
 import SwiftUI
+import RTC
 
 struct StandardCallView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -103,6 +104,7 @@ struct StandardCallView: View {
     private func hero(_ group: IntercomGroup, compact: Bool) -> some View {
         VStack(spacing: compact ? AppSpacing.xs : AppSpacing.l) {
             DestinationAvatar(isGroup: group.kind == .group, diameter: compact ? 44 : 64)
+            kindLine(group)
             Text(viewModel.callTitle(for: group))
                 .font(AppTypography.destinationTitle)
                 .multilineTextAlignment(.center)
@@ -118,6 +120,7 @@ struct StandardCallView: View {
                     .accessibilityIdentifier("standardCallStatus")
             }.font(.title3.weight(.semibold))
             statusDetail
+            routeLine(group)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, compact ? 0 : AppSpacing.m)
@@ -181,6 +184,13 @@ struct StandardCallView: View {
                         DestinationAvatar(isGroup: false)
                         Text(member.resolvedDisplayName)
                         Spacer()
+                        // Color never carries "speaking" alone: the symbol has a label.
+                        if group.id == viewModel.activeGroupID, member.isTalking {
+                            Image(systemName: "waveform")
+                                .foregroundStyle(AppColorPalette.voiceLevel)
+                                .accessibilityLabel("Speaking")
+                                .accessibilityIdentifier("standardMemberSpeaking-\(member.id)")
+                        }
                     }
                     .frame(minHeight: 44)
                     if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
@@ -204,6 +214,36 @@ struct StandardCallView: View {
             }
         } header: {
             Text("People in This Call").accessibilityIdentifier("standardCallParticipantsHeading")
+        }
+    }
+
+    /// Kind and size above the name: "Group · 4 people" or "User".
+    private func kindLine(_ group: IntercomGroup) -> some View {
+        Group {
+            if group.kind == .group {
+                Text("Group · \(group.members.count) people")
+            } else {
+                Text("User")
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .accessibilityIdentifier("standardCallKind")
+    }
+
+    /// While connected, the short route names only; diagnostics stay in Advanced.
+    @ViewBuilder private func routeLine(_ group: IntercomGroup) -> some View {
+        let routes = group.id == viewModel.activeGroupID ? viewModel.availableCallRoutes : []
+        if !routes.isEmpty {
+            HStack(spacing: AppSpacing.s) {
+                if routes.contains(.multipeer) { Text("Local Network") }
+                if routes.contains(.multipeer) && routes.contains(.webRTC) { Text(verbatim: "·") }
+                if routes.contains(.webRTC) { Text("Internet") }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("standardCallRoute")
         }
     }
 

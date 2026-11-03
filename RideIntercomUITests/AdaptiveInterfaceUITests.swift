@@ -56,7 +56,7 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         let mute = app.buttons["standardMuteButton"].firstMatch
         assertVisible(mute)
         mute.tap()
-        let mutedText = japanese ? "マイクはミュート中です" : "Microphone muted"
+        let mutedText = japanese ? "ミュート中" : "Microphone muted"
         let status = app.staticTexts["standardMicrophoneStatus"]
         assertVisible(status)
         XCTAssertEqual(status.label, mutedText)

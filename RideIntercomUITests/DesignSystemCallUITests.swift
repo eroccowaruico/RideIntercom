@@ -26,6 +26,10 @@ final class DesignSystemCallUITests: XCTestCase {
             XCTAssertTrue(control.waitForExistence(timeout: 5), control.debugDescription)
             XCTAssertTrue(control.isHittable, control.debugDescription)
         }
+        // The hero names the kind and size above the destination.
+        let kind = app.staticTexts["standardCallKind"].firstMatch
+        XCTAssertTrue(kind.exists, kind.debugDescription)
+        XCTAssertTrue(kind.label.hasPrefix("Group · "), kind.label)
         mute.tap()
         let microphoneStatus = app.staticTexts["standardMicrophoneStatus"].firstMatch
         XCTAssertTrue(microphoneStatus.waitForExistence(timeout: 3))

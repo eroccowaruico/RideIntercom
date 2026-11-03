@@ -6,9 +6,9 @@ import Testing
 @MainActor
 struct CallIntentLocalizationTests {
     @Test func actionTitlesAndDescriptionUseJapaneseResources() throws {
-        #expect(try render(StartSavedCallIntent.title, language: "ja") == "通話を開始")
-        #expect(try render(StartRecentCallIntent.title, language: "ja") == "最近の通話を再開")
-        #expect(try render(EndCurrentCallIntent.title, language: "ja") == "現在の通話を終了")
+        #expect(try render(StartSavedCallIntent.title, language: "ja") == "接続")
+        #expect(try render(StartRecentCallIntent.title, language: "ja") == "前回の接続先")
+        #expect(try render(EndCurrentCallIntent.title, language: "ja") == "切断")
         #expect(try render(StartSavedCallIntent.description.descriptionText, language: "ja")
             == "RideComに保存したユーザーやグループへ接続します。")
         #expect(try render(StartSavedCallIntent.title, language: "en") == "Start a call")
@@ -31,9 +31,9 @@ struct CallIntentLocalizationTests {
     @Test func intentErrorsExposeLocalizableResourcesIncludingSharedFailures() throws {
         let errors: [(any Error, String)] = [
             (CallIntentError.unavailable("No recent call is available. Choose a saved user or group in RideCom."),
-             "最近の通話はありません。RideComで保存済みのユーザーかグループを選んでください。"),
+             "前回の接続先はありません。RideComでユーザーかグループを選んでください。"),
             (CallIntentError.unavailable("End the current call before starting a different call."),
-             "別の通話を始める前に、現在の通話を終了してください。"),
+             "別の接続先に接続する前に、今の接続を切断してください。"),
             (CallIntentError.unavailable("Remove the previous account data on this device to set up your account again."),
              "この端末の以前のアカウントデータを削除して、アカウントを設定し直してください。")
         ]
@@ -52,11 +52,11 @@ struct CallIntentLocalizationTests {
     @Test func shortcutPhrasesHaveJapaneseWithoutReplacingTheApplicationPlaceholder() throws {
         let japanese = try languageBundle("ja")
         #expect(japanese.localizedString(forKey: "Start a call with ${applicationName}", value: nil, table: "AppShortcuts")
-            == "${applicationName}で通話を開始")
+            == "${applicationName}で接続")
         #expect(japanese.localizedString(forKey: "Resume my call in ${applicationName}", value: nil, table: "AppShortcuts")
-            == "${applicationName}で最近の通話を再開")
+            == "${applicationName}で前回の接続先に接続")
         #expect(japanese.localizedString(forKey: "End my call in ${applicationName}", value: nil, table: "AppShortcuts")
-            == "${applicationName}で通話を終了")
+            == "${applicationName}で切断")
     }
 
     private func render(_ resource: LocalizedStringResource, language: String) throws -> String {

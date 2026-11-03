@@ -196,7 +196,7 @@ struct CallActivityStatus: View {
     let call: CallLivePresentation
     var body: some View {
         Label {
-            Text(String(localized: .init(stringLiteral: call.status.message)))
+            Text(String(localized: .init(stringLiteral: call.status.title)))
                 .fixedSize(horizontal: false, vertical: true)
         } icon: { CallSurfaceStatusIcon(status: call.status) }
     }
@@ -208,7 +208,7 @@ struct CallActivityCompactState: View {
     var body: some View {
         if call.status == .connecting {
             CallSurfaceStatusIcon(status: call.status)
-                .accessibilityLabel(Text(String(localized: .init(stringLiteral: call.status.message))))
+                .accessibilityLabel(Text(String(localized: .init(stringLiteral: call.status.title))))
         } else {
             CallActivityMicrophone(call: call, iconOnly: true)
         }
