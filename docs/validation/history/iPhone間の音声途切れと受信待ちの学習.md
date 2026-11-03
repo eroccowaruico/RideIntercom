@@ -65,4 +65,4 @@
 | worktree `wt9`／branch `design/tabbar-tests` | `9b1c1668`（main祖先、branch固有のcommitなし） | `SignedInContentView.swift`からiOSの`tabBarMinimizeBehavior(.onScrollDown)`を外し、[Call仕様](../../spec/App/UI/Call.md)の該当記述を削る作業中 | `wt9.patch`（SHA-256 `92f63c77…86f9`）、`wt9.status.txt` | 未検証の作業途中。採否は同sessionの結論、または利用者の判断を待つ。採用する場合はmainへ統合後にbranchとworktreeを削除する |
 | branch `preview`（ローカルとorigin） | `b6423d00` | なし | なし | 開発用Cloudflare設定の固定preview用。mainへ統合済み（`main..preview`は0件）。[Cloudflare試用手順](../../development/Cloudflare試用手順.md#固定プレビューの継続運用)の運用branchのため残す |
 
-未追跡ファイルは両worktreeとも0件。削除するときは`git worktree list`で稼働を確認し、未コミット差分があれば先に保全ファイルと照合する。
+2026-11-04、`wt8`・`wt9`の持ち主のsessionが、`wt9`の作業（`tabBarMinimizeBehavior`を外す）をmainへ統合したうえで両worktreeとbranch `design/tabbar-tests`を削除した（[2026-11-04の区切りと引継ぎ](画面デザインと録音操作の整理.md#2026-11-04の区切りと引継ぎ)）。未追跡ファイルは両worktreeとも0件。削除するときは`git worktree list`で稼働を確認し、未コミット差分があれば先に保全ファイルと照合する。
