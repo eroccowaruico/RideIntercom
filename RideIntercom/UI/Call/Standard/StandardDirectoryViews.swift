@@ -9,6 +9,7 @@ struct StandardUsersView: View {
     var body: some View {
         List {
             CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
+            RecentCallSection(viewModel: viewModel, pendingSwitch: $pendingSwitch) { selectedTab = .call }
             CallStorageSection(viewModel: viewModel)
             PendingContactInvitationsSection(viewModel: viewModel)
             Section {

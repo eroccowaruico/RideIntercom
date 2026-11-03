@@ -7,21 +7,7 @@ struct CallEntryView: View {
 
     var body: some View {
         Group {
-            if viewModel.selectedGroup == nil {
-                List {
-                    CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
-                    CallStorageSection(viewModel: viewModel)
-                    Section {
-                        ContentUnavailableView("Ready to Talk", systemImage: "phone", description: Text("Choose someone or a group to call."))
-                        Button("Choose a User") { selectedTab = .users }
-                            .accessibilityIdentifier("chooseUserButton")
-                        Button("Choose a Group") { selectedTab = .groups }
-                            .accessibilityIdentifier("chooseGroupButton")
-                    }
-                }
-                .accessibilityIdentifier("advancedCallEmptyState")
-                .navigationTitle("Call")
-            } else {
+            if viewModel.selectedGroup != nil {
                 CallView(viewModel: viewModel)
                     .navigationTitle(viewModel.selectedCallTitle)
             }

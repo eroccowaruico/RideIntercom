@@ -66,7 +66,7 @@ final class DesignSystemEntryUITests: XCTestCase {
         XCTAssertTrue(save.isEnabled)
         save.tap()
         XCTAssertTrue(prompt.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 5))
     }
 
     func testDeveloperWarningHasHeadingAndPreservesInternetEntry() {

@@ -2,19 +2,12 @@ import SwiftUI
 
 struct SignedInContentView: View {
     @Bindable var viewModel: IntercomViewModel
+    /// `.call` is not a tab: it opens the call over the last list tab.
     @Binding var selectedTab: AppTab
+    @State private var listTab: AppTab = .users
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            Tab("Call", systemImage: "phone", value: .call) {
-                NavigationStack {
-                    if viewModel.interfaceMode == .standard {
-                        StandardCallView(viewModel: viewModel, selectedTab: $selectedTab)
-                    } else {
-                        CallEntryView(viewModel: viewModel, selectedTab: $selectedTab)
-                    }
-                }
-            }.accessibilityIdentifier("callTab")
+        TabView(selection: tabSelection) {
             Tab("Users", systemImage: "person.2", value: .users) {
                 NavigationStack {
                     if viewModel.interfaceMode == .standard {
@@ -43,6 +36,28 @@ struct SignedInContentView: View {
                     .id(viewModel.interfaceMode)
             }.accessibilityIdentifier("settingsTab")
         }
+        .inspector(isPresented: showsCall) {
+            CallPanel(viewModel: viewModel, selectedTab: $selectedTab) { selectedTab = listTab }
+        }
+        #if os(iOS)
+        .tabViewBottomAccessory(isEnabled: showsAccessory) {
+            CallAccessory(viewModel: viewModel) { selectedTab = .call }
+        }
+        #else
+        .toolbar {
+            if showsAccessory {
+                ToolbarItem {
+                    Button("Current Call", systemImage: "phone.fill") { selectedTab = .call }
+                        .accessibilityIdentifier("callAccessoryOpenButton")
+                }
+            }
+        }
+        #endif
+        .onChange(of: selectedTab) { _, current in if current != .call { listTab = current } }
+        // Ending the call returns to the list; there is no screen just for reconnecting.
+        .onChange(of: viewModel.hasAnyActiveGroupConnection) { wasActive, isActive in
+            if wasActive && !isActive && selectedTab == .call { selectedTab = listTab }
+        }
         .sheet(item: $viewModel.contactInvitationPresentation) { presentation in
             switch presentation {
             case .sharing(let id):
@@ -65,6 +80,17 @@ struct SignedInContentView: View {
         .onChange(of: viewModel.interfaceMode) { _, mode in selectedTab = selectedTab.available(in: mode) }
         .onAppear { selectedTab = selectedTab.available(in: viewModel.interfaceMode) }
     }
+
+    private var tabSelection: Binding<AppTab> {
+        Binding(get: { selectedTab == .call ? listTab : selectedTab }, set: { selectedTab = $0 })
+    }
+
+    private var showsCall: Binding<Bool> {
+        Binding(get: { selectedTab == .call && viewModel.selectedGroup != nil },
+                set: { if !$0 && selectedTab == .call { selectedTab = listTab } })
+    }
+
+    private var showsAccessory: Bool { viewModel.hasAnyActiveGroupConnection && !showsCall.wrappedValue }
 
     private var needsName: Binding<Bool> {
         Binding(get: { viewModel.needsDisplayNameChoice }, set: { _ in })

@@ -8,7 +8,7 @@
 
 Watch音声のpairが失われ、Watchでの再準備が必要な場合は、この端末のResume Audioを表示しない。Watchからの再開始案内に従う。既存pairを保持した一時停止では共通の再開操作を利用する。
 
-初期表示はStandard。`Call` / `Users` / `Groups` / `Settings`の標準TabViewを使い、Diagnosticsは含めない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。Users / Groupsと参加者は人物と通常グループを共通の青いアバターとし、`person.fill`／`person.3.fill`の記号で区別する。アイコン画像の変更機能は持たず、名前と種別を併記する。Users / GroupsはStandardとAdvancedで画面構成を分け、保存状態・共通操作と同じ意味の表示部品を共用する。Callはモードに応じた画面を使用する。接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
+初期表示はStandard。`Users` / `Groups` / `Settings`の標準TabViewを使い（最初はUsers）、Diagnosticsは含めない。通話はタブにせず、接続先を選んだときに`inspector`で開く（iPhoneはシート、iPad・Macは右の列、`closeCallButton`で閉じる）。通話中に通話を閉じている間は、iOSはタブバー上の`tabViewBottomAccessory`（`callAccessory`。名前と状態、`callAccessoryMuteButton`、長押しで切断）、macOSはツールバーの`callAccessoryOpenButton`から開き直す。切断すると通話を閉じて一覧へ戻り、未選択・未接続だけの画面は置かない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。Users / Groupsと参加者は人物と通常グループを共通の青いアバターとし、`person.fill`／`person.3.fill`の記号で区別する。アイコン画像の変更機能は持たず、名前と種別を併記する。Users / GroupsはStandardとAdvancedで画面構成を分け、保存状態・共通操作と同じ意味の表示部品を共用する。Callはモードに応じた画面を使用する。接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
 
 | 画面・項目ID | 表示と操作 |
 |---|---|
@@ -64,7 +64,7 @@ Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存�
 
 ## Advancedの接続先未選択
 
-Callに接続先が選ばれていないときは、`chooseUserButton`と`chooseGroupButton`からUsers / Groupsタブへ移動する。現在の通話があるときはCurrent Callから戻れ、保存データの復旧操作とエラーも表示する。グループの一覧と新規作成はGroupsタブが提供する。タブ移動だけでは既存通話を切り替えず、一覧での別の接続先の選択は切替の確認を経る。
+通話は接続先が選ばれているときだけ開くため、未選択の画面と`chooseUserButton`・`chooseGroupButton`は置かない。現在の通話があるときはCurrent Callから戻れ、保存データの復旧操作とエラーも表示する。グループの一覧と新規作成はGroupsタブが提供する。タブ移動だけでは既存通話を切り替えず、一覧での別の接続先の選択は切替の確認を経る。
 
 ## ユーザー指定の個別通話
 
@@ -215,7 +215,7 @@ AdvancedではGroups管理画面の参加者名から、StandardではCallの参
 
 ### Standardの直近通話
 
-通話していないときに、現在のアカウントと保存一覧で確認できる直近宛先をRecent Callに表示する。`recentCallName`は現在の名前、`recentCallButton`はCall Again。描画時に示した宛先とログイン世代を共通開始操作へ渡し、削除やログイン変更後は再検証する。通話成立時の記録、設定との保存、破損時の扱いは[通信仕様](../通信仕様.md#直近の成立済み通話先)を参照する。
+通話していないときに、現在のアカウントと保存一覧で確認できる直近宛先をUsers一覧の先頭のRecent Callに表示する（以前の通話タブの空状態から移した）。行のタップは他の行と同じ`openDestination`。`recentCallName`は現在の名前、`recentCallButton`はCall Again。描画時に示した宛先とログイン世代を共通開始操作へ渡し、削除やログイン変更後は再検証する。通話成立時の記録、設定との保存、破損時の扱いは[通信仕様](../通信仕様.md#直近の成立済み通話先)を参照する。
 
 ## 共通の操作表現
 

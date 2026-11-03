@@ -23,7 +23,10 @@ struct CallErrorSection: View {
     let viewModel: IntercomViewModel
     var body: some View {
         if let message = viewModel.groupErrorMessage, message != viewModel.groupStorageNotice {
-            Section { Label(LocalizedStringKey(message), systemImage: "exclamationmark.circle") }
+            Section {
+                Label(LocalizedStringKey(message), systemImage: "exclamationmark.circle")
+                    .accessibilityIdentifier("groupErrorLabel")
+            }
         }
     }
 }

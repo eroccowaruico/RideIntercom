@@ -173,7 +173,8 @@ final class DesignSystemCallUITests: XCTestCase {
         let lower = details.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
         let upper = details.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
         lower.press(forDuration: 0.05, thenDragTo: upper)
-        XCTAssertNotEqual(state.frame.minY, originalY, "The information region must scroll")
+        // The list is lazy: scrolling may move the status out of the hierarchy entirely.
+        XCTAssertTrue(!state.exists || state.frame.minY != originalY, "The information region must scroll")
         for control in [mute, speaker, end] { XCTAssertTrue(control.isHittable, control.debugDescription) }
     }
 
@@ -217,7 +218,7 @@ final class DesignSystemCallUITests: XCTestCase {
             app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         }
         app.launch(); app.activate()
-        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 5))
         let groups = app.buttons["groupsTab"].firstMatch
         if groups.exists { groups.tap() }
         else { app.tabBars.buttons["Groups"].firstMatch.tap() }
@@ -233,6 +234,7 @@ final class DesignSystemCallUITests: XCTestCase {
     }
 
     @MainActor private func openGroups() {
+        app.closeCallIfOpen()
         let groups = app.buttons["groupsTab"].firstMatch
         if groups.exists { groups.tap() } else { app.tabBars.buttons["Groups"].firstMatch.tap() }
     }

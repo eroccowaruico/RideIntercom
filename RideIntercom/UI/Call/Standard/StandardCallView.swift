@@ -53,16 +53,6 @@ struct StandardCallView: View {
                 .padding(.horizontal, AppSpacing.screen)
             } else {
                 List {
-                    if !viewModel.hasAnyActiveGroupConnection,
-                       let destination = viewModel.recentCallDestination, let title = viewModel.recentCallTitle {
-                        let access = viewModel.accountAccessID
-                        Section("Recent Call") {
-                            Text(title).accessibilityIdentifier("recentCallName")
-                            Button("Call Again", systemImage: "arrow.clockwise") {
-                                viewModel.startCall(to: destination, accountAccessID: access)
-                            }.accessibilityIdentifier("recentCallButton")
-                        }
-                    }
                     CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab, excludesSelected: true)
                     CallStorageSection(viewModel: viewModel)
                     if let group = viewModel.selectedGroup {
@@ -75,12 +65,6 @@ struct StandardCallView: View {
                                 .listRowSeparator(.hidden)
                         }
                         detailSections(group)
-                    } else {
-                        Section {
-                            ContentUnavailableView("Ready to Talk", systemImage: "phone", description: Text("Choose someone or a group to call."))
-                            Button("Choose a User") { selectedTab = .users }
-                            Button("Choose a Group") { selectedTab = .groups }
-                        }
                     }
                     CallErrorSection(viewModel: viewModel)
                 }

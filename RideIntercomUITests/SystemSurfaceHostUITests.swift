@@ -12,7 +12,7 @@ final class SystemSurfaceHostUITests: XCTestCase {
         app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "standard"
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 8))
         XCUIDevice.shared.press(.home)
         let home = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         addTeardownBlock { [self] in
@@ -51,7 +51,7 @@ final class SystemSurfaceHostUITests: XCTestCase {
         widgetScreen.lifetime = .keepAlways; add(widgetScreen)
         choose.tap()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 5))
     }
 }
 #endif

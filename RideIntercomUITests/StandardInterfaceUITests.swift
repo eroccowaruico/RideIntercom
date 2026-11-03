@@ -30,7 +30,8 @@ final class StandardInterfaceUITests: XCTestCase {
         selectLayout(japanese ? "詳細" : "Advanced")
         // open(URL) may relaunch and reapply the Standard launch fixture.
         // Keep this process and verify the actual Advanced error surface.
-        tab(japanese ? "通話" : "Call", id: "callTab")
+        // Without a call, the reason stays on the list instead of an empty call screen.
+        tab(japanese ? "ユーザー" : "Users", id: "usersTab")
         XCTAssertFalse(app.descendants(matching: .any)["standardCallScreen"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["groupErrorLabel"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts[message].waitForExistence(timeout: 5))
@@ -67,6 +68,8 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
         XCTAssertTrue(share.waitForExistence(timeout: 3))
         app.buttons["closeContactInvitationButton"].tap()
+        // Rows are lazy; count from the top as the original count was.
+        app.descendants(matching: .any)["standardUsersList"].firstMatch.swipeDown()
         XCTAssertEqual(contactUserRows().count, originalUsers)
         XCTAssertEqual(contactPendingIDs().subtracting(originalPending).count, 1,
                        "Cancel and Copy reuse the one explicitly created pending invitation")
@@ -229,18 +232,21 @@ final class StandardInterfaceUITests: XCTestCase {
         screenshot("Standard call after switching layouts")
         app.buttons["standardEndCallButton"].tap()
         app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["standardConnectButton"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForNonExistence(timeout: 3),
+                      "Ending the call returns to the list")
         app.terminate()
         app.launchEnvironment.removeValue(forKey: "RIDEINTERCOM_INTERFACE_FIXTURE")
         app.launch(); app.activate()
-        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.tabBars.buttons["Diagnostics"].exists)
     }
 
     @MainActor
     func testStandardJapaneseNavigationAndUnconfiguredPurchases() {
         launch(japanese: true)
-        XCTAssertTrue(app.staticTexts["通話を始める"].waitForExistence(timeout: 3))
+        // The people list is the first screen; the call is not a tab.
+        XCTAssertTrue(app.tabBars.buttons["ユーザー"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.tabBars.buttons["通話"].exists)
         tab("ユーザー", id: "usersTab")
         XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3))
         tab("グループ", id: "groupsTab")
@@ -257,29 +263,12 @@ final class StandardInterfaceUITests: XCTestCase {
         launch()
         tab("Settings", id: "settingsTab")
         selectLayout("Advanced")
-        tab("Call", id: "callTab")
-        // A previous run can retain a selected call. Both states keep management
-        // out of Call; chooser navigation is asserted when no call is selected.
-        let empty = app.descendants(matching: .any)["advancedCallEmptyState"].firstMatch
-        let selected = app.descendants(matching: .any)["callScreen"].firstMatch
-        XCTAssertTrue(empty.waitForExistence(timeout: 3) || selected.exists)
-        for identifier in ["createGroupButton", "standardCreateGroupButton", "showGroupsButton", "groupSelectionList"] {
+        // The call is not a tab, so the lists never expose group management through a call screen.
+        for identifier in ["callTab", "advancedCallEmptyState", "chooseUserButton", "chooseGroupButton"] {
             XCTAssertFalse(app.descendants(matching: .any)[identifier].firstMatch.exists,
-                           "Advanced Call exposes a group management entry: \(identifier)")
+                           "The call opens from a chosen destination, not from a tab: \(identifier)")
         }
-        if empty.exists {
-            let chooseUser = app.buttons["chooseUserButton"].firstMatch
-            let chooseGroup = app.buttons["chooseGroupButton"].firstMatch
-            XCTAssertEqual(chooseUser.label, "Choose a User")
-            XCTAssertEqual(chooseGroup.label, "Choose a Group")
-            screenshot("Advanced Call without a selected destination")
-            chooseUser.tap()
-            XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3))
-            tab("Call", id: "callTab")
-            chooseGroup.tap()
-        } else {
-            tab("Groups", id: "groupsTab")
-        }
+        tab("Groups", id: "groupsTab")
         let groups = app.descendants(matching: .any)["standardGroupsList"].firstMatch
         XCTAssertTrue(groups.waitForExistence(timeout: 3))
         let groupRows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-"))
@@ -301,16 +290,19 @@ final class StandardInterfaceUITests: XCTestCase {
         name.tap()
         name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + groupName)
         app.buttons["saveUserSelectionButton"].tap()
-        XCTAssertTrue(selected.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 5))
         let disconnect = app.buttons["disconnectButton"].firstMatch
         XCTAssertTrue(disconnect.waitForExistence(timeout: 5))
+        // The list stays underneath the call sheet; only the call itself must not offer management.
+        let callScreen = app.descendants(matching: .any)["callScreen"].firstMatch
         for identifier in ["createGroupButton", "standardCreateGroupButton", "showGroupsButton", "groupSelectionList"] {
-            XCTAssertFalse(app.descendants(matching: .any)[identifier].firstMatch.exists,
+            XCTAssertFalse(callScreen.descendants(matching: .any)[identifier].firstMatch.exists,
                            "Creating from Groups must return to Call without management entries: \(identifier)")
         }
         screenshot("Advanced Call after creating a named group from Groups")
         disconnect.tap()
-        XCTAssertTrue(app.buttons["connectButton"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForNonExistence(timeout: 5),
+                      "Ending the call returns to the list")
         tab("Groups", id: "groupsTab")
         let created = app.buttons.containing(.staticText, identifier: groupName).firstMatch
         XCTAssertTrue(created.waitForExistence(timeout: 3))
@@ -360,7 +352,7 @@ final class StandardInterfaceUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app.buttons["standardEndCallButton"].tap()
         app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["standardConnectButton"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["standardEndCallButton"].waitForNonExistence(timeout: 3))
         tab("Groups", id: "groupsTab")
         let row = app.buttons.containing(.staticText, identifier: destination).firstMatch
         row.swipeLeft()
@@ -539,8 +531,9 @@ final class StandardInterfaceUITests: XCTestCase {
         let form = app.scrollViews.firstMatch
         #endif
         XCTAssertTrue(form.waitForExistence(timeout: 3))
-        let lower = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-        let upper = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        // Stay above the call accessory that sits over the tab bar in landscape.
+        let lower = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+        let upper = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
         // Keep the gesture inside the Form, clear of landscape system edges.
         for _ in 0..<20 where !control.isHittable { lower.press(forDuration: 0.05, thenDragTo: upper) }
         for _ in 0..<20 where !control.isHittable { upper.press(forDuration: 0.05, thenDragTo: lower) }
@@ -613,10 +606,12 @@ final class StandardInterfaceUITests: XCTestCase {
         if throttled { app.launchEnvironment["RIDEINTERCOM_INTERNET_ACCOUNT_FIXTURE"] = "throttled" }
         app.launchArguments = ["-AppleLanguages", japanese ? "(ja)" : "(en)", "-AppleLocale", japanese ? "ja_JP" : "en_US"]
         app.launch(); app.activate()
-        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 5))
     }
 
     @MainActor private func tab(_ title: String, id: String) {
+        if id == "callTab" { app.openCurrentCall(); return }
+        app.closeCallIfOpen()
         let identified = app.buttons[id].firstMatch
         if identified.exists { identified.tap() }
         else if app.radioButtons[id].exists { app.radioButtons[id].tap() }

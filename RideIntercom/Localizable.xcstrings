@@ -6084,6 +6084,16 @@
           }
         }
       }
+    },
+    "Opens the call" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話を開きます"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

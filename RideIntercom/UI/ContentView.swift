@@ -7,7 +7,7 @@ struct ContentView: View {
     private var account: AppleAccountSession { owner.account }
     private var viewModel: IntercomViewModel? { owner.viewModel }
     @State private var pendingInviteURL: URL?
-    @State private var selectedTab: AppTab = .call
+    @State private var selectedTab: AppTab = .users
 
     var body: some View {
         Group {

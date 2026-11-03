@@ -80,7 +80,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))
         let savedUsers = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-"))
         let savedUserCount = savedUsers.count
-        app.tabBars.buttons["Call"].tap()
+        app.openCurrentCall()
         XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
         revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
@@ -1084,10 +1084,11 @@ final class RideIntercomUITests: XCTestCase {
 
     @MainActor
     private func checkGroupsTabReturnsFromCallToGroupDirectory() throws {
-        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertFalse(app.buttons["showGroupsButton"].exists)
-        XCTAssertFalse(app.buttons["createGroupButton"].exists)
-        XCTAssertFalse(app.buttons["standardCreateGroupButton"].exists)
+        let call = app.descendants(matching: .any)["callScreen"].firstMatch
+        XCTAssertTrue(call.waitForExistence(timeout: 3))
+        XCTAssertFalse(call.buttons["showGroupsButton"].exists)
+        XCTAssertFalse(call.buttons["createGroupButton"].exists)
+        XCTAssertFalse(call.buttons["standardCreateGroupButton"].exists)
         openGroupsTab()
         XCTAssertTrue(app.descendants(matching: .any)["standardGroupsList"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["standardCreateGroupButton"].firstMatch.exists)
@@ -1100,9 +1101,12 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(disconnectButton.waitForExistence(timeout: 3))
         disconnectButton.tap()
 
-        let connectButton = app.buttons["connectButton"].firstMatch
-        XCTAssertTrue(connectButton.waitForExistence(timeout: 5))
-        connectButton.tap()
+        // Ending closes the call; choosing the group again reconnects at once.
+        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForNonExistence(timeout: 5))
+        openGroupsTab()
+        let group = talkGroupRows.firstMatch
+        XCTAssertTrue(group.waitForExistence(timeout: 3))
+        group.tap()
 
         XCTAssertTrue(app.buttons["disconnectButton"].firstMatch.waitForExistence(timeout: 5))
     }
@@ -1132,14 +1136,16 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func assertAdvancedCallHasNoManagementControls() {
-        XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
+        let call = app.descendants(matching: .any)["callScreen"].firstMatch
+        XCTAssertTrue(call.waitForExistence(timeout: 3))
+        // The lists stay underneath the call sheet; only the call itself must not offer management.
         for identifier in ["inviteButton", "addSavedUsersButton", "showGroupsButton", "createGroupButton",
                            "standardCreateGroupButton", "editParticipantNameButton0", "removeParticipantButton0"] {
-            XCTAssertFalse(app.buttons[identifier].exists, "Management control remains in Advanced Call: \(identifier)")
+            XCTAssertFalse(call.buttons[identifier].exists, "Management control remains in Advanced Call: \(identifier)")
         }
-        XCTAssertFalse(app.buttons["Edit Name"].exists)
-        XCTAssertFalse(app.buttons.containing(.staticText, identifier: "participantName0").firstMatch.exists)
-        XCTAssertFalse(app.buttons["Delete"].exists)
+        XCTAssertFalse(call.buttons["Edit Name"].exists)
+        XCTAssertFalse(call.buttons.containing(.staticText, identifier: "participantName0").firstMatch.exists)
+        XCTAssertFalse(call.buttons["Delete"].exists)
     }
 
     private func openTalkGroupManagement() {
@@ -1171,10 +1177,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(close.waitForExistence(timeout: 3))
         close.tap()
         XCTAssertTrue(app.descendants(matching: .any)["groupManagementView"].firstMatch.waitForNonExistence(timeout: 3))
-        let call = app.buttons["callTab"].firstMatch
-        if call.exists { call.tap() }
-        else if app.radioButtons["callTab"].exists { app.radioButtons["callTab"].tap() }
-        else { app.tabBars.buttons["Call"].tap() }
+        app.openCurrentCall()
         XCTAssertTrue(app.descendants(matching: .any)["callScreen"].firstMatch.waitForExistence(timeout: 3))
     }
 
@@ -1205,6 +1208,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func openDirectoryTab(_ title: String, identifier: String, root: String) {
+        app.closeCallIfOpen()
         if app.descendants(matching: .any)[root].firstMatch.exists { return }
         let identified = app.buttons[identifier].firstMatch
         if identified.exists { identified.tap() }
@@ -1226,6 +1230,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func openDiagnosticsTab() {
+        app.closeCallIfOpen()
         if app.descendants(matching: .any)["diagnosticsPagePicker"].firstMatch.exists { return }
         if app.tabBars.buttons["Diagnostics"].firstMatch.exists { app.tabBars.buttons["Diagnostics"].firstMatch.tap() }
         else if app.radioButtons["diagnosticsTab"].firstMatch.exists { app.radioButtons["diagnosticsTab"].firstMatch.tap() }
@@ -1245,6 +1250,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func openSettingsTab() {
+        app.closeCallIfOpen()
         let scroll = app.descendants(matching: .any)["settingsScrollView"].firstMatch
         if !scroll.exists {
             #if os(iOS)
@@ -1356,7 +1362,7 @@ final class RideIntercomUITests: XCTestCase {
     }
 
     private func waitForVisibleRoot(in app: XCUIApplication) -> Bool {
-        app.descendants(matching: .any)["advancedCallEmptyState"].firstMatch.waitForExistence(timeout: 3)
+        app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3)
             || app.descendants(matching: .any)["callScreen"].firstMatch.exists
             || app.descendants(matching: .any)["standardGroupsList"].firstMatch.exists
             || app.descendants(matching: .any)["standardCallScreen"].firstMatch.exists

@@ -10,7 +10,7 @@ enum AppTab: Hashable {
 
     func available(in mode: InterfaceMode) -> Self {
         switch (mode, self) {
-        case (.standard, .diagnostics): .call
+        case (.standard, .diagnostics): .users
         default: self
         }
     }

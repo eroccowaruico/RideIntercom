@@ -26,7 +26,7 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "standard"
         app.launchArguments = ["-AppleLanguages", japanese ? "(ja)" : "(en)", "-AppleLocale", japanese ? "ja_JP" : "en_US"]
         app.launch(); app.activate()
-        XCTAssertTrue(element("standardCallScreen").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("standardUsersList").waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["diagnosticsTab"].exists)
         tab(japanese ? "ユーザー" : "Users", id: "usersTab")
         XCTAssertTrue(element("standardUsersList").waitForExistence(timeout: 3))
@@ -71,9 +71,12 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         assertVisible(status)
         XCTAssertEqual(status.label, mutedText)
         tab(japanese ? "設定" : "Settings", id: "settingsTab")
-        assertVisible(app.textFields["localDisplayNameField"])
+        let nameField = app.textFields["localDisplayNameField"].firstMatch
+        revealInSettings(nameField)
+        assertVisible(nameField)
         screenshot("\(japanese ? "Japanese" : "English") landscape settings")
         let setup = app.buttons["configureInternetConnection"].firstMatch
+        revealInSettings(setup)
         assertVisible(setup)
         setup.tap()
         assertVisible(app.textFields["internetWorkerURL"])
@@ -95,7 +98,7 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         let confirmEnd = app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch
         assertVisible(confirmEnd)
         confirmEnd.tap()
-        assertVisible(app.buttons["standardConnectButton"])
+        XCTAssertTrue(end.waitForNonExistence(timeout: 3), "Ending the call returns to the list")
     }
 
     @MainActor private func element(_ id: String) -> XCUIElement {
@@ -123,7 +126,18 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         XCTAssertTrue(app.frame.insetBy(dx: -1, dy: -1).contains(control.frame), control.debugDescription, file: file, line: line)
     }
 
+    /// In landscape the call accessory above the tab bar leaves less room; scroll the form if needed.
+    @MainActor private func revealInSettings(_ element: XCUIElement) {
+        let form = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        for _ in 0..<4 where !(element.exists && element.isHittable) {
+            form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+                .press(forDuration: 0.05, thenDragTo: form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)))
+        }
+    }
+
     @MainActor private func tab(_ title: String, id: String) {
+        if id == "callTab" { app.openCurrentCall(); return }
+        app.closeCallIfOpen()
         let identified = app.buttons[id].firstMatch
         let target = identified.exists ? identified : app.tabBars.buttons[title].firstMatch
         assertVisible(target)
