@@ -62,7 +62,7 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     #expect(source.playbackResetCount == 0)
 }
 
-@Test func adaptivePlayoutRetainsLatePacketsAndRemovesDelayDuringSilence() throws {
+@Test func adaptivePlayoutRetainsLatePacketsAndReleasesTheLearnedWaitAfterCalm() throws {
     let engine = AVAudioEngine()
     let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
     try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4800)
@@ -79,15 +79,25 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     #expect(try engine.renderOffline(2400, to: output) == .success) // 50 ms
     #expect((0..<960).allSatisfy { abs(output.floatChannelData![0][$0]) < 0.001 })
     #expect((960..<1920).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.001 })
-    // A late packet must retain its end rather than lose 10 ms of speech.
+    // A late packet must retain its whole 20 ms rather than lose its end.
     try source.schedule(.init(sequenceNumber: 1, capturedAt: 1000.02, samples: Array(repeating: 0.4, count: 960)))
     Thread.sleep(forTimeInterval: 0.01)
-    #expect(try engine.renderOffline(2400, to: output) == .success)
-    #expect((1056..<1920).allSatisfy { abs(output.floatChannelData![0][$0] - 0.4) < 0.001 })
+    var late: [Float] = []
+    for _ in 0..<2 {
+        #expect(try engine.renderOffline(2400, to: output) == .success)
+        late += UnsafeBufferPointer(start: output.floatChannelData![0], count: 2400)
+    }
+    #expect(late.filter { abs($0 - 0.4) < 0.001 }.count == 960)
     #expect(source.playoutAdjustmentCount == 1)
-    // Three seconds later, the extra wait must not carry into a new reply.
+    // The link has proven it can hold a packet: a reply after a short pause
+    // keeps that wait instead of losing its first syllables again.
     for index in 0..<30 { #expect(try engine.renderOffline(4800, to: output) == .success, "silence \(index)") }
     try source.schedule(.init(sequenceNumber: 2, capturedAt: 1003.1, samples: Array(repeating: 0.3, count: 960)))
+    #expect(source.bufferedDuration > 0.041, "The learned wait survives a 3 s pause")
+    // After the link stays calm, the wait is released for a low-delay reply.
+    for _ in 0..<10 { #expect(try engine.renderOffline(4800, to: output) == .success) }
+    for index in 0..<130 { #expect(try engine.renderOffline(4800, to: output) == .success, "calm \(index)") }
+    try source.schedule(.init(sequenceNumber: 3, capturedAt: 1018.1, samples: Array(repeating: 0.3, count: 960)))
     #expect(source.bufferedDuration <= 0.041)
     #expect(source.playbackResetCount == 0, "Natural conversation pauses are not corrupt clocks")
 }
@@ -551,4 +561,75 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     #expect(error < 0.00001)
     #expect(source.playoutAdjustmentCount == 0)
     #expect(source.playbackResetCount == 0)
+}
+
+/// Peer-to-peer and infrastructure Wi-Fi hold packets for tens of milliseconds
+/// and release them in a burst, repeatedly. Replays the arrival schedule against
+/// the 10 ms render clock and returns the gaps (silent runs shorter than a pause)
+/// inside rendered speech, with the rendered time at which each gap ended.
+private func renderedSpeechGaps(utterances: Int, stallEvery: Double, stall: Double,
+                                pause: Double = 0.4, utterance: Double = 1.5,
+                                window: TimeInterval = 0.3) throws -> [(samples: Int, endedAt: Double)] {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 480)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("radio")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: window,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    // Speech packets, then 100 ms of exact silence before the sender suppresses it.
+    var packets: [(capturedAt: Double, speech: Bool)] = []
+    var clock = 0.0
+    for _ in 0..<utterances {
+        for _ in 0..<Int((utterance / 0.01).rounded()) { packets.append((clock, true)); clock += 0.01 }
+        for _ in 0..<10 { packets.append((clock, false)); clock += 0.01 }
+        clock += pause - 0.1
+    }
+    func arrival(_ capturedAt: Double) -> Double {
+        let sent = capturedAt + 0.01 + 0.003
+        let phase = sent.truncatingRemainder(dividingBy: stallEvery)
+        return phase < stall ? sent - phase + stall : sent
+    }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
+    var rendered: [Float] = []
+    var next = 0, now = 0.0, scheduled = false
+    while now < clock + 0.3 {
+        while next < packets.count, arrival(packets[next].capturedAt) <= now {
+            let packet = packets[next]
+            try source.schedule(.init(sequenceNumber: UInt64(next), capturedAt: 1000 + packet.capturedAt,
+                samples: Array(repeating: packet.speech ? 0.3 : 0, count: 480)))
+            next += 1
+            scheduled = true
+        }
+        // The player applies schedules asynchronously, as in the tests above.
+        if scheduled { Thread.sleep(forTimeInterval: 0.002); scheduled = false }
+        #expect(try engine.renderOffline(480, to: output) == .success)
+        rendered += UnsafeBufferPointer(start: output.floatChannelData![0], count: 480)
+        now += 0.01
+    }
+    var gaps: [(samples: Int, endedAt: Double)] = [], run = 0, heard = false
+    for (index, sample) in rendered.enumerated() {
+        if abs(sample) > 0.1 {
+            if heard && run > 0 && run < 9600 { gaps.append((run, Double(index) / 48000)) }
+            run = 0; heard = true
+        } else if heard { run += 1 }
+    }
+    return gaps
+}
+
+@Test func recurringRadioStallsAreLearnedOnceAndSurviveConversationPauses() throws {
+    let gaps = try renderedSpeechGaps(utterances: 4, stallEvery: 0.5, stall: 0.06)
+    // A reactive wait can only learn a stall by meeting it. Learning belongs to
+    // the first utterance; every reply after a pause must keep what was learned.
+    #expect(gaps.allSatisfy { $0.endedAt < 1.5 + 0.2 },
+            "Gaps after a conversation pause (samples, rendered s): \(gaps)")
+    #expect(gaps.count <= 2)
+}
+
+@Test func steadyLinkNeedsNoLearnedWait() throws {
+    let gaps = try renderedSpeechGaps(utterances: 4, stallEvery: 0.5, stall: 0)
+    #expect(gaps.isEmpty, "A link without jitter keeps every utterance contiguous: \(gaps)")
 }
