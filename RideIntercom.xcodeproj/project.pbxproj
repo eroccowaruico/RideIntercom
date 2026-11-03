@@ -82,6 +82,13 @@
 			remoteGlobalIDString = 93F300C72F93829C0046716D;
 			remoteInfo = RideIntercom;
 		};
+		A77000000000000000000007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 93F300C02F93829C0046716D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CCFFDBF2F4415059F932F5F;
+			remoteInfo = RideIntercomWatch;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -134,6 +141,7 @@
 		D35100000000000000000002 /* RideIntercom/Shared/RideComColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideIntercom/Shared/RideComColors.swift; sourceTree = SOURCE_ROOT; };
 		D70000000000000000000004 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomAudioE2ETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A77000000000000000000002 /* RideIntercomWatchUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RideIntercomWatchUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -260,6 +268,11 @@
 			path = RideIntercom/SystemSurfaces/Shared;
 			sourceTree = "<group>";
 		};
+		A77000000000000000000003 /* RideIntercomWatchUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RideIntercomWatchUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -317,6 +330,12 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
+		};
+		A77000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -376,6 +395,7 @@
 				93F300DC2F93829D0046716D /* RideIntercomTests */,
 				93F300E62F93829D0046716D /* RideIntercomUITests */,
 				3170ECB8255D3C020D7A258B /* RideIntercomWatch */,
+				A77000000000000000000003 /* RideIntercomWatchUITests */,
 				563F9A8ED1BACA026C059AA5 /* RideIntercomWidgets */,
 				93BD7A6E2FACCD5C00CBA553 /* scripts */,
 				93BD7A642FACCD5600CBA553 /* server */,
@@ -388,6 +408,7 @@
 				93F300C82F93829C0046716D /* RideIntercom.app */,
 				56F6D0BB98E4179BB121F578 /* RideIntercomWidgets.appex */,
 				C68FF7D6B2B5F4B5810BDC7E /* RideIntercomWatch.app */,
+				A77000000000000000000002 /* RideIntercomWatchUITests.xctest */,
 				93F300D92F93829D0046716D /* RideIntercomTests.xctest */,
 				E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */,
 				93F300E32F93829D0046716D /* RideIntercomUITests.xctest */,
@@ -550,6 +571,22 @@
 			productReference = E2E000000000000000000002 /* RideIntercomAudioE2ETests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		A77000000000000000000001 /* RideIntercomWatchUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A77000000000000000000009 /* Build configuration list for PBXNativeTarget "RideIntercomWatchUITests" */;
+			buildPhases = (
+				A77000000000000000000004 /* Sources */,
+				A77000000000000000000005 /* Frameworks */,
+				A77000000000000000000006 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (A77000000000000000000008 /* PBXTargetDependency */,);
+			fileSystemSynchronizedGroups = (A77000000000000000000003 /* RideIntercomWatchUITests */,);
+			name = RideIntercomWatchUITests;
+			productName = RideIntercomWatchUITests;
+			productReference = A77000000000000000000002 /* RideIntercomWatchUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -560,6 +597,10 @@
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
+					A77000000000000000000001 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 0CCFFDBF2F4415059F932F5F;
+					};
 					93F300C72F93829C0046716D = {
 						CreatedOnToolsVersion = 26.4.1;
 					};
@@ -604,6 +645,7 @@
 				93F300C72F93829C0046716D /* RideIntercom */,
 				4517BC59AC831097FA328DE8 /* RideIntercomWidgets */,
 				0CCFFDBF2F4415059F932F5F /* RideIntercomWatch */,
+				A77000000000000000000001 /* RideIntercomWatchUITests */,
 				93F300D82F93829D0046716D /* RideIntercomTests */,
 				E2E000000000000000000001 /* RideIntercomAudioE2ETests */,
 				93F300E22F93829D0046716D /* RideIntercomUITests */,
@@ -645,6 +687,12 @@
 				D35100000000000000000004 /* RideIntercom/Shared/Appearance.xcassets in Resources */,
 				C0DE1C010000000000000001 /* RideIntercom/RideComAppIcon.icon in Resources */,
 			);
+		};
+		A77000000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
@@ -706,6 +754,12 @@
 			files = (
 			);
 		};
+		A77000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -734,6 +788,11 @@
 			isa = PBXTargetDependency;
 			target = 93F300C72F93829C0046716D /* RideIntercom */;
 			targetProxy = E2E000000000000000000008 /* PBXContainerItemProxy */;
+		};
+		A77000000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CCFFDBF2F4415059F932F5F /* RideIntercomWatch */;
+			targetProxy = A77000000000000000000007 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1809,6 +1868,86 @@
 			};
 			name = Release;
 		};
+		A7700000000000000000000A /* Debug configuration for PBXNativeTarget "RideIntercomWatchUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomWatchUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = RideIntercomWatch;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = "Debug";
+		};
+		A7700000000000000000000B /* Release configuration for PBXNativeTarget "RideIntercomWatchUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomWatchUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = RideIntercomWatch;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = "Release";
+		};
+		A7700000000000000000000C /* Debug-Validation configuration for PBXNativeTarget "RideIntercomWatchUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomWatchUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = RideIntercomWatch;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = "Debug-Validation";
+		};
+		A7700000000000000000000D /* Release-Validation configuration for PBXNativeTarget "RideIntercomWatchUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UAY8FH5FF8;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yowamushi-inc.RideIntercom.RideIntercomWatchUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = RideIntercomWatch;
+				WATCHOS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = "Release-Validation";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1880,6 +2019,17 @@
 				501B1529D2511B4B750152B5 /* Debug-Validation configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */,
 				82809E7678CE2B86A82DAC27 /* Release-Validation configuration for PBXNativeTarget "RideIntercomAudioE2ETests" */,
 			);
+			defaultConfigurationName = Release;
+		};
+		A77000000000000000000009 /* Build configuration list for PBXNativeTarget "RideIntercomWatchUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7700000000000000000000A /* Debug */,
+				A7700000000000000000000B /* Release */,
+				A7700000000000000000000C /* Debug-Validation */,
+				A7700000000000000000000D /* Release-Validation */,
+			);
+			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

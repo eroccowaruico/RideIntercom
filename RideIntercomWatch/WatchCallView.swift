@@ -80,6 +80,7 @@ private struct WatchDestinationList: View {
         }
         .containerBackground(RideComColors.accent.gradient, for: .navigation)
         .navigationTitle("RideCom")
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("watchDestinationList")
     }
 
@@ -144,6 +145,8 @@ private struct WatchActiveCallView: View {
             }
             Button("Cancel", role: .cancel) { }
         }
+        // Keep the children's own identifiers (status, talk panel) inside the call screen.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("watchActiveCall")
     }
 
@@ -168,13 +171,14 @@ private struct WatchActiveCallView: View {
                 }
             }
             .font(.footnote)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("watchCallStatus")
             // The reason sits on its own line rather than after a dash.
             if isStopped {
                 Text("Check your iPhone").font(.caption2).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("watchCallStatusDetail")
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("watchCallStatus")
     }
 }
 
@@ -254,6 +258,7 @@ private struct WatchMessageView<Action: View>: View {
         }
         .containerBackground(Color.black.gradient, for: .navigation)
         .navigationTitle("RideCom")
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("watchMessage")
     }
 }

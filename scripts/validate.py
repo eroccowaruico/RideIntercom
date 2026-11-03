@@ -66,11 +66,13 @@ def xcode_tests_passed(summary):
             and not summary.get('runtimeWarnings') and not summary.get('testFailures'))
 
 
-def test_host_metadata(test_run, expected_namespace):
+def test_host_metadata(test_run, expected_namespace, expected_product='RideIntercom.app'):
     """Validate the product actually referenced by Xcode, before it can start."""
     if not (expected_namespace.startswith('RideIntercom.Validation.')
             and len(expected_namespace) > len('RideIntercom.Validation.')):
         raise ValueError('An isolated test namespace is required')
+    if Path(expected_product).name != expected_product or Path(expected_product).suffix != '.app':
+        raise ValueError('Expected an App product name')
     if test_run is None:
         raise ValueError('Missing generated xctestrun')
     test_run = Path(test_run)
@@ -93,8 +95,8 @@ def test_host_metadata(test_run, expected_namespace):
                 raise ValueError('Test host must be an app inside its build products')
             resolved[key] = path
         app = resolved.get('UITargetAppPath', resolved.get('TestHostPath'))
-        if app is None or app.name != 'RideIntercom.app':
-            raise ValueError('Missing RideIntercom test host')
+        if app is None or app.name != expected_product:
+            raise ValueError('Missing expected App test host')
         info = app / ('Contents/Info.plist' if (app / 'Contents').is_dir() else 'Info.plist')
         if not info.resolve().is_relative_to(products):
             raise ValueError('Test host Info must remain inside its build products')
@@ -190,13 +192,13 @@ class Runner:
             print('\n'.join(path.read_text(errors='replace').splitlines()[-12:]), flush=True)
         return passed
 
-    def check_test_host(self, name, test_run, namespace, needs=()):
+    def check_test_host(self, name, test_run, namespace, needs=(), expected_product='RideIntercom.app'):
         started = time.monotonic()
         blocked = [n for n in needs if self.results.get(n, {}).get('status') != 'passed']
         if blocked:
             return self.record(name, [], 'blocked', None, started, 'requires ' + ', '.join(blocked))
         try:
-            metadata = test_host_metadata(test_run, namespace)
+            metadata = test_host_metadata(test_run, namespace, expected_product=expected_product)
         except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
             return self.record(name, [], 'failed', 1, started, str(error))
         (self.out / (name + '.json')).write_text(json.dumps(metadata, indent=2) + '\n')
@@ -236,7 +238,8 @@ class Runner:
         if settings is not None:
             test_run = select_test_run(settings, scheme)
         preflight = name + '-host-preflight'
-        self.check_test_host(preflight, test_run, namespace, needs=needs)
+        self.check_test_host(preflight, test_run, namespace, needs=needs,
+                             expected_product=settings['FULL_PRODUCT_NAME'] if settings else 'RideIntercom.app')
         if plan_name:
             # StoreKit activation belongs to the shared plan and is not carried
             # by the generated xctestrun. Keep its host preflight above, then use
@@ -314,6 +317,7 @@ def snapshot(out):
 # Tests of the regular-width layout. They skip themselves below 600x500 points.
 IPAD_ONLY_TESTS = ['RideIntercomUITests/DesignSystemCallUITests/testRegularWidthUsesSeparateCallColumns']
 IPAD_DEVICE_TYPE = 'com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB'
+WATCH_DEVICE_TYPE = 'com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Series-12-46mm'
 
 
 def xctestrun_skips(path):
@@ -449,6 +453,23 @@ def main():
                 finally:
                     if pad_lease.acquired:
                         pad_lease.cleanup('ipad-final')
+                # The Watch screens from their validation fixtures, on a Watch Simulator of their own.
+                watch_lease = SimulatorLease(runner, simulator_resource_root() / 'reusable-watch.json')
+                try:
+                    if runner.results.get('ios-tests-acceptance', {}).get('status') != 'passed':
+                        raise RuntimeError('Watch tests require the iPhone run to pass first')
+                    watch_runtimes = [r for r in runtimes if r['isAvailable'] and r['name'].startswith('watchOS')]
+                    watch_runtime = max(watch_runtimes, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier']
+                    watch = watch_lease.prepare(watch_runtime, os.environ.get('SIMULATOR_WATCH_DEVICE_TYPE', WATCH_DEVICE_TYPE))
+                    if watch:
+                        (runner.out / 'watch-simulator-id.txt').write_text(watch + '\n')
+                        runner.run('watch-boot', ['xcrun', 'simctl', 'boot', watch], timeout=120)
+                        runner.run('watch-ready', ['xcrun', 'simctl', 'bootstatus', watch, '-b'], needs=['watch-boot'], timeout=300)
+                        runner.xcode('watch-tests', 'platform=watchOS Simulator,id=' + watch, only=['RideIntercomWatchUITests'],
+                                     needs=['watch-ready', 'ios-tests-acceptance'], scheme='RideIntercomWatch')
+                finally:
+                    if watch_lease.acquired:
+                        watch_lease.cleanup('watch-final')
         except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
             runner.record('simulator-availability', [], 'blocked', None, time.monotonic(), str(error))
     # A concurrent edit invalidates evidence rather than silently passing.

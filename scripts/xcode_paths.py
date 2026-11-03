@@ -20,7 +20,24 @@ def scheme_configuration(root, scheme, action='TestAction'):
     return node.get('buildConfiguration')
 
 
+def scheme_primary_app(root, scheme):
+    """Resolve the scheme's runnable App, rather than assuming a platform target."""
+    path = Path(root) / 'RideIntercom.xcodeproj/xcshareddata/xcschemes' / (scheme + '.xcscheme')
+    try:
+        references = ET.parse(path).getroot().findall('LaunchAction/BuildableProductRunnable/BuildableReference')
+        if len(references) != 1:
+            raise ValueError('The shared scheme must identify one runnable App')
+        reference = references[0]
+        target, product = reference.get('BlueprintName'), reference.get('BuildableName')
+        if not target or not product or Path(product).name != product or Path(product).suffix != '.app':
+            raise ValueError('The shared scheme must identify an App target and product')
+        return target, product
+    except (OSError, ET.ParseError):
+        raise ValueError('The shared Xcode scheme is missing or unreadable') from None
+
+
 def xcode_build_settings(root, scheme, destination, configuration):
+    app_target, app_product = scheme_primary_app(root, scheme)
     command = ['xcodebuild', '-project', 'RideIntercom.xcodeproj', '-scheme', scheme,
                '-destination', destination, '-configuration', configuration, '-showBuildSettings', '-json']
     # Build settings can contain development credentials. Never print or persist
@@ -30,7 +47,7 @@ def xcode_build_settings(root, scheme, destination, configuration):
         raise ValueError('Xcode could not resolve the scheme build settings')
     try:
         targets = [row['buildSettings'] for row in json.loads(result.stdout)
-                   if row.get('target') == 'RideIntercom']
+                   if row.get('target') == app_target]
         if len(targets) != 1:
             raise ValueError('Expected one App target')
         values = targets[0]
@@ -38,7 +55,9 @@ def xcode_build_settings(root, scheme, destination, configuration):
                     'CONFIGURATION', 'PLATFORM_NAME', 'RIDEINTERCOM_STORAGE_NAMESPACE')}
         if settings['CONFIGURATION'] != configuration:
             raise ValueError('Unexpected configuration')
-        platform = 'iphonesimulator' if 'platform=iOS Simulator' in destination else 'macosx' if 'platform=macOS' in destination else None
+        destination_platform = dict(part.split('=', 1) for part in destination.split(',') if '=' in part).get('platform')
+        platform = {'iOS Simulator': 'iphonesimulator', 'macOS': 'macosx',
+                    'watchOS Simulator': 'watchsimulator'}.get(destination_platform)
         if settings['PLATFORM_NAME'] != platform:
             raise ValueError('Unexpected platform')
         for key in ('BUILD_DIR', 'TARGET_BUILD_DIR'):
@@ -48,7 +67,7 @@ def xcode_build_settings(root, scheme, destination, configuration):
             settings[key] = str(path.resolve())
         if not Path(settings['TARGET_BUILD_DIR']).is_relative_to(Path(settings['BUILD_DIR'])):
             raise ValueError('App products must be inside the build products directory')
-        if settings['FULL_PRODUCT_NAME'] != 'RideIntercom.app':
+        if settings['FULL_PRODUCT_NAME'] != app_product:
             raise ValueError('Unexpected App product')
     except (ValueError, KeyError, TypeError, AttributeError):
         raise ValueError('Xcode returned incomplete or inconsistent App build settings') from None

@@ -183,17 +183,19 @@ class ValidationTests(unittest.TestCase):
         marker = self.runner.out / (name + '-host-started')
         configuration = 'Debug-Validation'
         namespace = 'RideIntercom.Validation.Xcode'
-        platform = 'macosx' if destination.startswith('platform=macOS') else 'iphonesimulator'
+        platform = ('macosx' if destination.startswith('platform=macOS') else
+                    'watchsimulator' if destination.startswith('platform=watchOS Simulator') else 'iphonesimulator')
+        product = 'RideIntercomWatch.app' if scheme == 'RideIntercomWatch' else 'RideIntercom.app'
         products = Path(self.temporary.name) / 'Xcode Default/Build/Products'
-        target_dir = products / (configuration + ('' if platform == 'macosx' else '-iphonesimulator'))
+        target_dir = products / (configuration + ('' if platform == 'macosx' else '-' + platform))
         settings = dict(BUILD_DIR=str(products), TARGET_BUILD_DIR=str(target_dir),
-                        FULL_PRODUCT_NAME='RideIntercom.app', CONFIGURATION=configuration,
+                        FULL_PRODUCT_NAME=product, CONFIGURATION=configuration,
                         PLATFORM_NAME=platform, RIDEINTERCOM_STORAGE_NAMESPACE=namespace)
         def run(stage, command, **kwargs):
             commands[stage] = command
             code = 'pass'
             if 'build-for-testing' in command:
-                app = target_dir / 'RideIntercom.app'
+                app = target_dir / product
                 info = app / ('Contents/Info.plist' if platform == 'macosx' else 'Info.plist')
                 info.parent.mkdir(parents=True, exist_ok=True)
                 values = {'StorageNamespace': namespace, 'CFBundleVersion': '315'}
@@ -232,6 +234,16 @@ class ValidationTests(unittest.TestCase):
                               skip=None if reuse_build or only_tests else 'Recovery', reuse_build=reuse_build,
                               scheme=scheme)
         return commands, marker
+
+    def test_watch_scheme_uses_selected_host_and_watchsimulator_run(self):
+        commands, marker = self.xcode_fixture('watch-tests', 'platform=watchOS Simulator,id=owned',
+                                             scheme='RideIntercomWatch', stale_platform=True)
+        self.assertTrue(marker.exists())
+        self.assertEqual(self.runner.results['watch-tests-host-preflight']['status'], 'passed')
+        execution = commands['watch-tests']
+        self.assertIn('_watchsimulator_fixture.xctestrun', execution[execution.index('-xctestrun') + 1])
+        report = json.loads((self.runner.out / 'watch-tests-host-preflight.json').read_text())
+        self.assertTrue(all('/RideIntercomWatch.app/' in path for path in report['hostInfoPaths']))
 
     def test_recovery_reuses_standard_build_and_checks_its_actual_host(self):
         commands, marker = self.xcode_fixture('ios-tests', 'platform=iOS Simulator,id=owned')
@@ -461,7 +473,10 @@ class ValidationTests(unittest.TestCase):
         shutil.copy2(self.module.ROOT / 'scripts/xcode_paths.py', scripts / 'xcode_paths.py')
         schemes = scripts.parent / 'RideIntercom.xcodeproj/xcshareddata/xcschemes'
         schemes.mkdir(parents=True)
-        (schemes / 'RideIntercom.xcscheme').write_text('<Scheme><LaunchAction buildConfiguration="Debug"/></Scheme>')
+        (schemes / 'RideIntercom.xcscheme').write_text(
+            '<Scheme><LaunchAction buildConfiguration="Debug"><BuildableProductRunnable><BuildableReference '
+            'BlueprintName="RideIntercom" BuildableName="RideIntercom.app"/></BuildableProductRunnable>'
+            '</LaunchAction></Scheme>')
         output = root / 'build output'
         output.mkdir()
         alias = root / 'output-link'
