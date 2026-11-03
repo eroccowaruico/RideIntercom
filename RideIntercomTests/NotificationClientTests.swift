@@ -611,9 +611,11 @@ struct NotificationClientTests {
         let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
         #expect(h.viewModel.createTalkGroup(name: "Existing group"))
         let snapshot = owner.watchSnapshot(), person = try #require(snapshot.targets.first { $0.id.contains("|user|") })
-        let group = try #require(snapshot.targets.first { $0.id.contains("|group|") })
-        #expect(!group.canNotify)
-        #expect(await owner.handleWatchRequest(.init(.requestCall(group.id), snapshot: snapshot)).problem == .denied)
+        // The Watch lists individuals only; a group ID sent anyway is not a destination there.
+        #expect(!snapshot.targets.contains { $0.id.contains("|group|") })
+        let groupID = try #require(h.viewModel.regularGroups.first?.id)
+        let group = "\(h.viewModel.localMemberIdentity.memberID)|group|\(groupID.uuidString)"
+        #expect(await owner.handleWatchRequest(.init(.requestCall(group), snapshot: snapshot)).problem == .missingDestination)
         #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot)).problem == .denied)
         #expect(await owner.handleWatchRequest(.init(.requestCall("missing"), snapshot: snapshot)).problem == .missingDestination)
         #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot), now: snapshot.validUntil).problem == .stale)

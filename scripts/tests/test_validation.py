@@ -207,7 +207,8 @@ class ValidationTests(unittest.TestCase):
                 if fault == 'missing-info':
                     info.unlink()
                 host = '__TESTROOT__/' + str(app.relative_to(products))
-                targets = [{'TestHostPath': host}, {'TestHostPath': '__TESTROOT__/UI-Runner.app', 'UITargetAppPath': host}]
+                targets = [{'TestHostPath': host, 'BlueprintName': 'RideIntercomTests', 'SkipTestIdentifiers': ['LocalStoreKitTests']},
+                           {'TestHostPath': '__TESTROOT__/UI-Runner.app', 'UITargetAppPath': host}]
                 if fault == 'outside-host':
                     targets[0]['TestHostPath'] = str(self.runner.out / 'RideIntercom.app')
                 if fault != 'missing-run':
@@ -240,6 +241,8 @@ class ValidationTests(unittest.TestCase):
         original = commands['ios-tests']
         recovery = commands2['ios-recovery']
         self.assertIn('-skip-testing:Recovery', original)
+        # A command-line skip replaces the scheme's skipped tests, so they are restated.
+        self.assertIn('-skip-testing:RideIntercomTests/LocalStoreKitTests', original)
         self.assertIn('-only-testing:Recovery', recovery)
         self.assertEqual(original[original.index('-xctestrun') + 1], recovery[recovery.index('-xctestrun') + 1])
         build = commands['ios-tests-build']

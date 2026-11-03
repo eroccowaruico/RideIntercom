@@ -97,7 +97,7 @@ struct CallDisconnectTimerTests {
 
     @Test func watchStartUsesItsOwnSettingWithoutChangingThePhoneSetting() async throws {
         var now = Date(timeIntervalSince1970: 2_000_000_000)
-        let h = AppTestSupport.makeHarness(callAccessNow: { now }), vm = h.viewModel
+        let h = try AppTestSupport.makeHarnessWithSavedUser(callAccessNow: { now }), vm = h.viewModel
         defer { vm.disconnect() }
         let owner = AppCallOwner(account: vm.accountSession, viewModel: vm)
         let snapshot = owner.watchSnapshot(now: now)
@@ -214,7 +214,7 @@ struct CallDisconnectTimerTests {
 
     @Test func watchSnapshotCannotUnmutePastAShorterCallDeadlineBeforeTheNextTick() async throws {
         var now = Date(timeIntervalSince1970: 2_000_000_000)
-        let h = AppTestSupport.makeHarness(callAccessNow: { now }), vm = h.viewModel
+        let h = try AppTestSupport.makeHarnessWithSavedUser(callAccessNow: { now }), vm = h.viewModel
         defer { vm.disconnect() }
         vm.setCallDisconnectInterval(.oneMinute, usingWatch: true)
         let owner = AppCallOwner(account: vm.accountSession, viewModel: vm)

@@ -124,7 +124,7 @@ import Testing
     }
 
     @Test func watchAudioPassesThroughThePhoneCallWithoutOpeningPhoneInputOrPlayback() async throws {
-        let h = AppTestSupport.makeHarness(), received = Mutex<[Float]>([]), ready = Mutex(false)
+        let h = try AppTestSupport.makeHarnessWithSavedUser(), received = Mutex<[Float]>([]), ready = Mutex(false)
         let vm = h.viewModel
         let owner = AppCallOwner(account: vm.accountSession, viewModel: vm)
         var actions: [WatchCallAction] = []

@@ -249,7 +249,10 @@ class Runner:
         for identifier in ([only] if isinstance(only, str) else only or []):
             command.append(f'-only-testing:{identifier}')
         if skip:
-            command.append(f'-skip-testing:{skip}')
+            # A command-line skip replaces the scheme's skipped tests in the xctestrun,
+            # so restate them; otherwise scheme-excluded suites would run here.
+            for identifier in (xctestrun_skips(test_run) if test_run and not plan_name else []) + [skip]:
+                command.append(f'-skip-testing:{identifier}')
         self.run(name, command, needs=[preflight])
         summary_name = name + '-summary'
         self.run(summary_name, ['xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', str(bundle)], needs=[name], timeout=60)
@@ -305,6 +308,18 @@ def snapshot(out):
         path = ROOT / name
         hashes[name] = file_fingerprint(path)
     (out / 'inputs.json').write_text(json.dumps(hashes, ensure_ascii=False, indent=2) + '\n')
+
+
+def xctestrun_skips(path):
+    """Scheme-skipped tests recorded in a generated xctestrun, as -skip-testing identifiers."""
+    try:
+        data = plistlib.loads(Path(path).read_bytes())
+    except (OSError, plistlib.InvalidFileException, ValueError):
+        return []
+    return [f'{target["BlueprintName"]}/{identifier}'
+            for configuration in data.get('TestConfigurations', [])
+            for target in configuration.get('TestTargets', []) if target.get('BlueprintName')
+            for identifier in target.get('SkipTestIdentifiers', [])]
 
 
 def main():
@@ -380,6 +395,7 @@ def main():
         try:
             with exclusive_run(simulator_resource_root() / 'run.lock'):
                 lease = SimulatorLease(runner, simulator_resource_root() / 'reusable.json')
+                audio_pin = None
                 try:
                     runner.run('simulator-runtimes', ['xcrun', 'simctl', 'list', 'runtimes', '-j'], needs=['swift-toolchain'], timeout=60)
                     runtimes = json.loads((runner.out / 'simulator-runtimes.log').read_text())['runtimes']
@@ -392,12 +408,23 @@ def main():
                         runner.run('simulator-boot', ['xcrun', 'simctl', 'boot', sim], timeout=120)
                         runner.run('simulator-ready', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], needs=['simulator-boot'], timeout=180)
                         runner.run('simulator-appearance', ['xcrun', 'simctl', 'ui', sim, 'appearance', os.environ.get('SIMULATOR_APPEARANCE', 'dark')], needs=['simulator-ready'], timeout=30)
+                        # Separate host input and output defaults leave the Simulator microphone at
+                        # 0 Hz; pin both to one 48 kHz device as the audio E2E does (audio check tests).
+                        from scripts.audio_e2e import SimulatorAudioPin, run_devicectl_json
+                        audio_pin = SimulatorAudioPin(sim, run_devicectl_json)
+                        try:
+                            device = audio_pin.pin()
+                            runner.record('simulator-audio-device', [], 'passed', 0, time.monotonic(), 'Input and output pinned to ' + device)
+                        except (ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
+                            runner.record('simulator-audio-device', [], 'failed', 1, time.monotonic(), str(error))
                         recovery = 'RideIntercomUITests/RideIntercomUITests/testCorruptGroupStoreRecovery'
                         runner.xcode('ios-tests', 'platform=iOS Simulator,id=' + sim, only='RideIntercomUITests' if mode == 'ios-ui' else None,
                                      needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'], skip=recovery)
                         runner.xcode('ios-recovery', 'platform=iOS Simulator,id=' + sim, only=recovery,
                                      needs=['ios-tests-acceptance'], reuse_build='ios-tests')
                 finally:
+                    if audio_pin is not None:
+                        audio_pin.restore()
                     if lease.acquired:
                         lease.cleanup('simulator-final')
         except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:

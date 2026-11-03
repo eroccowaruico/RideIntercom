@@ -24,6 +24,19 @@ enum AppTestSupport {
         let audioDriver: OfflineAudioDriver
     }
 
+    /// One regular group plus one saved person. The Watch offers individuals only, so its
+    /// tests need a saved user as well as a group.
+    static func makeHarnessWithSavedUser(remote: String = "friend",
+                                         callAccessNow: @escaping @MainActor () -> Date = Date.init) throws -> Harness {
+        let group = try IntercomGroup(name: "Riders", members: [.init(id: "member-local", displayName: "You")], accessSecret: "original-key")
+        let h = makeHarness(groups: [group], callAccessNow: callAccessNow)
+        let token = try GroupInviteToken.make(authority: testInvitationAuthority(), signer: testIdentitySigner(remote),
+            groupID: group.id, groupName: group.name, groupSecret: "original-key", inviterMemberID: remote)
+        try h.viewModel.acceptInviteURL(GroupInviteTokenCodec.joinURL(for: token))
+        h.viewModel.disconnect()
+        return h
+    }
+
     static func makeHarness(
         accountSession: AppleAccountSession? = nil,
         audioSessionManager: AudioSessionManager? = nil,

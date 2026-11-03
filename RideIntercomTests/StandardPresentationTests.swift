@@ -57,7 +57,7 @@ struct StandardPresentationTests {
     }
 
     @Test func layoutSwitchOnlyRemapsUnavailableTabs() {
-        #expect(AppTab.diagnostics.available(in: .standard) == .call)
+        #expect(AppTab.diagnostics.available(in: .standard) == .users)
         #expect(AppTab.users.available(in: .advanced) == .users)
         #expect(AppTab.groups.available(in: .advanced) == .groups)
         #expect(AppTab.users.available(in: .standard) == .users)
