@@ -5,6 +5,8 @@ struct CallPanel: View {
     @Bindable var viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
     let close: () -> Void
+    @State private var settings: DestinationSettingsTarget?
+    @State private var addingMembers: IntercomGroup?
 
     var body: some View {
         NavigationStack {
@@ -20,9 +22,50 @@ struct CallPanel: View {
                     Button("Close", systemImage: "chevron.down", action: close)
                         .accessibilityIdentifier("closeCallButton")
                 }
+                // Always present, so the toolbar does not change shape between calls.
+                ToolbarItem(placement: .primaryAction) {
+                    CallMoreMenu(viewModel: viewModel, settings: $settings, addingMembers: $addingMembers)
+                }
             }
         }
+        .destinationSettingsSheet($settings, viewModel: viewModel)
+        .sheet(item: $addingMembers) { group in SavedUsersView(viewModel: viewModel, groupID: group.id) }
         .inspectorColumnWidth(min: 320, ideal: 380, max: 420)
+    }
+}
+
+/// The call's More menu: settings for this group or person, adding members, and the invitation.
+struct CallMoreMenu: View {
+    let viewModel: IntercomViewModel
+    @Binding var settings: DestinationSettingsTarget?
+    @Binding var addingMembers: IntercomGroup?
+
+    var body: some View {
+        if let group = viewModel.selectedGroup {
+            Menu {
+                if group.kind == .group {
+                    Button("Group Settings", systemImage: "gearshape") { settings = .group(group.id) }
+                        .accessibilityIdentifier("callGroupSettingsButton")
+                    Button(LocalizedStringKey(viewModel.interfaceMode == .standard ? "Add Members" : "Add Saved Users"),
+                           systemImage: "person.badge.plus") { addingMembers = group }
+                        .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: group.id).isEmpty
+                                  || group.members.count >= IntercomGroup.maximumMemberCount)
+                        .accessibilityIdentifier("callAddMembersButton")
+                } else {
+                    // A removed saved user leaves the entry disabled, so the menu is never empty.
+                    let userID = viewModel.savedUserID(forDirectCall: group)
+                    Button("User Settings", systemImage: "gearshape") { settings = userID.map { .user($0) } }
+                        .disabled(userID == nil)
+                        .accessibilityIdentifier("callUserSettingsButton")
+                }
+                if viewModel.canShareSelectedGroup {
+                    CallInvitationButton(viewModel: viewModel, group: group)
+                }
+            } label: {
+                Label("More", systemImage: "ellipsis")
+            }
+            .accessibilityIdentifier("callMoreMenu")
+        }
     }
 }
 
@@ -39,7 +82,7 @@ struct CallAccessory: View {
                     Label {
                         Text(viewModel.callTitle(for: group)).lineLimit(1)
                     } icon: {
-                        CallSurfaceStatusIcon(status: viewModel.callStatus(for: id))
+                        CallStatusSymbol(status: viewModel.callStatus(for: id))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
@@ -87,6 +130,39 @@ struct RecentCallSection: View {
                 }
                 .accessibilityIdentifier("recentCallButton")
             }
+        }
+    }
+}
+
+/// In-app status symbol: the system surfaces' symbols and colors without their widget-only
+/// modifiers, and a real progress view while connecting. Widget rendering stays in
+/// `CallSurfaceStatusIcon`.
+struct CallStatusSymbol: View {
+    let status: StandardCallStatus
+
+    var body: some View {
+        if status == .connecting {
+            ProgressView().controlSize(.mini).tint(AppColorPalette.warning)
+        } else {
+            Image(systemName: symbol).foregroundStyle(color)
+        }
+    }
+
+    private var symbol: String {
+        switch status {
+        case .chooseDestination, .ready, .connecting: "phone"
+        case .inCall: "waveform"
+        case .audioPaused: "headphones"
+        case .audioUnavailable: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var color: Color {
+        switch status {
+        case .chooseDestination, .ready, .connecting: AppColorPalette.neutral
+        case .inCall: AppColorPalette.success
+        case .audioPaused: AppColorPalette.warning
+        case .audioUnavailable: AppColorPalette.danger
         }
     }
 }

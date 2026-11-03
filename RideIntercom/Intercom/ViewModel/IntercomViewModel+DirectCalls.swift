@@ -15,6 +15,23 @@ extension IntercomViewModel {
         groups.first { $0.id == activeGroupID && $0.kind == .direct }
     }
 
+    /// The saved user behind a direct call, for User Settings in the call's menu.
+    func savedUserID(forDirectCall group: IntercomGroup) -> UUID? {
+        guard group.kind == .direct else { return nil }
+        let remote = Set(group.members.map(\.id)).subtracting([localMemberIdentity.memberID])
+        return savedRemoteUsers.first { !remote.isDisjoint(with: $0.memberIDs) }?.id
+    }
+
+    /// The direct call already saved for a user, without selecting or creating it.
+    func existingDirectCall(for userID: UUID) -> IntercomGroup? {
+        groups.first { $0.kind == .direct && savedUserID(forDirectCall: $0) == userID }
+    }
+
+    /// True while a call with this destination is live, for the list rows' status.
+    func isInCall(with destination: CallDestination) -> Bool {
+        hasAnyActiveGroupConnection && isActiveCall(destination)
+    }
+
     @discardableResult
     func selectUser(_ userID: UUID, connectIfIdle: Bool = true) -> Bool {
         groupErrorMessage = nil

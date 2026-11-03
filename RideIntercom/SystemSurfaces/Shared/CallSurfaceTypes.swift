@@ -12,6 +12,24 @@ nonisolated enum StandardCallStatus: String, Codable, Hashable, Sendable {
         case .audioUnavailable: "Audio unavailable — check your settings"
         }
     }
+    /// The state alone, for one line; `detail` puts the reason on the next line.
+    var title: String {
+        switch self {
+        case .chooseDestination, .ready: "Ready to connect"
+        case .connecting: "Connecting"
+        case .inCall: "In a call"
+        case .audioPaused: "Audio paused"
+        case .audioUnavailable: "Audio unavailable"
+        }
+    }
+    var detail: String? {
+        switch self {
+        case .connecting: "Waiting for others"
+        case .audioPaused: "Check your audio device"
+        case .audioUnavailable: "Check your settings"
+        case .chooseDestination, .ready, .inCall: nil
+        }
+    }
 }
 
 /// Displayed-operation identity only. No account identifier, credentials or names.

@@ -4,17 +4,36 @@ import RTC
 extension IntercomViewModel {
     // Presentation must not load keys or issue an invitation.
     var canShareSelectedGroup: Bool {
-        guard canEditSavedGroups, let group = selectedGroup,
-              groups.contains(where: { $0.id == group.id }),
+        guard let group = selectedGroup, groups.contains(where: { $0.id == group.id }) else { return false }
+        return canShare(group)
+    }
+
+    /// Group Settings shares a saved group by ID, independent of the call being shown.
+    func canShareGroup(_ groupID: UUID) -> Bool {
+        guard let group = groups.first(where: { $0.id == groupID }) else { return false }
+        return canShare(group)
+    }
+
+    private func canShare(_ group: IntercomGroup) -> Bool {
+        guard canEditSavedGroups,
               group.members.contains(where: { $0.id == localMemberIdentity.memberID }),
               !groupsMissingKeys.contains(group.id) || group.accessSecret != nil else { return false }
         guard group.kind == .direct || canManageRegularGroups else { return false }
         return group.kind != .direct || directCallRecipient(for: group) != nil || directCallAccountRecipient(for: group) != nil
     }
 
+    func makeGroupInviteURL(for groupID: UUID) -> URL? {
+        guard canShareGroup(groupID), let group = groups.first(where: { $0.id == groupID }) else { return nil }
+        return makeInviteURL(for: group)
+    }
+
     func makeSelectedGroupInviteURL(expectedGroupID: UUID? = nil) -> URL? {
         guard canShareSelectedGroup, let group = selectedGroup,
               expectedGroupID == nil || expectedGroupID == group.id else { return nil }
+        return makeInviteURL(for: group)
+    }
+
+    private func makeInviteURL(for group: IntercomGroup) -> URL? {
         do {
             guard let credential = try credential(for: group) else {
                 groupErrorMessage = "This group has no saved key. Ask a member for a new invitation."

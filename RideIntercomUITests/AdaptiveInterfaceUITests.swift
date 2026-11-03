@@ -65,8 +65,11 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         screenshot("\(japanese ? "Japanese" : "English") landscape muted call")
 
         tab(japanese ? "ユーザー" : "Users", id: "usersTab")
-        assertVisible(app.buttons["standardCurrentCallButton"])
-        app.buttons["standardCurrentCallButton"].tap()
+        // The accessory above the tab bar replaces a Current Call row in the lists.
+        XCTAssertFalse(app.buttons["standardCurrentCallButton"].exists)
+        let accessory = app.buttons["callAccessoryOpenButton"].firstMatch
+        assertVisible(accessory)
+        accessory.tap()
         assertVisible(end)
         assertVisible(status)
         XCTAssertEqual(status.label, mutedText)
@@ -75,6 +78,11 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         revealInSettings(nameField)
         assertVisible(nameField)
         screenshot("\(japanese ? "Japanese" : "English") landscape settings")
+        // Internet setup lives in Advanced Settings for Developers.
+        let developer = app.buttons["moreSettingsLink"].firstMatch
+        revealInSettings(developer)
+        assertVisible(developer)
+        developer.tap()
         let setup = app.buttons["configureInternetConnection"].firstMatch
         revealInSettings(setup)
         assertVisible(setup)
@@ -126,12 +134,18 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         XCTAssertTrue(app.frame.insetBy(dx: -1, dy: -1).contains(control.frame), control.debugDescription, file: file, line: line)
     }
 
-    /// In landscape the call accessory above the tab bar leaves less room; scroll the form if needed.
+    /// In landscape the bars and the call accessory leave a short visible band.
+    /// Scroll in small steps toward the row so it stops inside the band instead of
+    /// overshooting under the navigation bar.
     @MainActor private func revealInSettings(_ element: XCUIElement) {
-        let form = app.descendants(matching: .any)["settingsScrollView"].firstMatch
-        for _ in 0..<4 where !(element.exists && element.isHittable) {
-            form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
-                .press(forDuration: 0.05, thenDragTo: form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)))
+        // The developer sub-page is its own Form without the Settings root identifier.
+        let root = app.descendants(matching: .any)["settingsScrollView"].firstMatch
+        let form = root.exists ? root : app.collectionViews.firstMatch
+        for _ in 0..<12 where !(element.exists && element.isHittable) {
+            let below = !element.exists || element.frame.midY > form.frame.midY
+            let from = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.5 : 0.35))
+            let to = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.35 : 0.5))
+            from.press(forDuration: 0.3, thenDragTo: to)
         }
     }
 

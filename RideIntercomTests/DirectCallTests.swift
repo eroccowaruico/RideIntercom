@@ -45,6 +45,23 @@ struct DirectCallTests {
         #expect(vm.makeSelectedGroupInviteURL() == nil)
     }
 
+    /// The call's More menu finds User Settings through the direct call; once the saved user
+    /// is removed the entry stays but has no user to open.
+    @Test func directCallMoreMenuFollowsTheSavedUser() throws {
+        let h = try harness(local: "alice", remote: "bob")
+        let vm = h.viewModel
+        defer { vm.disconnect() }
+        let user = try #require(vm.savedRemoteUsers.first)
+        #expect(vm.selectUser(user.id))
+        let direct = try #require(vm.selectedGroup)
+        #expect(vm.savedUserID(forDirectCall: direct) == user.id)
+        #expect(vm.existingDirectCall(for: user.id)?.id == direct.id)
+        vm.connectLocal()
+        #expect(vm.isInCall(with: .user(user.id)))
+        #expect(vm.removeSavedUser(user.id))
+        #expect(vm.savedUserID(forDirectCall: direct) == nil)
+    }
+
     @Test func recipientBoundInviteIsSharedAndReusesSameCallOnBothSides() throws {
         let a = try harness(local: "alice", remote: "bob")
         let b = try harness(local: "bob", remote: "alice")

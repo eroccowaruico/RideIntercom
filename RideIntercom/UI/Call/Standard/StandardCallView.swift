@@ -114,9 +114,10 @@ struct StandardCallView: View {
                 } else {
                     Image(systemName: statusSymbol).foregroundStyle(statusColor).accessibilityHidden(true)
                 }
-                Text(LocalizedStringKey(viewModel.standardCallStatus.message))
+                Text(LocalizedStringKey(viewModel.standardCallStatus.title))
                     .accessibilityIdentifier("standardCallStatus")
             }.font(.title3.weight(.semibold))
+            statusDetail
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, compact ? 0 : AppSpacing.m)
@@ -138,9 +139,12 @@ struct StandardCallView: View {
             HStack {
                 if viewModel.standardCallStatus == .connecting { ProgressView().controlSize(.small) }
                 else { Image(systemName: statusSymbol).foregroundStyle(statusColor).accessibilityHidden(true) }
-                Text(LocalizedStringKey(viewModel.standardCallStatus.message))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("standardCallStatus")
+                VStack(alignment: .leading) {
+                    Text(LocalizedStringKey(viewModel.standardCallStatus.title))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("standardCallStatus")
+                    statusDetail
+                }
             }
             .font(.title3.weight(.semibold))
         }
@@ -151,9 +155,8 @@ struct StandardCallView: View {
     }
 
     @ViewBuilder private func detailSections(_ group: IntercomGroup) -> some View {
-        if viewModel.canShareSelectedGroup { Section { CallInvitationButton(viewModel: viewModel, group: group) } }
         if group.kind == .direct {
-            Section { Text("Share the invitation the first time. Your friend needs to open this call too; this does not send a notification.")
+            Section { Text("Share the invitation from More the first time. Your friend needs to open this call too; this does not send a notification.")
                 .font(.footnote).foregroundStyle(.secondary) }
         }
         if group.id == viewModel.activeGroupID {
@@ -178,9 +181,8 @@ struct StandardCallView: View {
                         DestinationAvatar(isGroup: false)
                         Text(member.resolvedDisplayName)
                         Spacer()
-                        Button { editingMember = .init(groupID: group.id, member: member) } label: { Label("Edit Name", systemImage: "pencil") }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
                     }
+                    .frame(minHeight: 44)
                     if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
                         VStack(alignment: .leading) {
                             Text("Volume").accessibilityIdentifier("standardPeerVolumeLabel-\(member.id)")
@@ -191,7 +193,8 @@ struct StandardCallView: View {
                         }
                     }
                 }
-                .appDeleteActions(isEnabled: group.kind == .group) { viewModel.removeMember(member.id, from: group.id) }
+                .memberRowActions(edit: { editingMember = .init(groupID: group.id, member: member) },
+                                  canDelete: group.kind == .group) { viewModel.removeMember(member.id, from: group.id) }
             }
             if group.kind == .group {
                 Button("Add Saved Users", systemImage: "person.badge.plus") { addingUsers = group }
@@ -201,6 +204,16 @@ struct StandardCallView: View {
             }
         } header: {
             Text("People in This Call").accessibilityIdentifier("standardCallParticipantsHeading")
+        }
+    }
+
+    /// The reason sits on its own line under the state instead of after a dash.
+    @ViewBuilder private var statusDetail: some View {
+        if let detail = viewModel.standardCallStatus.detail {
+            Text(LocalizedStringKey(detail))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("standardCallStatusDetail")
         }
     }
 

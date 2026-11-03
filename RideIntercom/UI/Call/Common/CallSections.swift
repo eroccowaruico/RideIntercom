@@ -48,17 +48,8 @@ struct DirectoryGroupLabel: View {
     let group: IntercomGroup
 
     var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                Text(group.name)
-                if group.id == viewModel.activeGroupID && viewModel.hasAnyActiveGroupConnection {
-                    Text(LocalizedStringKey(viewModel.callStatus(for: group.id).message))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        } icon: {
-            DestinationAvatar(isGroup: true)
-        }
+        DirectoryRowLabel(title: group.name, isGroup: true,
+                          detail: String(localized: "\(group.members.count) people"),
+                          status: viewModel.isInCall(with: .group(group.id)) ? viewModel.callStatus(for: group.id) : nil)
     }
 }

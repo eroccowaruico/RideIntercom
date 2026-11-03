@@ -5,9 +5,12 @@ struct CallInvitationButton: View {
     let viewModel: IntercomViewModel
     let group: IntercomGroup
     var accessibilityIdentifier = "inviteButton"
+    /// Settings and the add-members step share a named group, not whichever call is shown.
+    var bindsToGroup = false
 
     var body: some View {
-        ShareLink(item: InvitationShare(viewModel: viewModel, groupID: group.id),
+        ShareLink(item: bindsToGroup ? InvitationShare(viewModel: viewModel, settingsGroupID: group.id)
+                                  : InvitationShare(viewModel: viewModel, groupID: group.id),
                   subject: Text("RideCom Invite"),
                   message: Text("Join me for a call on RideCom."),
                   preview: SharePreview(Text(viewModel.callTitle(for: group)))) {

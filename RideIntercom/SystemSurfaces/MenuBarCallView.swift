@@ -41,6 +41,27 @@ struct MenuBarCallView: View {
     }
 }
 
+/// Main-menu shortcuts for the call: ⌘⇧M mute and ⌘⇧E end, acting on the call shown when chosen.
+struct CallCommands: Commands {
+    let owner: AppCallOwner
+
+    var body: some Commands {
+        CommandMenu("Call") {
+            let call = owner.currentLivePresentation
+            Button(LocalizedStringKey(call?.isMuted == true ? "Unmute" : "Mute")) {
+                if let call { owner.setCallSurfaceMuted(!call.isMuted, reference: call.reference) }
+            }
+            .keyboardShortcut("m", modifiers: [.command, .shift])
+            .disabled(call?.canControlMicrophone != true)
+            Button("End Call") {
+                if let call { try? owner.performCallSurfaceAction(.end, reference: call.reference) }
+            }
+            .keyboardShortcut("e", modifiers: [.command, .shift])
+            .disabled(call == nil)
+        }
+    }
+}
+
 private extension StandardCallStatus {
     var menuBarTitle: String {
         switch self {

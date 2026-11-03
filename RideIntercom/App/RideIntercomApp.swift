@@ -56,6 +56,7 @@ struct RideIntercomApp: App {
             CommandGroup(replacing: .newItem) {
                 EmptyView()
             }
+            CallCommands(owner: callOwner)
         }
         MenuBarExtra("RideCom", systemImage: callOwner.currentLivePresentation?.isMuted == true ? "mic.slash" : "phone", isInserted: Binding(
             get: { callOwner.isMenuBarInserted }, set: { callOwner.viewModel?.setMenuBarEnabled($0) })) {

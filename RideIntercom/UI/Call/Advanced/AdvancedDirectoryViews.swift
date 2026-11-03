@@ -3,8 +3,7 @@ import SwiftUI
 struct AdvancedUsersView: View {
     let viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
-    @State private var editingUser: SavedUser?
-    @State private var managingCall: GroupManagementSelection?
+    @State private var settings: DestinationSettingsTarget?
     @State private var pendingSwitch: CallDestination?
 
     var body: some View {
@@ -19,29 +18,16 @@ struct AdvancedUsersView: View {
                         description: Text("Invite someone, or accept an invitation to save each other."))
                 }
                 ForEach(viewModel.savedRemoteUsers) { user in
-                    HStack {
-                        Button {
-                            viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
-                        } label: {
-                            Label { Text(user.resolvedDisplayName) } icon: {
-                                DestinationAvatar(isGroup: false)
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("standardUser-\(user.id)")
-                        Spacer()
-                        Button {
-                            if viewModel.selectUser(user.id, connectIfIdle: false), let group = viewModel.selectedGroup, group.kind == .direct {
-                                managingCall = .init(groupID: group.id, kind: .direct, userID: user.id)
-                            }
-                        } label: { Label("Manage", systemImage: "info.circle") }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
-                            .accessibilityLabel("Manage \(user.resolvedDisplayName)")
-                            .accessibilityIdentifier("manageUser-\(user.id)")
-                        Button { editingUser = user } label: { Label("Edit Name", systemImage: "pencil") }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
+                    Button {
+                        viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
+                    } label: {
+                        DirectoryRowLabel(title: user.resolvedDisplayName, isGroup: false,
+                                          status: viewModel.isInCall(with: .user(user.id)) ? viewModel.callStatus(for: viewModel.activeGroupID) : nil)
                     }
-                    .appDeleteActions { _ = viewModel.removeSavedUser(user.id) }
+                    .accessibilityIdentifier("standardUser-\(user.id)")
+                    .destinationRowActions("User Settings", settings: { settings = .user(user.id) }) {
+                        _ = viewModel.removeSavedUser(user.id)
+                    }
                 }
             } footer: {
                 Text("Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.")
@@ -57,8 +43,7 @@ struct AdvancedUsersView: View {
             }
         }
         .accessibilityIdentifier("standardUsersList")
-        .sheet(item: $editingUser) { user in SavedUserNameView(viewModel: viewModel, user: user) }
-        .sheet(item: $managingCall) { selection in GroupManagementView(viewModel: viewModel, selection: selection) }
+        .destinationSettingsSheet($settings, viewModel: viewModel)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
     }
 }
@@ -68,7 +53,7 @@ struct AdvancedGroupsView: View {
     @Binding var selectedTab: AppTab
     @State private var createsGroup = false
     @State private var previousSelection: UUID?
-    @State private var managingCall: GroupManagementSelection?
+    @State private var settings: DestinationSettingsTarget?
     @State private var pendingSwitch: CallDestination?
 
     var body: some View {
@@ -80,26 +65,15 @@ struct AdvancedGroupsView: View {
                     ContentUnavailableView("No Groups Yet", systemImage: "person.3", description: Text("Create a group or open an invitation from a friend."))
                 }
                 ForEach(viewModel.regularGroups) { group in
-                    HStack {
-                        Button {
-                            viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
-                        } label: {
-                            DirectoryGroupLabel(viewModel: viewModel, group: group)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                        }
-                        .accessibilityIdentifier("standardGroup-\(group.id)")
-                        .buttonStyle(.borderless)
-                        Button {
-                            guard let current = viewModel.regularGroups.first(where: { $0.id == group.id }) else { return }
-                            viewModel.selectGroup(current, connectIfIdle: false)
-                            managingCall = .init(groupID: current.id, kind: .group)
-                        } label: { Label("Manage", systemImage: "info.circle") }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
-                            .accessibilityLabel("Manage \(group.name)")
-                            .accessibilityIdentifier("manageGroup-\(group.id)")
+                    Button {
+                        viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
+                    } label: {
+                        DirectoryGroupLabel(viewModel: viewModel, group: group)
                     }
-                    .appDeleteActions { viewModel.deleteGroup(group.id) }
+                    .accessibilityIdentifier("standardGroup-\(group.id)")
+                    .destinationRowActions("Group Settings", settings: { settings = .group(group.id) }) {
+                        viewModel.deleteGroup(group.id)
+                    }
                 }
             }
             CallErrorSection(viewModel: viewModel)
@@ -114,7 +88,7 @@ struct AdvancedGroupsView: View {
         .sheet(isPresented: $createsGroup, onDismiss: {
             if viewModel.selectedGroup?.id != previousSelection { selectedTab = .call }
         }) { SavedUsersView(viewModel: viewModel) }
-        .sheet(item: $managingCall) { selection in GroupManagementView(viewModel: viewModel, selection: selection) }
+        .destinationSettingsSheet($settings, viewModel: viewModel)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
     }

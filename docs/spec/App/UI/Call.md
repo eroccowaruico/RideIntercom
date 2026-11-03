@@ -8,17 +8,17 @@
 
 Watch音声のpairが失われ、Watchでの再準備が必要な場合は、この端末のResume Audioを表示しない。Watchからの再開始案内に従う。既存pairを保持した一時停止では共通の再開操作を利用する。
 
-初期表示はStandard。`Users` / `Groups` / `Settings`の標準TabViewを使い（最初はUsers）、Diagnosticsは含めない。通話はタブにせず、接続先を選んだときに`inspector`で開く（iPhoneはシート、iPad・Macは右の列、`closeCallButton`で閉じる）。通話中に通話を閉じている間は、iOSはタブバー上の`tabViewBottomAccessory`（`callAccessory`。名前と状態、`callAccessoryMuteButton`、長押しで切断）、macOSはツールバーの`callAccessoryOpenButton`から開き直す。切断すると通話を閉じて一覧へ戻り、未選択・未接続だけの画面は置かない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。Users / Groupsと参加者は人物と通常グループを共通の青いアバターとし、`person.fill`／`person.3.fill`の記号で区別する。アイコン画像の変更機能は持たず、名前と種別を併記する。Users / GroupsはStandardとAdvancedで画面構成を分け、保存状態・共通操作と同じ意味の表示部品を共用する。Callはモードに応じた画面を使用する。接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
+初期表示はStandard。`Users` / `Groups` / `Settings`の標準TabViewを使い（最初はUsers）、Diagnosticsは含めない。通話はタブにせず、接続先を選んだときに開く（compact幅のiPhoneは`sheet`、iPad・Macは`inspector`の右の列、`closeCallButton`で閉じる）。iPhoneで`inspector`のcompact表示（OSのシート）を使わないのは、ツールバーに…メニューを置いたその表示を一覧から開き直すとSwiftUIのガラス描画が停止したため（2026-11-03、[証跡](../../../validation/history/画面デザインと録音操作の整理.md#通話のメニューと一覧の行から設定を開く)）。通話中に通話を閉じている間は、iOSはタブバー上の`tabViewBottomAccessory`（`callAccessory`。名前と状態、`callAccessoryMuteButton`、長押しで切断）、macOSはツールバーの`callAccessoryOpenButton`から開き直す。切断すると通話を閉じて一覧へ戻り、未選択・未接続だけの画面は置かない。以下の詳細画面はSettingsのApp LayoutでAdvancedへ切り替えて使用する。Users / Groupsと参加者は人物と通常グループを共通の青いアバターとし、`person.fill`／`person.3.fill`の記号で区別する。アイコン画像の変更機能は持たず、名前と種別を併記する。Users / GroupsはStandardとAdvancedで画面構成を分け、保存状態・共通操作と同じ意味の表示部品を共用する。Callはモードに応じた画面を使用する。接続先の選択とグループ作成はUsers / Groupsタブへ集約する。画面だけを切り替え、接続・選択・ミュート・一覧の正本は同じIntercomViewModelに保つ。
 
 | 画面・項目ID | 表示と操作 |
 |---|---|
-| Call / `standardCallScreen` | 人物・グループを区別する固定の丸いアイコンと相手名または通常グループ名を中央の見出しにし、縦は1列、横のcompact高さと幅600pt以上（iPad・Mac）では左の固定列と右の詳細一覧の2列にする。右の詳細一覧（`standardCallDetailsScroll`）だけをスクロールし、主要操作を隠さない。横のcompact高さでアクセシビリティ文字サイズのときは、上を情報一覧、下を3操作の固定領域（`standardCallFixedControls`）に分け、操作のラベルを記号の横に並べて全文を表示する。名前は2行まで折り返す。状態ヒーロー（`standardCallHero`）は名前を見出し、状態の語をtitle3 semiboldで示す。接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う。触覚は会話中への遷移でsuccess、音声停止への遷移でwarning、接続の終了でstop、マイク／出力ミュートの切替でselectionを出す |
+| Call / `standardCallScreen` | 人物・グループを区別する固定の丸いアイコンと相手名または通常グループ名を中央の見出しにし、縦は1列、横のcompact高さと幅600pt以上（iPad・Mac）では左の固定列と右の詳細一覧の2列にする。右の詳細一覧（`standardCallDetailsScroll`）だけをスクロールし、主要操作を隠さない。横のcompact高さでアクセシビリティ文字サイズのときは、上を情報一覧、下を3操作の固定領域（`standardCallFixedControls`）に分け、操作のラベルを記号の横に並べて全文を表示する。名前は2行まで折り返す。状態ヒーロー（`standardCallHero`）は名前を見出し、状態の語（`standardCallStatus`）をtitle3 semiboldで示し、理由があれば次の行に補足（`standardCallStatusDetail`、例: 相手の参加を待っています）を置く。状態と補足をダッシュで1行につながない。接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う。触覚は会話中への遷移でsuccess、音声停止への遷移でwarning、接続の終了でstop、マイク／出力ミュートの切替でselectionを出す |
 | `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、切断はdangerの円形glassProminentで下のラベルは`End`（日本語「切断」、`standardEndControlLabel`）。切断確認を取消すと既存通話・ミュートを維持し、確定時だけ描画時に捕捉したCallReferenceを共通endCallへ渡す。接続は共通startCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。一覧の行のタップで別の通話を置き換えるのは、確認（「通話を切り替えますか？」、`switchCallConfirmButton`の「切り替える」とキャンセル）の後だけ |
 | `standardMuteButton` / `standardMicrophoneStatus` | 円形glassのmic.slash記号を固定し、ミュート中だけdangerの選択状態とする。下のラベル（`standardMuteState`）はMute／Mutedで状態を語でも示す。共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する。Watch音声選択中はマイク操作を表示せず「Watchでマイクを操作」と案内し、以前のphone mute値を状態として表示しない |
-| `standardUsersList` | 保存済みユーザーだけを表示。相手の行のタップは`openDestination`で内部通話先を解決し、待機中ならその場で接続を始めてCallへ移る（[操作の流れ](../../../design/操作の流れ.md)の「選んだら接続」）。現在の通話先なら再接続せずに開き、別の通話中なら切替を確認する。開始できない場合も接続先を表示し、理由を示す。内部グループの作成や選択は要求しない。鉛筆で本人名と端末の呼び名を編集できる |
-| `standardGroupsList` | 通常グループだけを表示し、進行中の通話の実状態（接続待ち・会話中・音声停止等）を行内に示す。行のタップはUsersと同じく待機中は接続を始め、別の通話中は切替を確認する。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
-| Current Call | 別の相手・一覧の閲覧中でも進行中の通話へ戻る／終了する操作を維持する。保存ユーザー削除で現在の通話を隠さない |
-| 招待・参加者 | 既存の署名付き共有、本人名／別名編集、通常groupへの保存ユーザー追加・削除を共用する。groupで会っただけの相手をUsersへ追加しない |
+| `standardUsersList` | 保存済みユーザーだけを表示。相手の行のタップは`openDestination`で内部通話先を解決し、待機中ならその場で接続を始めてCallへ移る（[操作の流れ](../../../design/操作の流れ.md)の「選んだら接続」）。現在の通話先なら再接続せずに開き、別の通話中なら切替を確認する。開始できない場合も接続先を表示し、理由を示す。内部グループの作成や選択は要求しない。行の長押し（contextMenu）とswipeに`User Settings`（相手の設定）と`Delete`を置き、鉛筆・`info.circle`は置かない。接続中の相手の行には状態の語（`directoryRowCallStatus`、記号だけ状態色）を示す。空のときは`ContentUnavailableView`と`emptyUsersInviteButton`、10人を超えると検索（`.searchable`）を出す |
+| `standardGroupsList` | 通常グループだけを表示し、進行中の通話の実状態（接続待ち・会話中・音声停止等）を行内に示す。行のタップはUsersと同じく待機中は接続を始め、別の通話中は切替を確認する。行の補助は人数（例: 4 people／4人）。行の長押し・swipeに`Group Settings`（グループの設定）と`Delete`を置く。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する。空のときは`emptyGroupsCreateButton`、10件を超えると検索を出す |
+| Current Call | Standardでは一覧に置かず、通話のアクセサリ（`callAccessoryOpenButton`）が進行中の通話へ戻す。別の接続先を表示した後でも進行中の通話を開き直す。Advancedは一覧先頭のCurrent Call（`standardCurrentCallButton`）も維持する。保存ユーザー削除で現在の通話を隠さない |
+| 招待・参加者 | 通話のツールバーの…メニュー（`callMoreMenu`）に、通常groupは`Group Settings`（`callGroupSettingsButton`）と`Add Members`（Advancedは`Add Saved Users`、`callAddMembersButton`）、個別通話は`User Settings`（`callUserSettingsButton`）、共有可能なら招待（`inviteButton`）を置く。通話の画面に共有だけのボタンを単独で置かない。参加者の名前編集と通常groupからの削除は行の長押し・swipe。既存の署名付き共有、本人名／別名編集、通常groupへの保存ユーザー追加・削除を共用する。groupで会っただけの相手をUsersへ追加しない |
 | `standardSpeakerButton` / 入出力 | 出力ミュートも円形の明示選択状態とisSelected・value（Muted／Unmuted）で示し、既存toggleOutputMuteへ渡す。選択状態の塗りはアクセント色とし、隣の切断（danger）と同じ塗りを並べない。Audioのスピーカー音量は現在値の百分率（`standardSpeakerVolumeValue`）とSliderの両端の`speaker`／`speaker.wave.3`を表示する。マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
 | 復旧 | 保存読込失敗・破損の既存reload/reset操作、通話・音声のエラーと再試行案内を同じ状態から表示する |
 
@@ -81,16 +81,16 @@ Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存�
 
 Groupsの`New Group`（`standardCreateGroupButton`）から標準Formを開く。名前入力（`savedUsersGroupNameField`）、ユーザー選択（`selectUser-{UUID}`）、`Create Group`（`saveUserSelectionButton`）で保存済みの相手を使うグループを作成する。`Cancel`（`closeSavedUsersButton`）では変更しない。
 
-鉛筆ボタン（`editUser-{UUID}`）は表示名編集を開き、本人名（`savedUserOriginalName`）も表示する。`Use Shared Name`（`resetUserNameButton`）で端末の呼び名を解除して最新の本人名へ戻せる。`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
+Usersの行の`User Settings`（`userSettingsView`）と作成・追加Formの鉛筆ボタン（`editUser-{UUID}`）は相手の設定を開き、本人名（`savedUserOriginalName`）も表示する。相手の設定には呼び出しの許可、内部のdirect groupがあれば招待（`userSettingsInviteButton`）、`Delete User`（`deleteUserButton`、確認`confirmDeleteUserButton`）を置き、`closeUserSettingsButton`で閉じる。`Use Shared Name`（`resetUserNameButton`）で端末の呼び名を解除して最新の本人名へ戻せる。`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
 
-StandardではCallのParticipants、AdvancedではGroupsの管理画面に`Add Saved Users`（`addSavedUsersButton`）を置く。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、追加後に招待の共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
+StandardではCallのParticipants（`addSavedUsersButton`）、両モードで通話の…メニュー（`callAddMembersButton`）とGroup Settings（`groupSettingsAddMembersButton`）から保存ユーザーを追加する。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、追加後に招待の共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
 
 保存ユーザーの追加はこの端末のメンバー一覧への記録だけであり、group鍵は相手へ届かない。鍵は招待URL（署名付きのgroup ID・名前・鍵）を相手が開いたときに相手の端末へ保存され、相手のgroup一覧へ自動で追加される。そのため、保存ユーザーを1人以上選んだCreate Group / Add Usersが成功したら、sheetを閉じずに同じsheetを招待の段階へ切り替える。
 
 | 状態 | 成立条件 | 表示 | 可能な操作 | 復帰先 |
 |---|---|---|---|---|
 | Ideal | 保存ユーザーを1人以上含む作成・追加が保存された | 見出し`Send Invitation`、相手が開くとgroupと鍵が相手の端末に追加されInternetなしで近くで会話できる旨（`sendGroupInvitationMessage`）、共有ボタン（`addedUsersInviteButton`）、追加だけでは一覧に載るだけで後からInviteでも送れる旨 | 共有、Done（`finishAddingUsersButton`） | Doneで元の画面。作成時は新groupの通話画面 |
-| Partial | 共有せずにDoneを押した | 追加済みのメンバーは一覧に残る | 管理画面のInvite（`inviteButton`）で後から共有 | 管理画面 |
+| Partial | 共有せずにDoneを押した | 追加済みのメンバーは一覧に残る | Group Settingsの招待（`groupSettingsInviteButton`）または通話の…メニューの`inviteButton`で後から共有 | 元の画面 |
 | Error | 保存に失敗した | 選択画面のまま`savedUsersErrorLabel` | 選択の変更・再試行・Cancel | 選択画面 |
 | Empty | 保存ユーザーを選ばずにgroupを作成した | 招待の段階を出さずにsheetを閉じる | 通常どおり | 新groupの通話画面 |
 | Loading | 該当しない | 保存は同期処理で、共有URLはOS共有画面の要求時に作るため待ち表示を持たない | — | — |
@@ -99,13 +99,16 @@ StandardではCallのParticipants、AdvancedではGroupsの管理画面に`Add S
 
 Users / Groupsのルート識別子`standardUsersList` / `standardGroupsList`は、モード切替前後の既存UIテストとの互換性のためAdvancedでも維持する。状態と操作の所有者は共通のViewModelであり、識別子は画面構成の共有を意味しない。Call配下はStandard・Advanced・Commonに責務ごとに配置する。
 
-## Advancedの管理画面
+## グループの設定と相手の設定
 
-Usersの`manageUser-{UUID}`とGroupsの`manageGroup-{UUID}`から`groupManagementView`を開く。操作時に対象を明示的に選択し、Usersでは必要なdirect groupを準備する。これは表示と管理対象の選択であり、進行中の通話を切り替えない。選択が失敗した場合は管理画面を開かない。
+[操作の流れ](../../../design/操作の流れ.md)の「設定は名前の付いた入口から」に従い、StandardとAdvancedで同じ画面を使う。入口は通話の…メニューと、Users / Groupsの行の長押し（contextMenu）・swipeだけで、行のタップは接続の1つの意味に保つ。開いても選択中の通話・表示中の通話を切り替えない。
 
-管理画面は対象group IDと種別を固定し、保存一覧の現在値を表示する。対象の消失、種別不一致、選択変更、directの保存ユーザー消失では管理操作を表示せず、開いている子画面を閉じる。追加・編集の開始と遅延削除でも対象を再確認し、招待は共有時にも対象IDと権限を再検証する。`closeGroupManagementButton`で閉じる。
+| 画面 | 項目 | 操作 |
+|---|---|---|
+| Group Settings（`groupSettingsView`） | 名前（`groupSettingsNameField`）、メンバー（行の長押し・swipeで`Edit Name`と`Delete`）、`Add Members`（`groupSettingsAddMembersButton`）、招待（`groupSettingsInviteButton`）、`Delete Group`（`deleteGroupButton`） | `Done`（`saveGroupSettingsButton`）で名前を保存して閉じる。名前は端末内の`renameGroup`で保存し、接続中でも再接続しない。`|`・空白だけは保存しない。`Delete Group`は確認（`confirmDeleteGroupButton`）の後に削除し、接続中なら切断する。`Cancel`（`closeGroupSettingsButton`）は名前を保存しない |
+| User Settings（`userSettingsView`） | 端末での呼び名、本人の名前、Use Shared Name、呼び出しの許可、招待（`userSettingsInviteButton`）、`Delete User`（`deleteUserButton`） | `Save`で呼び名を保存。削除は確認の後で、既存groupと進行中の通話を保持する |
 
-通常groupの管理画面にはメンバー一覧、名前編集、削除、`addSavedUsersButton`、`inviteButton`を置く。directの管理画面には保存ユーザーの名前編集と`inviteButton`を置く。Callの参加者は状態と音声操作のみを表示する。StandardのCallにある招待・参加者管理は維持する。
+対象groupの消失・種別不一致では設定の内容を表示しない。設定の招待は対象group IDに固定した共有（`InvitationShare(settingsGroupID:)`）を使い、表示中の通話が別のgroupでも、共有時に対象groupの存在・鍵・権限を再検証する。通話画面の招待は従来どおり表示中の通話に固定し、選択が変われば共有しない。Advancedの通話の参加者は状態と音声操作だけを表示する。Standardの通話のメンバーは行の長押し・swipeで名前の編集と通常groupからの削除を行う。
 
 ## 通話画面
 

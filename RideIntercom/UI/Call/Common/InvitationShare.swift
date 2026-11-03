@@ -17,6 +17,15 @@ nonisolated struct InvitationShare: Transferable {
         }
     }
 
+    /// Bound to one saved group: Group Settings can share it while another call is shown.
+    @MainActor
+    init(viewModel: IntercomViewModel, settingsGroupID groupID: UUID) {
+        makeURL = { [weak viewModel] in
+            guard let url = viewModel?.makeGroupInviteURL(for: groupID) else { throw CocoaError(.userCancelled) }
+            return url
+        }
+    }
+
     @MainActor
     init(viewModel: IntercomViewModel, contactInvitationID: UUID) {
         let access = viewModel.accountAccessID

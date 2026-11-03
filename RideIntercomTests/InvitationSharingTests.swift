@@ -76,4 +76,21 @@ struct InvitationSharingTests {
         #expect(keychain.accounts(service: "stale-share.InternetConnection").isEmpty)
     }
 
+    /// Group Settings opened from a list row shares that group without changing which call is shown.
+    @Test func settingsShareIsBoundToItsGroupNotTheSelection() async throws {
+        let account = AccountFixture(); defer { account.remove() }; account.signIn()
+        let h = AppTestSupport.makeHarness(accountSession: account.session)
+        let vm = h.viewModel; defer { vm.disconnect() }
+        let group = try #require(vm.groups.first(where: { $0.kind == .group }))
+        let other = try #require(vm.groups.last(where: { $0.id != group.id }))
+        vm.selectedGroup = other
+        #expect(vm.canShareGroup(group.id))
+        let share = InvitationShare(viewModel: vm, settingsGroupID: group.id)
+        let url = try await URL(importing: share.exported(as: .url), contentType: .url)
+        #expect(try GroupInviteTokenCodec.decodeJoinURL(url).groupID == group.id)
+        #expect(vm.selectedGroup?.id == other.id, "Sharing from settings does not change the shown call")
+        vm.deleteGroup(group.id)
+        #expect(!vm.canShareGroup(group.id))
+        await #expect(throws: (any Error).self) { try await share.exported(as: .url) }
+    }
 }

@@ -129,7 +129,7 @@ extension IntercomViewModel {
         if groupErrorMessage == nil { groupErrorMessage = message }
     }
 
-    private func isActiveCall(_ destination: CallDestination) -> Bool {
+    func isActiveCall(_ destination: CallDestination) -> Bool {
         guard let active = groups.first(where: { $0.id == activeGroupID }) else { return false }
         switch destination {
         case .group(let id): return id == active.id

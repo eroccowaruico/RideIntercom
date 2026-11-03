@@ -45,6 +45,47 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertEqual(microphoneStatus.label, "Microphone muted")
     }
 
+    /// Settings open from named entries: the call's More menu and a row's swipe or menu.
+    /// The row tap only connects, so rows carry no pencil or info buttons.
+    @MainActor
+    func testGroupSettingsOpenFromTheCallMenuAndTheListRow() {
+        defer { attachEvidence("Group settings entries") }
+        startStandardCall()
+        XCTAssertFalse(app.buttons["inviteButton"].exists, "Sharing lives in the More menu")
+        XCTAssertTrue(app.openCallMoreMenuItem("callAddMembersButton").exists)
+        app.buttons["callGroupSettingsButton"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["groupSettingsAddMembersButton"].exists)
+        XCTAssertTrue(app.buttons["deleteGroupButton"].exists)
+        let name = app.textFields["groupSettingsNameField"].firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        name.tap()
+        let renamed = "Renamed " + UUID().uuidString.prefix(6)
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + renamed)
+        app.buttons["saveGroupSettingsButton"].tap()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts[renamed].firstMatch.waitForExistence(timeout: 3), "The open call shows the new name")
+        XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.exists, "Renaming keeps the call")
+
+        openGroups()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardGroup-", renamed)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        XCTAssertTrue(row.descendants(matching: .any)["directoryRowCallStatus"].firstMatch.exists
+                      || app.descendants(matching: .any)["directoryRowCallStatus"].firstMatch.exists, "The live call shows on its row")
+        XCTAssertFalse(app.buttons["Edit Name"].exists)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "manageGroup-")).firstMatch.exists)
+        row.swipeLeft()
+        let settings = app.buttons["Group Settings"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Delete"].firstMatch.exists)
+        settings.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForExistence(timeout: 3))
+        attachEvidence("Group settings from the row")
+        app.buttons["closeGroupSettingsButton"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["callAccessoryOpenButton"].firstMatch.exists, "Settings do not end the call")
+    }
+
     @MainActor
     func testChoosingAnotherGroupDuringACallAsksBeforeSwitching() {
         defer { attachEvidence("Switch confirmation") }
@@ -58,7 +99,8 @@ final class DesignSystemCallUITests: XCTestCase {
             XCTAssertTrue(rows.element(boundBy: row).waitForExistence(timeout: 3))
             let target = rows.element(boundBy: row)
             let targetName = String(target.label.prefix(12))
-            let current = app.buttons["standardCurrentCallButton"].firstMatch
+            // The accessory above the tab bar names the live call.
+            let current = app.buttons["callAccessoryOpenButton"].firstMatch
             XCTAssertTrue(current.waitForExistence(timeout: 3))
             let currentName = current.label
             target.tap()

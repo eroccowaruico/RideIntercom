@@ -122,6 +122,23 @@ extension IntercomViewModel {
         discardUnavailableRecentCall()
     }
 
+    /// The name stays on this device; renaming does not touch the call.
+    @discardableResult
+    func renameGroup(_ groupID: UUID, to name: String) -> Bool {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard IntercomGroup.isValidName(name), !name.contains("|") else {
+            groupErrorMessage = "Enter a group name without |."
+            return false
+        }
+        guard let index = groups.firstIndex(where: { $0.id == groupID && $0.kind == .group }) else { return false }
+        var updated = groups
+        updated[index].name = name
+        guard commitGroups(updated) else { return false }
+        groupErrorMessage = nil
+        if selectedGroup?.id == groupID { selectedGroup?.name = name }
+        return true
+    }
+
     func canRemoveMember(_ memberID: String) -> Bool {
         memberID != localMemberIdentity.memberID
     }

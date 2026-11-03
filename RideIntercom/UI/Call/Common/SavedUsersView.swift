@@ -38,7 +38,7 @@ struct SavedUsersView: View {
             Section {
                 Text("Send the group invitation to the people you added. When they open it, \(group.name) and its key are added on their device, and you can talk nearby without the Internet.")
                     .accessibilityIdentifier("sendGroupInvitationMessage")
-                CallInvitationButton(viewModel: viewModel, group: group, accessibilityIdentifier: "addedUsersInviteButton")
+                CallInvitationButton(viewModel: viewModel, group: group, accessibilityIdentifier: "addedUsersInviteButton", bindsToGroup: true)
             } footer: {
                 Text("Adding people only lists them on this device. You can send the invitation later from Invite.")
             }
@@ -127,6 +127,7 @@ struct SavedUserNameView: View {
     let user: SavedUser
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
+    @State private var confirmsDelete = false
 
     init(viewModel: IntercomViewModel, user: SavedUser) {
         self.viewModel = viewModel; self.user = user
@@ -147,11 +148,35 @@ struct SavedUserNameView: View {
                 .accessibilityIdentifier("resetUserNameButton")
                 Text("Your name for this person stays on this device. Use Shared Name removes your edit and follows their name updates.").font(.footnote)
                 CallNotificationContactSection(viewModel: viewModel, userID: user.id)
+                if let call = viewModel.existingDirectCall(for: user.id), viewModel.canShareGroup(call.id) {
+                    Section {
+                        CallInvitationButton(viewModel: viewModel, group: call, accessibilityIdentifier: "userSettingsInviteButton",
+                                             bindsToGroup: true)
+                    }
+                }
+                Section {
+                    Button("Delete User", systemImage: "trash", role: .destructive) { confirmsDelete = true }
+                        .disabled(!viewModel.canEditSavedGroups)
+                        .accessibilityIdentifier("deleteUserButton")
+                }
                 if let message = viewModel.groupErrorMessage { Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger) }
             }
-            .navigationTitle("Edit User")
+            .formStyle(.grouped)
+            .navigationTitle("User Settings")
+            .accessibilityIdentifier("userSettingsView")
+            .alert("Delete User?", isPresented: $confirmsDelete) {
+                Button("Delete User", role: .destructive) {
+                    if viewModel.removeSavedUser(user.id) { dismiss() }
+                }
+                .accessibilityIdentifier("confirmDeleteUserButton")
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Groups and a call in progress are kept.")
+            }
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.accessibilityIdentifier("closeUserSettingsButton")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         if viewModel.renameSavedUser(user.id, displayName: name) { dismiss() }

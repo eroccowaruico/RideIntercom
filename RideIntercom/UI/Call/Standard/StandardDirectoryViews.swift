@@ -1,38 +1,50 @@
 import SwiftUI
 
+/// Lists show search only once they are long enough to need it.
+let directorySearchThreshold = 10
+
 struct StandardUsersView: View {
     let viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
-    @State private var editingUser: SavedUser?
+    @State private var settings: DestinationSettingsTarget?
     @State private var pendingSwitch: CallDestination?
+    @State private var query = ""
+
+    private var users: [SavedUser] {
+        let users = viewModel.savedRemoteUsers
+        guard !query.isEmpty else { return users }
+        return users.filter { $0.resolvedDisplayName.localizedStandardContains(query) }
+    }
 
     var body: some View {
         List {
-            CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
             RecentCallSection(viewModel: viewModel, pendingSwitch: $pendingSwitch) { selectedTab = .call }
             CallStorageSection(viewModel: viewModel)
             PendingContactInvitationsSection(viewModel: viewModel)
             Section {
                 if viewModel.savedRemoteUsers.isEmpty {
-                    ContentUnavailableView("No Saved Users", systemImage: "person.2",
-                        description: Text("Invite someone, or accept an invitation to save each other."))
-                }
-                ForEach(viewModel.savedRemoteUsers) { user in
-                    HStack {
-                        Button {
-                            viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
-                        } label: {
-                            Label { Text(user.resolvedDisplayName) } icon: {
-                                DestinationAvatar(isGroup: false)
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("standardUser-\(user.id)")
-                        Spacer()
-                        Button { editingUser = user } label: { Label("Edit Name", systemImage: "pencil") }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
+                    ContentUnavailableView {
+                        Label("No Saved Users", systemImage: "person.2")
+                    } description: {
+                        Text("Invite someone, or accept an invitation to save each other.")
+                    } actions: {
+                        Button("Invite Someone") { viewModel.beginContactInvitationPresentation() }
+                            .buttonStyle(.glassProminent)
+                            .disabled(!viewModel.canEditSavedGroups)
+                            .accessibilityIdentifier("emptyUsersInviteButton")
                     }
-                    .appDeleteActions { _ = viewModel.removeSavedUser(user.id) }
+                }
+                ForEach(users) { user in
+                    Button {
+                        viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
+                    } label: {
+                        DirectoryRowLabel(title: user.resolvedDisplayName, isGroup: false,
+                                          status: viewModel.isInCall(with: .user(user.id)) ? viewModel.callStatus(for: viewModel.activeGroupID) : nil)
+                    }
+                    .accessibilityIdentifier("standardUser-\(user.id)")
+                    .destinationRowActions("User Settings", settings: { settings = .user(user.id) }) {
+                        _ = viewModel.removeSavedUser(user.id)
+                    }
                 }
             } footer: {
                 Text("Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.")
@@ -42,6 +54,7 @@ struct StandardUsersView: View {
         .scrollContentBackground(.hidden)
         .background(AppColorPalette.standardScreenBackground)
         .navigationTitle("Users")
+        .directorySearch($query, count: viewModel.savedRemoteUsers.count)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Invite Someone", systemImage: "plus") { viewModel.beginContactInvitationPresentation() }
@@ -50,7 +63,7 @@ struct StandardUsersView: View {
             }
         }
         .accessibilityIdentifier("standardUsersList")
-        .sheet(item: $editingUser) { user in SavedUserNameView(viewModel: viewModel, user: user) }
+        .destinationSettingsSheet($settings, viewModel: viewModel)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
     }
 }
@@ -60,24 +73,42 @@ struct StandardGroupsView: View {
     @Binding var selectedTab: AppTab
     @State private var createsGroup = false
     @State private var previousSelection: UUID?
+    @State private var settings: DestinationSettingsTarget?
     @State private var pendingSwitch: CallDestination?
+    @State private var query = ""
+
+    private var groups: [IntercomGroup] {
+        let groups = viewModel.regularGroups
+        guard !query.isEmpty else { return groups }
+        return groups.filter { $0.name.localizedStandardContains(query) }
+    }
 
     var body: some View {
         List {
-            CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
             CallStorageSection(viewModel: viewModel)
             Section {
                 if viewModel.regularGroups.isEmpty {
-                    ContentUnavailableView("No Groups Yet", systemImage: "person.3", description: Text("Create a group or open an invitation from a friend."))
+                    ContentUnavailableView {
+                        Label("No Groups Yet", systemImage: "person.3")
+                    } description: {
+                        Text("Create a group or open an invitation from a friend.")
+                    } actions: {
+                        Button("New Group") { beginCreatingGroup() }
+                            .buttonStyle(.glassProminent)
+                            .disabled(!viewModel.canEditSavedGroups)
+                            .accessibilityIdentifier("emptyGroupsCreateButton")
+                    }
                 }
-                ForEach(viewModel.regularGroups) { group in
+                ForEach(groups) { group in
                     Button {
                         viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
                     } label: {
                         DirectoryGroupLabel(viewModel: viewModel, group: group)
                     }
                     .accessibilityIdentifier("standardGroup-\(group.id)")
-                    .appDeleteActions { viewModel.deleteGroup(group.id) }
+                    .destinationRowActions("Group Settings", settings: { settings = .group(group.id) }) {
+                        viewModel.deleteGroup(group.id)
+                    }
                 }
             }
             CallErrorSection(viewModel: viewModel)
@@ -85,16 +116,63 @@ struct StandardGroupsView: View {
         .scrollContentBackground(.hidden)
         .background(AppColorPalette.standardScreenBackground)
         .navigationTitle("Groups")
+        .directorySearch($query, count: viewModel.regularGroups.count)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button("New Group", systemImage: "plus") { previousSelection = viewModel.selectedGroup?.id; createsGroup = true }
+                Button("New Group", systemImage: "plus", action: beginCreatingGroup)
                     .disabled(!viewModel.canEditSavedGroups).accessibilityIdentifier("standardCreateGroupButton")
             }
         }
         .sheet(isPresented: $createsGroup, onDismiss: {
             if viewModel.selectedGroup?.id != previousSelection { selectedTab = .call }
         }) { SavedUsersView(viewModel: viewModel) }
+        .destinationSettingsSheet($settings, viewModel: viewModel)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
+    }
+
+    private func beginCreatingGroup() {
+        previousSelection = viewModel.selectedGroup?.id
+        createsGroup = true
+    }
+}
+
+/// Name, kind symbol and, while connected, the call state with only its symbol colored.
+struct DirectoryRowLabel: View {
+    let title: String
+    let isGroup: Bool
+    var detail: String?
+    let status: StandardCallStatus?
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text(verbatim: title).lineLimit(2)
+                if let status {
+                    Label {
+                        Text(LocalizedStringKey(status.title)).foregroundStyle(.secondary)
+                    } icon: {
+                        CallStatusSymbol(status: status)
+                    }
+                    .font(.subheadline)
+                    .accessibilityIdentifier("directoryRowCallStatus")
+                } else if let detail {
+                    Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+        } icon: {
+            DestinationAvatar(isGroup: isGroup)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+extension View {
+    @ViewBuilder func directorySearch(_ query: Binding<String>, count: Int) -> some View {
+        if count > directorySearchThreshold {
+            searchable(text: query)
+        } else {
+            self
+        }
     }
 }
