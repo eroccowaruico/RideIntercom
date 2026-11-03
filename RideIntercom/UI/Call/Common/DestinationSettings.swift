@@ -73,7 +73,11 @@ struct GroupSettingsView: View {
                     } header: {
                         Text("Members")
                     } footer: {
+                        #if os(macOS)
+                        Text("Control-click a member to rename or remove them.")
+                        #else
                         Text("Touch and hold a member to rename or remove them.")
+                        #endif
                     }
                     if viewModel.canShareGroup(groupID) {
                         Section {

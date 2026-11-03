@@ -103,22 +103,23 @@ struct StandardCallView: View {
 
     private func hero(_ group: IntercomGroup, compact: Bool) -> some View {
         VStack(spacing: compact ? AppSpacing.xs : AppSpacing.l) {
-            DestinationAvatar(isGroup: group.kind == .group, diameter: compact ? 44 : 64)
-            kindLine(group)
+            // At accessibility sizes the state must stay on screen with the controls,
+            // so the decorative avatar and the kind line give way.
+            if !dynamicTypeSize.isAccessibilitySize {
+                DestinationAvatar(isGroup: group.kind == .group, diameter: compact ? 44 : 64)
+                kindLine(group)
+            }
             Text(viewModel.callTitle(for: group))
                 .font(AppTypography.destinationTitle)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .accessibilityAddTraits(.isHeader)
-            HStack(spacing: AppSpacing.m) {
-                if viewModel.standardCallStatus == .connecting {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: statusSymbol).foregroundStyle(statusColor).accessibilityHidden(true)
-                }
-                Text(LocalizedStringKey(viewModel.standardCallStatus.title))
-                    .accessibilityIdentifier("standardCallStatus")
-            }.font(.title3.weight(.semibold))
+            // Words are never broken: when the symbol and state do not fit side by side, stack them.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: AppSpacing.m) { statusSymbolView; statusTitle }
+                VStack(spacing: AppSpacing.xs) { statusSymbolView; statusTitle }
+            }
+            .font(.title3.weight(.semibold))
             statusDetail
             routeLine(group)
         }
@@ -200,6 +201,7 @@ struct StandardCallView: View {
                                                   set: { viewModel.setRemoteOutputVolume(peerID: member.id, volume: Float($0)) }), in: 0...1) {
                                 Text("Volume for \(member.resolvedDisplayName)")
                             }
+                            .labelsHidden()
                         }
                     }
                 }
@@ -215,6 +217,20 @@ struct StandardCallView: View {
         } header: {
             Text("People in This Call").accessibilityIdentifier("standardCallParticipantsHeading")
         }
+    }
+
+    @ViewBuilder private var statusSymbolView: some View {
+        if viewModel.standardCallStatus == .connecting {
+            ProgressView().controlSize(.small)
+        } else {
+            Image(systemName: statusSymbol).foregroundStyle(statusColor).accessibilityHidden(true)
+        }
+    }
+
+    private var statusTitle: some View {
+        Text(LocalizedStringKey(viewModel.standardCallStatus.title))
+            .fixedSize()
+            .accessibilityIdentifier("standardCallStatus")
     }
 
     /// Kind and size above the name: "Group · 4 people" or "User".
@@ -373,6 +389,7 @@ struct StandardCallView: View {
                 } maximumValueLabel: {
                     Image(systemName: "speaker.wave.3")
                 }
+                .labelsHidden()
             }
             if viewModel.supportsSoundIsolation {
                 Toggle("Voice Isolation", isOn: Binding(get: { viewModel.receiveMasterSoundIsolationEnabled },

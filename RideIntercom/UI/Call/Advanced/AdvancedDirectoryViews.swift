@@ -24,6 +24,7 @@ struct AdvancedUsersView: View {
                         DirectoryRowLabel(title: user.resolvedDisplayName, isGroup: false,
                                           status: viewModel.isInCall(with: .user(user.id)) ? viewModel.callStatus(for: viewModel.activeGroupID) : nil)
                     }
+                    .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardUser-\(user.id)")
                     .destinationRowActions("User Settings", settings: { settings = .user(user.id) }) {
                         _ = viewModel.removeSavedUser(user.id)
@@ -70,6 +71,7 @@ struct AdvancedGroupsView: View {
                     } label: {
                         DirectoryGroupLabel(viewModel: viewModel, group: group)
                     }
+                    .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardGroup-\(group.id)")
                     .destinationRowActions("Group Settings", settings: { settings = .group(group.id) }) {
                         viewModel.deleteGroup(group.id)

@@ -41,6 +41,7 @@ struct StandardUsersView: View {
                         DirectoryRowLabel(title: user.resolvedDisplayName, isGroup: false,
                                           status: viewModel.isInCall(with: .user(user.id)) ? viewModel.callStatus(for: viewModel.activeGroupID) : nil)
                     }
+                    .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardUser-\(user.id)")
                     .destinationRowActions("User Settings", settings: { settings = .user(user.id) }) {
                         _ = viewModel.removeSavedUser(user.id)
@@ -105,6 +106,7 @@ struct StandardGroupsView: View {
                     } label: {
                         DirectoryGroupLabel(viewModel: viewModel, group: group)
                     }
+                    .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardGroup-\(group.id)")
                     .destinationRowActions("Group Settings", settings: { settings = .group(group.id) }) {
                         viewModel.deleteGroup(group.id)
@@ -162,12 +164,25 @@ struct DirectoryRowLabel: View {
             }
         } icon: {
             DestinationAvatar(isGroup: isGroup)
+                #if os(macOS)
+                .padding(.trailing, AppSpacing.xs) // Mac labels set the title against the icon.
+                #endif
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
 }
 
 extension View {
+    /// A row is the whole tap target. On Mac a default button in a list draws as a push button.
+    @ViewBuilder func directoryRowButtonStyle() -> some View {
+        #if os(macOS)
+        buttonStyle(.plain)
+        #else
+        self
+        #endif
+    }
+
     @ViewBuilder func directorySearch(_ query: Binding<String>, count: Int) -> some View {
         if count > directorySearchThreshold {
             searchable(text: query)

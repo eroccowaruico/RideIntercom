@@ -17,6 +17,10 @@ struct CallPanel: View {
                     CallEntryView(viewModel: viewModel, selectedTab: $selectedTab)
                 }
             }
+            #if os(iOS)
+            // A sheet's title stays inline so the state and controls keep the height.
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", systemImage: "chevron.down", action: close)

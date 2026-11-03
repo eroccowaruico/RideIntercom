@@ -1767,6 +1767,16 @@
         }
       }
     },
+    "Control-click a member to rename or remove them." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メンバーをControlキーを押しながらクリックすると、名前の変更と削除ができます。"
+          }
+        }
+      }
+    },
     "Copies on other devices and information already shared with friends remain. Purchases and subscriptions are not cancelled." : {
       "extractionState" : "manual",
       "localizations" : {
