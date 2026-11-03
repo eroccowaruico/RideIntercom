@@ -39,6 +39,12 @@ struct SignedInContentView: View {
                     .id(viewModel.interfaceMode)
             }.accessibilityIdentifier("settingsTab")
         }
+        // A tab bar on iPhone, a sidebar on iPad and Mac (switchable on iPad).
+        .tabViewStyle(.sidebarAdaptable)
+        #if os(iOS)
+        // Scrolling a list shrinks the tab bar, and the call accessory with it, out of the way.
+        .tabBarMinimizeBehavior(.onScrollDown)
+        #endif
         .inspector(isPresented: callPresentation(asSheet: false)) {
             CallPanel(viewModel: viewModel, selectedTab: $selectedTab) { selectedTab = listTab }
         }

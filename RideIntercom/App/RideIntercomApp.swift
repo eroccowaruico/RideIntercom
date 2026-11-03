@@ -58,9 +58,17 @@ struct RideIntercomApp: App {
             }
             CallCommands(owner: callOwner)
         }
-        MenuBarExtra("RideCom", systemImage: callOwner.currentLivePresentation?.isMuted == true ? "mic.slash" : "phone", isInserted: Binding(
+        MenuBarExtra(isInserted: Binding(
             get: { callOwner.isMenuBarInserted }, set: { callOwner.viewModel?.setMenuBarEnabled($0) })) {
             MenuBarCallView(owner: callOwner)
+        } label: {
+            // The app glyph identifies RideCom next to other menu bar items; a muted call
+            // shows the microphone state instead.
+            if callOwner.currentLivePresentation?.isMuted == true {
+                Image(systemName: "mic.slash").accessibilityLabel("RideCom")
+            } else {
+                Image("ridecom.glyph").accessibilityLabel("RideCom")
+            }
         }
         .menuBarExtraStyle(.menu)
         #else
