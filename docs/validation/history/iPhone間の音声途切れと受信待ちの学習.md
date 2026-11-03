@@ -54,3 +54,15 @@
 - XcodeはschemeとString Catalogを書き直し、ビルドのたびにビルド番号を進める。[開発方針](../../policies/開発方針.md#ビルドが更新する追跡ファイル)どおり別commitで取り込む。
 - 古いcommitを別worktreeでビルドすると、ローカルpackageが「Folder」として開かれ`Missing package product`で失敗した。二分探索は今回は行っていない。
 - 2026-11-04の区切りで本作業のworktree（二分探索用）は削除済み、作成したbranchはない。他sessionの`design/tabbar-tests`と関連worktreeは稼働中のため残した。
+
+## 残したworktreeとbranchの引継ぎ
+
+2026-11-04 08:06時点。本作業で作ったworktree（`43e7b7c5`の二分探索用）は削除済みで、作ったbranchはない。以下は別session（scratchpad `c8f99b3e-…`）のもので、同sessionのxcodebuildが07:16から実行中、`wt9`のファイルも07:45に更新されていたため削除していない。中身は変更せず、時点の差分だけを`.validation/worktree-handoff-20261104/`（Git管理外）へ写した。稼働中のため、引き継ぐ時点で差分を取り直す。
+
+| 対象 | HEAD | 未コミット（08:06） | 保全ファイル | 引継ぎ |
+|---|---|---|---|---|
+| worktree `wt8`（detached） | `9b1c1668`（main祖先） | `project.pbxproj`のビルド番号577→578だけ | `wt8.patch`（SHA-256 `a1d723b6…0ba1`）、`wt8.status.txt` | mainは既に578以上へ進んでいるため取り込み不要。同sessionの終了後に削除できる |
+| worktree `wt9`／branch `design/tabbar-tests` | `9b1c1668`（main祖先、branch固有のcommitなし） | `SignedInContentView.swift`からiOSの`tabBarMinimizeBehavior(.onScrollDown)`を外し、[Call仕様](../../spec/App/UI/Call.md)の該当記述を削る作業中 | `wt9.patch`（SHA-256 `92f63c77…86f9`）、`wt9.status.txt` | 未検証の作業途中。採否は同sessionの結論、または利用者の判断を待つ。採用する場合はmainへ統合後にbranchとworktreeを削除する |
+| branch `preview`（ローカルとorigin） | `b6423d00` | なし | なし | 開発用Cloudflare設定の固定preview用。mainへ統合済み（`main..preview`は0件）。[Cloudflare試用手順](../../development/Cloudflare試用手順.md#固定プレビューの継続運用)の運用branchのため残す |
+
+未追跡ファイルは両worktreeとも0件。削除するときは`git worktree list`で稼働を確認し、未コミット差分があれば先に保全ファイルと照合する。
