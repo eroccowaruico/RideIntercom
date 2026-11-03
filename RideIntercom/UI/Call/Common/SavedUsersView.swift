@@ -101,7 +101,9 @@ struct SavedUsersView: View {
                 Button("Cancel") { dismiss() }.accessibilityIdentifier("closeSavedUsersButton")
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button(LocalizedStringKey(groupID == nil ? "Create Group" : "Add Users")) {
+                // A new group connects at once when no other call is live, so the button says so.
+                Button(LocalizedStringKey(groupID != nil ? "Add Users"
+                                          : viewModel.hasAnyActiveGroupConnection ? "Create Group" : "Create and Connect")) {
                     let saved = if let groupID {
                         viewModel.addSavedUsers(selection, to: groupID)
                     } else {

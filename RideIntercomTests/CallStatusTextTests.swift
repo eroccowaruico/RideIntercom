@@ -20,5 +20,8 @@ struct CallStatusTextTests {
         #expect(ja("End Call") == "切断")
         #expect(ja("Recent Call") == "前回の接続先")
         #expect(ja("Voice Isolation") == "声を分離")
+        #expect(ja("No Groups Yet") == "まだグループがありません")
+        #expect(ja("Invite Someone") == "新しい相手を追加")
+        #expect(ja("Create and Connect") == "作成して接続")
     }
 }

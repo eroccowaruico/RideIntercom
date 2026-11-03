@@ -2003,6 +2003,16 @@
         }
       }
     },
+    "Create and Connect" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "作成して接続"
+          }
+        }
+      }
+    },
     "Current Call" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2834,7 +2844,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しい相手を招待"
+            "value" : "新しい相手を追加"
           }
         }
       }
@@ -3291,7 +3301,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "グループはまだありません"
+            "value" : "まだグループがありません"
           }
         }
       }

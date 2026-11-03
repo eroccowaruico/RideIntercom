@@ -23,10 +23,9 @@ struct StandardUsersView: View {
             PendingContactInvitationsSection(viewModel: viewModel)
             Section {
                 if viewModel.savedRemoteUsers.isEmpty {
+                    // The heading and one action only; the button says what to do.
                     ContentUnavailableView {
                         Label("No Saved Users", systemImage: "person.2")
-                    } description: {
-                        Text("Invite someone, or accept an invitation to save each other.")
                     } actions: {
                         Button("Invite Someone") { viewModel.beginContactInvitationPresentation() }
                             .buttonStyle(.glassProminent)
@@ -91,8 +90,6 @@ struct StandardGroupsView: View {
                 if viewModel.regularGroups.isEmpty {
                     ContentUnavailableView {
                         Label("No Groups Yet", systemImage: "person.3")
-                    } description: {
-                        Text("Create a group or open an invitation from a friend.")
                     } actions: {
                         Button("New Group") { beginCreatingGroup() }
                             .buttonStyle(.glassProminent)
