@@ -2,6 +2,8 @@
 
 残確認は[未確認事項](未確認事項.md#確認待ちの振り分け)で自動テスト・OS操作・実サービス・署名／配布を区別し、物理端末等の確認だけが残る範囲は[実機確認待ち](実機確認待ち.md)に分ける。未着手・未解決は[バックログ](../backlog/README.md)に維持する。
 
+[iPhone間の音声途切れと受信待ちの学習](history/iPhone間の音声途切れと受信待ちの学習.md)に、Simulator入力0Hzの原因と音声E2Eの復旧、受信待ちの学習による途切れ対策、最終E2Eと実機受入が未実施の境界を記録する。
+
 [画面デザインと録音操作の整理](history/画面デザインと録音操作の整理.md)に、Standard／Advancedの録音ボタン・画面改修、Users新規招待のApp 99件と実Multipeer保存・日英UI、Widget等の表示検証と未確認境界を記録する。
 
 [Apple Watch実機への導入とXcode起動](history/AppleWatch実機への導入とXcode起動.md)に、Watch Ultra 2の開発署名・導入・画面起動と、Xcodeの端末準備待機、iPhoneロックによる未確認の境界を記録する。
