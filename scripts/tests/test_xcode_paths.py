@@ -33,6 +33,21 @@ class XcodeProductPathTests(unittest.TestCase):
                     with patch.object(xcode_paths.subprocess, 'run', return_value=result):
                         self.assertEqual(xcode_paths.xcode_build_settings(validate.ROOT, scheme, destination, 'Debug-Validation'), expected)
 
+    def test_scheme_written_by_xcode_without_target_name_resolves_by_product(self):
+        with tempfile.TemporaryDirectory() as root:
+            schemes = Path(root) / 'RideIntercom.xcodeproj/xcshareddata/xcschemes'
+            schemes.mkdir(parents=True)
+            (schemes / 'Watch.xcscheme').write_text(
+                '<Scheme><LaunchAction><BuildableProductRunnable><BuildableReference '
+                'BuildableName="RideIntercomWatch.app"/></BuildableProductRunnable></LaunchAction></Scheme>')
+            self.assertEqual(xcode_paths.scheme_primary_app(root, 'Watch'), (None, 'RideIntercomWatch.app'))
+            expected = self.settings(root, 'RideIntercomWatch.app', 'watchsimulator')
+            rows = [{'target': 'RideIntercomWatchUITests', 'buildSettings': dict(expected, FULL_PRODUCT_NAME='Tests.xctest')},
+                    {'target': 'RideIntercomWatch', 'buildSettings': expected}]
+            with patch.object(xcode_paths.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=json.dumps(rows))):
+                self.assertEqual(xcode_paths.xcode_build_settings(root, 'Watch', 'platform=watchOS Simulator,id=owned',
+                                                                  'Debug-Validation'), expected)
+
     def test_watch_rejects_wrong_product_platform_and_duplicate_primary_target(self):
         with tempfile.TemporaryDirectory() as root:
             good = self.settings(root, 'RideIntercomWatch.app', 'watchsimulator')

@@ -28,9 +28,11 @@ def scheme_primary_app(root, scheme):
         if len(references) != 1:
             raise ValueError('The shared scheme must identify one runnable App')
         reference = references[0]
+        # Xcode drops BlueprintName from a runnable it rewrites; the product name still
+        # identifies the App, so the target name is optional.
         target, product = reference.get('BlueprintName'), reference.get('BuildableName')
-        if not target or not product or Path(product).name != product or Path(product).suffix != '.app':
-            raise ValueError('The shared scheme must identify an App target and product')
+        if not product or Path(product).name != product or Path(product).suffix != '.app':
+            raise ValueError('The shared scheme must identify an App product')
         return target, product
     except (OSError, ET.ParseError):
         raise ValueError('The shared Xcode scheme is missing or unreadable') from None
@@ -47,7 +49,8 @@ def xcode_build_settings(root, scheme, destination, configuration):
         raise ValueError('Xcode could not resolve the scheme build settings')
     try:
         targets = [row['buildSettings'] for row in json.loads(result.stdout)
-                   if row.get('target') == app_target]
+                   if (row.get('target') == app_target if app_target
+                       else row.get('buildSettings', {}).get('FULL_PRODUCT_NAME') == app_product)]
         if len(targets) != 1:
             raise ValueError('Expected one App target')
         values = targets[0]
