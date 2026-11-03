@@ -46,6 +46,46 @@ final class DesignSystemCallUITests: XCTestCase {
     }
 
     @MainActor
+    func testChoosingAnotherGroupDuringACallAsksBeforeSwitching() {
+        defer { attachEvidence("Switch confirmation") }
+        startStandardCall()
+        let second = "Second " + UUID().uuidString.prefix(6)
+        createGroup(named: second)
+        var asked = false
+        for row in 0..<2 {
+            openGroups()
+            let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-"))
+            XCTAssertTrue(rows.element(boundBy: row).waitForExistence(timeout: 3))
+            let target = rows.element(boundBy: row)
+            let targetName = String(target.label.prefix(12))
+            let current = app.buttons["standardCurrentCallButton"].firstMatch
+            XCTAssertTrue(current.waitForExistence(timeout: 3))
+            let currentName = current.label
+            target.tap()
+            let confirm = app.buttons["switchCallConfirmButton"].firstMatch
+            guard confirm.waitForExistence(timeout: 2) else {
+                XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.waitForExistence(timeout: 3),
+                              "Choosing the current call reopens it")
+                continue
+            }
+            asked = true
+            // On iPhone the dialog is a popover without a Cancel button; tapping outside cancels it.
+            let cancel = app.buttons["switchCallCancelButton"].firstMatch
+            if cancel.exists { cancel.tap() } else { app.otherElements["PopoverDismissRegion"].firstMatch.tap() }
+            XCTAssertTrue(confirm.waitForNonExistence(timeout: 3))
+            XCTAssertEqual(current.label, currentName, "Cancelling keeps the current call")
+            target.tap()
+            XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+            confirm.tap()
+            XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.waitForExistence(timeout: 5))
+            openGroups()
+            XCTAssertTrue(current.waitForExistence(timeout: 3))
+            XCTAssertTrue(current.label.hasPrefix(targetName), "Switching makes the chosen group the current call")
+        }
+        XCTAssertTrue(asked, "One of the two groups is not the current call and must ask before switching")
+    }
+
+    @MainActor
     func testLandscapeCallControlsRemainFixedWhileDetailsScroll() {
         defer { attachEvidence("Landscape call controls") }
         startStandardCall()
@@ -190,6 +230,24 @@ final class DesignSystemCallUITests: XCTestCase {
         name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + "Design " + UUID().uuidString.prefix(6))
         app.buttons["saveUserSelectionButton"].tap()
         XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor private func openGroups() {
+        let groups = app.buttons["groupsTab"].firstMatch
+        if groups.exists { groups.tap() } else { app.tabBars.buttons["Groups"].firstMatch.tap() }
+    }
+
+    @MainActor private func createGroup(named groupName: String) {
+        openGroups()
+        let create = app.buttons["standardCreateGroupButton"].firstMatch
+        XCTAssertTrue(create.waitForExistence(timeout: 3))
+        create.tap()
+        let name = app.textFields["savedUsersGroupNameField"].firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        name.tap()
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + groupName)
+        app.buttons["saveUserSelectionButton"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
     }
 }
 #endif

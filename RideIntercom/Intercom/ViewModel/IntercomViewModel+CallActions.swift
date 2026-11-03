@@ -1,5 +1,7 @@
 import Foundation
 
+enum DestinationOpening: Equatable { case opened, needsSwitchConfirmation }
+
 nonisolated enum CallDestination: Codable, Equatable, Sendable {
     case group(UUID)
     case user(UUID)
@@ -104,6 +106,40 @@ extension IntercomViewModel {
         if activeGroupID == selectedGroup.id, hasAnyActiveGroupConnection { return true }
         connectSelectedGroup(usingWatch: usingWatch)
         return activeGroupID == selectedGroup.id && hasAnyActiveGroupConnection
+    }
+
+    /// Choosing someone from a list: connect when idle and reopen the current call.
+    /// A different live call is replaced only after `switchCall(to:)` is confirmed.
+    func openDestination(_ destination: CallDestination) -> DestinationOpening {
+        if hasAnyActiveGroupConnection, !isActiveCall(destination) { return .needsSwitchConfirmation }
+        connectOrShow(destination)
+        return .opened
+    }
+
+    func switchCall(to destination: CallDestination) { connectOrShow(destination) }
+
+    /// A start that cannot proceed still shows the destination, where the reason is explained.
+    private func connectOrShow(_ destination: CallDestination) {
+        guard !startCall(to: destination, accountAccessID: accountAccessID) else { return }
+        let message = groupErrorMessage
+        switch destination {
+        case .group(let id): if let group = groups.first(where: { $0.id == id }) { selectGroup(group, connectIfIdle: false) }
+        case .user(let id): selectUser(id, connectIfIdle: false)
+        }
+        if groupErrorMessage == nil { groupErrorMessage = message }
+    }
+
+    private func isActiveCall(_ destination: CallDestination) -> Bool {
+        guard let active = groups.first(where: { $0.id == activeGroupID }) else { return false }
+        switch destination {
+        case .group(let id): return id == active.id
+        case .user(let id):
+            guard active.kind == .direct, let user = savedRemoteUsers.first(where: { $0.id == id }) else { return false }
+            if let principal = user.principal, let local = localAccountPrincipal {
+                return active.accountPair?.other(than: local) == principal
+            }
+            return active.members.contains { user.memberIDs.contains($0.id) }
+        }
     }
 
     @discardableResult

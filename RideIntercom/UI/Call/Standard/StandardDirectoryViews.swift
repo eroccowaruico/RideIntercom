@@ -4,6 +4,7 @@ struct StandardUsersView: View {
     let viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
     @State private var editingUser: SavedUser?
+    @State private var pendingSwitch: CallDestination?
 
     var body: some View {
         List {
@@ -18,7 +19,7 @@ struct StandardUsersView: View {
                 ForEach(viewModel.savedRemoteUsers) { user in
                     HStack {
                         Button {
-                            if viewModel.selectUser(user.id, connectIfIdle: false) { selectedTab = .call }
+                            viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
                         } label: {
                             Label { Text(user.resolvedDisplayName) } icon: {
                                 DestinationAvatar(isGroup: false)
@@ -49,6 +50,7 @@ struct StandardUsersView: View {
         }
         .accessibilityIdentifier("standardUsersList")
         .sheet(item: $editingUser) { user in SavedUserNameView(viewModel: viewModel, user: user) }
+        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
     }
 }
 
@@ -57,6 +59,7 @@ struct StandardGroupsView: View {
     @Binding var selectedTab: AppTab
     @State private var createsGroup = false
     @State private var previousSelection: UUID?
+    @State private var pendingSwitch: CallDestination?
 
     var body: some View {
         List {
@@ -68,8 +71,7 @@ struct StandardGroupsView: View {
                 }
                 ForEach(viewModel.regularGroups) { group in
                     Button {
-                        viewModel.selectGroup(group, connectIfIdle: false)
-                        selectedTab = .call
+                        viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
                     } label: {
                         DirectoryGroupLabel(viewModel: viewModel, group: group)
                     }
@@ -91,6 +93,7 @@ struct StandardGroupsView: View {
         .sheet(isPresented: $createsGroup, onDismiss: {
             if viewModel.selectedGroup?.id != previousSelection { selectedTab = .call }
         }) { SavedUsersView(viewModel: viewModel) }
+        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
     }
 }

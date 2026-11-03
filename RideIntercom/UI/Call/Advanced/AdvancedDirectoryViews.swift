@@ -5,6 +5,7 @@ struct AdvancedUsersView: View {
     @Binding var selectedTab: AppTab
     @State private var editingUser: SavedUser?
     @State private var managingCall: GroupManagementSelection?
+    @State private var pendingSwitch: CallDestination?
 
     var body: some View {
         List {
@@ -19,7 +20,7 @@ struct AdvancedUsersView: View {
                 ForEach(viewModel.savedRemoteUsers) { user in
                     HStack {
                         Button {
-                            if viewModel.selectUser(user.id, connectIfIdle: false) { selectedTab = .call }
+                            viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
                         } label: {
                             Label { Text(user.resolvedDisplayName) } icon: {
                                 DestinationAvatar(isGroup: false)
@@ -57,6 +58,7 @@ struct AdvancedUsersView: View {
         .accessibilityIdentifier("standardUsersList")
         .sheet(item: $editingUser) { user in SavedUserNameView(viewModel: viewModel, user: user) }
         .sheet(item: $managingCall) { selection in GroupManagementView(viewModel: viewModel, selection: selection) }
+        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
     }
 }
 
@@ -66,6 +68,7 @@ struct AdvancedGroupsView: View {
     @State private var createsGroup = false
     @State private var previousSelection: UUID?
     @State private var managingCall: GroupManagementSelection?
+    @State private var pendingSwitch: CallDestination?
 
     var body: some View {
         List {
@@ -78,8 +81,7 @@ struct AdvancedGroupsView: View {
                 ForEach(viewModel.regularGroups) { group in
                     HStack {
                         Button {
-                            viewModel.selectGroup(group, connectIfIdle: false)
-                            selectedTab = .call
+                            viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
                         } label: {
                             DirectoryGroupLabel(viewModel: viewModel, group: group)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,6 +114,7 @@ struct AdvancedGroupsView: View {
             if viewModel.selectedGroup?.id != previousSelection { selectedTab = .call }
         }) { SavedUsersView(viewModel: viewModel) }
         .sheet(item: $managingCall) { selection in GroupManagementView(viewModel: viewModel, selection: selection) }
+        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
     }
 }

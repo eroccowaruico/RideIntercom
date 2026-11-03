@@ -13,10 +13,10 @@ Watch音声のpairが失われ、Watchでの再準備が必要な場合は、こ
 | 画面・項目ID | 表示と操作 |
 |---|---|
 | Call / `standardCallScreen` | 人物・グループを区別する固定の丸いアイコンと相手名または通常グループ名を中央の見出しにし、縦は1列、横のcompact高さと幅600pt以上（iPad・Mac）では左の固定列と右の詳細一覧の2列にする。右の詳細一覧（`standardCallDetailsScroll`）だけをスクロールし、主要操作を隠さない。横のcompact高さでアクセシビリティ文字サイズのときは、上を情報一覧、下を3操作の固定領域（`standardCallFixedControls`）に分け、操作のラベルを記号の横に並べて全文を表示する。名前は2行まで折り返す。状態ヒーロー（`standardCallHero`）は名前を見出し、状態の語をtitle3 semiboldで示す。接続前・接続待ち・会話中・音声停止・音声エラーを文言と記号または進捗で示す。認証だけでは会話中にせず、音声準備も成立している状態を使う。触覚は会話中への遷移でsuccess、音声停止への遷移でwarning、接続の終了でstop、マイク／出力ミュートの切替でselectionを出す |
-| `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、切断はdangerの円形glassProminentで下のラベルは`End`（日本語「切断」、`standardEndControlLabel`）。切断確認を取消すと既存通話・ミュートを維持し、確定時だけ描画時に捕捉したCallReferenceを共通endCallへ渡す。接続は共通startCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。選択行のタップだけで既存通話を奪わない |
+| `standardConnectButton` / `standardEndCallButton` | 接続はglassProminent、切断はdangerの円形glassProminentで下のラベルは`End`（日本語「切断」、`standardEndControlLabel`）。切断確認を取消すと既存通話・ミュートを維持し、確定時だけ描画時に捕捉したCallReferenceを共通endCallへ渡す。接続は共通startCallへ渡す。別の通話を閲覧中はSwitch to This Callを明示。一覧の行のタップで別の通話を置き換えるのは、確認（「通話を切り替えますか？」、`switchCallConfirmButton`の「切り替える」とキャンセル）の後だけ |
 | `standardMuteButton` / `standardMicrophoneStatus` | 円形glassのmic.slash記号を固定し、ミュート中だけdangerの選択状態とする。下のラベル（`standardMuteState`）はMute／Mutedで状態を語でも示す。共通setCallMutedへ描画時のCallReferenceと希望値を渡す。ミュート・音声取得中・通話開始待ちを区別する。Watch音声選択中はマイク操作を表示せず「Watchでマイクを操作」と案内し、以前のphone mute値を状態として表示しない |
-| `standardUsersList` | 保存済みユーザーだけを表示。相手の選択は共通selectUserで内部通話先を解決してCallへ移る。内部グループの作成や選択は要求しない。鉛筆で本人名と端末の呼び名を編集できる |
-| `standardGroupsList` | 通常グループだけを表示し、進行中の通話の実状態（接続待ち・会話中・音声停止等）を行内に示す。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
+| `standardUsersList` | 保存済みユーザーだけを表示。相手の行のタップは`openDestination`で内部通話先を解決し、待機中ならその場で接続を始めてCallへ移る（[操作の流れ](../../../design/操作の流れ.md)の「選んだら接続」）。現在の通話先なら再接続せずに開き、別の通話中なら切替を確認する。開始できない場合も接続先を表示し、理由を示す。内部グループの作成や選択は要求しない。鉛筆で本人名と端末の呼び名を編集できる |
+| `standardGroupsList` | 通常グループだけを表示し、進行中の通話の実状態（接続待ち・会話中・音声停止等）を行内に示す。行のタップはUsersと同じく待機中は接続を始め、別の通話中は切替を確認する。New Groupは既存の名前入力・保存ユーザー選択Formを開く。作成確定時の既存開始処理を共用する |
 | Current Call | 別の相手・一覧の閲覧中でも進行中の通話へ戻る／終了する操作を維持する。保存ユーザー削除で現在の通話を隠さない |
 | 招待・参加者 | 既存の署名付き共有、本人名／別名編集、通常groupへの保存ユーザー追加・削除を共用する。groupで会っただけの相手をUsersへ追加しない |
 | `standardSpeakerButton` / 入出力 | 出力ミュートも円形の明示選択状態とisSelected・value（Muted／Unmuted）で示し、既存toggleOutputMuteへ渡す。選択状態の塗りはアクセント色とし、隣の切断（danger）と同じ塗りを並べない。Audioのスピーカー音量は現在値の百分率（`standardSpeakerVolumeValue`）とSliderの両端の`speaker`／`speaker.wave.3`を表示する。マイク／出力ミュート、出力・参加者音量、対応機器の音声分離、機器切断後の再開。経路やcodecの診断値は出さない |
@@ -64,7 +64,7 @@ Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存�
 
 ## Advancedの接続先未選択
 
-Callに接続先が選ばれていないときは、`chooseUserButton`と`chooseGroupButton`からUsers / Groupsタブへ移動する。現在の通話があるときはCurrent Callから戻れ、保存データの復旧操作とエラーも表示する。グループの一覧と新規作成はGroupsタブが提供する。タブ移動や選択だけでは既存通話を切り替えない。
+Callに接続先が選ばれていないときは、`chooseUserButton`と`chooseGroupButton`からUsers / Groupsタブへ移動する。現在の通話があるときはCurrent Callから戻れ、保存データの復旧操作とエラーも表示する。グループの一覧と新規作成はGroupsタブが提供する。タブ移動だけでは既存通話を切り替えず、一覧での別の接続先の選択は切替の確認を経る。
 
 ## ユーザー指定の個別通話
 
@@ -73,7 +73,7 @@ Callに接続先が選ばれていないときは、`chooseUserButton`と`choose
 | Users | 直接招待関係として保存した相手名を`standardUser-{UUID}`の行に表示。共通の`selectUser`へ渡し、双方の確認済みアカウントがあれば別端末でも同じ二人の内部通話先を解決する。自分の別端末は対象外。削除済み・未知のUUIDは画面外から渡しても拒否する |
 | Current Call | 進行中の個別通話を`standardCurrentCallButton`で開く。ユーザー一覧から相手を削除しても終了操作へ戻れる |
 | Groups | kind=groupだけを表示。個別通話の内部ID・group作成操作を要求しない |
-| 個別通話の画面 | タイトルは相手名。Advancedの`directCallHelpLabel`は通常時に個別通話であることを示し、保存ユーザー削除後は現在の通話と終了操作を維持する旨を表示する。既存通話中はConnectまで切り替えない |
+| 個別通話の画面 | タイトルは相手名。Advancedの`directCallHelpLabel`は通常時に個別通話であることを示し、保存ユーザー削除後は現在の通話と終了操作を維持する旨を表示する。既存通話中に別の相手を選んだときは切替の確認を出し、確認するまで切り替えない |
 | Share Call Invite | StandardではCall、AdvancedではUsersの管理画面に置く`inviteButton`は特定の相手宛ての署名付き招待をOS共有画面へ渡す。保存ユーザー削除後は表示しない。通常groupのInviteとは宛先制約が異なる |
 | 参加者操作 | 個別通話ではAdd Saved Users、参加者Delete、招待枠の追加を提供しない。ミュート・音量・音声効果・Disconnectは既存の共通操作を使う |
 

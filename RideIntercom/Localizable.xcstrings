@@ -6004,6 +6004,36 @@
           }
         }
       }
+    },
+    "Switch calls?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通話を切り替えますか？"
+          }
+        }
+      }
+    },
+    "Switch" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切り替える"
+          }
+        }
+      }
+    },
+    "The current call ends." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今の通話は終了します。"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
