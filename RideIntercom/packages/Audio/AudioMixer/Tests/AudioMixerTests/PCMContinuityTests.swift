@@ -97,7 +97,8 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     // After the link stays calm, the wait is released for a low-delay reply.
     for _ in 0..<10 { #expect(try engine.renderOffline(4800, to: output) == .success) }
     for index in 0..<130 { #expect(try engine.renderOffline(4800, to: output) == .success, "calm \(index)") }
-    try source.schedule(.init(sequenceNumber: 3, capturedAt: 1018.1, samples: Array(repeating: 0.3, count: 960)), arrivedAt: 68.1)
+    for _ in 0..<50 { #expect(try engine.renderOffline(4800, to: output) == .success) }
+    try source.schedule(.init(sequenceNumber: 3, capturedAt: 1023.1, samples: Array(repeating: 0.3, count: 960)), arrivedAt: 73.1)
     #expect(source.bufferedDuration <= 0.041)
     #expect(source.playbackResetCount == 0, "Natural conversation pauses are not corrupt clocks")
 }
