@@ -74,13 +74,13 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     try mixer.start(); source.start()
     defer { mixer.stop() }
     let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4800)!
-    try source.schedule(.init(sequenceNumber: 0, capturedAt: 1000, samples: Array(repeating: 0.2, count: 960)))
+    try source.schedule(.init(sequenceNumber: 0, capturedAt: 1000, samples: Array(repeating: 0.2, count: 960)), arrivedAt: 50)
     Thread.sleep(forTimeInterval: 0.01)
     #expect(try engine.renderOffline(2400, to: output) == .success) // 50 ms
     #expect((0..<960).allSatisfy { abs(output.floatChannelData![0][$0]) < 0.001 })
     #expect((960..<1920).allSatisfy { abs(output.floatChannelData![0][$0] - 0.2) < 0.001 })
     // A late packet must retain its whole 20 ms rather than lose its end.
-    try source.schedule(.init(sequenceNumber: 1, capturedAt: 1000.02, samples: Array(repeating: 0.4, count: 960)))
+    try source.schedule(.init(sequenceNumber: 1, capturedAt: 1000.02, samples: Array(repeating: 0.4, count: 960)), arrivedAt: 50.05)
     Thread.sleep(forTimeInterval: 0.01)
     var late: [Float] = []
     for _ in 0..<2 {
@@ -92,12 +92,12 @@ func receiveResamplingDoesNotRepeatTheLastSampleOfEveryPacket(rate: Double) thro
     // The link has proven it can hold a packet: a reply after a short pause
     // keeps that wait instead of losing its first syllables again.
     for index in 0..<30 { #expect(try engine.renderOffline(4800, to: output) == .success, "silence \(index)") }
-    try source.schedule(.init(sequenceNumber: 2, capturedAt: 1003.1, samples: Array(repeating: 0.3, count: 960)))
+    try source.schedule(.init(sequenceNumber: 2, capturedAt: 1003.1, samples: Array(repeating: 0.3, count: 960)), arrivedAt: 53.1)
     #expect(source.bufferedDuration > 0.041, "The learned wait survives a 3 s pause")
     // After the link stays calm, the wait is released for a low-delay reply.
     for _ in 0..<10 { #expect(try engine.renderOffline(4800, to: output) == .success) }
     for index in 0..<130 { #expect(try engine.renderOffline(4800, to: output) == .success, "calm \(index)") }
-    try source.schedule(.init(sequenceNumber: 3, capturedAt: 1018.1, samples: Array(repeating: 0.3, count: 960)))
+    try source.schedule(.init(sequenceNumber: 3, capturedAt: 1018.1, samples: Array(repeating: 0.3, count: 960)), arrivedAt: 68.1)
     #expect(source.bufferedDuration <= 0.041)
     #expect(source.playbackResetCount == 0, "Natural conversation pauses are not corrupt clocks")
 }

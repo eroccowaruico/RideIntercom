@@ -182,10 +182,9 @@ public final class MixerPCMSource {
                            // window cannot be absorbed and is not link jitter.
                            transit - fastest.seconds < limit {
                             // Learn this packet's whole excess transit, not only
-                            // the part the current wait failed to cover. Arrival
-                            // is observed per render quantum: add the packet and
-                            // one more packet-sized quantum of observation error.
-                            let excess = (transit - fastest.seconds) * mixerFormat.sampleRate + 2 * Double(buffer.frameLength)
+                            // the part the current wait failed to cover, plus the
+                            // packet itself.
+                            let excess = (transit - fastest.seconds) * mixerFormat.sampleRate + Double(buffer.frameLength)
                             // The packets held with this one arrive in the same
                             // burst, one learned wait later: keep both inside the
                             // bounded playout window.
