@@ -20,9 +20,9 @@ public final class MixerPCMSource {
     // burst, again and again. Keep the wait each late arrival proved necessary
     // through conversation pauses; release it only after the link stays calm.
     private var jitterMargin: (frames: AVAudioFramePosition, observedAt: TimeInterval)?
-    // Fastest observed transit: local schedule position minus remote capture
-    // time. It may rise only as fast as independent device clocks can drift.
-    private var fastestTransit: (frames: Double, observedAt: TimeInterval)?
+    // Fastest observed transit: local arrival time minus remote capture time.
+    // It may rise only as fast as independent device clocks can drift.
+    private var fastestTransit: (seconds: Double, observedAt: TimeInterval)?
     static let clockDriftAllowance = 0.0002
     static let jitterMarginHold: TimeInterval = 10
     static let jitterMarginReleasePerSecond: TimeInterval = 0.01
@@ -83,7 +83,11 @@ public final class MixerPCMSource {
 	}
 
 	@discardableResult
-	public func schedule(_ frame: PCMFrame, packetizationJitter: TimeInterval = 0) throws -> AudioProcessingReport {
+    /// `arrivedAt` is the local monotonic time the packet arrived (uptime
+    /// seconds by default). Link jitter is learned from it, never from the
+    /// render clock, which also moves for local output events.
+	public func schedule(_ frame: PCMFrame, packetizationJitter: TimeInterval = 0,
+                         arrivedAt: TimeInterval = ProcessInfo.processInfo.systemUptime) throws -> AudioProcessingReport {
 		do {
             guard packetizationJitter.isFinite, (0...0.06).contains(packetizationJitter) else {
                 throw AudioMixerError.pcmSourceScheduleFailed("Invalid packetization timing")
@@ -130,9 +134,9 @@ public final class MixerPCMSource {
                 // Reserve only the sender's measured capture/codec remainder.
                 // This is independent of network jitter; aligned codecs add zero.
                 let margin = adaptivePlayout ? retainedJitterMargin(at: capturedAt) : 0
-                let transit = Double(rendered) - capturedAt * mixerFormat.sampleRate
+                let transit = arrivedAt - capturedAt
                 if let fastest = fastestTransit,
-                   transit >= fastest.frames + (capturedAt - fastest.observedAt) * Self.clockDriftAllowance * mixerFormat.sampleRate {
+                   transit >= fastest.seconds + (capturedAt - fastest.observedAt) * Self.clockDriftAllowance {
                 } else { fastestTransit = (transit, capturedAt) }
                 let requestedLead = nativeLead + margin
                     + AVAudioFramePosition(((delay + packetizationJitter) * mixerFormat.sampleRate).rounded())
@@ -178,7 +182,7 @@ public final class MixerPCMSource {
                             // the part the current wait failed to cover. Arrival
                             // is observed per render quantum: add the packet and
                             // one more packet-sized quantum of observation error.
-                            let excess = transit - fastest.frames + 2 * Double(buffer.frameLength)
+                            let excess = (transit - fastest.seconds) * mixerFormat.sampleRate + 2 * Double(buffer.frameLength)
                             // The packets held with this one arrive in the same
                             // burst, one learned wait later: keep both inside the
                             // bounded playout window.

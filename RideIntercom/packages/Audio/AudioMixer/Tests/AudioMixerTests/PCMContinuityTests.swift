@@ -600,7 +600,7 @@ private func renderedSpeechGaps(utterances: Int, stallEvery: Double, stall: Doub
         while next < packets.count, arrival(packets[next].capturedAt) <= now {
             let packet = packets[next]
             try source.schedule(.init(sequenceNumber: UInt64(next), capturedAt: 1000 + packet.capturedAt,
-                samples: Array(repeating: packet.speech ? 0.3 : 0, count: 480)))
+                samples: Array(repeating: packet.speech ? 0.3 : 0, count: 480)), arrivedAt: now)
             next += 1
             scheduled = true
         }
@@ -632,4 +632,28 @@ private func renderedSpeechGaps(utterances: Int, stallEvery: Double, stall: Doub
 @Test func steadyLinkNeedsNoLearnedWait() throws {
     let gaps = try renderedSpeechGaps(utterances: 4, stallEvery: 0.5, stall: 0)
     #expect(gaps.isEmpty, "A link without jitter keeps every utterance contiguous: \(gaps)")
+}
+
+@Test func localRenderJumpWithCalmArrivalsLearnsNoLinkWait() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 9600)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("local-jump")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.3,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 9600)!
+    for index in 0..<40 {
+        // Every packet arrives 13 ms after capture: the link is calm.
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: 1000 + Double(index) * 0.01,
+            samples: Array(repeating: 0.3, count: 480)), arrivedAt: 50 + Double(index) * 0.01 + 0.013)
+        Thread.sleep(forTimeInterval: 0.002)
+        // An output restart makes the local clock jump 100 ms once.
+        #expect(try engine.renderOffline(index == 20 ? 5280 : 480, to: output) == .success)
+    }
+    #expect(source.playoutAdjustmentCount >= 1, "The local jump expires queued speech")
+    #expect(source.bufferedDuration <= 0.035, "A local render event is not link jitter: \(source.bufferedDuration)")
 }
