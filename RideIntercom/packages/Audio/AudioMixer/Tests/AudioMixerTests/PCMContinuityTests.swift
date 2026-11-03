@@ -697,3 +697,35 @@ private func renderedSpeechGaps(utterances: Int, stallEvery: Double, stall: Doub
     }
     #expect(source.bufferedDuration <= 0.035, "A delay the window cannot absorb is not link jitter: \(source.bufferedDuration)")
 }
+
+@Test func localOutputRestartKeepsTheLearnedLinkWait() throws {
+    let engine = AVAudioEngine()
+    let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 480)
+    let mixer = try AudioMixer(engine: engine, audioFormat: .init())
+    let bus = try mixer.createBus("restart")
+    let source = try bus.addPCMSource(id: "peer", maximumBufferedDuration: 0.12,
+        captureTimePlayoutDelay: 0.002, adaptivePlayout: true)
+    try mixer.routeToOutput(bus)
+    try mixer.start(); source.start()
+    defer { mixer.stop() }
+    let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
+    func packet(_ index: Int, arrived: Double) throws {
+        try source.schedule(.init(sequenceNumber: UInt64(index), capturedAt: 1000 + Double(index) * 0.01,
+            samples: Array(repeating: 0.3, count: 480)), arrivedAt: 50 + arrived)
+        Thread.sleep(forTimeInterval: 0.002)
+        #expect(try engine.renderOffline(480, to: output) == .success)
+    }
+    for index in 0..<10 { try packet(index, arrived: Double(index) * 0.01 + 0.013) }
+    // One packet held 40 ms longer: the link has jitter.
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    #expect(try engine.renderOffline(480, to: output) == .success)
+    try packet(10, arrived: 0.1 + 0.053)
+    let learned = source.bufferedDuration
+    #expect(learned > 0.04)
+    // An output route change restarts the local player, not the link.
+    source.stop(); source.start()
+    try packet(11, arrived: 0.11 + 0.093)
+    #expect(source.bufferedDuration >= learned - 0.011, "Learned \(learned), after restart \(source.bufferedDuration)")
+}

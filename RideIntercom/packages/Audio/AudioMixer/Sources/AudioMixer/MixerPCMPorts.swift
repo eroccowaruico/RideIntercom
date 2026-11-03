@@ -292,8 +292,8 @@ public final class MixerPCMSource {
         lastCapturedEnd = nil
         lastAudibleEnd = 0
         recoveringQuietBurst = false
-        jitterMargin = nil
-        fastestTransit = nil
+        // The learned wait and fastest arrival describe the peer's link, not
+        // this player: an output or input restart keeps them.
         normalizer = MixerPCMStreamNormalizer()
 	}
 
