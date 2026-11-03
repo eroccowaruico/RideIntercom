@@ -20,6 +20,14 @@ extension IntercomViewModel {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(namespace, isDirectory: true).appendingPathComponent("Groups", isDirectory: true)
         let localMemberIdentityStore = UserDefaultsLocalMemberIdentityStore(defaults: defaults)
+        #if DEBUG && RIDEINTERCOM_VALIDATION
+        // UI fixtures start signed in with a name, except the test that checks the name prompt.
+        let environment = ProcessInfo.processInfo.environment
+        if namespace.hasPrefix("RideIntercom.Validation."), environment["RIDEINTERCOM_ACCOUNT_FIXTURE"] != nil,
+           environment["RIDEINTERCOM_NAME_PROMPT"] != "1", !localMemberIdentityStore.loadOrCreate().hasChosenName {
+            localMemberIdentityStore.saveDisplayName(localMemberIdentityStore.loadOrCreate().displayName)
+        }
+        #endif
         return IntercomViewModel(
             accountSession: accountSession,
             groupRepository: GroupRepository(store: FileGroupStore(directory: directory), credentials: KeychainGroupCredentialStore(namespace: namespace)),

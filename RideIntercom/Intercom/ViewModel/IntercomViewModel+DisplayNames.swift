@@ -2,6 +2,9 @@ import Foundation
 import RTC
 
 extension IntercomViewModel {
+    /// Everyone starts as "You"; ask once after sign-in so people can tell each other apart.
+    var needsDisplayNameChoice: Bool { !localMemberIdentity.hasChosenName }
+
     @discardableResult
     func setLocalDisplayName(_ value: String) -> Bool {
         let name = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -10,6 +13,7 @@ extension IntercomViewModel {
         }
         localMemberIdentityStore.saveDisplayName(name)
         localMemberIdentity.displayName = name
+        localMemberIdentity.hasChosenName = true
         applySavedUserNames()
         sendSharedDisplayName()
         groupErrorMessage = nil

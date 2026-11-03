@@ -44,6 +44,32 @@ struct DisplayNameTests {
         #expect(restored.memberID == id && restored.displayName == "山ねこ")
     }
 
+    @Test func choosingANameIsRememberedApartFromTheDefaultName() throws {
+        let suite = "RideIntercom.Tests.NameChoice." + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite)); defer { defaults.removePersistentDomain(forName: suite) }
+        let fresh = UserDefaultsLocalMemberIdentityStore(defaults: defaults).loadOrCreate()
+        #expect(fresh.displayName == "You" && !fresh.hasChosenName, "The default name is not a choice")
+        #expect(!UserDefaultsLocalMemberIdentityStore(defaults: defaults).loadOrCreate().hasChosenName)
+        UserDefaultsLocalMemberIdentityStore(defaults: defaults).saveDisplayName("ナオ")
+        #expect(UserDefaultsLocalMemberIdentityStore(defaults: defaults).loadOrCreate().hasChosenName)
+
+        let legacySuite = suite + ".Legacy"
+        let legacy = try #require(UserDefaults(suiteName: legacySuite)); defer { legacy.removePersistentDomain(forName: legacySuite) }
+        legacy.set("member-legacy", forKey: "RideIntercom.localMemberID")
+        legacy.set("やまねこ", forKey: "RideIntercom.localDisplayName")
+        #expect(UserDefaultsLocalMemberIdentityStore(defaults: legacy).loadOrCreate().hasChosenName,
+                "A name saved before this flag existed counts as chosen")
+    }
+
+    @Test func viewModelAsksForANameUntilOneIsSaved() {
+        let h = AppTestSupport.makeHarness(); let vm = h.viewModel
+        #expect(vm.needsDisplayNameChoice)
+        #expect(!vm.setLocalDisplayName(" "))
+        #expect(vm.needsDisplayNameChoice)
+        #expect(vm.setLocalDisplayName("ナオ"))
+        #expect(!vm.needsDisplayNameChoice)
+    }
+
     @Test func personalNameAndLocalOverrideSurviveRestartAndResetFollowsLatestName() throws {
         let f = try GroupStorageFixture(); defer { f.remove() }
         let group = try IntercomGroup(name: "Friends", members: [.init(id: "local", displayName: "You"), .init(id: "rider", displayName: "山田")])

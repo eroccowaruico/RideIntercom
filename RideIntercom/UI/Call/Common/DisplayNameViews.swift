@@ -62,3 +62,54 @@ struct GroupMemberNameView: View {
         #endif
     }
 }
+
+/// Shown once after sign-in until a name is saved, so people are not all called "You".
+struct DisplayNameChoiceView: View {
+    @Bindable var viewModel: IntercomViewModel
+    @State private var name = ""
+    @State private var failure: String?
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("e.g. Nao", text: $name)
+                        .focused($focused)
+                        #if os(iOS)
+                        .textContentType(.nickname)
+                        #endif
+                        .submitLabel(.done)
+                        .onSubmit(save)
+                        .accessibilityIdentifier("displayNameChoiceField")
+                } footer: {
+                    Text("People see this name. It does not have to be your real name.")
+                }
+                if let failure {
+                    Section {
+                        Label(LocalizedStringKey(failure), systemImage: "exclamationmark.triangle.fill")
+                            .accessibilityIdentifier("displayNameChoiceError")
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button(failure == nil ? "Get Started" : "Try Again", action: save)
+                    .appProminentButtonStyle()
+                    .disabled(!IntercomGroup.isValidName(trimmed))
+                    .padding()
+                    .accessibilityIdentifier("displayNameChoiceSaveButton")
+            }
+            .navigationTitle("Your Name")
+        }
+        .interactiveDismissDisabled()
+        .onAppear { focused = true }
+        .accessibilityIdentifier("displayNameChoice")
+    }
+
+    private func save() {
+        guard IntercomGroup.isValidName(trimmed) else { return }
+        failure = viewModel.setLocalDisplayName(trimmed) ? nil : viewModel.groupErrorMessage ?? "Could not save the name."
+    }
+}

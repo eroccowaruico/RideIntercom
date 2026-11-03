@@ -6034,6 +6034,56 @@
           }
         }
       }
+    },
+    "Your Name" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あなたの名前"
+          }
+        }
+      }
+    },
+    "e.g. Nao" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例: ナオ"
+          }
+        }
+      }
+    },
+    "People see this name. It does not have to be your real name." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仲間に表示される名前です。本名でなくてかまいません。"
+          }
+        }
+      }
+    },
+    "Get Started" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "はじめる"
+          }
+        }
+      }
+    },
+    "Could not save the name." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名前を保存できませんでした。"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

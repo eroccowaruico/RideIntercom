@@ -17,7 +17,7 @@ final class InMemoryLocalMemberIdentityStore: LocalMemberIdentityStoring {
     }
 
     func saveDisplayName(_ displayName: String) {
-        var value = loadOrCreate(); value.displayName = displayName; identity = value
+        var value = loadOrCreate(); value.displayName = displayName; value.hasChosenName = true; identity = value
     }
 
     func loadOrCreate() -> LocalMemberIdentity {

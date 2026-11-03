@@ -3,6 +3,8 @@ import Foundation
 struct LocalMemberIdentity: Equatable {
     let memberID: String
     var displayName: String
+    /// False until the person saves a name; the default "You" is not a choice.
+    var hasChosenName = false
 }
 
 protocol LocalMemberIdentityStoring: AnyObject {
@@ -17,6 +19,7 @@ final class UserDefaultsLocalMemberIdentityStore: LocalMemberIdentityStoring {
     private let defaultDisplayName: () -> String
     private let memberIDKey = "RideIntercom.localMemberID"
     private let displayNameKey = "RideIntercom.localDisplayName"
+    private let nameChosenKey = "RideIntercom.localDisplayNameChosen"
 
     init(
         defaults: UserDefaults = .standard,
@@ -28,13 +31,18 @@ final class UserDefaultsLocalMemberIdentityStore: LocalMemberIdentityStoring {
         self.defaultDisplayName = defaultDisplayName
     }
 
-    func saveDisplayName(_ displayName: String) { defaults.set(displayName, forKey: displayNameKey) }
+    func saveDisplayName(_ displayName: String) {
+        defaults.set(displayName, forKey: displayNameKey)
+        defaults.set(true, forKey: nameChosenKey)
+    }
 
     func loadOrCreate() -> LocalMemberIdentity {
         let storedMemberID = defaults.string(forKey: memberIDKey)
         let storedDisplayName = defaults.string(forKey: displayNameKey)
         if let storedMemberID, let storedDisplayName {
-            return LocalMemberIdentity(memberID: storedMemberID, displayName: storedDisplayName)
+            // Names saved before the flag existed differ from the default.
+            let chosen = defaults.bool(forKey: nameChosenKey) || storedDisplayName != defaultDisplayName()
+            return LocalMemberIdentity(memberID: storedMemberID, displayName: storedDisplayName, hasChosenName: chosen)
         }
 
         let identity = LocalMemberIdentity(

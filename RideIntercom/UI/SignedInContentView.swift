@@ -51,6 +51,11 @@ struct SignedInContentView: View {
                 ContactInvitationAcceptanceView(viewModel: viewModel, preview: preview) { selectedTab = .users }
             }
         }
+        #if os(iOS)
+        .fullScreenCover(isPresented: needsName) { DisplayNameChoiceView(viewModel: viewModel) }
+        #else
+        .sheet(isPresented: needsName) { DisplayNameChoiceView(viewModel: viewModel) }
+        #endif
         .onChange(of: selectedTab) { previous, current in
             if previous == .users && current != .users { viewModel.stopContactInvitationSession() }
         }
@@ -59,5 +64,9 @@ struct SignedInContentView: View {
         .task { await viewModel.notifications.refresh() }
         .onChange(of: viewModel.interfaceMode) { _, mode in selectedTab = selectedTab.available(in: mode) }
         .onAppear { selectedTab = selectedTab.available(in: viewModel.interfaceMode) }
+    }
+
+    private var needsName: Binding<Bool> {
+        Binding(get: { viewModel.needsDisplayNameChoice }, set: { _ in })
     }
 }

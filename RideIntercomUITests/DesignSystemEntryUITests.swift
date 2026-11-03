@@ -37,6 +37,38 @@ final class DesignSystemEntryUITests: XCTestCase {
         }
     }
 
+    func testSignedInPersonChoosesANameBeforeUsingTheApp() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "standard"
+        app.launchEnvironment["RIDEINTERCOM_NAME_PROMPT"] = "1"
+        // The argument domain starts every run from the never-chosen default name.
+        app.launchArguments = ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP",
+                               "-RideIntercom.localDisplayNameChosen", "NO", "-RideIntercom.localDisplayName", "You"]
+        app.launch()
+        addTeardownBlock { [weak self] in
+            guard app.state == .runningForeground else { return }
+            self?.attach(app, "Name choice teardown")
+            app.terminate()
+        }
+        let prompt = app.descendants(matching: .any)["displayNameChoice"].firstMatch
+        XCTAssertTrue(prompt.waitForExistence(timeout: 8))
+        let field = app.textFields["displayNameChoiceField"].firstMatch
+        let save = app.buttons["displayNameChoiceSaveButton"].firstMatch
+        XCTAssertTrue(field.exists && save.exists)
+        XCTAssertEqual(save.label, "はじめる")
+        XCTAssertFalse(save.isEnabled, "An empty name cannot be saved")
+        attach(app, "Name choice before typing")
+        field.tap()
+        field.typeText("ナオ")
+        XCTAssertTrue(save.isEnabled)
+        save.tap()
+        XCTAssertTrue(prompt.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
+    }
+
     func testDeveloperWarningHasHeadingAndPreservesInternetEntry() {
         continueAfterFailure = false
         for japanese in [false, true] {
