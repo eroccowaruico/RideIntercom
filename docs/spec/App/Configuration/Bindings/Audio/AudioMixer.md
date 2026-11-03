@@ -11,7 +11,7 @@
 | package 設定 | App から渡す値 | 種別 |
 |---|---|---|
 | format | 48kHz mono。TX sinkは選択RTC format、RX sinkはSessionManagerのactualHardwareFormat | adapter 導出 |
-| `addPCMSource.maximumBufferedDuration` | TXは同期AudioFrameProcessorで再生queueを持たない。RXは`0.12`秒（再生開始までの待ちと単一frame長）、Audio Checkは`nil` | adapter固定 |
+| `addPCMSource.maximumBufferedDuration` | TXは同期AudioFrameProcessorで再生queueを持たない。RXは`0.3`秒（再生開始までの待ちと単一frame長。AudioMixerが無線の停止とその後のburstを学習できる幅）、Audio Checkは`nil` | adapter固定 |
 | `addPCMSource.captureTimePlayoutDelay` | TXは待機なし。RXは描画済みブロックの終端から`0.002`秒を下限に`adaptivePlayout`を有効化、Audio Checkは`nil` | adapter固定 |
 | TX bus effect chain | `AudioMixerSnapshot.buses[id == "tx-bus"].effectChain`。SoundIsolation → DynamicsProcessor → PeakLimiter。VADGateはMixer前段 | adapter 導出 |
 | RX peer bus effect chain | `AudioMixerSnapshot.buses[id == "rx-peer-{peerID}"].effectChain`。SoundIsolationを接続し `remoteSoundIsolationEnabled` で実接続を切替（無効nodeはlatency補償の対象からも外す） | 画面設定から導出 |
@@ -50,7 +50,7 @@ RX masterの表示用effect chainは、実snapshotの `rx-master.effectChain` �
 
 通話TXはAudioFrameProcessorの同期manual renderingで、native effectを通したPCMを10ms単位に符号化する。受信のrender通知は実Audio Unit quantumで受け、再生sinkは20msを上限に分割する。100ms tap待機、送信用player、二つ目の送信hardware clockは使わない。
 
-RXは相手ごとのcapture clockをplayer clockへ対応付ける。連続sampleは隙間・重複なく予約し、到着が遅れた場合だけ必要な分を遅らせる。既に出力済みの発話を切り詰めず、無音中に増えた待ちを短縮する。時計の大きなジャンプや120msを超える停滞は再基準化する。
+RXは相手ごとのcapture clockをplayer clockへ対応付ける。連続sampleは隙間・重複なく予約し、到着が遅れた場合だけ必要な分を遅らせる。既に出力済みの発話を切り詰めず、無音中に増えた待ちを短縮する。開始待機は2msで、揺れのない相手には待ちを追加しない。iPhone間のWi-Fiが相手のpacketを保持してまとめて届ける場合は、AudioMixerが学習した待ちを会話の間でも保ち、約100msの停止まで吸収する（学習値は待ち上限0.3秒から開始待機を引いた値の半分まで）。時計の大きなジャンプや300msを超える停滞は再基準化する。
 
 通話の最終hardware出力はSessionManagerの200ms上限を使用する。これは過負荷時の鮮度制限であり、固定の待機追加はない。無音frameも渡してcodecと再生の時計を維持する。各境界の上限は端末間遅延の保証ではない。
 

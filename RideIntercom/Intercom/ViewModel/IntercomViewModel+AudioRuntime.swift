@@ -93,8 +93,8 @@ extension IntercomViewModel {
             receiveMasterSoundIsolationEnabled: receiveMasterSoundIsolationEnabled,
             peerSoundIsolationEnabled: remoteSoundIsolationEnabled,
             maximumBufferedDuration: 0.2,
-            receiveMaximumBufferedDuration: 0.12,
-            receivePlayoutDelay: 0.002
+            receiveMaximumBufferedDuration: AppAudioPipelineConfiguration.callReceiveMaximumBufferedDuration,
+            receivePlayoutDelay: AppAudioPipelineConfiguration.callReceivePlayoutDelay
         )
     }
 

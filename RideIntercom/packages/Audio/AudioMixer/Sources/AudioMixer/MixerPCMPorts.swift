@@ -16,6 +16,16 @@ public final class MixerPCMSource {
     private var lastCapturedEnd: TimeInterval?
     private var lastAudibleEnd: AVAudioFramePosition = 0
     private var recoveringQuietBurst = false
+    // Wi-Fi links hold packets for tens of milliseconds and release them in a
+    // burst, again and again. Keep the wait each late arrival proved necessary
+    // through conversation pauses; release it only after the link stays calm.
+    private var jitterMargin: (frames: AVAudioFramePosition, observedAt: TimeInterval)?
+    // Fastest observed transit: local arrival time minus remote capture time.
+    // It may rise only as fast as independent device clocks can drift.
+    private var fastestTransit: (seconds: Double, observedAt: TimeInterval)?
+    static let clockDriftAllowance = 0.0002
+    static let jitterMarginHold: TimeInterval = 10
+    static let jitterMarginReleasePerSecond: TimeInterval = 0.01
     private let adaptivePlayout: Bool
     private let renderClock: MixerRenderClock
     private var normalizer = MixerPCMStreamNormalizer()
@@ -73,7 +83,11 @@ public final class MixerPCMSource {
 	}
 
 	@discardableResult
-	public func schedule(_ frame: PCMFrame, packetizationJitter: TimeInterval = 0) throws -> AudioProcessingReport {
+    /// `arrivedAt` is the local monotonic time the packet arrived (uptime
+    /// seconds by default). Link jitter is learned from it, never from the
+    /// render clock, which also moves for local output events.
+	public func schedule(_ frame: PCMFrame, packetizationJitter: TimeInterval = 0,
+                         arrivedAt: TimeInterval = ProcessInfo.processInfo.systemUptime) throws -> AudioProcessingReport {
 		do {
             guard packetizationJitter.isFinite, (0...0.06).contains(packetizationJitter) else {
                 throw AudioMixerError.pcmSourceScheduleFailed("Invalid packetization timing")
@@ -119,7 +133,13 @@ public final class MixerPCMSource {
                 // their maximum silently removes the configured jitter margin.
                 // Reserve only the sender's measured capture/codec remainder.
                 // This is independent of network jitter; aligned codecs add zero.
-                let requestedLead = nativeLead + AVAudioFramePosition(((delay + packetizationJitter) * mixerFormat.sampleRate).rounded())
+                let margin = adaptivePlayout ? retainedJitterMargin(at: capturedAt) : 0
+                let transit = arrivedAt - capturedAt
+                if let fastest = fastestTransit,
+                   transit >= fastest.seconds + (capturedAt - fastest.observedAt) * Self.clockDriftAllowance {
+                } else { fastestTransit = (transit, capturedAt) }
+                let requestedLead = nativeLead + margin
+                    + AVAudioFramePosition(((delay + packetizationJitter) * mixerFormat.sampleRate).rounded())
                 let boundedLead = min(requestedLead, AVAudioFramePosition((limit * mixerFormat.sampleRate).rounded(.down)) - 1)
 				let delayedStart = rendered + boundedLead
 				if playoutAnchor == nil { playoutAnchor = (capturedAt, delayedStart) }
@@ -156,7 +176,25 @@ public final class MixerPCMSource {
                     // shifts every following syllable despite timely arrival.
                     let expired = target.rounded() < Double(position.completed)
                     if expired || resumedWithExcessWait || canReduceDelay {
-                        target = Double(max(delayedStart, lastAudibleEnd > rendered ? scheduledEndSample : delayedStart))
+                        var start = delayedStart
+                        if expired, let fastest = fastestTransit {
+                            // Learn this packet's whole excess transit, not only
+                            // the part the current wait failed to cover. Arrival
+                            // is observed per render quantum: add the packet and
+                            // one more packet-sized quantum of observation error.
+                            let excess = (transit - fastest.seconds) * mixerFormat.sampleRate + 2 * Double(buffer.frameLength)
+                            // The packets held with this one arrive in the same
+                            // burst, one learned wait later: keep both inside the
+                            // bounded playout window.
+                            let ceiling = (AVAudioFramePosition((limit * mixerFormat.sampleRate).rounded(.down))
+                                - AVAudioFramePosition((delay * mixerFormat.sampleRate).rounded(.up))) / 2
+                            let learned = max(margin, min(AVAudioFramePosition(excess.rounded(.up)), max(0, ceiling)))
+                            jitterMargin = (learned, capturedAt)
+                            // Resume this burst with the wait just learned.
+                            start = rendered + min(requestedLead - margin + learned,
+                                AVAudioFramePosition((limit * mixerFormat.sampleRate).rounded(.down)) - 1)
+                        }
+                        target = Double(max(start, lastAudibleEnd > rendered ? scheduledEndSample : start))
                         playoutAnchor = (capturedAt, AVAudioFramePosition(target))
                         if canReduceDelay {
                             options = .interrupts // only queued silence is replaced
@@ -250,8 +288,18 @@ public final class MixerPCMSource {
         lastCapturedEnd = nil
         lastAudibleEnd = 0
         recoveringQuietBurst = false
+        jitterMargin = nil
+        fastestTransit = nil
         normalizer = MixerPCMStreamNormalizer()
 	}
+
+    /// The learned wait, held for 10 s after the last late arrival and then
+    /// released at 10 ms per second of calm sender time.
+    private func retainedJitterMargin(at capturedAt: TimeInterval) -> AVAudioFramePosition {
+        guard let margin = jitterMargin else { return 0 }
+        let calm = max(0, capturedAt - margin.observedAt - Self.jitterMarginHold)
+        return max(0, margin.frames - AVAudioFramePosition((calm * Self.jitterMarginReleasePerSecond * mixerFormat.sampleRate).rounded()))
+    }
 }
 
 public final class MixerPCMSink {
