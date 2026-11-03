@@ -370,6 +370,19 @@ class AudioE2ELifecycleTests(unittest.TestCase):
         self.assertEqual(SimulatorLease(runner, lease.journal).state['udid'], 'new')
         self.assertTrue((runner.out / 'simulator-inventory.json').exists())
 
+    def test_another_device_type_keeps_its_own_managed_simulator(self):
+        # The iOS validation leases an iPhone and an iPad; preparing one must not delete the other.
+        runner = Runner(self.root / 'evidence')
+        lease = SimulatorLease(runner, self.root / 'lease.json')
+        devices = [dict(name='RideIntercom Audio E2E 12345678', udid='pad', state='Shutdown', runtime='ios',
+                        deviceTypeIdentifier='pad', isAvailable=True, lastUsedAt='2026-10'),
+                   dict(name='RideIntercom Audio E2E abcdef12', udid='phone', state='Shutdown', runtime='ios',
+                        deviceTypeIdentifier='phone', isAvailable=True, lastUsedAt='2026-09')]
+        with patch('scripts.test_lifecycle.simulator_devices', return_value=devices), \
+             patch.object(runner, 'run', return_value=True) as run:
+            self.assertEqual(lease.prepare('ios', 'phone'), 'phone')
+        run.assert_not_called()
+
     def test_busy_managed_device_blocks_reconciliation_without_deleting_anything(self):
         runner = Runner(self.root / 'evidence')
         lease = SimulatorLease(runner, self.root / 'lease.json')

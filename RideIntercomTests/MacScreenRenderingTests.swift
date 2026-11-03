@@ -9,34 +9,63 @@ import Testing
 extension AppTests {
 @MainActor
 struct MacScreenRenderingTests {
+    @Test(arguments: ["en", "ja"]) func usersList(language: String) async throws {
+        try await render(.users, language: language)
+    }
+    @Test(arguments: ["en", "ja"]) func groupsList(language: String) async throws {
+        try await render(.groups, language: language)
+    }
+    @Test(arguments: ["en", "ja"]) func callColumn(language: String) async throws {
+        try await render(.call, language: language)
+    }
+
     @Test(arguments: ["en", "ja"])
-    func listsCallColumnAndSettingsDraw(language: String) async throws {
-        let h = try AppTestSupport.makeHarnessWithSavedUser()
-        let vm = h.viewModel
+    func settingsSheets(language: String) async throws {
+        let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
         defer { vm.disconnect() }
-        var tab = AppTab.users
-        let binding = Binding(get: { tab }, set: { tab = $0 })
-        try await record(SignedInContentView(viewModel: vm, selectedTab: binding), size: .init(width: 1000, height: 680),
-                         language: language, named: "users")
-        tab = .groups
-        try await record(SignedInContentView(viewModel: vm, selectedTab: binding), size: .init(width: 1000, height: 680),
-                         language: language, named: "groups")
-        let group = try #require(vm.regularGroups.first)
-        #expect(vm.openDestination(.group(group.id)) == .opened)
-        tab = .call
-        try await record(SignedInContentView(viewModel: vm, selectedTab: binding), size: .init(width: 1100, height: 720),
-                         language: language, named: "call-column")
+        let group = try #require(vm.regularGroups.first), user = try #require(vm.savedRemoteUsers.first)
         try await record(GroupSettingsView(viewModel: vm, groupID: group.id), size: .init(width: 480, height: 620),
                          language: language, named: "group-settings")
-        let user = try #require(vm.savedRemoteUsers.first)
         try await record(SavedUserNameView(viewModel: vm, user: user), size: .init(width: 480, height: 560),
                          language: language, named: "user-settings")
     }
 
+    /// The lists and the call column as the window lays them out. The root `inspector` itself is
+    /// not hosted here: outside a window scene it reports negative geometry even when empty.
+    private func render(_ tab: AppTab, language: String) async throws {
+        let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
+        defer { vm.disconnect() }
+        var selected = tab
+        let binding = Binding(get: { selected }, set: { selected = $0 })
+        switch tab {
+        case .groups:
+            try await record(NavigationStack { StandardGroupsView(viewModel: vm, selectedTab: binding) },
+                             size: .init(width: 900, height: 680), language: language, named: "groups")
+        case .call:
+            let group = try #require(vm.regularGroups.first)
+            #expect(vm.openDestination(.group(group.id)) == .opened)
+            try await record(HStack(spacing: 0) {
+                NavigationStack { StandardGroupsView(viewModel: vm, selectedTab: binding) }
+                Divider()
+                CallPanel(viewModel: vm, selectedTab: binding) { }.frame(width: 380)
+            }, size: .init(width: 1100, height: 720), language: language, named: "call-column")
+        default:
+            try await record(NavigationStack { StandardUsersView(viewModel: vm, selectedTab: binding) },
+                             size: .init(width: 900, height: 680), language: language, named: "users")
+        }
+    }
+
     private func record(_ view: some View, size: CGSize, language: String, named name: String) async throws {
-        let host = NSHostingView(rootView: view.environment(\.locale, Locale(identifier: language)))
-        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .resizable],
+        // Size the host before it joins the window, so the first layout is the window size
+        // rather than zero (a zero-width pass reports negative geometry).
+        // Like an app window: titled with a unified toolbar, which the inspector's split view expects.
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size),
+                              styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
+        window.toolbar = NSToolbar()
+        window.toolbarStyle = .unified
+        let host = NSHostingView(rootView: view.environment(\.locale, Locale(identifier: language)))
+        host.frame = CGRect(origin: .zero, size: size)
         window.contentView = host
         window.layoutIfNeeded()
         try await Task.sleep(for: .milliseconds(400))

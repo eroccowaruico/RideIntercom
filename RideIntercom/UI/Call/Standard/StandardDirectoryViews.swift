@@ -162,7 +162,7 @@ struct DirectoryRowLabel: View {
         } icon: {
             DestinationAvatar(isGroup: isGroup)
                 #if os(macOS)
-                .padding(.trailing, AppSpacing.xs) // Mac labels set the title against the icon.
+                .padding(.trailing, AppSpacing.m) // Mac labels set the title against the icon.
                 #endif
         }
         .frame(maxWidth: .infinity, alignment: .leading)

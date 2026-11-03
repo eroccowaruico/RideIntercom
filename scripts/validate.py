@@ -248,10 +248,11 @@ class Runner:
         command += ['-destination', destination, '-parallel-testing-enabled', 'NO', '-resultBundlePath', str(bundle)]
         for identifier in ([only] if isinstance(only, str) else only or []):
             command.append(f'-only-testing:{identifier}')
-        if skip:
+        skips = [skip] if isinstance(skip, str) else list(skip or [])
+        if skips:
             # A command-line skip replaces the scheme's skipped tests in the xctestrun,
             # so restate them; otherwise scheme-excluded suites would run here.
-            for identifier in (xctestrun_skips(test_run) if test_run and not plan_name else []) + [skip]:
+            for identifier in (xctestrun_skips(test_run) if test_run and not plan_name else []) + skips:
                 command.append(f'-skip-testing:{identifier}')
         self.run(name, command, needs=[preflight])
         summary_name = name + '-summary'
@@ -308,6 +309,11 @@ def snapshot(out):
         path = ROOT / name
         hashes[name] = file_fingerprint(path)
     (out / 'inputs.json').write_text(json.dumps(hashes, ensure_ascii=False, indent=2) + '\n')
+
+
+# Tests of the regular-width layout. They skip themselves below 600x500 points.
+IPAD_ONLY_TESTS = ['RideIntercomUITests/DesignSystemCallUITests/testRegularWidthUsesSeparateCallColumns']
+IPAD_DEVICE_TYPE = 'com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB'
 
 
 def xctestrun_skips(path):
@@ -419,7 +425,7 @@ def main():
                             runner.record('simulator-audio-device', [], 'failed', 1, time.monotonic(), str(error))
                         recovery = 'RideIntercomUITests/RideIntercomUITests/testCorruptGroupStoreRecovery'
                         runner.xcode('ios-tests', 'platform=iOS Simulator,id=' + sim, only='RideIntercomUITests' if mode == 'ios-ui' else None,
-                                     needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'], skip=recovery)
+                                     needs=['simulator-ready', 'simulator-appearance', 'webrtc-artifact'], skip=[recovery] + IPAD_ONLY_TESTS)
                         runner.xcode('ios-recovery', 'platform=iOS Simulator,id=' + sim, only=recovery,
                                      needs=['ios-tests-acceptance'], reuse_build='ios-tests')
                 finally:
@@ -427,6 +433,22 @@ def main():
                         audio_pin.restore()
                     if lease.acquired:
                         lease.cleanup('simulator-final')
+                # Regular-width layouts exist only on iPad: run those tests there rather than
+                # skipping them on iPhone, so neither run accepts a skipped test.
+                pad_lease = SimulatorLease(runner, simulator_resource_root() / 'reusable-ipad.json')
+                try:
+                    if runner.results.get('ios-tests-acceptance', {}).get('status') != 'passed':
+                        raise RuntimeError('iPad tests require the iPhone run to pass first')
+                    pad = pad_lease.prepare(runtime, os.environ.get('SIMULATOR_IPAD_DEVICE_TYPE', IPAD_DEVICE_TYPE))
+                    if pad:
+                        (runner.out / 'ipad-simulator-id.txt').write_text(pad + '\n')
+                        runner.run('ipad-boot', ['xcrun', 'simctl', 'boot', pad], timeout=120)
+                        runner.run('ipad-ready', ['xcrun', 'simctl', 'bootstatus', pad, '-b'], needs=['ipad-boot'], timeout=180)
+                        runner.xcode('ipad-tests', 'platform=iOS Simulator,id=' + pad, only=IPAD_ONLY_TESTS,
+                                     needs=['ipad-ready', 'ios-tests-acceptance'], reuse_build='ios-tests')
+                finally:
+                    if pad_lease.acquired:
+                        pad_lease.cleanup('ipad-final')
         except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
             runner.record('simulator-availability', [], 'blocked', None, time.monotonic(), str(error))
     # A concurrent edit invalidates evidence rather than silently passing.

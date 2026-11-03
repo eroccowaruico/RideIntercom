@@ -188,6 +188,11 @@ class SimulatorLease:
         for index, device in enumerate(managed):
             if selected and device['udid'] == selected['udid']:
                 continue
+            # An available managed device of another type belongs to another lease
+            # (the iOS validation keeps an iPhone and an iPad); leave it in place.
+            if (not delete_all and device.get('isAvailable') and device.get('deviceTypeIdentifier')
+                    and device['deviceTypeIdentifier'] != device_type):
+                continue
             # Recheck state/identity immediately before deletion.
             current = next((d for d in simulator_devices() if d['udid'] == device['udid']), None)
             if current is None:
