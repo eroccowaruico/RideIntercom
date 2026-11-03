@@ -47,7 +47,8 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
       <Testables>
-         <TestableReference skipped = "NO">
+         <TestableReference
+            skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A77000000000000000000001"
@@ -75,7 +76,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0CCFFDBF2F4415059F932F5F"
             BuildableName = "RideIntercomWatch.app"
-            BlueprintName = "RideIntercomWatch"
             ReferencedContainer = "container:RideIntercom.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -92,7 +92,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0CCFFDBF2F4415059F932F5F"
             BuildableName = "RideIntercomWatch.app"
-            BlueprintName = "RideIntercomWatch"
             ReferencedContainer = "container:RideIntercom.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
