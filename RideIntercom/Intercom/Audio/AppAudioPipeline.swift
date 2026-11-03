@@ -10,10 +10,11 @@ import RTC
 import VADGate
 
 nonisolated struct AppAudioPipelineConfiguration: Equatable, Sendable {
-    /// Receive playout for calls: a 2 ms start on a calm link, and a window
-    /// wide enough for AudioMixer to learn a Wi-Fi stall and its burst.
+    /// Receive playout for calls: a 2 ms start on a calm link. The window also
+    /// rebuilds audio queued before the output clock runs, so it stays 120 ms;
+    /// AudioMixer learns Wi-Fi jitter up to half of it.
     static let callReceivePlayoutDelay: TimeInterval = 0.002
-    static let callReceiveMaximumBufferedDuration: TimeInterval = 0.3
+    static let callReceiveMaximumBufferedDuration: TimeInterval = 0.12
     var mixerFormat: AudioFormat
     var rtcSendFormat: AudioFormat
     var outputHardwareFormat: AudioFormat
