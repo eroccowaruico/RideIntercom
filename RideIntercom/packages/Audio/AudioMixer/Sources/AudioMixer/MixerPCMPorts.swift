@@ -177,7 +177,10 @@ public final class MixerPCMSource {
                     let expired = target.rounded() < Double(position.completed)
                     if expired || resumedWithExcessWait || canReduceDelay {
                         var start = delayedStart
-                        if expired, let fastest = fastestTransit {
+                        if expired, let fastest = fastestTransit,
+                           // A start-up backlog or local outage longer than the
+                           // window cannot be absorbed and is not link jitter.
+                           transit - fastest.seconds < limit {
                             // Learn this packet's whole excess transit, not only
                             // the part the current wait failed to cover. Arrival
                             // is observed per render quantum: add the packet and
