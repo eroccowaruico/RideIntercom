@@ -55,4 +55,44 @@ struct ContactBootstrapTests {
         #expect(author.callSession.startMediaCallCount == 0)
         #expect(friend.callSession.startMediaCallCount == 0)
     }
+
+    @Test func reInvitingAnExistingContactReplacesThePairCallKeyOnBothDevices() throws {
+        let author = AppTestSupport.makeHarness(groups: [], localMemberID: "contact-author")
+        let friend = AppTestSupport.makeHarness(groups: [], localMemberID: "contact-friend")
+        let a = author.viewModel
+        let b = friend.viewModel
+        let authorNotification = RecordingCallSession(), friendNotification = RecordingCallSession()
+        a.contactSessionFactory = { authorNotification }
+        b.contactSessionFactory = { friendNotification }
+        defer { a.disconnect(); b.disconnect() }
+
+        let firstURL = try #require(a.makeContactInviteURL())
+        try b.acceptContactInviteURL(firstURL)
+        friendNotification.authenticate(["contact-author"])
+        let firstReceipt = try #require(friendNotification.sentApplicationDataMessages.last)
+        authorNotification.authenticate(["contact-friend"])
+        authorNotification.onEvent?(.receivedApplicationData(peerID: "contact-friend", message: firstReceipt))
+        let firstAcknowledgement = try #require(authorNotification.sentApplicationDataMessages.last)
+        friendNotification.onEvent?(.receivedApplicationData(peerID: "contact-author", message: firstAcknowledgement))
+
+        let callID = IntercomGroup.directCallID(memberIDs: ["contact-author", "contact-friend"])
+        let oldKey = try #require(try a.groupRepository.credential(for: callID))
+        #expect(try b.groupRepository.credential(for: callID) == oldKey)
+
+        let secondURL = try #require(a.makeContactInviteURL())
+        #expect(secondURL != firstURL)
+        try b.acceptContactInviteURL(secondURL)
+        friendNotification.authenticate(["contact-author"])
+        let secondReceipt = try #require(friendNotification.sentApplicationDataMessages.last)
+        authorNotification.authenticate(["contact-friend"])
+        authorNotification.onEvent?(.receivedApplicationData(peerID: "contact-friend", message: secondReceipt))
+        let secondAcknowledgement = try #require(authorNotification.sentApplicationDataMessages.last)
+        friendNotification.onEvent?(.receivedApplicationData(peerID: "contact-author", message: secondAcknowledgement))
+
+        let newKey = try #require(try a.groupRepository.credential(for: callID))
+        #expect(newKey != oldKey)
+        #expect(try b.groupRepository.credential(for: callID) == newKey)
+        #expect(a.groups.map(\.id) == [callID] && b.groups.map(\.id) == [callID])
+        #expect(a.groups.first?.kind == .direct && b.groups.first?.kind == .direct)
+    }
 }
