@@ -91,8 +91,10 @@ struct ContactBootstrapTests {
         #expect(try b.groupRepository.credential(for: callID) == oldKey)
         #expect(oldKey != authorLegacyKey && oldKey != friendLegacyKey)
 
+        #expect(a.setLocalDisplayName("Updated Author"))
         let secondURL = try #require(a.makeContactInviteURL())
         #expect(secondURL != firstURL)
+        #expect(try GroupInviteTokenCodec.decodeJoinURL(secondURL, contactBootstrap: true).inviterDisplayName == "Updated Author")
         try b.acceptContactInviteURL(secondURL)
         friendNotification.authenticate(["contact-author"])
         let secondReceipt = try #require(friendNotification.sentApplicationDataMessages.last)
@@ -101,6 +103,7 @@ struct ContactBootstrapTests {
         let secondAcknowledgement = try #require(authorNotification.sentApplicationDataMessages.last)
         friendNotification.onEvent?(.receivedApplicationData(peerID: "contact-author", message: secondAcknowledgement))
 
+        #expect(b.savedRemoteUsers.first?.displayName == "Updated Author")
         let newKey = try #require(try a.groupRepository.credential(for: callID))
         #expect(newKey != oldKey)
         #expect(try b.groupRepository.credential(for: callID) == newKey)
