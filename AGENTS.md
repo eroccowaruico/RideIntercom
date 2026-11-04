@@ -15,7 +15,7 @@
 
 **作業の着手前と区切りには、[小さく動く単位での検証・コミットと未コミットの滞留管理](docs/policies/開発方針.md#小さく動く単位で検証・コミットする)を必ず適用する。**
 
-**作業の区切りには、[ブランチ運用](docs/policies/開発方針.md#ブランチ運用)を必ず適用し、ローカルmainへの同期・originへのpush・previewのmain同期と、不要なbranch／worktreeの削除まで確認する。**
+**作業中も小さな検証済み単位ごとに、[ブランチ運用](docs/policies/開発方針.md#ブランチ運用)を必ず適用し、ローカルmainへの同期・originへのpush・previewのmain同期と、不要なbranch／worktreeの削除まで確認する。未コミット・main未統合・未pushを積み上げず、次の単位へ進む前に同期を閉じる。**
 
 GUIの実装・変更・点検では、[UI Stackを含むUI・UX方針](docs/policies/開発方針.md#uiux方針)を必ず適用する。
 
