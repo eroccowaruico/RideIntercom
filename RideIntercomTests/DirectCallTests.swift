@@ -4,6 +4,18 @@ import Testing
 
 @MainActor
 struct DirectCallTests {
+    @Test func ordinaryTwoMemberGroupRemainsAGroup() throws {
+        let group = try IntercomGroup(name: "Two Riders", members: [
+            .init(id: "alice", displayName: "Alice"),
+            .init(id: "bob", displayName: "Bob")
+        ], accessSecret: "group-key")
+        let h = AppTestSupport.makeHarness(groups: [group], localMemberID: "alice")
+        defer { h.viewModel.disconnect() }
+        #expect(group.kind == .group)
+        #expect(h.viewModel.regularGroups.map(\.id) == [group.id])
+        #expect(h.viewModel.activeDirectCall == nil)
+    }
+
     @Test func selectingSavedUserCreatesAndReusesSeparateCallWithoutSwitchingActiveGroup() throws {
         let h = try harness(local: "alice", remote: "bob")
         let vm = h.viewModel
