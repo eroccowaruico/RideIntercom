@@ -70,7 +70,7 @@
 
 | 文書 | 役割 / 表題 |
 |---|---|
-| [backlog/README.md](<backlog/README.md>) | 課題と候補 |
+| [backlog/README.md](<backlog/README.md>) | 区分横断の優先順位と引継ぎ一覧 |
 | [backlog/改善候補.md](<backlog/改善候補.md>) | 改善候補 |
 | [backlog/未実装課題.md](<backlog/未実装課題.md>) | 未実装課題 |
 | [backlog/利用権とデータ保持の設計.md](<backlog/利用権とデータ保持の設計.md>) | 確定した利用権・発信条件、データ保持と次工程への受入条件 |
