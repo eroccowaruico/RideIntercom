@@ -57,14 +57,26 @@ struct ContactBootstrapTests {
     }
 
     @Test func reInvitingAnExistingContactReplacesThePairCallKeyOnBothDevices() throws {
-        let author = AppTestSupport.makeHarness(groups: [], localMemberID: "contact-author")
-        let friend = AppTestSupport.makeHarness(groups: [], localMemberID: "contact-friend")
+        let callID = IntercomGroup.directCallID(memberIDs: ["contact-author", "contact-friend"])
+        let authorCall = try IntercomGroup(id: callID, name: "Direct Call", members: [
+            .init(id: "contact-author", displayName: "Author"),
+            .init(id: "contact-friend", displayName: "Friend")
+        ], accessSecret: "author-legacy-key", kind: .direct)
+        let friendCall = try IntercomGroup(id: callID, name: "Direct Call", members: [
+            .init(id: "contact-friend", displayName: "Friend"),
+            .init(id: "contact-author", displayName: "Author")
+        ], accessSecret: "friend-legacy-key", kind: .direct)
+        let author = AppTestSupport.makeHarness(groups: [authorCall], localMemberID: "contact-author")
+        let friend = AppTestSupport.makeHarness(groups: [friendCall], localMemberID: "contact-friend")
         let a = author.viewModel
         let b = friend.viewModel
         let authorNotification = RecordingCallSession(), friendNotification = RecordingCallSession()
         a.contactSessionFactory = { authorNotification }
         b.contactSessionFactory = { friendNotification }
         defer { a.disconnect(); b.disconnect() }
+        let authorLegacyKey = try #require(try a.groupRepository.credential(for: callID))
+        let friendLegacyKey = try #require(try b.groupRepository.credential(for: callID))
+        #expect(authorLegacyKey != friendLegacyKey)
 
         let firstURL = try #require(a.makeContactInviteURL())
         try b.acceptContactInviteURL(firstURL)
@@ -75,9 +87,9 @@ struct ContactBootstrapTests {
         let firstAcknowledgement = try #require(authorNotification.sentApplicationDataMessages.last)
         friendNotification.onEvent?(.receivedApplicationData(peerID: "contact-author", message: firstAcknowledgement))
 
-        let callID = IntercomGroup.directCallID(memberIDs: ["contact-author", "contact-friend"])
         let oldKey = try #require(try a.groupRepository.credential(for: callID))
         #expect(try b.groupRepository.credential(for: callID) == oldKey)
+        #expect(oldKey != authorLegacyKey && oldKey != friendLegacyKey)
 
         let secondURL = try #require(a.makeContactInviteURL())
         #expect(secondURL != firstURL)
