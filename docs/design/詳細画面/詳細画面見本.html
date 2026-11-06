@@ -13,14 +13,14 @@
 <style>
 :root {
   color-scheme: light;
-  --accent: #1179C0; --ok: #2FA86E; --warn: #E8930C; --err: #E5484D; --idle: #8A9099; --voice: #0BA59B;
-  --bg: #F2F4F7; --card: #FFFFFF; --line: #E2E6EC; --sub: #F6F8FA;
+  --accent: #1179C0; --ok: #34C77B; --warn: #FFAC33; --err: #F5484E; --idle: #8A9099; --voice: #0BA59B;
+  --bg: linear-gradient(180deg, #E6F1FA, #ECF2F8 60%); --card: #FFFFFF; --line: #E2E6EC; --sub: #F6F8FA;
   --label: #10161F; --label2: #5B6472; --label3: #98A0AB; --page: #FBFCFE;
 }
 :root[data-scheme="dark"] {
   color-scheme: dark;
   --accent: #2F95DC; --ok: #3CC98F; --warn: #FFB340; --err: #FF6B6B; --idle: #7D8590; --voice: #5BF3E2;
-  --bg: #0B0F15; --card: #151B24; --line: #263040; --sub: #1B2330;
+  --bg: linear-gradient(180deg, #050E1A, #03070D 60%); --card: #1C1C1E; --line: #263040; --sub: #1B2330;
   --label: #EEF2F6; --label2: #A3ADBA; --label3: #6C7684; --page: #0A0E14;
 }
 * { box-sizing: border-box; }
@@ -49,7 +49,10 @@ a { color: var(--accent); }
 /* ---------- 状態 ---------- */
 .d { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; vertical-align: 0; }
 .d.ok { background: var(--ok); } .d.warn { background: var(--warn); } .d.err { background: var(--err); } .d.idle { border: 1.5px dashed var(--idle); } .d.na { background: var(--idle); }
-.ok-t { color: var(--ok); } .warn-t { color: var(--warn); } .err-t { color: var(--err); } .idle-t { color: var(--label3); }
+/* 状態の文字は標準色。状態色は隣の点（記号）にだけ付ける（デザインシステムの状態の表し方） */
+.ok-t, .warn-t, .err-t { color: var(--label); } .idle-t { color: var(--label3); }
+.x.ok-t::before, .x.warn-t::before, .v .warn-t::before, .pill.warn-t::before, .v.warn-t::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+.x.ok-t::before { background: var(--ok); } .x.warn-t::before, .v .warn-t::before, .pill.warn-t::before { background: var(--warn); }
 
 /* ---------- iPhone ---------- */
 .gallery { display: flex; flex-wrap: wrap; gap: 26px 22px; margin-top: 14px; align-items: flex-start; }

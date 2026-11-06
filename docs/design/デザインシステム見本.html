@@ -255,7 +255,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
       <div class="tbl" style="margin:0"><table style="min-width:0">
         <thead><tr><th>対象</th><th>iPhone・iPad</th><th>Mac</th></tr></thead>
         <tbody>
-          <tr><td>一般の操作</td><td>44×44</td><td>28（推奨36）</td></tr>
+          <tr><td>一般の操作</td><td>44×44</td><td>28×28</td></tr>
           <tr><td>通話中の主要操作</td><td>64（56）</td><td>44</td></tr>
           <tr><td>主要操作の間隔</td><td>24以上</td><td>16以上</td></tr>
           <tr><td>取り消せない操作との距離</td><td>32以上か確認（Widgetは12以上）</td><td>同左</td></tr>
@@ -276,9 +276,9 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
   </div>
 
   <h3>ウインドウの大きさの変化（iPad・Mac）</h3>
-  <p class="note">大きさを変えても、一覧と設定の内容は最大640ptで中央、背景とスクロールバーは領域の端まで。Macは最小720×520pt。狭くなるとまずサイドバーを畳み、iPadでcompactになると通話の列はシートに変わる（通話は閉じない）。図は1/4の縮尺（<a href="デザインシステム.md#ウインドウの大きさの変化ipadmac">ウインドウの大きさの変化</a>）。</p>
+  <p class="note">大きさを変えても、一覧と設定の内容は最大640ptで中央、背景とスクロールバーは領域の端まで。Macは最小880×520pt（サイドバー＋一覧360pt＋通話の列320pt）。サイドバーは利用者が隠せるが、アプリからは畳まない。iPadでcompactになると通話の列はシートに変わる（通話は閉じない）。図は1/4の縮尺（<a href="デザインシステム.md#ウインドウの大きさの変化ipadmac">ウインドウの大きさの変化</a>）。</p>
   <div class="row-flex" style="align-items:flex-end">
-    <div><div class="win" style="width:180px"><span class=bar></span><div class="ls"><div class="cont"><i></i><i></i><i></i><i></i></div><span class="scr"></span></div><div class=cl>通話の列</div></div><div class="cap"><b>Mac 720pt（最小）</b>サイドバーを畳み、一覧360pt＋通話の列360pt</div></div>
+    <div><div class="win" style="width:220px"><span class=bar></span><div class=sb>サイド<br>バー</div><div class="ls"><div class="cont"><i></i><i></i><i></i><i></i></div><span class="scr"></span></div><div class=cl>通話の列</div></div><div class="cap"><b>Mac 880pt（最小）</b>サイドバー＋一覧360pt＋通話の列320pt</div></div>
     <div><div class="win" style="width:275px"><span class=bar></span><div class=sb>サイド<br>バー</div><div class="ls"><div class="cont"><i></i><i></i><i></i><i></i></div><span class="scr"></span></div><div class=cl>通話の列</div></div><div class="cap"><b>Mac 1100pt（初期）</b>サイドバー＋一覧（内容は中央）＋通話の列</div></div>
     <div><div class="win" style="width:360px"><span class=bar></span><div class=sb>サイド<br>バー</div><div class="ls"><div class="cont"><i></i><i></i><i></i><i></i></div><span class="scr"></span></div><div class=cl>通話の列</div></div><div class="cap"><b>Mac 1440pt</b>一覧の領域が広がっても内容は640ptのまま中央。行を引き伸ばさない</div></div>
   </div>
@@ -357,6 +357,10 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     <div><div class="surface" style="width:280px"><div class="card" style="padding:10px">
       <div class="lrow" style="padding:4px 0;min-height:0"><span class="pend"><svg class="i"><use href="#person"/></svg></span><span class="g">マキ<div class="sub">受け取り待ち</div></span><span style="color:var(--label3);font-size:16px">›</span></div>
     </div></div><div class="cap"><b>招待中の行</b>破線の人物・呼び名（仮名）・状態の語1つ。タップで招待の詳細を開き、再送・返信はそこに置く（<a href="招待と登録の設計.md">招待と登録の設計</a>）。</div></div>
+    <div><div class="surface" style="width:280px;display:flex;gap:18px;align-items:center;justify-content:center">
+      <div style="display:grid;justify-items:center;gap:4px"><span style="width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:20px;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 55%,white),var(--accent))"><svg class="i"><use href="#person"/></svg></span><span class="sub">ユーザー</span></div>
+      <div style="display:grid;justify-items:center;gap:4px"><span style="width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:20px;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 55%,white),var(--accent))"><svg class="i"><use href="#person3"/></svg></span><span class="sub">グループ・4人</span></div>
+    </div><div class="cap"><b>接続先のアバター</b>人もグループもrideBlueの円。記号（<code>person.fill</code>／<code>person.3.fill</code>）で区別し、色では区別しない。種別の語を併記する。</div></div>
     <div><div class="surface" style="width:300px;padding:12px">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border-radius:24px;background:var(--glass);border:1px solid var(--glass-edge);font-size:13px"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg><span style="display:grid;line-height:1.25;flex:1;min-width:0"><b>週末ツーリング</b><span class="sub" style="font-size:11px">会話中・ミュート中</span></span><span style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--red);color:#fff"><svg class="i"><use href="#mic-slash"/></svg></span><span style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--fill);color:var(--red);margin-left:4px"><svg class="i"><use href="#phone-down"/></svg></span></div>
       <div style="display:flex;justify-content:space-around;margin-top:8px;padding:6px;border-radius:24px;background:var(--glass);border:1px solid var(--glass-edge);font-size:10px;color:var(--label2)"><span><svg class="i"><use href="#person2"/></svg> ユーザー</span><span><svg class="i"><use href="#gear"/></svg> 設定</span></div>
@@ -366,7 +370,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
   <h3>入力欄</h3>
   <p class="note">ラベルは欄の外に置き、プレースホルダーをラベルの代わりにしない。全員に同じ値が入る固定の既定値は使わない（<a href="デザインシステム.md#入力欄と既定値">入力欄と既定値</a>）。</p>
   <div class="row-flex">
-    <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">あなたの名前</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px"><span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="color:var(--label3)">例: ナオ</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">仲間に表示される名前です。本名でなくてかまいません。</div><div style="margin-top:10px;border-radius:999px;background:var(--fill);color:var(--label3);text-align:center;padding:9px;font-weight:600;font-size:13px">はじめる</div></div><div class="cap"><b>例のプレースホルダー</b>空のままでは使えない値。「例:」を付けて薄く見せ、空の間は主要操作を押せない。既定値は入れない。</div></div>
+    <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">あなたの名前</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px"><span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="color:var(--label3)">例: ナオ</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">仲間に表示される名前です。本名でなくてかまいません。</div><div style="margin-top:10px;border-radius:999px;background:var(--fill);color:var(--label3);text-align:center;padding:9px;font-weight:600;font-size:13px">はじめる</div></div><div class="cap"><b>名前の入力（例のプレースホルダー）</b>空のままでは使えない値。「例:」を付けて薄く見せ、空の間は主要操作を押せない。既定値は入れない。</div></div>
     <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">相手の名前</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px"><span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="color:var(--label3)">青いキツネ</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">空のままなら「青いキツネ」になります。</div></div><div class="cap"><b>既定値のプレースホルダー（変化する）</b>空のときに使う値をそのまま薄く見せる。「例:」を付けない。招待ごとに別の候補を選ぶ。</div></div>
     <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">グループ名</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px"><span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="color:var(--label3)">ハルカ、ケンタ、ユウ</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">空のままなら選んだ人から作る名前になります。<br><span style="color:var(--accent)">✓ ハルカ　✓ ケンタ　✓ ユウ</span></div></div><div class="cap"><b>選んだ内容に合わせて変わる既定値</b>メンバーを選ぶたびに更新する。本人の名前で作り、自分だけの呼び名は使わない。全員同じ「Talk Group」にしない。</div></div>
     <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">この端末での名前</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px">ハルちゃん<span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="margin-left:auto;width:16px;height:16px;border-radius:50%;background:var(--label3);color:var(--card);display:grid;place-items:center;font-size:10px">×</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">空にすると本人の名前「ハルカ」に戻ります。</div></div><div class="cap"><b>現在の値＋戻り先</b>編集は現在の値で開く。消すとプレースホルダーに戻り先（本人の名前）が見える。</div></div>
@@ -383,7 +387,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     <div><div class="panel" style="width:330px">
       <div class="srow"><span class="k"><span class="d ok"></span> Input</span><span>AirPods Pro · 48 kHz mono</span><span><b>48,000</b> frames/s</span></div>
       <div class="srow" style="border:0"><span class="k"><span class="d ok"></span> TX Bus</span><span><code>tx-bus</code> · 3 effects</span><span></span></div>
-      <div class="nest">SoundIsolation <span style="float:right;color:var(--green)">Active</span><br>PeakLimiter <span style="float:right;color:var(--green)">Active</span></div>
+      <div class="nest">SoundIsolation <span style="float:right"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:1px"></span>Active</span><br>PeakLimiter <span style="float:right"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:1px"></span>Active</span></div>
     </div><div class="cap"><b>段の行</b>段名（＋ID）／状態／値／毎秒値。中身は左線付きの入れ子。</div></div>
     <div><div class="panel" style="width:300px"><div class="tree">
       <div class="card" style="border:1px solid var(--sep);padding:6px 9px;font-size:12px"><span class="d ok"></span> <b>Haruka</b> <span class="sub">Local · direct</span></div>
@@ -421,7 +425,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
   <h2 id="diff">StandardとAdvanced</h2>
   <p class="note">色・背景・部品・レイアウトは共通。違うのは表示の量・密度・語だけ。</p>
   <div class="row-flex">
-    <div><div class="surface" style="width:300px"><div class="card"><div class="lrow"><span class="av"><svg class="i"><use href="#person"/></svg></span><span class="g">ハルカ<div class="sub" style="color:var(--aqua)">話しています</div></span><span class="sub">100%</span></div></div></div><div class="cap"><b>Standard</b>名前・状態・音量だけ。余白を広く。</div></div>
+    <div><div class="surface" style="width:300px"><div class="card"><div class="lrow"><span class="av"><svg class="i"><use href="#person"/></svg></span><span class="g">ハルカ<div class="sub"><svg class="i" style="color:var(--aqua)"><use href="#wave"/></svg> 話しています</div></span><span class="sub">100%</span></div></div></div><div class="cap"><b>Standard</b>名前・状態・音量だけ。余白を広く。</div></div>
     <div><div class="surface" style="width:300px"><div class="card" style="padding:4px 10px"><div class="srow"><b>Haruka</b><span>Connected · authenticated · AAC-ELD<div class="sub">RX 100/s · Buffer 24 ms · 0 dropped</div></span><span>100%</span></div></div></div><div class="cap"><b>Advanced</b>同じカードに罫線と段組みで多くの値を並べる。英語のみ。</div></div>
   </div>
 </main>
