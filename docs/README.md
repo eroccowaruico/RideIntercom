@@ -73,6 +73,7 @@
 | [backlog/README.md](<backlog/README.md>) | 区分横断の優先順位と引継ぎ一覧 |
 | [backlog/改善候補.md](<backlog/改善候補.md>) | 改善候補 |
 | [backlog/未実装課題.md](<backlog/未実装課題.md>) | 未実装課題 |
+| [backlog/画面実装とデザイン見本の差分.md](<backlog/画面実装とデザイン見本の差分.md>) | 実画面とHTML見本の差分。画面（親）→ 部分（子）→ 個々の差の階層 |
 | [backlog/利用権とデータ保持の設計.md](<backlog/利用権とデータ保持の設計.md>) | 確定した利用権・発信条件、データ保持と次工程への受入条件 |
 | [backlog/機能拡張の実装前整理.md](<backlog/機能拡張の実装前整理.md>) | 追加要望の全体点検、実装前の判断事項と成立条件 |
 
