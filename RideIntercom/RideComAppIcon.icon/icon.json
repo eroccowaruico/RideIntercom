@@ -275,9 +275,9 @@
       "name" : "Background",
       "opacity" : 1,
       "refractivity" : {
-        "depth" : 0,
+        "depth" : 0.5,
         "enabled" : false,
-        "strength" : 1
+        "strength" : 0
       },
       "shadow" : {
         "kind" : "neutral",
