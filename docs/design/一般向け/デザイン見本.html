@@ -150,7 +150,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .row .sub { color: var(--label2); font-size: 11.5px; }
 .row .tail { color: var(--label2); font-size: 12px; display: flex; align-items: center; gap: 4px; }
 .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 15px; background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 75%, white), var(--accent)); flex: none; }
-.avatar.g { background: linear-gradient(160deg, color-mix(in srgb, var(--green) 50%, white), var(--green)); }
+.avatar.g { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 55%, white), var(--accent)); }
 
 .kind { font-size: 11.5px; color: var(--label2); font-weight: 600; display: flex; gap: 5px; align-items: center; }
 .dest { font-size: 24px; font-weight: 700; margin: 2px 0 6px; }
@@ -521,18 +521,18 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="group-h">ユーザー</div>
             <div class="group" style="background:var(--grouped-card)">
               <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ<div class="sub">参加済み</div></span></div>
-              <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ</span><span class="check on"><svg class="i"><use href="#check"/></svg></span></div>
-              <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">リョウ</span><span class="check"></span></div>
+              <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">自動で届く</div></span><span class="check on"><svg class="i"><use href="#check"/></svg></span></div>
+              <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">リョウ<div class="sub">リンクで招待</div></span><span class="check"></span></div>
             </div>
             <div class="group" style="background:var(--grouped-card)">
               <div class="row"><span class="avatar pending"><svg class="i"><use href="#plus"/></svg></span><span class="grow link">新しい人を招待</span></div>
             </div>
-            <p class="note" style="padding:0 6px">追加すると、選んだ人宛ての招待の共有画面がそのまま開きます。相手が参加するまでは「招待中」と表示されます。</p>
-            <div class="btn prom" style="margin-top:14px"><svg class="i"><use href="#share"/></svg>追加して招待を送る</div>
+            <p class="note" style="padding:0 6px">自分を含めて5/8人</p>
+            <div class="btn prom" style="margin-top:14px"><svg class="i"><use href="#plus"/></svg>追加</div>
           </div>
         </div>
       </div></div>
-      <figcaption><b>メンバーを追加（シート）</b>共有はメンバー指定の招待なので、追加の確定と同時に共有画面を開く。共有だけを独立した操作にしない。</figcaption>
+      <figcaption><b>メンバーを追加（シート）</b>個人で登録した人にはグループが自動で届く。リンクが必要な人を選んだときだけ共有画面を開く。共有だけを独立した操作にしない。人数は自分を含めて8人まで。</figcaption>
     </figure>
 
     <!-- 通話 接続中 -->
@@ -542,15 +542,14 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="navbar"></div>
         <div class="body" style="padding-top:4px">
           <div class="glass card" style="margin-bottom:14px">
-            <div class="kind"><svg class="i"><use href="#person"/></svg>ユーザー</div>
-            <div class="dest">ハルカ</div>
+            <div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
+            <div class="dest">週末ツーリング</div>
             <div class="status wait"><span class="spin"></span>接続中</div>
             <div class="route">相手の参加を待っています</div>
             <div class="stack" style="margin-top:14px">
               <div class="btn danger">キャンセル</div>
             </div>
           </div>
-          <p class="note" style="padding:0 4px">相手もRideComで接続するとつながります。通知は送りません。</p>
         </div>
         <div class="sheetgrab"></div>
       </div></div>
@@ -579,7 +578,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group glass">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span><span style="height:5px"></span></span>話しています</div></span><span class="tail">100%<svg class="i chev"><use href="#chev"/></svg></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%<svg class="i chev"><use href="#chev"/></svg></span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">まだ接続していません</div></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span></div>
           </div>
         </div>
         <div class="sheetgrab"></div>
@@ -927,7 +926,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group glass">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span><span class="tail">100%</span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%</span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">まだ接続していません</div></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span></div>
           </div>
         </div>
         <div class="sheetgrab"></div>
@@ -966,10 +965,10 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group glass">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span><span class="tail">100%</span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%</span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">まだ接続していません</div></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span></div>
           </div>
           <div class="group-h">招待中</div>
-          <div class="group glass"><div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div></div>
+          <div class="group glass"><div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">受け取り待ち</div></span><svg class="i chev"><use href="#chev"/></svg></div></div>
                 </div>
       </div></div>
       <figcaption><b>iPad・Mac（幅1000pt以上）</b>サイドバー＋一覧＋右の列の通話（<code>inspector</code>）。接続していない間は通話の列を出さない。幅が狭くなると通話はシートに変わる。Macは背景をOS標準にする（デザインシステム見本の「macOS」）。</figcaption>

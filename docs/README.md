@@ -191,6 +191,7 @@
 | [validation/README.md](<validation/README.md>) | 検証状況と証跡 |
 | [validation/history/通知Appの接続と認可の検証.md](<validation/history/通知Appの接続と認可の検証.md>) | 通知HTTP・端末内同意・取消・ログイン世代・共通通話操作のローカル検証 |
 | [validation/history/通知とMacメニューの統合.md](<validation/history/通知とMacメニューの統合.md>) | 通知・Mac表示・容量回復・iPhone/iPad操作と配布生成物の統合検証 |
+| [validation/history/画面とデザイン見本の照合.md](<validation/history/画面とデザイン見本の照合.md>) | 実画面（Simulator 27画面）とHTML見本の照合。Diagnostics・通話のヒーロー・設定などの見た目の差と、見本の古さの訂正 |
 | [validation/history/StoreKit端末利用権のローカル検証.md](<validation/history/StoreKit端末利用権のローカル検証.md>) | StoreKitの署名・期限・返金・復元の局所検証 |
 | [validation/history/音声境界の共通化と再点検.md](<validation/history/音声境界の共通化と再点検.md>) | 音声・RTC境界の共通化と二巡の再点検 |
 | [validation/history/近距離オフライン通信.md](<validation/history/近距離オフライン通信.md>) | AP・セルラー不在とLocal優先の調査・検証 |

@@ -64,7 +64,7 @@ a { color: var(--accent); }
 .r .g { flex: 1; min-width: 0; }
 .r .s { color: var(--label2); font-size: 9.5px; }
 .av { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--accent); font-size: 11px; flex: none; }
-.av.gr { background: var(--green); }
+.av.gr { background: var(--accent); }
 .av.pd { background: transparent; border: 1.2px dashed var(--label3); color: var(--label2); }
 .tap { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
 .finger { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: rgba(17,121,192,.25); border: 2px solid rgba(17,121,192,.7); }
@@ -95,6 +95,9 @@ a { color: var(--accent); }
 .ctx div { padding: 7px 10px; border-bottom: .5px solid var(--sep); }
 .ctx .dis { color: var(--label3); }
 .ctx .dis small { display: block; color: var(--label2); font-size: 9px; }
+.ph { color: color-mix(in srgb, var(--label2) 85%, transparent); }
+.btn.off { background: var(--fill); color: var(--label3); }
+.foot { color: var(--label2); font-size: 9px; padding: 0 4px; }
 .tabbar { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 38px; border-radius: 20px; display: flex; justify-content: space-around; align-items: center; background: var(--glass); border: 1px solid var(--glass-edge); }
 .tab { display: grid; justify-items: center; font-size: 7.5px; font-weight: 600; color: var(--label2); }
 .tab svg { font-size: 13px; }
