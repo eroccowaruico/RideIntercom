@@ -47,8 +47,8 @@
               "value" : {
                 "scale" : 0.95,
                 "translation-in-points" : [
-                  -22,
-                  -21
+                  -6.244699020000098,
+                  -7
                 ]
               }
             }
@@ -77,8 +77,8 @@
               "value" : {
                 "scale" : 0.95,
                 "translation-in-points" : [
-                  -22,
-                  -21
+                  13,
+                  -16
                 ]
               }
             }
@@ -125,20 +125,20 @@
           "position-specializations" : [
             {
               "value" : {
-                "scale" : 1.02,
+                "scale" : 1.16,
                 "translation-in-points" : [
-                  27.942608789999895,
-                  32.84323468000002
+                  97,
+                  98
                 ]
               }
             },
             {
               "idiom" : "watchOS",
               "value" : {
-                "scale" : 1.08,
+                "scale" : 1.16,
                 "translation-in-points" : [
-                  27.942608789999895,
-                  32.84323468000002
+                  44.378884969999945,
+                  75.62563943999999
                 ]
               }
             }
@@ -172,9 +172,18 @@
               }
             }
           ],
-          "image-name" : "Background 2.svg",
-          "name" : "Background 2",
+          "image-name" : "Background.svg",
+          "name" : "Background",
           "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 1,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            },
             {
               "idiom" : "watchOS",
               "value" : {
