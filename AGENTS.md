@@ -17,7 +17,7 @@
 
 **着手前と作業途中にこまめにoriginとローカルmainを同期し、小さな検証済み単位ごとに、[ブランチ運用](docs/policies/開発方針.md#ブランチ運用)を必ず適用し、ローカルとクラウドの同時稼働を前提に、担当範囲・作業領域と統合順を調整し、originを基準にしたmainへの同期・push・previewのmain同期と、不要なbranch／worktreeの削除まで確認する。未コミット・main未統合・未pushを積み上げず、次の単位へ進む前に同期を閉じる。**
 
-GUIの実装・変更・点検では、[UI Stackを含むUI・UX方針](docs/policies/開発方針.md#uiux方針)を必ず適用する。
+GUIの実装・変更・点検では、[UI Stackを含むUI・UX方針](docs/policies/開発方針.md#uiux方針)を必ず適用する。Standard（一般向け）とAdvanced（詳細表示）の画面は、[StandardとAdvancedの設計の絶対ルール](docs/policies/開発方針.md#standardとadvancedの設計の絶対ルール)に例外なく従う。
 
 UI／UXへ影響する仮実装は、[機能実装とデザイン判断の引継ぎ](docs/policies/開発方針.md#機能実装とデザイン判断の引継ぎ)を必ず適用する。課題の記録・作業選択では、[改善・デザイン・機能の分類と全体優先順位](docs/policies/文書作成規約.md#バックログの分類と全体優先順位)を必ず適用する。
 
