@@ -211,7 +211,10 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .tab.on { color: var(--accent); opacity: 1; background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .accessory { position: absolute; left: 14px; right: 14px; bottom: 84px; height: 46px; border-radius: 24px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; font-size: 12.5px; }
 .accessory .grow { flex: 1; min-width: 0; font-weight: 600; }
-.accessory .mini { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--fill); font-size: 15px; }
+.accessory .mini { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--fill); font-size: 15px; flex: none; }
+.accessory .mini.end { color: var(--red); margin-left: 4px; }
+.accessory .two { display: grid; line-height: 1.25; }
+.accessory .two small { color: var(--label2); font-weight: 500; font-size: 11px; }
 
 .avatar.pending { background: transparent; color: var(--label2); border: 1.5px dashed var(--label3); }
 .reshare { min-height: 32px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: 999px; padding: 6px 10px; min-height: 30px; }
@@ -651,26 +654,47 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="group glass">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub tag ok"><svg class="i"><use href="#wave"/></svg>会話中</div></span><svg class="i chev"><use href="#chev"/></svg></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><svg class="i chev"><use href="#chev"/></svg></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ</span><svg class="i chev"><use href="#chev"/></svg></div>
           </div>
           <div class="group-h">招待中</div>
           <div class="group glass">
-            <div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">未参加</div></span><span class="reshare"><svg class="i"><use href="#share"/></svg>再共有</span></div>
+            <div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">受け取り待ち</div></span><svg class="i chev"><use href="#chev"/></svg></div>
+            <div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">リョウ<div class="sub">返信を届けています</div></span><span class="spin" style="color:var(--label2)"></span></div>
           </div>
-          <p class="note" style="padding:0 6px">相手が招待から参加すると、お互いがここに保存されます。名前の変更と削除は、行を左右にスワイプ。</p>
         </div>
         <div class="accessory glass">
           <span style="color:var(--green)"><svg class="i"><use href="#wave"/></svg></span>
-          <span class="grow">ハルカ<span style="color:var(--label2);font-weight:500"> ・ 会話中</span></span>
+          <span class="grow two">ハルカ<small>会話中</small></span>
           <span class="mini" aria-label="ミュート"><svg class="i"><use href="#mic-slash"/></svg></span>
+          <span class="mini end" aria-label="切断"><svg class="i"><use href="#phone-down"/></svg></span>
         </div>
         <div class="tabbar glass">
           <div class="tab on"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
-          <div class="tab"><svg class="i"><use href="#person3"/></svg>グループ</div>
           <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>ユーザー（最初の画面・会話中）</b>行をタップするとすぐ接続して通話のシートを開く（会話中は切替を確認）。右上 + で新しい相手を招待。参加前は「招待中」（未参加）。会話中はタブバーの上の通話表示から戻れる（スクロールするとタブバーの中央に小さく収まる）。</figcaption>
+      <figcaption><b>ユーザー（最初の画面・会話中）</b>行をタップするとすぐ接続して通話のシートを開く（会話中は切替を確認）。右上 + で新しい相手を招待。成立前は「招待中」に状態の語1つで並べ、タップで招待の詳細を開く（<a href="../招待と登録の設計.md">招待と登録の設計</a>）。タブはグループタブを表示しない既定の2つ。下の通話のアクセサリは縮めず、名前・状態・ミュート・切断（確認付き）を置く。</figcaption>
+    </figure>
+
+    <!-- 招待の詳細 -->
+    <figure>
+      <div class="phone"><div class="screen">
+        <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
+        <div class="navbar" style="justify-content:flex-start"><span class="link" style="display:flex;align-items:center;gap:2px;font-size:14px"><svg class="i"><use href="#back"/></svg>ユーザー</span></div>
+        <div class="body" style="padding-top:6px">
+          <div class="glass card" style="margin-bottom:10px"><div class="kind"><svg class="i"><use href="#person"/></svg>あなたが送った招待</div><div class="dest">マキ</div><div class="status wait"><span class="spin"></span>受け取り待ち</div><div class="route" style="margin-top:4px">マキがこの招待を開いて受け入れると、ユーザーに加わります。</div></div>
+          <div class="btn prom" style="margin:4px 0"><svg class="i"><use href="#share"/></svg>招待を再送</div>
+          <p class="note" style="padding:0 6px;margin:0 0 12px">相手が招待を見つけられないときに、同じ招待をもう一度送ります。</p>
+          <div class="group-h">呼び名</div>
+          <div class="group glass"><div class="row"><span class="grow">マキ</span><span class="tail">編集</span></div></div>
+          <div class="ffoot">あなたの端末だけで使う名前です。最初は「相手 4QF」でした。</div>
+          <div class="group glass"><div class="row"><span class="grow" style="color:var(--red)">招待を取り消す</span></div></div>
+        </div>
+        <div class="tabbar glass">
+          <div class="tab on"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
+          <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
+        </div>
+      </div></div>
+      <figcaption><b>招待の詳細</b>誰に対する何の操作かを1文ずつ示す。送った招待は「招待を再送」、受け取った招待で返信が届かないときは「返信を送り直す」と、別の語・別の説明にする。自動で届けている間は操作を出さない。</figcaption>
     </figure>
 
     <!-- グループ -->
@@ -701,7 +725,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
   <div class="spec">
     <div><b>円形の操作ボタン</b><code>Button</code> + <code>.buttonStyle(.glassProminent / .glass)</code> + <code>.buttonBorderShape(.circle)</code> + <code>.controlSize(.extraLarge)</code>。3つを <code>GlassEffectContainer</code> でまとめる。</div>
     <div><b>背景</b><code>List</code> の <code>.scrollContentBackground(.hidden)</code> と <code>LinearGradient(BackgroundTop → BackgroundBase)</code>。ヒーローは <code>listRowBackground(.clear)</code>。</div>
-    <div><b>iPad・Mac</b><code>.tabViewStyle(.sidebarAdaptable)</code> でサイドバー化。regular width ではヒーローと操作を左、メンバーを右の2列にする。</div>
+    <div><b>iPad・Mac</b><code>.tabViewStyle(.sidebarAdaptable)</code> でサイドバー化。通話は一覧の右の列（<code>inspector</code>、幅320〜420pt）に1列で置く。</div>
   </div>
 
 
@@ -836,8 +860,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="body">
           <div class="banner glass" style="background:color-mix(in srgb,var(--orange) 12%,var(--grouped-card));border-color:transparent"><span class="ic"><svg class="i"><use href="#warn"/></svg></span><div><b>通常は変更しないでください</b><p>ここの設定を変えると、音声や接続が正しく動かなくなることがあります。初期値以外の組み合わせはテストしていません。</p></div></div>
           <div class="group-h g5"><span class="gdot"></span>画面表示</div>
-          <div class="group"><div class="seg3"><span class="on">標準</span><span>詳細</span></div></div>
-          <div class="ffoot">詳細表示では診断と細かな設定を表示します（英語のみ）。</div>
+          <div class="group"><div class="seg3"><span class="on">標準</span><span>詳細</span></div><div class="row"><span class="grow">グループタブを表示</span><span class="toggle offt"></span></div></div>
+          <div class="ffoot">詳細表示では診断と細かな設定を表示します（英語のみ）。グループタブをオンにすると、3人以上で話すグループの作成と一覧を使えます。</div>
           <div class="group-h g5"><span class="gdot"></span>インターネット接続</div>
           <div class="group"><div class="row"><span class="grow">設定済み</span><span class="tail"><svg class="i" style="color:var(--green)"><use href="#check"/></svg></span></div><div class="row"><span class="grow"><span class="link">インターネット接続を設定</span></span></div></div>
           <div class="group-h g4"><span class="gdot"></span>オーディオセッション</div>
@@ -853,7 +877,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>開発者向けの高度な設定</b>一般の人が入らないよう難しい名前にし、画面の一番上に「変えると動かなくなることがある」と警告を出す。画面表示（標準／詳細）の切替とインターネット接続もここ。音声の項目は将来固定する想定。リセットはここに置かない。</figcaption>
+      <figcaption><b>開発者向けの高度な設定</b>一般の人が入らないよう難しい名前にし、画面の一番上に「変えると動かなくなることがある」と警告を出す。画面表示（標準／詳細）の切替、グループタブの表示（既定はオフ）、インターネット接続もここ。音声の項目は将来固定する想定。リセットはここに置かない。</figcaption>
     </figure>
 
     <div class="outline">
@@ -873,7 +897,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <li>発話検出 <span>静かな場所／標準／騒がしい場所</span></li>
         <li>音声チェック <span>5秒録音して再生</span></li></ol></div>
       <div class="og g5"><b>高度な設定</b><ol>
-        <li>開発者向けの高度な設定 ▸ <span>警告 · 画面表示（標準／詳細）· インターネット接続 · オーディオセッション · 送信コーデック（音声は将来固定予定）</span></li></ol></div>
+        <li>開発者向けの高度な設定 ▸ <span>警告 · 画面表示（標準／詳細・グループタブ）· インターネット接続 · オーディオセッション · 送信コーデック（音声は将来固定予定）</span></li></ol></div>
       <div class="og g6"><b>リセット</b><ol>
         <li>リセット <span>すべての設定をリセット（確認付き）</span></li></ol></div>
       <p class="note" style="margin-top:6px">現行は画面表示が先頭、リセットは「More Audio and Connection Settings」の中。一般向けでは日常的に触る項目を上に、表示切替と専門設定を「開発者向けの高度な設定」の中へ、リセットを最下部に移す。</p>
