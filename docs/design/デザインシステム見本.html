@@ -161,7 +161,8 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
   <symbol id="phone-down" viewBox="0 0 24 24"><path d="M2.5 14.5c5.2-5 13.8-5 19 0l-1.8 2.6-4-1.4v-2.6a12 12 0 0 0-7.4 0v2.6l-4 1.4z"/></symbol>
   <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></symbol>
   <symbol id="mic-slash" viewBox="0 0 24 24"><path d="M15 9.5V6a3 3 0 0 0-5.8-1.1M9 9v2a3 3 0 0 0 4.9 2.3M18.5 11a6.5 6.5 0 0 1-1 3.5M5.5 11a6.5 6.5 0 0 0 10 5.5M12 17.5V21M8.5 21h7M3.5 3.5l17 17"/></symbol>
-  <symbol id="speaker" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="speaker-slash" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M3.5 3.5l17 17"/></symbol>
+    <symbol id="speaker" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
   <symbol id="wave" viewBox="0 0 24 24"><path d="M3 11v2M6.5 8v8M10 5v14M13.5 8.5v7M17 6.5v11M20.5 10.5v3"/></symbol>
   <symbol id="person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></symbol>
   <symbol id="person2" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 13.5a6.5 6.5 0 0 1 3.5 6"/></symbol>
@@ -211,7 +212,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
   <!-- 状態 -->
   <h2 id="state">状態の表し方</h2>
-  <p class="note">同じ内部状態を、記号と色は共通、語だけStandardとAdvancedで変える。Waitingは故障ではなく、理由を必ず添える。ミュート（赤）と待機（琥珀色）は色覚特性やコントラスト設定で色が近くなるため、ミュートは必ずマイク・スピーカーの斜線と「ミュート中」、待機は進行表示・一時停止・ヘッドホンの記号で区別する。</p>
+  <p class="note">同じ内部状態を、記号と色は共通、語だけStandardとAdvancedで変える。Waitingは故障ではなく、理由を必ず添える。ミュート（赤）と待機（琥珀色）は色覚特性やコントラスト設定で色が近くなるため、ミュートは必ず斜線のマイクと「ミュート中」、消音は斜線のスピーカーと「消音中」、待機は進行表示・一時停止・ヘッドホンの記号で区別する。</p>
   <div class="tbl"><table>
     <thead><tr><th>内部状態</th><th>Standard</th><th>Advanced</th></tr></thead>
     <tbody>
@@ -242,7 +243,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
       <div class="surface dim" style="width:330px;padding:22px 16px 30px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div class="ctrl"><span class="cb gl box-out"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
-          <div class="ctrl"><span class="cb gl"><svg class="i"><use href="#speaker"/></svg></span>スピーカー</div>
+          <div class="ctrl"><span class="cb gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
           <div class="ctrl"><span class="cb end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
         </div>
         <span class="mk" style="left:16px;top:6px">64×64</span>
@@ -309,7 +310,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
         </div>
         <div class="main" style="border-left:1px solid var(--mline)">
           <div class="hero"><div class="sub" style="font-weight:600">グループ・4人</div><div style="font-size:18px;font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</div></div>
-          <div style="display:flex;gap:14px"><div class="ctrl"><span class="cb gl" style="width:44px;height:44px;font-size:18px;background:var(--mcard);border:1px solid var(--mline)"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div><div class="ctrl"><span class="cb gl" style="width:44px;height:44px;font-size:18px;background:var(--mcard);border:1px solid var(--mline)"><svg class="i"><use href="#speaker"/></svg></span>スピーカー</div><div class="ctrl"><span class="cb end" style="width:44px;height:44px;font-size:18px"><svg class="i"><use href="#phone-down"/></svg></span>切断</div></div>
+          <div style="display:flex;gap:14px"><div class="ctrl"><span class="cb gl" style="width:44px;height:44px;font-size:18px;background:var(--mcard);border:1px solid var(--mline)"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div><div class="ctrl"><span class="cb gl" style="width:44px;height:44px;font-size:18px;background:var(--mcard);border:1px solid var(--mline)"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div><div class="ctrl"><span class="cb end" style="width:44px;height:44px;font-size:18px"><svg class="i"><use href="#phone-down"/></svg></span>切断</div></div>
           <div class="mcard"><div class="lrow">ハルカ<span class="g"></span><span class="sub">100%</span></div><div class="lrow">ケンタ<span class="g"></span><span class="sub">80%</span></div></div>
         </div>
       </div>
