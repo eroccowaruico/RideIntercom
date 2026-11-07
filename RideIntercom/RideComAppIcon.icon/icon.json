@@ -1,7 +1,8 @@
 {
   "color-space-for-untagged-svg-colors" : "display-p3",
   "features" : [
-    "refractivity"
+    "refractivity",
+    "specular-location"
   ],
   "fill-specializations" : [
     {
@@ -18,25 +19,36 @@
   ],
   "groups" : [
     {
-      "blur-material" : 0.05,
+      "blend-mode" : "normal",
+      "blur-material" : 0,
+      "hidden" : false,
       "layers" : [
         {
           "fill-specializations" : [
             {
               "value" : {
-                "solid" : "srgb:0.00000,0.88231,0.81458,1.00000"
+                "solid" : "display-p3:0.00000,1.00000,0.92565,1.00000"
               }
             },
             {
-              "appearance" : "dark",
+              "appearance" : "tinted",
               "value" : {
-                "solid" : "srgb:0.00000,0.67052,1.00000,1.00000"
+                "solid" : "display-p3:0.00000,0.85490,0.73698,1.00000"
               }
             }
           ],
+          "glass" : true,
           "image-name" : "Bubble-Left.svg",
           "name" : "Bubble-Left",
-          "opacity" : 0.68,
+          "opacity-specializations" : [
+            {
+              "value" : 0.81
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
           "position-specializations" : [
             {
               "idiom" : "watchOS",
@@ -53,12 +65,6 @@
       ],
       "lighting" : "individual",
       "name" : "Bubble-Left",
-      "opacity-specializations" : [
-        {
-          "appearance" : "dark",
-          "value" : 0.8
-        }
-      ],
       "refractivity" : {
         "depth" : 0.262734375,
         "enabled" : true,
@@ -66,45 +72,45 @@
       },
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 1.67
+        "opacity" : 1.5
       },
-      "specular" : true,
-      "translucency-specializations" : [
-        {
-          "value" : {
-            "enabled" : true,
-            "value" : 0.35
-          }
-        },
-        {
-          "appearance" : "dark",
-          "value" : {
-            "enabled" : true,
-            "value" : 0.7
-          }
-        }
-      ]
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.58
+      }
     },
     {
-      "blur-material" : 0.05,
+      "blend-mode" : "normal",
+      "blur-material" : 0,
+      "hidden" : false,
       "layers" : [
         {
           "fill-specializations" : [
             {
               "value" : {
-                "solid" : "srgb:0.00000,0.88231,0.81458,1.00000"
+                "solid" : "display-p3:0.00000,1.00000,0.92565,1.00000"
               }
             },
             {
-              "appearance" : "dark",
+              "appearance" : "tinted",
               "value" : {
-                "solid" : "srgb:0.00000,0.67052,1.00000,1.00000"
+                "solid" : "display-p3:0.00000,0.85490,0.73698,1.00000"
               }
             }
           ],
+          "glass" : true,
           "image-name" : "Bubble-Right.svg",
           "name" : "Bubble-Right",
-          "opacity" : 0.68,
+          "opacity-specializations" : [
+            {
+              "value" : 0.81
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
           "position-specializations" : [
             {
               "idiom" : "watchOS",
@@ -121,12 +127,6 @@
       ],
       "lighting" : "individual",
       "name" : "Bubble-Right",
-      "opacity-specializations" : [
-        {
-          "appearance" : "dark",
-          "value" : 0.8
-        }
-      ],
       "refractivity" : {
         "depth" : 0.262734375,
         "enabled" : true,
@@ -134,41 +134,41 @@
       },
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 1.67
+        "opacity" : 1.5
       },
-      "specular" : true,
-      "translucency-specializations" : [
-        {
-          "value" : {
-            "enabled" : true,
-            "value" : 0.35
-          }
-        },
-        {
-          "appearance" : "dark",
-          "value" : {
-            "enabled" : true,
-            "value" : 0.7
-          }
-        }
-      ]
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.58
+      }
     },
     {
       "blend-mode" : "normal",
       "blur-material" : null,
+      "hidden" : false,
       "layers" : [
         {
           "fill-specializations" : [
+            {
+              "value" : "system-light"
+            },
             {
               "appearance" : "dark",
               "value" : {
                 "solid" : "srgb:0.00000,0.00000,0.28615,1.00000"
               }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "display-p3:0.70934,0.95358,1.00000,1.00000"
+              }
             }
           ],
+          "hidden" : false,
           "image-name" : "Road-Invert.svg",
           "name" : "Road-Invert",
-          "opacity" : 0.9,
+          "opacity" : 1,
           "position-specializations" : [
             {
               "value" : {
@@ -194,7 +194,15 @@
       ],
       "lighting" : "individual",
       "name" : "Road-Invert",
-      "opacity" : 0.89,
+      "opacity-specializations" : [
+        {
+          "value" : 1
+        },
+        {
+          "appearance" : "tinted",
+          "value" : 0.64
+        }
+      ],
       "refractivity" : {
         "depth" : 0.2740625,
         "enabled" : true,
@@ -204,46 +212,43 @@
         {
           "value" : {
             "kind" : "neutral",
-            "opacity" : 1.63
+            "opacity" : 1
           }
         },
         {
           "appearance" : "dark",
           "value" : {
             "kind" : "neutral",
-            "opacity" : 2
+            "opacity" : 0.6
           }
         }
       ],
-      "translucency-specializations" : [
-        {
-          "value" : {
-            "enabled" : true,
-            "value" : 0.41
-          }
-        },
-        {
-          "appearance" : "dark",
-          "value" : {
-            "enabled" : true,
-            "value" : 0.36
-          }
-        }
-      ]
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0
+      }
     },
     {
+      "hidden" : false,
       "layers" : [
         {
           "fill-specializations" : [
             {
               "value" : {
-                "solid" : "srgb:0.00000,0.60814,0.66635,1.00000"
+                "solid" : "display-p3:0.00000,0.75776,1.00000,1.00000"
               }
             },
             {
               "appearance" : "dark",
               "value" : {
-                "solid" : "srgb:0.00000,0.60993,0.88882,1.00000"
+                "solid" : "display-p3:0.00000,0.44564,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "display-p3:0.00000,0.68459,1.00000,1.00000"
               }
             }
           ],
@@ -273,7 +278,15 @@
         }
       ],
       "name" : "Background",
-      "opacity" : 1,
+      "opacity-specializations" : [
+        {
+          "value" : 1
+        },
+        {
+          "appearance" : "tinted",
+          "value" : 0.64
+        }
+      ],
       "refractivity" : {
         "depth" : 0.5,
         "enabled" : false,
@@ -283,18 +296,19 @@
         "kind" : "neutral",
         "opacity" : 2
       },
+      "specular" : "outside",
       "translucency-specializations" : [
         {
           "value" : {
             "enabled" : true,
-            "value" : 0.3
+            "value" : 0
           }
         },
         {
           "appearance" : "dark",
           "value" : {
             "enabled" : true,
-            "value" : 0.8
+            "value" : 0.63
           }
         }
       ]

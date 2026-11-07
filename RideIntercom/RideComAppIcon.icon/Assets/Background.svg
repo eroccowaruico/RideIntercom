@@ -3,5 +3,6 @@
 <svg viewBox="0 0 1025 1025" xmlns="http://www.w3.org/2000/svg">
     <g id="Background">
         <path id="path1" fill="#0b9b9b" stroke="none" d="M 1024.160034 1025 L 0 1025 L 0 0.839966 L 1024.160034 0.839966 L 1024.160034 1025 Z"/>
+        <path id="size" fill="#929292" fill-opacity="0.70492" fill-rule="evenodd" stroke="none" d="M 1023 2 L 1024 2 L 1024 1 L 1023 1 Z M 0 2 L 1 2 L 1 1 L 0 1 Z M 1023 1025 L 1024 1025 L 1024 1024 L 1023 1024 Z M 0 1025 L 1 1025 L 1 1024 L 0 1024 Z"/>
     </g>
 </svg>
