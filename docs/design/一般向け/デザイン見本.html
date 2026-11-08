@@ -565,18 +565,17 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
             <div class="dest">週末ツーリング</div>
             <div class="status ok"><svg class="i"><use href="#wave"/></svg>会話中</div>
-            <div class="route"><svg class="i"><use href="#antenna"/></svg>近距離・インターネット</div>
           </div>
           <div class="ctrls">
             <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
             <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
             <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
           </div>
-          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">100%</span></div>
+          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg></div>
           <div class="group-h" style="margin-top:8px">メンバー</div>
           <div class="group glass">
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span><span style="height:5px"></span></span>話しています</div></span><span class="tail">100%<svg class="i chev"><use href="#chev"/></svg></span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%<svg class="i chev"><use href="#chev"/></svg></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span><span style="height:5px"></span></span>話しています</div></span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span></div>
           </div>
         </div>
@@ -595,14 +594,13 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="kind"><svg class="i"><use href="#person"/></svg>ユーザー</div>
             <div class="dest">ハルカ</div>
             <div class="status ok"><svg class="i"><use href="#wave"/></svg>会話中</div>
-            <div class="route"><svg class="i"><use href="#antenna"/></svg>近距離</div>
           </div>
           <div class="ctrls">
             <div class="ctrl" style="color:var(--label)"><span class="cbtn muted"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート中</div>
             <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
             <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
           </div>
-          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:62%"></i><b style="left:62%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">125%</span></div>
+          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:62%"></i><b style="left:62%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">大きめ</span></div>
           <div class="group glass" style="margin-top:10px">
             <div class="row"><span class="grow">受信する声を分離</span><span class="toggle offt"></span></div>
           </div>
@@ -610,7 +608,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="accessory glass" style="display:none"></div>
         <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話のシート：ミュート中（1対1）</b>ミュートボタンが red の選択状態になり、文言が「ミュート中」に。100%超はブースト。</figcaption>
+      <figcaption><b>通話のシート：ミュート中（1対1）</b>ミュートボタンが red の選択状態になり、文言が「ミュート中」に。音量は数値を出さず、100%を超えた位置で「大きめ」。</figcaption>
     </figure>
 
     <!-- 通話 音声停止 -->
@@ -862,12 +860,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="ffoot">詳細表示では診断と細かな設定を表示します（英語のみ）。グループタブをオンにすると、3人以上で話すグループの作成と一覧を使えます。</div>
           <div class="group-h g5"><span class="gdot"></span>インターネット接続</div>
           <div class="group"><div class="row"><span class="grow">設定済み</span><span class="tail"><svg class="i" style="color:var(--green)"><use href="#check"/></svg></span></div><div class="row"><span class="grow"><span class="link">インターネット接続を設定</span></span></div></div>
-          <div class="group-h g4"><span class="gdot"></span>オーディオセッション</div>
-          <div class="group"><div class="row"><span class="grow">セッションモード</span><span class="tail">バースト<svg class="i chev"><use href="#chev"/></svg></span></div><div class="row"><span class="grow">スピーカー出力を強制</span><span class="toggle offt"></span></div><div class="row"><span class="grow">エコーキャンセレーション</span><span class="toggle"></span></div><div class="row"><span class="grow">他のアプリ音声のダッキング</span><span class="toggle"></span></div></div>
-          <div class="ffoot">バーストは通常の音声モード、ストリームは電話に近い会話向けです。</div>
-          <div class="group-h g4"><span class="gdot"></span>送信コーデック</div>
-          <div class="group"><div class="seg3"><span>PCM</span><span class="on">AAC-ELD</span><span>Opus</span></div><div class="row"><span class="grow">サンプリング周波数</span><span class="tail">48 kHz<svg class="i chev"><use href="#chev"/></svg></span></div><div class="row"><span class="grow">エンコードビットレート</span><span class="tail">48 kbps<svg class="i chev"><use href="#chev"/></svg></span></div></div>
-          <div class="ffoot">使えない形式は自動で切り替わります。</div>
+          
         </div>
         <div class="tabbar glass">
           <div class="tab"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
@@ -875,7 +868,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab on"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>開発者向けの高度な設定</b>一般の人が入らないよう難しい名前にし、画面の一番上に「変えると動かなくなることがある」と警告を出す。画面表示（標準／詳細）の切替、グループタブの表示（既定はオフ）、インターネット接続もここ。音声の項目は将来固定する想定。リセットはここに置かない。</figcaption>
+      <figcaption><b>開発者向けの高度な設定</b>一般の人が入らないよう難しい名前にし、画面の一番上に「変えると動かなくなることがある」と警告を出す。画面表示（標準／詳細）の切替、グループタブの表示（既定はオフ）、インターネット接続だけ。専門の音声・通信の設定は一般向けに置かず、詳細表示で実装と対で扱う。リセットはここに置かない。</figcaption>
     </figure>
 
     <div class="outline">
@@ -895,7 +888,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <li>発話検出 <span>静かな場所／標準／騒がしい場所</span></li>
         <li>音声チェック <span>5秒録音して再生</span></li></ol></div>
       <div class="og g5"><b>高度な設定</b><ol>
-        <li>開発者向けの高度な設定 ▸ <span>警告 · 画面表示（標準／詳細・グループタブ）· インターネット接続 · オーディオセッション · 送信コーデック（音声は将来固定予定）</span></li></ol></div>
+        <li>開発者向けの高度な設定 ▸ <span>警告 · 画面表示（標準／詳細・グループタブ）· インターネット接続（専門の音声・通信の設定は詳細表示だけ）</span></li></ol></div>
       <div class="og g6"><b>リセット</b><ol>
         <li>リセット <span>すべての設定をリセット（確認付き）</span></li></ol></div>
       <p class="note" style="margin-top:6px">現行は画面表示が先頭、リセットは「More Audio and Connection Settings」の中。一般向けでは日常的に触る項目を上に、表示切替と専門設定を「開発者向けの高度な設定」の中へ、リセットを最下部に移す。</p>
@@ -912,7 +905,6 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="lcol"><div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
             <div class="dest">週末ツーリング</div>
             <div class="status ok"><svg class="i"><use href="#wave"/></svg>会話中</div>
-            <div class="route"><svg class="i"><use href="#antenna"/></svg>近距離・インターネット</div>
             <div class="ctrls">
               <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
               <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
@@ -920,11 +912,11 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             </div>
         </div>
         <div class="rcol">
-          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">100%</span></div>
+          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg></div>
           <div class="group-h" style="margin-top:6px">メンバー</div>
           <div class="group glass">
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span><span class="tail">100%</span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span></div>
           </div>
         </div>
@@ -953,17 +945,16 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="col" style="border-left:.5px solid var(--sep);background:color-mix(in srgb,var(--glass) 50%,transparent)"><div class="kind"><svg class="i"><use href="#person3"/></svg>グループ・4人</div>
             <div class="dest">週末ツーリング</div>
             <div class="status ok"><svg class="i"><use href="#wave"/></svg>会話中</div>
-            <div class="route"><svg class="i"><use href="#antenna"/></svg>近距離・インターネット</div>
             <div style="transform:scale(1.0)"><div class="ctrls" style="justify-content:flex-start;gap:24px">
               <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div>
               <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
               <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
             </div></div>
-          <div class="slider" style="margin-top:8px"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">100%</span></div>
+          <div class="slider" style="margin-top:8px"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg></div>
                   <div class="group-h">メンバー</div>
           <div class="group glass">
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span><span class="tail">100%</span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail">80%</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span></div>
           </div>
           <div class="group-h">招待中</div>
@@ -1111,7 +1102,6 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="wh" style="color:var(--label2)"><svg class="i"><use href="#person3"/></svg>グループ<span class="gl glr"><svg viewBox="0 0 4096 4096"><use href="#appglyph"/></svg></span></div>
           <div class="wname" style="font-size:18px">週末ツーリング</div>
           <div class="wst"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</div>
-          <div class="wst" style="color:var(--label2);font-weight:500;margin-top:auto"><svg class="i"><use href="#antenna"/></svg>近距離・インターネット</div>
         </div>
         <div style="display:grid;gap:12px;align-content:center;width:124px">
           <div class="wact" style="margin:0"><div class="g"><svg class="i"><use href="#mic-slash"/></svg>ミュート</div></div>

@@ -189,11 +189,11 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
 <main class="wrap">
   <h1>RideCom デザインシステム見本</h1>
-  <p class="lead">一般向け（Standard）と詳細表示（Advanced）に共通する色・状態・寸法・レイアウト・部品の見本。規則の正本は <a href="デザインシステム.md">デザインシステム</a>、色は <a href="カラーテーマ.md">カラーテーマ</a>、記号は <a href="アイコン定義.md">アイコン定義</a>。画面ごとの見本は <a href="一般向け/デザイン見本.html">一般向け</a> と <a href="詳細画面/詳細画面見本.html">詳細表示</a>。</p>
+  <p class="lead">一般向け（Standard）と詳細表示（Advanced）の色・状態・寸法・レイアウト・部品の見本。部品はStandardとAdvancedで分け、共通なのは色・安全・アクセシビリティの下限だけ。規則の正本は <a href="デザインシステム.md">デザインシステム</a>、色は <a href="カラーテーマ.md">カラーテーマ</a>、記号は <a href="アイコン定義.md">アイコン定義</a>。画面ごとの見本は <a href="一般向け/デザイン見本.html">一般向け</a> と <a href="詳細画面/詳細画面見本.html">詳細表示</a>。</p>
 
   <!-- 色 -->
   <h2 id="color">色</h2>
-  <p class="note">StandardとAdvancedで共通。背景は淡い空色のグラデーション、内容は白いカード（ダークは`#1C1C1E`）。状態の文字は通常の文字色にし、状態色は記号・点・塗りに付ける。</p>
+  <p class="note">色のトークンはStandardとAdvancedで共通。背景は淡い空色のグラデーション、内容は白いカード（ダークは`#1C1C1E`）。状態の文字は通常の文字色にし、状態色は記号・点・塗りに付ける。</p>
   <div class="tbl"><table>
     <thead><tr><th>トークン</th><th>ライト</th><th>ダーク</th><th>コントラストを上げる</th><th>用途</th></tr></thead>
     <tbody>
@@ -212,17 +212,28 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
   <!-- 状態 -->
   <h2 id="state">状態の表し方</h2>
-  <p class="note">同じ内部状態を、記号と色は共通、語だけStandardとAdvancedで変える。Waitingは故障ではなく、理由を必ず添える。ミュート（赤）と待機（琥珀色）は色覚特性やコントラスト設定で色が近くなるため、ミュートは必ず斜線のマイクと「ミュート中」、消音は斜線のスピーカーと「消音中」、待機は進行表示・一時停止・ヘッドホンの記号で区別する。</p>
+  <p class="note">StandardとAdvancedで別々に定める。共通なのは色のトークンと記号の対応だけ。Standardは利用者に伝える状態を利用者の語で、Advancedは実装の値と実装が返す語をそのまま出す（<a href="デザインシステム.md#状態の表し方">状態の表し方</a>）。ミュートは必ず斜線のマイクと「ミュート中」、消音は斜線のスピーカーと「消音中」、待機は進行表示・一時停止・ヘッドホンの記号で区別する。</p>
+  <div class="row-flex">
   <div class="tbl"><table>
-    <thead><tr><th>内部状態</th><th>Standard</th><th>Advanced</th></tr></thead>
+    <thead><tr><th>利用者に伝える状態</th><th>Standardの語</th></tr></thead>
     <tbody>
-      <tr><td>流れている・成立</td><td><span class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</span></td><td><span class="st"><span class="d ok"></span>Running</span></td></tr>
-      <tr><td>待機</td><td><span class="st"><span class="spin"></span>接続中</span>　<span class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</span></td><td><span class="st"><span class="d warn"></span>Waiting</span> <span class="sub">— Not speaking</span></td></tr>
-      <tr><td>ミュート（本人の操作）</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>ミュート中</span></td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>Muted</span></td></tr>
-      <tr><td>停止・失敗</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#tri"/></svg>音声エラー</span></td><td><span class="st"><span class="d err"></span>Blocked</span> <span class="sub">— Input device disconnected</span></td></tr>
-      <tr><td>未開始・未到達</td><td><span class="st" style="color:var(--label2)"><svg class="i"><use href="#phone"/></svg>未接続</span></td><td><span class="st" style="color:var(--label2)"><span class="d idle"></span>Idle</span></td></tr>
-      <tr><td>非対応</td><td class="sub">表示しない</td><td><span class="st" style="color:var(--label2)"><span class="d na"></span>Unsupported</span></td></tr>
+      <tr><td>話せている</td><td><span class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</span></td></tr>
+      <tr><td>待っている</td><td><span class="st"><span class="spin"></span>接続中</span>　<span class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</span></td></tr>
+      <tr><td>自分で止めている</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>ミュート中</span></td></tr>
+      <tr><td>話せない</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#tri"/></svg>音声エラー</span></td></tr>
+      <tr><td>つながっていない</td><td class="sub">何も出さない</td></tr>
     </tbody></table></div>
+  <div class="tbl"><table>
+    <thead><tr><th>実装の値</th><th>Advancedの表示（実装が返す語）</th></tr></thead>
+    <tbody>
+      <tr><td><code>PipelineStepState.passing</code></td><td><span class="st"><span class="d ok"></span>Passing</span></td></tr>
+      <tr><td><code>.waiting</code></td><td><span class="st"><span class="d warn"></span>Waiting</span> <span class="sub">— 実装が返す理由</span></td></tr>
+      <tr><td><code>.muted</code></td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>Muted</span></td></tr>
+      <tr><td><code>.blocked</code></td><td><span class="st"><span class="d err"></span>Blocked</span> <span class="sub">— 実装が返す理由</span></td></tr>
+      <tr><td><code>.idle</code></td><td><span class="st" style="color:var(--label2)"><span class="d idle"></span>Idle</span></td></tr>
+      <tr><td><code>CallConnectionState.label</code></td><td><span class="st">Local Connected</span> <span class="sub">／ Reconnecting / Offline など</span></td></tr>
+    </tbody></table></div>
+  </div>
 
   <!-- 余白とサイズ -->
   <h2 id="size">余白とサイズ</h2>
@@ -353,8 +364,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
       <div class="sub" style="font-weight:600"><svg class="i"><use href="#person3"/></svg> グループ・4人</div>
       <div style="font-size:24px;font-weight:700">週末ツーリング</div>
       <div class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</div>
-      <div class="sub"><svg class="i"><use href="#antenna"/></svg> 近距離・インターネット</div>
-    </div></div><div class="cap"><b>状態ヒーロー</b>種別・人数／名前（大）／状態／経路。1つのaccessibility要素。</div></div>
+    </div></div><div class="cap"><b>状態ヒーロー（Standard）</b>種別・人数／名前（大）／状態。経路は出さない。1つのaccessibility要素。</div></div>
     <div><div class="surface" style="width:280px"><div class="card" style="padding:10px">
       <div class="lrow" style="padding:4px 0;min-height:0"><span class="pend"><svg class="i"><use href="#person"/></svg></span><span class="g">マキ<div class="sub">受け取り待ち</div></span><span style="color:var(--label3);font-size:16px">›</span></div>
     </div></div><div class="cap"><b>招待中の行</b>破線の人物・呼び名（仮名）・状態の語1つ。タップで招待の詳細を開き、再送・返信はそこに置く（<a href="招待と登録の設計.md">招待と登録の設計</a>）。</div></div>
@@ -377,14 +387,14 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">この端末での名前</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px">ハルちゃん<span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="margin-left:auto;width:16px;height:16px;border-radius:50%;background:var(--label3);color:var(--card);display:grid;place-items:center;font-size:10px">×</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">空にすると本人の名前「ハルカ」に戻ります。</div></div><div class="cap"><b>現在の値＋戻り先</b>編集は現在の値で開く。消すとプレースホルダーに戻り先（本人の名前）が見える。</div></div>
     <div><div class="surface" style="width:250px"><div class="card" style="padding:4px 0;font-size:13px">
       <div style="display:flex;justify-content:space-between;padding:7px 12px">PCM</div>
-      <div style="display:flex;justify-content:space-between;padding:7px 12px;border-top:.5px solid var(--pline)"><span>AAC-ELD<span class="sub">（初期値）</span></span><span style="color:var(--accent)">✓</span></div>
+      <div style="display:flex;justify-content:space-between;padding:7px 12px;border-top:.5px solid var(--pline)"><span>AAC-ELD<span class="sub"> (Default)</span></span><span style="color:var(--accent)">✓</span></div>
       <div style="display:flex;justify-content:space-between;padding:7px 12px;border-top:.5px solid var(--pline)">Opus</div>
-    </div></div><div class="cap"><b>選択肢の初期値</b>開発者向けの高度な設定とAdvanced（<code>(Default)</code>）だけ、初期値に印を付けて戻れるようにする。設定の主画面には付けない。</div></div>
+    </div></div><div class="cap"><b>選択肢の初期値（Advanced）</b>Advancedだけ、実装の既定値に<code>(Default)</code>を付けて戻れるようにする。Standardには専門の選択肢を置かない。</div></div>
   </div>
   <div class="row-flex">
     <div><div class="panel" style="width:330px">
       <div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px"><b style="width:46px">TX</b><span class="st" style="font-size:11.5px"><span class="d ok"></span>Session</span><span class="st" style="font-size:11.5px"><span class="d ok"></span>Input</span><span class="st" style="font-size:11.5px"><span class="d warn"></span>VAD</span><span class="st" style="font-size:11.5px;color:var(--label2)"><span class="d idle"></span>TX Bus</span><span class="st" style="font-size:11.5px;color:var(--label2)"><span class="d idle"></span>Codec</span></div>
-    </div><div class="cap"><b>状態ドット列</b>全段を1行で一覧（Advanced）。</div></div>
+    </div><div class="cap"><b>状態ドット列（Advanced）</b>全段を実装の状態の点で1行に一覧。</div></div>
     <div><div class="panel" style="width:330px">
       <div class="srow"><span class="k"><span class="d ok"></span> Input</span><span>AirPods Pro · 48 kHz mono</span><span><b>48,000</b> frames/s</span></div>
       <div class="srow" style="border:0"><span class="k"><span class="d ok"></span> TX Bus</span><span><code>tx-bus</code> · 3 effects</span><span></span></div>
@@ -424,10 +434,10 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
   <!-- 違い -->
   <h2 id="diff">StandardとAdvanced</h2>
-  <p class="note">色・背景・部品・レイアウトは共通。違うのは表示の量・密度・語だけ。</p>
+  <p class="note">目的が違うので、別々の原則で設計する（<a href="デザインシステム.md#standardとadvancedの違い">StandardとAdvancedの違い</a>）。Standardは利用者の意図から先に定めたUXで、不要な情報を出さない。Advancedは画面の各要素を実装の値・状態と1対1で対応させ、言い換えない。共通なのは色・安全・アクセシビリティの下限だけで、部品と語は流用しない。</p>
   <div class="row-flex">
-    <div><div class="surface" style="width:300px"><div class="card"><div class="lrow"><span class="av"><svg class="i"><use href="#person"/></svg></span><span class="g">ハルカ<div class="sub"><svg class="i" style="color:var(--aqua)"><use href="#wave"/></svg> 話しています</div></span><span class="sub">100%</span></div></div></div><div class="cap"><b>Standard</b>名前・状態・音量だけ。余白を広く。</div></div>
-    <div><div class="surface" style="width:300px"><div class="card" style="padding:4px 10px"><div class="srow"><b>Haruka</b><span>Connected · authenticated · AAC-ELD<div class="sub">RX 100/s · Buffer 24 ms · 0 dropped</div></span><span>100%</span></div></div></div><div class="cap"><b>Advanced</b>同じカードに罫線と段組みで多くの値を並べる。英語のみ。</div></div>
+    <div><div class="surface" style="width:300px"><div class="card"><div class="lrow"><span class="av"><svg class="i"><use href="#person"/></svg></span><span class="g">ハルカ<div class="sub"><svg class="i" style="color:var(--aqua)"><use href="#wave"/></svg> 話しています</div></span><span class="sub">›</span></div></div></div><div class="cap"><b>Standard（意図から）</b>誰が話しているかだけ。経路・codec・数値・内部の状態は出さない。音量は行を開いたSliderだけで、数値なし。</div></div>
+    <div><div class="surface" style="width:320px"><div class="card" style="padding:4px 10px"><div class="srow"><b>Haruka</b><span><code>connectionState</code> Connected · <code>authenticationState</code> AUTH OK · <code>activeCodec</code> AAC-ELD<div class="sub">RX 100/s · Jitter buffer 24 ms · 0 dropped</div></span><span>100%</span></div></div></div><div class="cap"><b>Advanced（実装と対）</b>実装のプロパティの値をそのまま並べる。Standardのカード・語を流用しない。英語のみ。</div></div>
   </div>
 </main>
 

@@ -212,9 +212,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="pseg"><span class="on">Overview</span><span>TX</span><span>RX</span><span>Network</span><span>Applied</span></div>
         <div class="pbody">
           <div class="card">
-            <div class="vline"><span class="d ok"></span><b>TX: Running</b></div>
+            <div class="vline"><span class="d ok"></span><b>TX: Passing</b></div>
             <div class="vline" style="padding-left:14px;color:var(--label2)">100 packets/s · Local + Internet</div>
-            <div class="vline"><span class="d ok"></span><b>RX: Running</b></div>
+            <div class="vline"><span class="d ok"></span><b>RX: Passing</b></div>
             <div class="vline" style="padding-left:14px;color:var(--label2)">2 of 3 connected participants speaking</div>
           </div>
           <div class="hd">Pipeline</div>
@@ -250,17 +250,17 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="pbody">
           <div class="hd">Live TX Pipeline</div>
           <div class="card">
-            <div class="row"><span class="k"><span class="d ok"></span> Session</span><span class="v">Burst mode · Active</span><span class="x"></span></div>
+            <div class="row"><span class="k"><span class="d ok"></span> Session</span><span class="v">Burst mode · active</span><span class="x"></span></div>
             <div class="row"><span class="k"><span class="d ok"></span> Input</span><span class="v">AirPods Pro · 48 kHz mono</span><span class="x num"><b>48,000</b> frames/s</span></div>
             <div class="row"><span class="k"><span class="d ok"></span> VAD</span><span class="v">Speech · Standard<div class="sub num">Noise floor −52 dBFS · Threshold −40 dBFS</div></span><span class="x"></span></div>
             <div class="row" style="border-bottom:0"><span class="k"><span class="d ok"></span> TX Bus</span><span class="v"><span class="sub mono">tx-bus</span> · 1 source · 3 effects</span><span class="x"></span></div>
             <div class="nest">
               <div class="sub" style="font-weight:600">TX Bus Effects</div>
-              <div class="row"><span class="k">SoundIsolation</span><span class="v"></span><span class="x ok-t">Active</span></div>
-              <div class="row"><span class="k">DynamicsProcessor</span><span class="v"></span><span class="x ok-t">Active</span></div>
-              <div class="row"><span class="k">PeakLimiter</span><span class="v"></span><span class="x ok-t">Active</span></div>
+              <div class="row"><span class="k">SoundIsolation</span><span class="v"></span><span class="x ok-t">active</span></div>
+              <div class="row"><span class="k">DynamicsProcessor</span><span class="v"></span><span class="x ok-t">active</span></div>
+              <div class="row"><span class="k">PeakLimiter</span><span class="v"></span><span class="x ok-t">active</span></div>
             </div>
-            <div class="row" style="border-top:1px solid var(--line)"><span class="k"><span class="d ok"></span> Codec</span><span class="v">AAC-ELD · 48 kHz · 48 kbps</span><span class="x num"><b>100</b> packets/s</span></div>
+            <div class="row" style="border-top:1px solid var(--line)"><span class="k"><span class="d ok"></span> Codec</span><span class="v">MPEG-4 AAC-ELD · 48 kHz · 48 kbps</span><span class="x num"><b>100</b> packets/s</span></div>
             <div class="row" style="border-bottom:0"><span class="k"><span class="d ok"></span> RTC</span><span class="v">Local + Internet / Relay</span><span class="x num">TX <b>100</b>/s</span></div>
             <div class="nest routes">
               <div class="row"><span class="k"><span class="d ok"></span> Local</span><span class="v">Haruka · direct<div>Kenta · relayed by Haruka</div></span><span class="x"></span></div>
@@ -283,23 +283,23 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="hd">Live RX Pipeline <span>3 peer buses · 1 offline</span></div>
           <div class="tree">
             <div class="card blk">
-              <div class="blk-h"><span class="d ok"></span><b>Haruka</b><span class="ok-t" style="font-weight:600">Running</span><span class="r">Local · direct</span></div>
-              <div class="row"><span class="k">Sender</span><span class="v">AAC-ELD · 48 kHz · 48 kbps<div class="sub">Unmuted · Speech · SoundIsolation active</div></span></div>
-              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · authenticated</span></div>
-              <div class="row"><span class="k">Decode</span><span class="v num">AAC-ELD · RX <b>100</b>/s · 0 dropped</span></div>
+              <div class="blk-h"><span class="d ok"></span><b>Haruka</b><span class="ok-t" style="font-weight:600">Passing</span><span class="r">Local · direct</span></div>
+              <div class="row"><span class="k">Sender</span><span class="v">MPEG-4 AAC-ELD · 48 kHz · 48 kbps<div class="sub">Unmuted · Speech · SoundIsolation active</div></span></div>
+              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · AUTH OK</span></div>
+              <div class="row"><span class="k">Decode</span><span class="v num">MPEG-4 AAC-ELD · RX <b>100</b>/s · 0 dropped</span></div>
               <div class="row"><span class="k">Peer Bus</span><span class="v num">Volume 100% · Jitter buffer 24 ms<div class="sub">SoundIsolation bypassed <span class="meter"><i style="width:70%"></i></span></div></span></div>
             </div>
             <div class="card blk">
               <div class="blk-h"><span class="d warn"></span><b>Kenta</b><span class="warn-t" style="font-weight:600">Waiting</span><span class="r">Local · relayed by Haruka</span></div>
               <div class="row"><span class="k">Sender</span><span class="v">Opus · 24 kHz · 32 kbps <span class="pill">Lower Quality</span><div class="sub">Unmuted · Silence · SoundIsolation bypassed</div></span></div>
-              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · authenticated</span></div>
+              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · AUTH OK</span></div>
               <div class="row"><span class="k">Decode</span><span class="v num">Opus · RX 0/s · Not speaking</span></div>
               <div class="row"><span class="k">Peer Bus</span><span class="v num">Volume 80% · Jitter buffer 4 ms<div class="sub">SoundIsolation active <span class="meter"></span></div></span></div>
             </div>
             <div class="card blk">
-              <div class="blk-h"><span class="d ok"></span><b>Mika</b><span class="ok-t" style="font-weight:600">Running</span><span class="r">Internet</span></div>
-              <div class="row"><span class="k">Sender</span><span class="v">AAC-ELD → PCM 16-bit · 16 kHz <span class="pill warn-t">Fallback</span><div class="sub">Unmuted · Speech · SoundIsolation unsupported · 3 s ago</div></span></div>
-              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · authenticated<div class="sub">Local unavailable</div></span></div>
+              <div class="blk-h"><span class="d ok"></span><b>Mika</b><span class="ok-t" style="font-weight:600">Passing</span><span class="r">Internet</span></div>
+              <div class="row"><span class="k">Sender</span><span class="v">MPEG-4 AAC-ELD → PCM 16-bit · 16 kHz <span class="pill warn-t">Fallback</span><div class="sub">Unmuted · Speech · SoundIsolation unsupported · 3 s ago</div></span></div>
+              <div class="row"><span class="k">RTC RX</span><span class="v">Connected · AUTH OK<div class="sub">Local unavailable</div></span></div>
               <div class="row"><span class="k">Decode</span><span class="v num">PCM 16-bit · RX <b>100</b>/s · <span class="warn-t">3 dropped</span></span></div>
               <div class="row"><span class="k">Peer Bus</span><span class="v num">Volume 60% · Jitter buffer 62 ms<div class="sub">SoundIsolation bypassed <span class="meter"><i style="width:45%"></i></span></div></span></div>
             </div>
@@ -313,9 +313,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="row" style="border-bottom:0"><span class="k"><span class="d ok"></span> RX Master</span><span class="v"><span class="sub mono">rx-master</span> · 3 in · OUT 120% <span class="pill">Boost</span></span><span class="x num"><b>48,000</b> frames/s</span></div>
             <div class="nest">
               <div class="sub" style="font-weight:600">Master FX</div>
-              <div class="row"><span class="k">SoundIsolation</span><span class="v"></span><span class="x idle-t">Bypassed</span></div>
+              <div class="row"><span class="k">SoundIsolation</span><span class="v"></span><span class="x idle-t">bypassed</span></div>
               <div class="row"><span class="k">Master fader</span><span class="v"></span><span class="x num">120% · Unmuted</span></div>
-              <div class="row"><span class="k">PeakLimiter</span><span class="v"><span class="sub mono">rx-output</span></span><span class="x ok-t">Active</span></div>
+              <div class="row"><span class="k">PeakLimiter</span><span class="v"><span class="sub mono">rx-output</span></span><span class="x ok-t">active</span></div>
             </div>
             <div class="row" style="border-top:1px solid var(--line)"><span class="k"><span class="d ok"></span> Output</span><span class="v">AirPods Pro · 48 kHz stereo<div class="sub">Buffered 20 ms · 0 resets</div></span><span class="x"><span class="meter"><i style="width:62%"></i></span></span></div>
           </div>
@@ -367,11 +367,11 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="pbody">
           <div class="hd">Requested → Applied</div>
           <div class="card">
-            <div class="row"><span class="k">Codec</span><span class="v">AAC-ELD · 48 kHz · 48 kbps</span><span class="x ok-t">Same</span></div>
+            <div class="row"><span class="k">Codec</span><span class="v">MPEG-4 AAC-ELD · 48 kHz · 48 kbps</span><span class="x ok-t">Same</span></div>
             <div class="row"><span class="k">Session</span><span class="v">Burst mode<div class="sub">playAndRecord · default · echo cancellation</div></span><span class="x ok-t">Same</span></div>
             <div class="row"><span class="k">IO buffer</span><span class="v num">5 ms → 10 ms</span><span class="x warn-t">⚠ Differs</span></div>
-            <div class="row"><span class="k">Unsupported</span><span class="v">None</span><span class="x"></span></div>
-            <div class="row"><span class="k">Ducking</span><span class="v">Enabled → Active</span><span class="x ok-t">Same</span></div>
+            <div class="row"><span class="k mono">unsupportedSettings</span><span class="v">None</span><span class="x"></span></div>
+            <div class="row"><span class="k">Ducking</span><span class="v">Enabled → active</span><span class="x ok-t">Same</span></div>
             <div class="row"><span class="k">Isolation</span><span class="v">Transmit on · Master off<div class="sub">Active · Bypassed</div></span><span class="x ok-t">Same</span></div>
             <div class="row"><span class="k">VAD</span><span class="v">Standard<div class="sub num">Threshold −40 dBFS · Noise floor −52 dBFS</div></span><span class="x"></span></div>
             <div class="row"><span class="k">Devices</span><span class="v">Auto → AirPods Pro</span><span class="x"></span></div>
@@ -418,7 +418,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="hd">Live TX Pipeline</div>
           <div class="card">
-            <div class="row"><span class="k"><span class="d ok"></span> Session</span><span class="v">Burst mode · Active</span><span class="x"></span></div>
+            <div class="row"><span class="k"><span class="d ok"></span> Session</span><span class="v">Burst mode · active</span><span class="x"></span></div>
             <div class="row cur"><span class="k err-t"><span class="d err"></span> Input</span><span class="v">AirPods Pro disconnected<div class="sub mono">oldDeviceUnavailable</div></span><span class="x err-t">Blocked</span></div>
             <div class="row dim"><span class="k">VAD</span><span class="v">—</span><span class="x">Idle</span></div>
             <div class="row dim"><span class="k">TX Bus</span><span class="v">—</span><span class="x">Idle</span></div>
@@ -458,14 +458,14 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="card">
             <div class="slider"><svg class="i"><use href="#speaker"/></svg><span class="track"><i style="width:60%"></i><u style="left:50%"></u><b style="left:60%"></b></span><span class="num">Output 120%</span></div>
             <div class="frow"><span class="g">Voice Isolation</span><span class="toggle off"></span></div>
-            <div class="frow"><span class="g">Duck Other Audio</span><span class="tail">Active</span></div>
+            <div class="frow"><span class="g">Duck Other Audio</span><span class="tail">active</span></div>
           </div>
           <div class="hd">Participants <span>You + 3</span></div>
           <div class="card">
             <div class="row"><b>You</b><span class="v">Naohito · local member</span><span class="x"></span></div>
-            <div class="row"><b>Haruka</b><span class="v">Connected · authenticated · AAC-ELD</span><span class="x num">100%</span></div>
-            <div class="row"><b>Kenta</b><span class="v">Connected · authenticated · Opus</span><span class="x num">80%</span></div>
-            <div class="row"><b>Mika</b><span class="v">Connected · authenticated · PCM 16-bit</span><span class="x num">60%</span></div>
+            <div class="row"><b>Haruka</b><span class="v">Connected · AUTH OK · MPEG-4 AAC-ELD</span><span class="x num">100%</span></div>
+            <div class="row"><b>Kenta</b><span class="v">Connected · AUTH OK · Opus</span><span class="x num">80%</span></div>
+            <div class="row"><b>Mika</b><span class="v">Connected · AUTH OK · PCM 16-bit</span><span class="x num">60%</span></div>
             <div class="row dim"><b>Yu</b><span class="v">Offline</span><span class="x"></span></div>
           </div>
           <div class="btn gl" style="margin-top:2px">Add Saved Users</div>
@@ -496,7 +496,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="hd">Participants <span>You + 1</span></div>
           <div class="card">
             <div class="row"><b>You</b><span class="v">Naohito · local member</span><span class="x"></span></div>
-            <div class="row"><b>Haruka</b><span class="v">Connected · authenticated · AAC-ELD</span><span class="x num">100%</span></div>
+            <div class="row"><b>Haruka</b><span class="v">Connected · AUTH OK · MPEG-4 AAC-ELD</span><span class="x num">100%</span></div>
           </div>
           <div class="btn gl" style="margin-top:2px">Share Call Invite</div>
         </div>
@@ -514,17 +514,17 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="card"><div class="row"><b>Weekend Touring</b><span class="v">Group · 4 members<div class="sub mono">3f9a2c1e</div></span><span class="x"></span></div></div>
           <div class="hd">Saved Users <span>3</span></div>
           <div class="card">
-            <div class="row"><b>Haruka</b><span class="v">Direct 7c1e90ab · 2 devices · Call requests allowed<div class="sub">Name shared by this person: Haruka</div></span><span class="x"><span class="d ok"></span> Online</span></div>
+            <div class="row"><b>Haruka</b><span class="v">Direct 7c1e90ab · 2 devices · Call requests allowed<div class="sub">Name shared by this person: Haruka</div></span><span class="x"><span class="d ok"></span> Connected</span></div>
             <div class="row"><b>Ken</b><span class="v">Direct 5d22c0f1 · 1 device<div class="sub">Name shared by this person: Kenta</div></span><span class="x"><span class="d idle"></span></span></div>
             <div class="row"><b>Mika</b><span class="v">No direct group yet<div class="sub">Name shared by this person: Mika</div></span><span class="x"></span></div>
           </div>
-          <div class="hd">Invited</div>
-          <div class="card"><div class="row"><b>Riku</b><span class="v">Not joined · expires in 6 days</span><span class="x linkt">Share</span></div></div>
+          <div class="hd">Invitations <span>ContactInvitationRecord</span></div>
+          <div class="card"><div class="row"><b>4f2a91c0</b><span class="v mono">outgoing · pending · canResume<div class="sub">expiresAt 2026-11-14 09:41</div></span><span class="x linkt">Retry Notification</span></div><div class="row"><b>9b07e3d2</b><span class="v mono">incoming · delivered<div class="sub">expiresAt 2026-11-10 18:20</div></span><span class="x"></span></div></div>
           <div class="foot">Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.</div>
         </div>
         <div style="position:absolute;left:14px;right:14px;bottom:76px;height:38px;border-radius:20px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 10px;font-size:11px"><span class="d ok"></span><b>Weekend Touring</b><span style="color:var(--label2)">Connected</span><span style="margin-left:auto;font-size:14px"><svg class="i"><use href="#mic-slash"/></svg></span></div><div class="tabbar"><span class="tab on"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Users（最初の画面）</b>行のタップですぐ接続して呼び出す（会話中は切替を確認）。名前の編集・削除・Share Call Invite は長押し・スワイプの User Settings。一般向けと同じ一覧に、本人名・内部の direct グループID・端末数・呼び出しの許可などの詳細を足す。行の選択で Call へ（内部グループを解決）。</figcaption>
+      <figcaption><b>Users（最初の画面）</b>行のタップですぐ接続して呼び出す（会話中は切替を確認）。名前の編集・削除・Share Call Invite は長押し・スワイプの User Settings。並びと値は実装と対（<code>savedRemoteUsers</code> の SavedUser、その下に <code>ContactInvitationRecord</code> の direction・state・expiresAt をそのまま）。一般向けの一覧の部品・語は流用しない。行の選択で Call へ（内部グループを解決）。</figcaption>
     </figure>
 
     <figure>
@@ -534,7 +534,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="pbody">
           <div class="hd">Saved Groups <span>3</span></div>
           <div class="card">
-            <div class="row"><b>Weekend Touring</b><span class="v">4 members · key ready<div class="sub mono">3f9a2c1e</div></span><span class="x"><span class="d ok"></span> Active</span></div>
+            <div class="row"><b>Weekend Touring</b><span class="v">4 members · key ready<div class="sub mono">3f9a2c1e</div></span><span class="x"><span class="d ok"></span> active</span></div>
             <div class="row"><b>Hakuba Powder</b><span class="v">6 members · key ready<div class="sub mono">a81b44d0</div></span><span class="x"></span></div>
             <div class="row"><b>Family Drive</b><span class="v">3 members · <span class="warn-t">key missing</span><div class="sub mono">0c7f3e92</div></span><span class="x"></span></div>
           </div>
@@ -568,7 +568,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="fhd g2"><span class="gdot"></span>Automatic Disconnection</div>
           <div class="card"><div class="frow"><span class="g">Regular Calls</span><span class="tail">3 hours <span class="chev">⌃</span></span></div><div class="frow"><span class="g">Calls Started from Watch</span><span class="tail">5 minutes <span class="chev">⌃</span></span></div></div>
           <div class="fhd g2"><span class="gdot"></span>Call Notifications</div>
-          <div class="card"><div class="frow"><span class="g">Notifications are ready on this device.</span></div><div class="frow"><span class="g linkt">Check Notifications</span></div></div>
+          <div class="card"><div class="frow"><span class="g">Receive Call Requests</span><span class="toggle"></span></div><div class="frow"><span class="g mono">receivesNotifications</span><span class="v">true</span></div><div class="frow"><span class="g mono">authorizationDenied</span><span class="v">false</span></div><div class="frow"><span class="g mono">isBusy</span><span class="v">false</span></div><div class="frow"><span class="g mono">message</span><span class="v">—</span></div></div>
           <div class="fhd g2"><span class="gdot"></span>Call status display</div>
           <div class="card"><div class="frow"><span class="g">Show call status outside the app</span><span class="toggle off"></span></div></div>
           <div class="gsep"></div>
@@ -584,7 +584,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="fhd g4"><span class="gdot"></span>Voice Activity</div>
           <div class="card"><div style="font-size:11px;padding-top:3px">VAD Sensitivity</div><div class="seg2"><span>Low Noise</span><span class="on">Standard</span><span>Noisy</span></div></div>
           <div class="fhd g4"><span class="gdot"></span>Transmit Codec</div>
-          <div class="card"><div style="font-size:11px;padding-top:3px">Codec</div><div class="seg2"><span>PCM 16-bit</span><span class="on">AAC-ELD</span><span>Opus</span></div><div style="font-size:11px">Sample Rate</div><div class="seg2"><span class="on">48 kHz</span><span>24 kHz</span><span>16 kHz</span></div><div class="frow"><span class="g">AAC-ELD Bitrate</span><span class="tail">48 kbps <span class="chev">⌃</span></span></div></div>
+          <div class="card"><div style="font-size:11px;padding-top:3px">Codec</div><div class="seg2"><span>PCM 16-bit</span><span class="on">MPEG-4 AAC-ELD</span><span>Opus</span></div><div style="font-size:11px">Sample Rate</div><div class="seg2"><span class="on">48 kHz</span><span>24 kHz</span><span>16 kHz</span></div><div class="frow"><span class="g">AAC-ELD Bitrate</span><span class="tail">48 kbps <span class="chev">⌃</span></span></div></div>
           <div class="fhd g4"><span class="gdot"></span>Audio Check</div>
           <div class="card"><div class="frow"><span class="g">Call</span><span class="tail">Connected</span></div><div class="frow"><span class="g">Audio Check</span><span class="tail">Idle</span></div><div class="frow"><span class="g field">End your call before checking audio.</span></div><div class="frow"><span class="g field">Record 5s and Play</span></div></div>
           <div class="gsep"></div>
@@ -605,7 +605,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <li>Your Display Name <span>Your name · Save Name</span></li></ol></div>
       <div class="og g2"><b>通話</b><ol>
         <li>Automatic Disconnection <span>Regular Calls · Calls Started from Watch</span></li>
-        <li>Call Notifications <span>状態 · Enable／Check／Disable Notifications</span></li>
+        <li>Call Notifications <span>Receive Call Requests（isEnabled）と CallNotifications の値をそのまま</span></li>
         <li>Call status display <span>Show call status outside the app（macOSはmenu bar）</span></li></ol></div>
       <div class="og g3"><b>接続</b><ol>
         <li>Communication <span>Local Network · Internet</span></li>
