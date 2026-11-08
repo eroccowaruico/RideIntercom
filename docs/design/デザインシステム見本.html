@@ -219,7 +219,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     <tbody>
       <tr><td>話せている</td><td><span class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</span></td></tr>
       <tr><td>待っている</td><td><span class="st"><span class="spin"></span>接続中</span>　<span class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</span></td></tr>
-      <tr><td>自分で止めている</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>ミュート中</span></td></tr>
+      <tr><td>自分で止めている</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg>ミュート中</span> <span class="st"><svg class="i" style="color:var(--red)"><use href="#speaker-slash"/></svg>消音中</span></td></tr>
       <tr><td>話せない</td><td><span class="st"><svg class="i" style="color:var(--red)"><use href="#tri"/></svg>音声エラー</span></td></tr>
       <tr><td>つながっていない</td><td class="sub">何も出さない</td></tr>
     </tbody></table></div>
@@ -279,7 +279,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
   <!-- レイアウト -->
   <h2 id="layout">レイアウト</h2>
-  <p class="note">一覧と通話の2種類の画面を、描く領域の幅と高さで配置する。通話は接続中だけ <code>inspector</code> で出し、狭いときはシート、広いときは右の列。点線は固定する要素（スクロールしない）。</p>
+  <p class="note">一覧と通話の2種類の画面を、描く領域の幅と高さで配置する。通話は接続中だけ出し、compact幅は <code>sheet</code>、regular幅は <code>inspector</code> の右の列（<code>inspector</code>のcompact表示は使わない）。点線は固定する要素（スクロールしない）。</p>
   <div class="row-flex">
     <div><div class="lay" style="width:130px;height:240px;grid-template-rows:3fr 22px 22px"><div class="c">一覧</div><div class="s fx">通話の表示</div><div class="s fx">タブ</div></div><div class="cap"><b>幅600未満（iPhone縦）</b>一覧1列。通話はシート、閉じている間はタブバーの上に通話の表示</div></div>
     <div><div class="lay" style="width:260px;height:130px;grid-template-columns:45% 1fr"><div class="h fx">状態＋主要操作（固定）</div><div class="c">メンバー（スクロール）</div></div><div class="cap"><b>高さ500未満（iPhone横）の通話</b>全画面のシートの中を2列。一覧は1列のまま</div></div>
@@ -322,7 +322,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
         <div class="main" style="border-left:1px solid var(--mline)">
           <div class="hero"><div class="sub" style="font-weight:600">グループ・4人</div><div style="font-size:18px;font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</div></div>
           <div style="display:flex;gap:14px"><div class="ctrl"><span class="cb gl" style="width:44px;height:44px;font-size:18px;background:var(--mcard);border:1px solid var(--mline)"><svg class="i"><use href="#mic-slash"/></svg></span>ミュート</div><div class="ctrl"><span class="cb gl" style="width:44px;height:44px;font-size:18px;background:var(--mcard);border:1px solid var(--mline)"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div><div class="ctrl"><span class="cb end" style="width:44px;height:44px;font-size:18px"><svg class="i"><use href="#phone-down"/></svg></span>切断</div></div>
-          <div class="mcard"><div class="lrow">ハルカ<span class="g"></span><span class="sub">100%</span></div><div class="lrow">ケンタ<span class="g"></span><span class="sub">80%</span></div></div>
+          <div class="mcard"><div class="lrow">ハルカ<span class="g"></span><span class="sub">話しています</span></div><div class="lrow">ケンタ<span class="g"></span></div></div>
         </div>
       </div>
     </div><div class="cap"><b>Mac</b>サイドバー＋一覧＋右の列の通話。標準の背景・サイドバー・カード。色は状態ヒーローの薄い面と操作だけ。主要操作は44pt。</div></div>
@@ -367,7 +367,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     </div></div><div class="cap"><b>状態ヒーロー（Standard）</b>種別・人数／名前（大）／状態。経路は出さない。1つのaccessibility要素。</div></div>
     <div><div class="surface" style="width:280px"><div class="card" style="padding:10px">
       <div class="lrow" style="padding:4px 0;min-height:0"><span class="pend"><svg class="i"><use href="#person"/></svg></span><span class="g">マキ<div class="sub">受け取り待ち</div></span><span style="color:var(--label3);font-size:16px">›</span></div>
-    </div></div><div class="cap"><b>招待中の行</b>破線の人物・呼び名（仮名）・状態の語1つ。タップで招待の詳細を開き、再送・返信はそこに置く（<a href="招待と登録の設計.md">招待と登録の設計</a>）。</div></div>
+    </div></div><div class="cap"><b>招待中の行</b>破線の人物・呼び名（仮名）・状態の語1つ。タップで招待の詳細を開き、「もう一度送る」はそこに置く（<a href="招待と登録の設計.md">招待と登録の設計</a>）。</div></div>
     <div><div class="surface" style="width:280px;display:flex;gap:18px;align-items:center;justify-content:center">
       <div style="display:grid;justify-items:center;gap:4px"><span style="width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:20px;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 55%,white),var(--accent))"><svg class="i"><use href="#person"/></svg></span><span class="sub">ユーザー</span></div>
       <div style="display:grid;justify-items:center;gap:4px"><span style="width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:20px;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 55%,white),var(--accent))"><svg class="i"><use href="#person3"/></svg></span><span class="sub">グループ・4人</span></div>
@@ -386,7 +386,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">グループ名</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px"><span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="color:var(--label3)">ハルカ、ケンタ、ユウ</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">空のままなら選んだ人から作る名前になります。<br><span style="color:var(--accent)">✓ ハルカ　✓ ケンタ　✓ ユウ</span></div></div><div class="cap"><b>選んだ内容に合わせて変わる既定値</b>メンバーを選ぶたびに更新する。本人の名前で作り、自分だけの呼び名は使わない。全員同じ「Talk Group」にしない。</div></div>
     <div><div class="surface" style="width:250px"><div class="sub" style="font-weight:600;padding:0 4px 4px">この端末での名前</div><div class="card" style="padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:6px">ハルちゃん<span style="width:1.5px;height:17px;background:var(--accent)"></span><span style="margin-left:auto;width:16px;height:16px;border-radius:50%;background:var(--label3);color:var(--card);display:grid;place-items:center;font-size:10px">×</span></div><div class="sub" style="padding:6px 4px 0;font-size:11px">空にすると本人の名前「ハルカ」に戻ります。</div></div><div class="cap"><b>現在の値＋戻り先</b>編集は現在の値で開く。消すとプレースホルダーに戻り先（本人の名前）が見える。</div></div>
     <div><div class="surface" style="width:250px"><div class="card" style="padding:4px 0;font-size:13px">
-      <div style="display:flex;justify-content:space-between;padding:7px 12px">PCM</div>
+      <div style="display:flex;justify-content:space-between;padding:7px 12px">PCM 16-bit</div>
       <div style="display:flex;justify-content:space-between;padding:7px 12px;border-top:.5px solid var(--pline)"><span>AAC-ELD<span class="sub"> (Default)</span></span><span style="color:var(--accent)">✓</span></div>
       <div style="display:flex;justify-content:space-between;padding:7px 12px;border-top:.5px solid var(--pline)">Opus</div>
     </div></div><div class="cap"><b>選択肢の初期値（Advanced）</b>Advancedだけ、実装の既定値に<code>(Default)</code>を付けて戻れるようにする。Standardには専門の選択肢を置かない。</div></div>
@@ -398,7 +398,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
     <div><div class="panel" style="width:330px">
       <div class="srow"><span class="k"><span class="d ok"></span> Input</span><span>AirPods Pro · 48 kHz mono</span><span><b>48,000</b> frames/s</span></div>
       <div class="srow" style="border:0"><span class="k"><span class="d ok"></span> TX Bus</span><span><code>tx-bus</code> · 3 effects</span><span></span></div>
-      <div class="nest">SoundIsolation <span style="float:right"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:1px"></span>Active</span><br>PeakLimiter <span style="float:right"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:1px"></span>Active</span></div>
+      <div class="nest">SoundIsolation <span style="float:right"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:1px"></span>active</span><br>PeakLimiter <span style="float:right"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:1px"></span>active</span></div>
     </div><div class="cap"><b>段の行</b>段名（＋ID）／状態／値／毎秒値。中身は左線付きの入れ子。</div></div>
     <div><div class="panel" style="width:300px"><div class="tree">
       <div class="card" style="border:1px solid var(--sep);padding:6px 9px;font-size:12px"><span class="d ok"></span> <b>Haruka</b> <span class="sub">Local · direct</span></div>
@@ -423,12 +423,12 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 
   <!-- UI Stack -->
   <h2 id="uistack">UI Stack</h2>
-  <p class="note">画面ごとに5状態を設計する。例は状態ヒーロー。同じ位置・同じ構造のまま、状態の語・記号・主要操作だけが変わる。</p>
+  <p class="note">画面ごとに5状態を設計する。例は通話の状態ヒーロー（通話のシートには空状態がないため、Emptyは一覧の空状態）。同じ位置・同じ構造のまま、状態の語・記号・主要操作だけが変わる。</p>
   <div class="row-flex">
     <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--green)"><use href="#wave"/></svg>会話中</div></div></div><div class="cap"><b>Ideal</b>目的が成立</div></div>
-    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px;text-align:center"><div style="font-weight:700">接続先を選んでください</div><span class="btn gl" style="margin-top:8px;min-height:36px">ユーザーを選ぶ</span></div></div><div class="cap"><b>Empty</b>次の行動を示す</div></div>
-    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><span class="spin"></span>接続中</div><div class="sub">相手の参加を待っています</div></div></div><div class="cap"><b>Loading</b>取消できる</div></div>
-    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</div><div class="sub">接続は続いています</div><span class="btn prom" style="margin-top:8px;min-height:36px">音声を再開</span></div></div><div class="cap"><b>Partial</b>使える範囲と不足</div></div>
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px;text-align:center"><div style="font-weight:700">まだユーザーがいません</div><span class="btn prom" style="margin-top:8px;min-height:36px">新しい相手を招待</span></div></div><div class="cap"><b>Empty</b>一覧の空状態。見出しと主要操作だけ</div></div>
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><span class="spin"></span>接続中</div><div class="sub">相手の参加を待っています</div></div></div><div class="cap"><b>Loading</b>成否の色を確定しない。操作の列はそのまま</div></div>
+    <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--warn)"><use href="#head"/></svg>音声停止中</div><div class="sub">音声機器を確認してください。接続は続いています。</div><span class="btn prom" style="margin-top:8px;min-height:36px">音声を再開</span></div></div><div class="cap"><b>Partial</b>使える範囲と不足</div></div>
     <div><div class="surface" style="width:220px"><div class="glass" style="border-radius:16px;padding:12px"><div style="font-weight:700">週末ツーリング</div><div class="st"><svg class="i" style="color:var(--red)"><use href="#tri"/></svg>音声エラー</div><div class="sub">マイクを開始できませんでした</div><span class="btn gl" style="margin-top:8px;min-height:36px">もう一度試す</span></div></div><div class="cap"><b>Error</b>理由と回復手段</div></div>
   </div>
 
@@ -437,7 +437,7 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
   <p class="note">目的が違うので、別々の原則で設計する（<a href="デザインシステム.md#standardとadvancedの違い">StandardとAdvancedの違い</a>）。Standardは利用者の意図から先に定めたUXで、不要な情報を出さない。Advancedは画面の各要素を実装の値・状態と1対1で対応させ、言い換えない。共通なのは色・安全・アクセシビリティの下限だけで、部品と語は流用しない。</p>
   <div class="row-flex">
     <div><div class="surface" style="width:300px"><div class="card"><div class="lrow"><span class="av"><svg class="i"><use href="#person"/></svg></span><span class="g">ハルカ<div class="sub"><svg class="i" style="color:var(--aqua)"><use href="#wave"/></svg> 話しています</div></span><span class="sub">›</span></div></div></div><div class="cap"><b>Standard（意図から）</b>誰が話しているかだけ。経路・codec・数値・内部の状態は出さない。音量は行を開いたSliderだけで、数値なし。</div></div>
-    <div><div class="surface" style="width:320px"><div class="card" style="padding:4px 10px"><div class="srow"><b>Haruka</b><span><code>connectionState</code> Connected · <code>authenticationState</code> AUTH OK · <code>activeCodec</code> AAC-ELD<div class="sub">RX 100/s · Jitter buffer 24 ms · 0 dropped</div></span><span>100%</span></div></div></div><div class="cap"><b>Advanced（実装と対）</b>実装のプロパティの値をそのまま並べる。Standardのカード・語を流用しない。英語のみ。</div></div>
+    <div><div class="surface" style="width:320px"><div class="card" style="padding:4px 10px"><div class="srow"><b>Haruka</b><span><code>connectionState</code> Connected · <code>authenticationState</code> AUTH OK · <code>activeCodec</code> MPEG-4 AAC-ELD<div class="sub">RX 100/s · Jitter buffer 24 ms · 0 dropped</div></span><span>100%</span></div></div></div><div class="cap"><b>Advanced（実装と対）</b>実装のプロパティの値をそのまま並べる。Standardのカード・語を流用しない。英語のみ。</div></div>
   </div>
 </main>
 
