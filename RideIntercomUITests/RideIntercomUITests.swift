@@ -1044,6 +1044,7 @@ final class RideIntercomUITests: XCTestCase {
         groupRow.swipeLeft()
         XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 2))
         app.buttons["Delete"].tap()
+        app.confirmDestinationDelete()
         XCTAssertLessThan(talkGroupRows.count, initialCount)
     }
 
@@ -1361,6 +1362,7 @@ final class RideIntercomUITests: XCTestCase {
             let deleteButton = app.buttons["Delete"].firstMatch
             XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
             deleteButton.tap()
+            app.confirmDestinationDelete()
 
             XCTAssertLessThan(talkGroupRows.count, countBeforeDelete)
         }
@@ -1379,6 +1381,7 @@ final class RideIntercomUITests: XCTestCase {
             let deleteButton = app.buttons["Delete"].firstMatch
             XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
             deleteButton.tap()
+            app.confirmDestinationDelete()
             XCTAssertLessThan(rows.count, countBeforeDelete)
         }
     }

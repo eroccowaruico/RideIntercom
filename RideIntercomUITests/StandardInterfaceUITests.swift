@@ -310,7 +310,8 @@ final class StandardInterfaceUITests: XCTestCase {
         let delete = app.buttons["Delete"].firstMatch
         XCTAssertTrue(delete.waitForExistence(timeout: 3))
         delete.tap()
-        XCTAssertFalse(created.exists)
+        app.confirmDestinationDelete()
+        XCTAssertTrue(created.waitForNonExistence(timeout: 3))
     }
 
     @MainActor
@@ -355,7 +356,8 @@ final class StandardInterfaceUITests: XCTestCase {
         let row = app.buttons.containing(.staticText, identifier: destination).firstMatch
         row.swipeLeft()
         app.buttons["Delete"].firstMatch.tap()
-        XCTAssertFalse(row.exists)
+        app.confirmDestinationDelete()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 3))
         #endif
     }
 

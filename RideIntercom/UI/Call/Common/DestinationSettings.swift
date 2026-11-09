@@ -9,20 +9,37 @@ enum DestinationSettingsTarget: Identifiable, Hashable {
 }
 
 extension View {
-    /// Long-press and swipe offer the settings entry first, then Delete.
+    /// Long-press and swipe offer the settings entry first, then Delete, which always asks first:
+    /// Delete only fills `pending`; the list shows the alert (`destinationDeleteConfirmation`).
     func destinationRowActions(_ settingsTitle: LocalizedStringKey, settings: @escaping () -> Void,
-                               canDelete: Bool = true, delete: @escaping () -> Void) -> some View {
-        swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                               canDelete: Bool = true, pending: Binding<PendingDestinationDelete?>,
+                               name: String, endsCall: Bool = false,
+                               delete: @escaping () -> Void) -> some View {
+        let ask = { pending.wrappedValue = PendingDestinationDelete(name: name, endsCall: endsCall, perform: delete) }
+        return swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if canDelete {
-                Button(role: .destructive, action: delete) { Label("Delete", systemImage: "trash") }
+                Button(role: .destructive, action: ask) { Label("Delete", systemImage: "trash") }
             }
             Button(action: settings) { Label(settingsTitle, systemImage: "gearshape") }
         }
         .contextMenu {
             Button(action: settings) { Label(settingsTitle, systemImage: "gearshape") }
             if canDelete {
-                Button(role: .destructive, action: delete) { Label("Delete", systemImage: "trash") }
+                Button(role: .destructive, action: ask) { Label("Delete", systemImage: "trash") }
             }
+        }
+    }
+
+    /// The delete confirmation for a list's rows. `endsCall` says the live connection will be cut.
+    func destinationDeleteConfirmation(_ pending: Binding<PendingDestinationDelete?>) -> some View {
+        alert(pending.wrappedValue.map { Text("Delete \($0.name)?") } ?? Text(verbatim: ""), isPresented: Binding(
+            get: { pending.wrappedValue != nil }, set: { if !$0 { pending.wrappedValue = nil } }),
+              presenting: pending.wrappedValue) { item in
+            Button(LocalizedStringKey(item.endsCall ? "Disconnect and Delete" : "Delete"), role: .destructive, action: item.perform)
+                .accessibilityIdentifier("confirmDeleteDestinationButton")
+            Button("Cancel", role: .cancel) { }
+        } message: { item in
+            if item.endsCall { Text("The current connection ends.") }
         }
     }
 
@@ -147,4 +164,10 @@ extension View {
             if canDelete { Button(role: .destructive, action: delete) { Label("Delete", systemImage: "trash") } }
         }
     }
+}
+
+struct PendingDestinationDelete {
+    let name: String
+    let endsCall: Bool
+    let perform: () -> Void
 }

@@ -30,4 +30,11 @@ extension XCUIApplication {
         XCTAssertTrue(item.waitForExistence(timeout: 3), item.debugDescription)
         return item
     }
+
+    /// A list row's Delete asks first; confirm it.
+    func confirmDestinationDelete() {
+        let confirm = alerts.firstMatch.buttons["confirmDeleteDestinationButton"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3), "Deleting a row asks first")
+        confirm.tap()
+    }
 }

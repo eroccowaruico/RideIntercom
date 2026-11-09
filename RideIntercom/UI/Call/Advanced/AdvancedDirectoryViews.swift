@@ -4,6 +4,7 @@ struct AdvancedUsersView: View {
     let viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
     @State private var settings: DestinationSettingsTarget?
+    @State private var pendingDelete: PendingDestinationDelete?
     @State private var pendingSwitch: CallDestination?
 
     var body: some View {
@@ -26,7 +27,8 @@ struct AdvancedUsersView: View {
                     }
                     .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardUser-\(user.id)")
-                    .destinationRowActions("User Settings", settings: { settings = .user(user.id) }) {
+                    .destinationRowActions("User Settings", settings: { settings = .user(user.id) },
+                                           pending: $pendingDelete, name: user.resolvedDisplayName) {
                         _ = viewModel.removeSavedUser(user.id)
                     }
                 }
@@ -45,6 +47,7 @@ struct AdvancedUsersView: View {
         }
         .accessibilityIdentifier("standardUsersList")
         .destinationSettingsSheet($settings, viewModel: viewModel)
+        .destinationDeleteConfirmation($pendingDelete)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
     }
 }
@@ -55,6 +58,7 @@ struct AdvancedGroupsView: View {
     @State private var createsGroup = false
     @State private var previousSelection: UUID?
     @State private var settings: DestinationSettingsTarget?
+    @State private var pendingDelete: PendingDestinationDelete?
     @State private var pendingSwitch: CallDestination?
 
     var body: some View {
@@ -73,7 +77,8 @@ struct AdvancedGroupsView: View {
                     }
                     .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardGroup-\(group.id)")
-                    .destinationRowActions("Group Settings", settings: { settings = .group(group.id) }) {
+                    .destinationRowActions("Group Settings", settings: { settings = .group(group.id) },
+                                           pending: $pendingDelete, name: group.name, endsCall: viewModel.isInCall(with: .group(group.id))) {
                         viewModel.deleteGroup(group.id)
                     }
                 }
@@ -91,6 +96,7 @@ struct AdvancedGroupsView: View {
             if viewModel.selectedGroup?.id != previousSelection { selectedTab = .call }
         }) { SavedUsersView(viewModel: viewModel) }
         .destinationSettingsSheet($settings, viewModel: viewModel)
+        .destinationDeleteConfirmation($pendingDelete)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
     }

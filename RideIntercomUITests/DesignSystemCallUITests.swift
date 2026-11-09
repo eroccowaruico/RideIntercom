@@ -93,6 +93,21 @@ final class DesignSystemCallUITests: XCTestCase {
         app.buttons["closeGroupSettingsButton"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForNonExistence(timeout: 3))
         XCTAssertTrue(app.buttons["callAccessoryOpenButton"].firstMatch.exists, "Settings do not end the call")
+        // Delete asks first, names the group and says the live connection ends; Cancel keeps it.
+        row.swipeLeft()
+        let delete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        delete.tap()
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        XCTAssertTrue(alert.staticTexts["Delete \(renamed)?"].exists, alert.debugDescription)
+        XCTAssertTrue(alert.staticTexts["The current connection ends."].exists)
+        XCTAssertEqual(alert.buttons["confirmDeleteDestinationButton"].firstMatch.label, "Disconnect and Delete")
+        attachEvidence("Delete a live group asks first")
+        alert.buttons["Cancel"].firstMatch.tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(row.exists, "Cancel keeps the group")
+        XCTAssertTrue(app.buttons["callAccessoryOpenButton"].firstMatch.exists, "Cancel keeps the call")
     }
 
     @MainActor
