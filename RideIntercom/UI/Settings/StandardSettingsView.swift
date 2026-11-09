@@ -49,9 +49,8 @@ struct StandardSettingsView: View {
                         }
                     }
                     InterfaceModeSection(viewModel: viewModel)
+                    // Display and Internet only; audio session and codec stay in Advanced Settings.
                     InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
-                    AudioSessionPanel(viewModel: viewModel)
-                    TransmitCodecPanel(viewModel: viewModel)
                 }
                 .formStyle(.grouped)
                 .navigationTitle("Advanced Settings for Developers")

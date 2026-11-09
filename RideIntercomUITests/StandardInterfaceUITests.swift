@@ -395,16 +395,15 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Advanced Settings for Developers"].waitForExistence(timeout: 3))
         let layout = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
         XCTAssertTrue(layout.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["audioSessionPanel"].firstMatch.exists)
-        let codec = app.descendants(matching: .any)["transmitCodecPanel"].firstMatch
-        revealStandardSettingsControl(codec)
-        XCTAssertTrue(codec.exists)
-        for identifier in ["vadSensitivityPicker", "resetAllSettingsButton", "communicationSettingsLink",
+        XCTAssertTrue(app.descendants(matching: .any)["configureInternetConnection"].firstMatch.exists)
+        // Specialist audio settings belong to Advanced Settings only.
+        for identifier in ["audioSessionPanel", "transmitCodecPanel",
+                           "vadSensitivityPicker", "resetAllSettingsButton", "communicationSettingsLink",
                            "communicationPanel", "localNetworkRouteToggle", "internetRouteToggle"] {
             XCTAssertFalse(app.descendants(matching: .any)[identifier].firstMatch.exists,
                            "Routine control duplicated in More Settings: \(identifier)")
         }
-        screenshot("Standard More Settings contains specialist audio settings")
+        screenshot("Standard More Settings has display and Internet only")
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
         let reset = app.buttons["resetAllSettingsButton"].firstMatch
