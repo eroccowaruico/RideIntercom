@@ -181,17 +181,14 @@ struct StandardCallView: View {
                 VStack(alignment: .leading, spacing: AppSpacing.m) {
                     HStack {
                         DestinationAvatar(isGroup: false)
-                        Text(member.resolvedDisplayName)
-                        Spacer()
-                        // Color never carries "speaking" alone: the symbol has a label.
-                        if group.id == viewModel.activeGroupID, member.isTalking {
-                            Image(systemName: "waveform")
-                                .foregroundStyle(AppColorPalette.voiceLevel)
-                                .accessibilityLabel("Speaking")
-                                .accessibilityIdentifier("standardMemberSpeaking-\(member.id)")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(member.resolvedDisplayName)
+                            if group.id == viewModel.activeGroupID { memberState(member) }
                         }
+                        Spacer()
                     }
                     .frame(minHeight: 44)
+                    .accessibilityElement(children: .combine)
                     if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
                         VStack(alignment: .leading) {
                             Text("Volume").accessibilityIdentifier("standardPeerVolumeLabel-\(member.id)")
@@ -216,6 +213,31 @@ struct StandardCallView: View {
         } header: {
             Text("People in This Call").accessibilityIdentifier("standardCallParticipantsHeading")
         }
+    }
+
+    /// One state word under the name while in this call: speaking, connecting, or not connected.
+    /// Connected and quiet needs no word. Color never carries the state alone.
+    @ViewBuilder private func memberState(_ member: GroupMember) -> some View {
+        Group {
+            if member.isTalking {
+                Label("Speaking", systemImage: "waveform")
+                    .foregroundStyle(AppColorPalette.voiceLevel)
+                    .accessibilityIdentifier("standardMemberSpeaking-\(member.id)")
+            } else if viewModel.authenticatedPeerIDs.contains(member.id) {
+                EmptyView()
+            } else if viewModel.connectedPeerIDs.contains(member.id) {
+                // Reached but not yet verified: not part of the conversation yet.
+                Text("Connecting")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("standardMemberConnecting-\(member.id)")
+            } else {
+                // The live peer sets, not the stored member state, say who has joined.
+                Text("Not connected right now")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("standardMemberNotConnected-\(member.id)")
+            }
+        }
+        .font(.footnote)
     }
 
     @ViewBuilder private var statusSymbolView: some View {
