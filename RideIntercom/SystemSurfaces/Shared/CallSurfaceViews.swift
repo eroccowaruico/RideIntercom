@@ -108,6 +108,20 @@ struct WidgetSurfaceBackground: View {
     }
 }
 
+/// Symbol and short word side by side; the word shrinks rather than truncates in the small Widget.
+private struct WidgetControlLabel: View {
+    let title: LocalizedStringKey
+    let symbol: String
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol)
+            Text(title).lineLimit(1).minimumScaleFactor(0.5)
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 6)
+    }
+}
+
 /// In-call status and controls. Mute and End never sit as two red fills side by side.
 struct BackgroundWidgetCallButtons: View {
     let call: CallLivePresentation
@@ -129,33 +143,34 @@ struct BackgroundWidgetCallButtons: View {
             if showsMute {
                 Toggle(isOn: call.isMuted, intent: BackgroundCallControlIntent(
                     action: call.isMuted ? .unmute : .mute, reference: call.reference)) {
-                    VStack(spacing: 2) {
-                        Image(systemName: "mic.slash")
-                        Text(LocalizedStringKey(call.isMuted ? "Muted" : "Mute"))
-                            .font(.caption2.weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    WidgetControlLabel(title: call.isMuted ? "Muted" : "Mute", symbol: "mic.slash")
+                        .foregroundStyle(call.isMuted ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(call.isMuted ? AnyShapeStyle(RideComColors.danger) : AnyShapeStyle(.fill.tertiary),
+                                    in: .capsule)
                 }
                 .toggleStyle(.button)
-                .buttonStyle(.bordered)
-                .tint(call.isMuted ? RideComColors.danger : RideComColors.accent)
+                .buttonStyle(.plain)
                 .accessibilityValue(call.isMuted ? Text("Muted") : Text("Unmuted"))
             }
+            // End is never filled red, so it stays distinct from the muted fill beside it.
             Button(role: .destructive, intent: BackgroundCallControlIntent(action: .end, reference: call.reference)) {
-                if showsMute {
-                    Label("End Call", systemImage: "phone.down.fill")
-                        .labelStyle(.iconOnly)
-                        .frame(minWidth: 44, minHeight: 44)
-                } else {
-                    Label("End Call", systemImage: "phone.down.fill")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                Group {
+                    if showsMute {
+                        Image(systemName: "phone.down.fill")
+                            .font(.subheadline)
+                            .frame(width: 44, height: 44)
+                            .accessibilityLabel(Text("End Call"))
+                    } else {
+                        WidgetControlLabel(title: "End Call", symbol: "phone.down.fill")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
                 }
+                .foregroundStyle(RideComColors.danger)
+                .background(.fill.tertiary, in: .capsule)
+                .overlay(Capsule().strokeBorder(RideComColors.danger.opacity(0.45)))
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(showsMute ? .circle : .capsule)
-            .tint(RideComColors.danger)
+            .buttonStyle(.plain)
         }
     }
 
