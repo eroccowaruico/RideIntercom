@@ -219,7 +219,7 @@ AdvancedではGroups管理画面の参加者名から、StandardではCallの参
 
 ### Standardの直近通話
 
-通話していないときに、現在のアカウントと保存一覧で確認できる直近宛先をUsers一覧の先頭のRecent Callに表示する（以前の通話タブの空状態から移した）。行のタップは他の行と同じ`openDestination`。`recentCallName`は現在の名前、`recentCallButton`はCall Again。描画時に示した宛先とログイン世代を共通開始操作へ渡し、削除やログイン変更後は再検証する。通話成立時の記録、設定との保存、破損時の扱いは[通信仕様](../通信仕様.md#直近の成立済み通話先)を参照する。
+通話していないときに、現在のアカウントと保存一覧で確認できる直近宛先をStandardのUsers一覧の先頭のRecent Callに表示する（以前の通話タブの空状態から移した）。Advancedの設計にないため、AdvancedのUsersには出さない（`RecentCallSection`は`Standard/StandardDirectoryViews.swift`）。行のタップは他の行と同じ`openDestination`。`recentCallName`は現在の名前、`recentCallButton`はCall Again。描画時に示した宛先とログイン世代を共通開始操作へ渡し、削除やログイン変更後は再検証する。通話成立時の記録、設定との保存、破損時の扱いは[通信仕様](../通信仕様.md#直近の成立済み通話先)を参照する。
 
 ## 共通の操作表現
 

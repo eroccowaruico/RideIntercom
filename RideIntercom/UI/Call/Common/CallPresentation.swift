@@ -164,27 +164,6 @@ struct CallAccessory: View {
     }
 }
 
-/// The last destination leads the people list so talking again is one tap.
-struct RecentCallSection: View {
-    let viewModel: IntercomViewModel
-    @Binding var pendingSwitch: CallDestination?
-    let onOpen: () -> Void
-
-    var body: some View {
-        if !viewModel.hasAnyActiveGroupConnection,
-           let destination = viewModel.recentCallDestination, let title = viewModel.recentCallTitle {
-            Section("Recent Call") {
-                Button { viewModel.open(destination, pending: $pendingSwitch, onOpen: onOpen) } label: {
-                    Label { Text(title).accessibilityIdentifier("recentCallName") } icon: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
-                .accessibilityIdentifier("recentCallButton")
-            }
-        }
-    }
-}
-
 /// In-app status symbol: the system surfaces' symbols and colors without their widget-only
 /// modifiers, and a real progress view while connecting. Widget rendering stays in
 /// `CallSurfaceStatusIcon`.
