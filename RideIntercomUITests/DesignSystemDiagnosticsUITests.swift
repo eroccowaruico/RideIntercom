@@ -82,6 +82,7 @@ final class DesignSystemDiagnosticsUITests: XCTestCase {
         let internetRoute = app.descendants(matching: .any)["diagnosticsNetworkInternet"].firstMatch
         reveal(localRoute, app: app)
         reveal(internetRoute, app: app)
+        reveal(app.descendants(matching: .any)["diagnosticsNetworkPaths"].firstMatch, app: app)
         XCTAssertFalse(networkValue.isEmpty)
         XCUIDevice.shared.orientation = .landscapeLeft
         let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -95,9 +96,10 @@ final class DesignSystemDiagnosticsUITests: XCTestCase {
         choose("Applied", in: picker, app: app)
         let codec = app.descendants(matching: .any)["diagnosticsAppliedCodec"].firstMatch
         XCTAssertTrue(codec.waitForExistence(timeout: 3))
-        XCTAssertTrue(codec.label.contains("Requested:"), codec.label)
-        XCTAssertTrue(codec.label.contains("Applied:"), codec.label)
-        let vad = app.staticTexts["diagnosticsAppliedVAD"].firstMatch
+        // One row: the label, the value, and the implementation's verdict.
+        XCTAssertTrue(codec.label.hasPrefix("Codec"), codec.label)
+        XCTAssertTrue(codec.label.contains("Same") || codec.label.contains("Differs"), codec.label)
+        let vad = app.descendants(matching: .any)["diagnosticsAppliedVAD"].firstMatch
         reveal(vad, app: app)
         XCTAssertTrue(vad.label.contains("Not measured"), vad.label)
         let status = app.staticTexts["internetServiceCheckStatus"].firstMatch

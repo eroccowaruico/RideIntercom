@@ -40,7 +40,7 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 
 `diagnosticsPagePicker`でOverview、TX、RX、Network、Appliedを切り替える。5ページの選択には標準menu Pickerを使う。iOSのアクセシビリティ文字サイズでは、横向きでmenuが画面に収まらずスクロールできないため、同じ識別子の標準NavigationLinkから選択List（`diagnosticsPageSelection`、選択中にcheckmark）を開き、選ぶと元の画面へ戻る。幅600pt以上ではOverview以外のページの左にOverviewの内容（Pipelineの要約と症状の案内）を並べる。旧来の概要カード（Audio Path / Call / Network Quality / Invite）は[Overview](../../../design/詳細画面/診断と詳細画面の構成.md#overview)のとおり廃止し、どこにも表示しない（行の値はAppliedのCall・Inviteが引き続き使う）。画面内のページ選択は表示状態であり、ViewModelのsnapshotや通話状態を作り直さない。Overviewの `diagnosticsOthersCannotHearButton` はTX、`diagnosticsCannotHearButton`・`diagnosticsAudioDropsButton`・`diagnosticsAudioDelayedButton` はRXへ移動する。これらはページと該当する段へ移動し展開する案内であり、原因を自動診断した結果ではない。TXの各段とRXの相手および出力詳細は標準DisclosureGroupで開閉する。
 
-TX/RXは従来のpipeline、NetworkはLocal・Internet別にRTT、loss、jitter、送信待ち、event dropsと最後に観測した経路を表示し、経過15秒超をStaleとする。経路が一致する単一の最新metricsのみ利用し、未取得値をNot measuredとする。Overviewは先頭の判定（`diagnosticsVerdict-TX`／`-RX`、`PipelineVerdict`）で、TX・RXそれぞれ最初のblocked／muted、なければ最初のwaitingの段を`TX: Waiting at VAD`の形で太字に、その段のdetailを理由として下の行に出す。全段passingは`Passing`、全段idleは`Idle`、passingの後にidleが残るときは`Idle at {段}`。状態は文字サイズに合わせて大きくなる8ptの点（idleは破線の輪）と語で示す。続けて`Pipeline`に、TXとRXの全段を方向ごとに1行（`diagnosticsStageDots-TX`／`-RX`）で、段名と状態の点を並べる（幅が足りなければ折り返す。VoiceOverは「TX: Session Passing, …」と1要素で読む）。`Participants`（見出しに自分以外の人数）は1人1行で、名前・観測した経路（`Local · direct`／`Local · relayed`／`Internet`、未観測は`—`）・保存された`PeerConnectionState`の点と語（`Connected`／`Connecting`／`Offline`。Offlineは薄く）。`Network`は経路が観測されたときだけ、1経路1行で経路名・相手数・`RTT`（未取得は`Not measured`）。最後に症状の4つのボタン（`.glass`、幅に合わせて折り返す）。TX/RXは機器、VAD、観測経路、相手別情報と出力buffer/resetを既存値から表示し、差分履歴を持たない毎秒値はNot measuredとする。Appliedはcodec、Sessionの要求と解決済み設定、stream実測sample rate、未計測のIO buffer、Unsupported、Ducking、機器、VAD、isolation、Call/InviteおよびInternet Serviceを表示する。Sessionの解決済み設定はハードウェア実測と区別し、未取得はNot measuredとする。
+TX/RXは従来のpipeline、Networkは、経路（Local・Internet）ごとのカード（`diagnosticsNetworkLocal`／`-Internet`）に、ラベルと値の2列で`RTT`、`Loss`（`· Jitter`）、`Send queue`、`Event drops`（`Overflow n · Expired n`。どちらかが0でなければ警告の記号）を並べる。見出しの右に「Updated n s ago」（経過15秒超は`· Stale`）を出す。最後に観測した経路は`Paths`のカード（`diagnosticsNetworkPaths`）に1人1行で、名前・`Direct group path`／`Relayed`と経路・短縮IDの経路と経過秒を出す。session全体のevent dropsはカードの上の1行。Appliedは`Requested → Applied`のカードで、1行に項目名・値（要求と適用が違えば「要求 → 適用」）・判定を置く。判定は、実装が比べている行（Codec・Session・Input sample rate）だけに出し、同じなら「Same」（success）、違えば「⚠ Differs」（warning）。Codecは`CodecIdentifier.displayName`と`48 kHz · 48 kbps`の単位で出す。経路が一致する単一の最新metricsのみ利用し、未取得値をNot measuredとする。Overviewは先頭の判定（`diagnosticsVerdict-TX`／`-RX`、`PipelineVerdict`）で、TX・RXそれぞれ最初のblocked／muted、なければ最初のwaitingの段を`TX: Waiting at VAD`の形で太字に、その段のdetailを理由として下の行に出す。全段passingは`Passing`、全段idleは`Idle`、passingの後にidleが残るときは`Idle at {段}`。状態は文字サイズに合わせて大きくなる8ptの点（idleは破線の輪）と語で示す。続けて`Pipeline`に、TXとRXの全段を方向ごとに1行（`diagnosticsStageDots-TX`／`-RX`）で、段名と状態の点を並べる（幅が足りなければ折り返す。VoiceOverは「TX: Session Passing, …」と1要素で読む）。`Participants`（見出しに自分以外の人数）は1人1行で、名前・観測した経路（`Local · direct`／`Local · relayed`／`Internet`、未観測は`—`）・保存された`PeerConnectionState`の点と語（`Connected`／`Connecting`／`Offline`。Offlineは薄く）。`Network`は経路が観測されたときだけ、1経路1行で経路名・相手数・`RTT`（未取得は`Not measured`）。最後に症状の4つのボタン（`.glass`、幅に合わせて折り返す）。TX/RXは機器、VAD、観測経路、相手別情報と出力buffer/resetを既存値から表示し、差分履歴を持たない毎秒値はNot measuredとする。Appliedはcodec、Sessionの要求と解決済み設定、stream実測sample rate、未計測のIO buffer、Unsupported、Ducking、機器、VAD、isolation、Call/InviteおよびInternet Serviceを表示する。Sessionの解決済み設定はハードウェア実測と区別し、未取得はNot measuredとする。
 
 | 項目名（日本語） | 項目ID | 目的 | 実装 | 更新周期 | 表示仕様 |
 |---|---|---|---|---|---|
@@ -157,9 +157,8 @@ AudioMixer package は UI 描画用の専用 DTO ではなく、現在の信号�
 
 | 項目名（日本語） | 項目ID | ラベル | データ仕様 | 表示仕様 | severity |
 |---|---|---|---|---|---|
-| 通話カード | `diag-call-route-summary` | `Call` | `connectionLabel`, selected group summary | `CALL {state}` / selected group | 接続中は ok、未接続は neutral |
-| network qualityカード | `diag-network-quality-summary` | `Network Quality` | `RouteMetrics.rtt`, `RouteMetrics.packetLoss`, `RouteMetrics.jitter` | RTT、loss、jitter。route / RX / drop / queue は pipeline 側を見る | loss は warning |
-| 招待カード | `diag-invite-summary` | `Invite` | 招待可否、invite status、selected group | `INVITE ...` / group summary | 招待操作の前提が揃えば ok。表示更新では鍵の読込・作成や招待署名を行わない |
+| Appliedの通話カード | `diag-call-route-summary` | `Call` | `connectionLabel`, selected group summary | `CALL {state}` / selected group | 接続中は ok、未接続は neutral |
+| Appliedの招待カード | `diag-invite-summary` | `Invite` | 招待可否、invite status、selected group | `INVITE ...` / group summary | 招待操作の前提が揃えば ok。表示更新では鍵の読込・作成や招待署名を行わない |
 
 ## 一覧性のルール
 
@@ -168,7 +167,7 @@ AudioMixer package は UI 描画用の専用 DTO ではなく、現在の信号�
 | 表示粒度 | 1 カードは 1 つの層だけを示す。複数層の原因推測を 1 行へ詰め込まない |
 | 文字量 | summary は 1 行、detail は補足。長文ログや stack trace は置かない |
 | 色 | ok / warning / error / neutral をカード左アイコン色で示す |
-| 表示順 | Call、Network Quality、Invite の順を維持する |
+| 表示順 | Appliedの`Requested → Applied`の後に、Call、Inviteの順。各カードは`State`の行（summary）と補足（detail）。RTT・loss・jitterはNetworkの経路ごとのカードに出す |
 | ログとの関係 | Diagnostics で現在値を読み、ログは操作境界や失敗の後追い調査に使う |
 | 環境差異 | unsupported / ignored は warning 以下に留め、継続可能な状態として表示する |
 | パイプライン表示 | 各 pipeline step を大きな独立 card にしない。1 step は compact row、stage は親 row の内側の chip として表示する |

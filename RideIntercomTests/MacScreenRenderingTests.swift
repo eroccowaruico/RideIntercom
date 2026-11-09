@@ -34,6 +34,15 @@ struct MacScreenRenderingTests {
                          size: .init(width: 520, height: 760), language: "en", named: "diagnostics-overview")
     }
 
+    @Test func diagnosticsNetworkAndApplied() async throws {
+        let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
+        defer { vm.disconnect() }
+        try await record(ScrollView { DiagnosticsNetworkView(viewModel: vm).padding() }, size: .init(width: 520, height: 640),
+                         language: "en", named: "diagnostics-network")
+        try await record(ScrollView { DiagnosticsAppliedView(viewModel: vm).padding() }, size: .init(width: 520, height: 1100),
+                         language: "en", named: "diagnostics-applied")
+    }
+
     @Test(arguments: ["en", "ja"])
     func settingsSheets(language: String) async throws {
         let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
