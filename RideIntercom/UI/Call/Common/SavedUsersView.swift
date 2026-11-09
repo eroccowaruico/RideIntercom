@@ -5,7 +5,8 @@ struct SavedUsersView: View {
     var groupID: UUID?
     @Environment(\.dismiss) private var dismiss
     @State private var selection: Set<UUID> = []
-    @State private var groupName = "Talk Group"
+    /// Empty by default: the selected people's names are the placeholder and the name if left empty.
+    @State private var groupName = ""
     @State private var editingUser: SavedUser?
     /// Set once saved users were committed to this group. Adding them only lists
     /// them here; their devices get the group key from the shared invitation.
@@ -13,6 +14,17 @@ struct SavedUsersView: View {
     private var invitationGroup: IntercomGroup? { viewModel.groups.first { $0.id == invitationGroupID } }
 
     private var users: [SavedUser] { viewModel.availableUsers(for: groupID) }
+
+    /// "Haruka, Kenta and Yu" from the people chosen so far, in the list's order.
+    private var suggestedName: String? {
+        let names = users.filter { selection.contains($0.id) }.map(\.resolvedDisplayName)
+        return names.isEmpty ? nil : names.formatted(.list(type: .and))
+    }
+
+    private var effectiveName: String {
+        let typed = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return typed.isEmpty ? (suggestedName ?? "") : typed
+    }
     private var memberCount: Int {
         (viewModel.groups.first { $0.id == groupID }?.members.count ?? 1)
         + users.filter { selection.contains($0.id) }.reduce(0) { $0 + $1.memberIDs.count }
@@ -54,8 +66,8 @@ struct SavedUsersView: View {
     private var selectionForm: some View {
         Form {
             if groupID == nil {
-                Section("New Group") {
-                    TextField("Group name", text: $groupName)
+                Section("Group name") {
+                    TextField("Group name", text: $groupName, prompt: suggestedName.map { Text(verbatim: $0) })
                         .accessibilityIdentifier("savedUsersGroupNameField")
                 }
             }
@@ -95,7 +107,7 @@ struct SavedUsersView: View {
                 }
             }
         }
-        .navigationTitle(LocalizedStringKey(groupID == nil ? "Saved Users" : "Add Saved Users"))
+        .navigationTitle(LocalizedStringKey(groupID == nil ? "New Group" : "Invite Members"))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }.accessibilityIdentifier("closeSavedUsersButton")
@@ -107,14 +119,14 @@ struct SavedUsersView: View {
                     let saved = if let groupID {
                         viewModel.addSavedUsers(selection, to: groupID)
                     } else {
-                        viewModel.createTalkGroup(name: groupName, userIDs: selection)
+                        viewModel.createTalkGroup(name: effectiveName, userIDs: selection)
                     }
                     guard saved else { return }
                     // Creating selects the new group. Only added people need the invitation.
                     if selection.isEmpty { dismiss() } else { invitationGroupID = groupID ?? viewModel.selectedGroup?.id }
                 }
                 .disabled(!viewModel.canEditSavedGroups || memberCount > 8 || (groupID != nil && selection.isEmpty)
-                          || (groupID == nil && (!IntercomGroup.isValidName(groupName) || groupName.contains("|"))))
+                          || (groupID == nil && (!IntercomGroup.isValidName(effectiveName) || effectiveName.contains("|"))))
                 .accessibilityIdentifier("saveUserSelectionButton")
             }
         }

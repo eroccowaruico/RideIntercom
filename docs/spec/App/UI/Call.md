@@ -79,7 +79,7 @@ Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存�
 
 ## 保存済みユーザーの操作
 
-Groupsの`New Group`（`standardCreateGroupButton`）から標準Formを開く。名前入力（`savedUsersGroupNameField`）、ユーザー選択（`selectUser-{UUID}`）、`Create and Connect`（作成して接続。別の通話中は`Create Group`、`saveUserSelectionButton`）で保存済みの相手を使うグループを作成し、待機中ならそのまま接続する。`Cancel`（`closeSavedUsersButton`）では変更しない。
+Groupsの`New Group`（`standardCreateGroupButton`）から標準Formを開く。見出しは「New Group」（既存groupへの追加は「Invite Members」）。名前入力（`savedUsersGroupNameField`）は空欄で開き、選んだ保存ユーザーの名前の並び（`ListFormatter`）をプレースホルダーにして、空のまま作成するとその名前を使う。ユーザー選択（`selectUser-{UUID}`）、`Create and Connect`（作成して接続。別の通話中は`Create Group`、`saveUserSelectionButton`）で保存済みの相手を使うグループを作成し、待機中ならそのまま接続する。`Cancel`（`closeSavedUsersButton`）では変更しない。
 
 Usersの行の`User Settings`（`userSettingsView`）と作成・追加Formの鉛筆ボタン（`editUser-{UUID}`）は相手の設定を開き、本人名（`savedUserOriginalName`）も表示する。相手の設定には呼び出しの許可、内部のdirect groupがあれば招待（`userSettingsInviteButton`）、`Delete User`（`deleteUserButton`、確認`confirmDeleteUserButton`）を置き、`closeUserSettingsButton`で閉じる。`Use Shared Name`（`resetUserNameButton`）で端末の呼び名を解除して最新の本人名へ戻せる。`savedUserNameField`と`saveUserNameButton`で端末内の表示名を保存する。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。一覧が空なら、直接招待した・された相手だけが自動登録され、グループ削除後も保持されることを案内する。
 

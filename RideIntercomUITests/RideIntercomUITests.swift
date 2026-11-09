@@ -401,6 +401,11 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(toggle.label.contains("Alex"))
         toggle.switches.firstMatch.tap()
         XCTAssertEqual(toggle.value as? String, "1")
+        XCTAssertTrue(app.navigationBars["New Group"].exists, "The sheet is titled New Group")
+        // The name starts empty and suggests the chosen people.
+        let groupName = app.textFields["savedUsersGroupNameField"]
+        XCTAssertEqual(groupName.placeholderValue, "Alex")
+        groupName.tap(); groupName.typeText("Talk Group")
         attachScreen("Saved Users Selection")
         app.buttons["saveUserSelectionButton"].tap()
         finishSendingGroupInvitation("New Group with Saved User invitation step")
