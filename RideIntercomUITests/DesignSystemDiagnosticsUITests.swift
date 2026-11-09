@@ -58,6 +58,15 @@ final class DesignSystemDiagnosticsUITests: XCTestCase {
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["diagnosticsCannotHearButton"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertFalse(app.descendants(matching: .any)["diagnosticsOverviewGrid"].firstMatch.exists, "The summary cards are retired")
+        // Every stage of each direction on one wrapping line of state dots, then one row per participant.
+        for direction in ["TX", "RX"] {
+            let dots = app.descendants(matching: .any)["diagnosticsStageDots-\(direction)"].firstMatch
+            XCTAssertTrue(dots.waitForExistence(timeout: 3))
+            XCTAssertTrue(dots.label.hasPrefix("\(direction): "), dots.label)
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsStageDots-TX"].firstMatch.label.contains("Session"))
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsOverviewParticipants"].firstMatch.exists)
+        attachScreen("Diagnostics overview with stage dots")
 
         choose("TX", in: picker, app: app)
         XCTAssertTrue(app.descendants(matching: .any)["liveTransmitPipelineView"].firstMatch.waitForExistence(timeout: 3))

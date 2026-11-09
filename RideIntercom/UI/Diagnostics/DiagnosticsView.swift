@@ -97,6 +97,8 @@ struct DiagnosticsView: View {
         VStack(alignment: .leading, spacing: AppSpacing.l) {
             verdicts
             pipelineOverview
+            participantsOverview
+            networkOverview
             symptomButtons
         }
     }
@@ -145,21 +147,27 @@ struct DiagnosticsView: View {
         .accessibilityIdentifier("diagnosticsPagePicker")
     }
 
-    private func stageOverview(_ name: String, steps: [PipelineStep]) -> some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            Text(name).font(.headline)
-            ForEach(steps) { step in
-                Label {
-                    Text("\(step.title): \(step.state.statusText)")
-                } icon: {
-                    Image(systemName: step.state.statusSymbol).foregroundStyle(step.state.color)
+    /// One line per direction: the direction, then every stage as a state dot and its name, wrapping.
+    private func stageDots(_ name: String, steps: [PipelineStep]) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.s) {
+            Text(verbatim: name).font(.subheadline.bold()).frame(minWidth: 28, alignment: .leading)
+            WrappingRow(spacing: AppSpacing.m, lineSpacing: AppSpacing.xs) {
+                ForEach(steps) { step in
+                    HStack(spacing: AppSpacing.xs) {
+                        PipelineStateDot(state: step.state)
+                        Text(verbatim: step.title).lineLimit(1)
+                    }
                 }
             }
         }
+        .font(.subheadline)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(name): " + steps.map { "\($0.title) \($0.state.statusText)" }.joined(separator: ", ")))
+        .accessibilityIdentifier("diagnosticsStageDots-\(name)")
     }
 
     private var symptomButtons: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.m) {
+        WrappingRow(spacing: AppSpacing.s, lineSpacing: AppSpacing.s) {
             Button("Others can't hear me") { navigate(.tx, target: firstTransmitIssue) }
                 .accessibilityIdentifier("diagnosticsOthersCannotHearButton")
             Button("I can't hear someone") { navigate(.rx, target: "receive-peers") }
@@ -169,6 +177,7 @@ struct DiagnosticsView: View {
             Button("Audio is delayed") { navigate(.rx, target: "receive-output") }
                 .accessibilityIdentifier("diagnosticsAudioDelayedButton")
         }
+        .buttonStyle(.glass)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -188,24 +197,116 @@ struct DiagnosticsView: View {
     private var pipelineOverview: some View {
         let (txSteps, rxSteps) = pipelineSteps
         return GroupBox("Pipeline") {
-            VStack(alignment: .leading, spacing: AppSpacing.m) {
-                stageOverview("TX", steps: txSteps)
-                stageOverview("RX", steps: rxSteps)
-                if let group = viewModel.selectedGroup {
-                    ForEach(Array(group.members.dropFirst())) { member in
-                        Text("\(member.resolvedDisplayName) / \(member.connectionState.rawValue) / RX packets/s: Not measured")
-                            .lineLimit(2)
-                    }
-                }
-                if let report = viewModel.networkDiagnostics {
-                    ForEach(report.routes, id: \.route.rawValue) { route in
-                        Text("\(route.route == .webRTC ? "Internet" : "Local") / \(report.peers.filter { $0.route == route.route }.count) peers / RTT \(route.statistics.roundTripTime.map { String(format: "%.0f ms", $0 * 1000) } ?? "Not measured")")
-                    }
-                }
+            VStack(alignment: .leading, spacing: AppSpacing.s) {
+                stageDots("TX", steps: txSteps)
+                Divider()
+                stageDots("RX", steps: rxSteps)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
+    /// One row per other member: name, the measured path, and `PeerConnectionState` as stored.
+    private var participantsOverview: some View {
+        let members = Array(viewModel.selectedGroup?.members.dropFirst() ?? [])
+        let peers = viewModel.networkDiagnostics?.peers ?? []
+        return GroupBox {
+            VStack(spacing: AppSpacing.s) {
+                if members.isEmpty { Text("No participants").foregroundStyle(.secondary) }
+                ForEach(members) { member in
+                    let paths = peers.filter { $0.peerID.rawValue == member.id }
+                        .map { $0.route == .webRTC ? "Internet" : ($0.path.count > 2 ? "Local · relayed" : "Local · direct") }
+                    overviewRow(member.resolvedDisplayName, value: paths.isEmpty ? "—" : paths.joined(separator: ", "),
+                                state: PipelineStepState(member.connectionState), status: member.connectionState.rawValue)
+                        .opacity(member.connectionState == .offline ? 0.5 : 1)
+                }
+            }
+        } label: {
+            HStack {
+                Text("Participants")
+                Spacer()
+                Text(verbatim: "\(members.count) \(members.count == 1 ? "member" : "members")")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityIdentifier("diagnosticsOverviewParticipants")
+    }
+
+    /// One row per route: the route, how many peers use it, and its RTT.
+    @ViewBuilder private var networkOverview: some View {
+        if let report = viewModel.networkDiagnostics, !report.routes.isEmpty {
+            GroupBox("Network") {
+                VStack(spacing: AppSpacing.s) {
+                    ForEach(report.routes, id: \.route.rawValue) { route in
+                        let count = report.peers.filter { $0.route == route.route }.count
+                        overviewRow(route.route == .webRTC ? "Internet" : "Local",
+                                    value: "\(count) \(count == 1 ? "participant" : "participants")",
+                                    state: count > 0 ? .passing : .idle,
+                                    status: "RTT " + (route.statistics.roundTripTime.map { String(format: "%.0f ms", $0 * 1000) } ?? "Not measured"))
+                    }
+                }
+            }
+            .accessibilityIdentifier("diagnosticsOverviewNetwork")
+        }
+    }
+
+    private func overviewRow(_ name: String, value: String, state: PipelineStepState, status: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.s) {
+            Text(verbatim: name).font(.subheadline.bold()).lineLimit(2)
+            Text(verbatim: value).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+            Spacer(minLength: AppSpacing.s)
+            HStack(spacing: AppSpacing.xs) {
+                PipelineStateDot(state: state)
+                Text(verbatim: status).font(.subheadline.monospacedDigit())
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+}
+
+private extension PipelineStepState {
+    init(_ connection: PeerConnectionState) {
+        switch connection {
+        case .connected: self = .passing
+        case .connecting: self = .waiting
+        case .offline: self = .idle
+        }
+    }
+}
+
+/// Places children left to right and wraps to a new line when the width runs out.
+private struct WrappingRow: Layout {
+    var spacing: CGFloat
+    var lineSpacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(width: proposal.width ?? .infinity, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let proposal = ProposedViewSize(width: bounds.width, height: nil)
+        for (subview, origin) in zip(subviews, arrange(width: bounds.width, subviews: subviews).origins) {
+            subview.place(at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y), proposal: proposal)
+        }
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> (origins: [CGPoint], size: CGSize) {
+        var origins: [CGPoint] = []
+        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0, widest: CGFloat = 0
+        for subview in subviews {
+            // Never wider than the line, so a long item wraps its own text instead of overflowing.
+            let size = subview.sizeThatFits(ProposedViewSize(width: width.isFinite ? width : nil, height: nil))
+            if x > 0 && x + size.width > width {
+                x = 0; y += lineHeight + lineSpacing; lineHeight = 0
+            }
+            origins.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+            widest = max(widest, x - spacing)
+        }
+        return (origins, CGSize(width: min(widest, width), height: y + lineHeight))
+    }
 }
 
 /// Eight-point state dot; Idle is a dashed ring so state never relies on color alone.
