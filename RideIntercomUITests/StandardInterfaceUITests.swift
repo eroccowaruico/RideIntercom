@@ -332,6 +332,31 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 5))
     }
 
+    /// Waiting alone is a normal wait: the implementation must not report a lost connection.
+    @MainActor
+    func testAdvancedCallAloneReportsWaitingNotReconnecting() {
+        launch()
+        tab("Settings", id: "settingsTab")
+        selectLayout("Advanced")
+        tab("Groups", id: "groupsTab")
+        app.buttons["standardCreateGroupButton"].firstMatch.tap()
+        let name = app.textFields["savedUsersGroupNameField"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        name.tap()
+        name.typeText("Alone " + UUID().uuidString.prefix(6))
+        app.buttons["saveUserSelectionButton"].tap()
+        let presence = app.staticTexts["callPresenceLabel"].firstMatch
+        XCTAssertTrue(presence.waitForExistence(timeout: 5))
+        var seen: [String] = []
+        for _ in 0..<12 {
+            if seen.last != presence.label { seen.append(presence.label) }
+            Thread.sleep(forTimeInterval: 1)
+        }
+        screenshot("Advanced call waiting alone")
+        XCTAssertFalse(seen.contains("Reconnecting / Offline"), "States while alone: \(seen)")
+        app.buttons["disconnectButton"].firstMatch.tap()
+    }
+
     @MainActor
     func testAdvancedCallLeavesGroupCreationInGroups() {
         launch()

@@ -184,6 +184,8 @@ DataChannelの順序保証と再送回数は、TCP/UDPを選ぶUIではなく配
 
 複数端末のLocal／Internetが異なる時刻に失敗・復帰しても、経路ごとに再試行し、残存する経路の会話を継続する。Localが別ネットワークへ戻って近距離の相手を発見できないことだけで、Internet上の通話を切らない。仮想4端末の[複合復旧試験](../../validation/history/複数端末の経路断と自動復旧.md)と実無線の受入は区別する。
 
+通話全体の状態（`CallConnectionState`）は、相手がいれば`connected`／`mediaReady`、全有効routeが手動復帰待ちなら`failed`とする。どのrouteもつながっていず、再試行を待つrouteがあり、かつ初回の試行中（`connecting`で再試行の予約がない）のrouteが1つもないときだけ`reconnecting`にする。それ以外は`connecting`。1人で待つ間にLocalが探索を続けていれば、Internetの接続失敗と再試行があっても`connecting`のままにする（相手を待つ正常な状態を、接続を失った状態として出さない）。
+
 Local識別子は[MCPeerIDの制約](https://developer.apple.com/documentation/multipeerconnectivity/mcpeerid/init(displayname:))に従いUTF-8で1–63 byteを生成前に検証する。Local受信は64 KiB以下、WebSocket signaling messageも64 KiB以下。Local送信失敗はイベントで通知し、生ID・payload・OS error全文を直接ログへ出さない。nativeのmediaReady判定はchannel IDだけでなく現行channelオブジェクトの同一性を確認する。
 
 ## 近距離接続試行の競合回避
