@@ -49,7 +49,7 @@ extension View {
             case .group(let id): GroupSettingsView(viewModel: viewModel, groupID: id)
             case .user(let id):
                 if let user = viewModel.savedRemoteUsers.first(where: { $0.id == id }) {
-                    SavedUserNameView(viewModel: viewModel, user: user)
+                    UserSettingsView(viewModel: viewModel, user: user)
                 }
             }
         }

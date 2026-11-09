@@ -41,7 +41,7 @@ struct MacScreenRenderingTests {
         let group = try #require(vm.regularGroups.first), user = try #require(vm.savedRemoteUsers.first)
         try await record(GroupSettingsView(viewModel: vm, groupID: group.id), size: .init(width: 480, height: 620),
                          language: language, named: "group-settings")
-        try await record(SavedUserNameView(viewModel: vm, user: user), size: .init(width: 480, height: 560),
+        try await record(UserSettingsView(viewModel: vm, user: user), size: .init(width: 480, height: 560),
                          language: language, named: "user-settings")
         try await record(SavedUsersView(viewModel: vm), size: .init(width: 480, height: 560),
                          language: language, named: "new-group")

@@ -1406,6 +1406,16 @@
         }
       }
     },
+    "Cancel Ringing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "呼び出しを取り消す"
+          }
+        }
+      }
+    },
     "Cancel This Invitation?" : {
       "localizations" : {
         "ja" : {
@@ -2422,6 +2432,16 @@
         }
       }
     },
+    "Name on This Device" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末での名前"
+          }
+        }
+      }
+    },
     "Only you see this name. If you leave it empty, it will be %@. They see the name they chose for themselves." : {
       "localizations" : {
         "ja" : {
@@ -2438,6 +2458,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通話を開く"
+          }
+        }
+      }
+    },
+    "Receive Calls from This Person" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この相手からの呼び出しを受け取る"
           }
         }
       }
@@ -2478,6 +2508,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "RideComの招待（%@さん宛て）"
+          }
+        }
+      }
+    },
+    "Ring %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@を呼び出す"
           }
         }
       }
@@ -5645,6 +5685,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "相手の名前"
+          }
+        }
+      }
+    },
+    "Their Own Name" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本人の名前"
           }
         }
       }

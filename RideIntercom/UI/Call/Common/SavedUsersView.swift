@@ -97,72 +97,16 @@ struct MemberSelection {
     }
 }
 
-struct SavedUserNameView: View {
-    @Bindable var viewModel: IntercomViewModel
+/// A saved person's settings: each mode has its own screen.
+struct UserSettingsView: View {
+    let viewModel: IntercomViewModel
     let user: SavedUser
-    @Environment(\.dismiss) private var dismiss
-    @State private var name: String
-    @State private var confirmsDelete = false
-
-    init(viewModel: IntercomViewModel, user: SavedUser) {
-        self.viewModel = viewModel; self.user = user
-        _name = State(initialValue: user.resolvedDisplayName)
-    }
-
-    private var currentUser: SavedUser { viewModel.savedUsers.first { $0.id == user.id } ?? user }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                TextField("Name on this device", text: $name).accessibilityIdentifier("savedUserNameField")
-                LabeledContent("Name shared by this person", value: currentUser.displayName)
-                    .accessibilityIdentifier("savedUserOriginalName")
-                Button("Use Shared Name") {
-                    if viewModel.resetSavedUserName(user.id) { dismiss() }
-                }
-                .accessibilityIdentifier("resetUserNameButton")
-                Text("Your name for this person stays on this device. Use Shared Name removes your edit and follows their name updates.").font(.footnote)
-                CallNotificationContactSection(viewModel: viewModel, userID: user.id)
-                if let call = viewModel.existingDirectCall(for: user.id), viewModel.canShareGroup(call.id) {
-                    Section {
-                        CallInvitationButton(viewModel: viewModel, group: call, accessibilityIdentifier: "userSettingsInviteButton",
-                                             bindsToGroup: true)
-                    }
-                }
-                Section {
-                    Button("Delete User", systemImage: "trash", role: .destructive) { confirmsDelete = true }
-                        .disabled(!viewModel.canEditSavedGroups)
-                        .accessibilityIdentifier("deleteUserButton")
-                }
-                if let message = viewModel.groupErrorMessage { Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger) }
-            }
-            .formStyle(.grouped)
-            .navigationTitle("User Settings")
-            .accessibilityIdentifier("userSettingsView")
-            .alert("Delete User?", isPresented: $confirmsDelete) {
-                Button("Delete User", role: .destructive) {
-                    if viewModel.removeSavedUser(user.id) { dismiss() }
-                }
-                .accessibilityIdentifier("confirmDeleteUserButton")
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("Groups and a call in progress are kept.")
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }.accessibilityIdentifier("closeUserSettingsButton")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if viewModel.renameSavedUser(user.id, displayName: name) { dismiss() }
-                    }
-                    .disabled(!IntercomGroup.isValidName(name))
-                    .accessibilityIdentifier("saveUserNameButton")
-                }
-            }
+        if viewModel.interfaceMode == .advanced {
+            AdvancedUserSettingsView(viewModel: viewModel, user: user)
+        } else {
+            StandardUserSettingsView(viewModel: viewModel, user: user)
         }
-        #if os(macOS)
-        .frame(minWidth: 300, idealWidth: 480, minHeight: 280)
-        #endif
     }
 }

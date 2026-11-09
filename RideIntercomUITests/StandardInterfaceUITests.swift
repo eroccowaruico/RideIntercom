@@ -382,6 +382,45 @@ final class StandardInterfaceUITests: XCTestCase {
     }
     #endif
 
+    #if os(iOS)
+    /// User Settings: your name for them, their own name, receiving their calls, and deleting.
+    @MainActor
+    func testStandardUserSettingsShowTheNamesReceivingAndDelete() throws {
+        launch()
+        let suffix = String(UUID().uuidString.prefix(6))
+        let inviterName = "Rider " + suffix
+        app.open(try InvitationURLFixture.make(inviter: "ui-settings-" + suffix, sharedName: inviterName, contact: true))
+        let accept = app.buttons["acceptContactInvitationButton"].firstMatch
+        XCTAssertTrue(accept.waitForExistence(timeout: 5))
+        accept.tap()
+        XCTAssertTrue(accept.waitForNonExistence(timeout: 5))
+        let row = inviterRows(inviterName).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        row.swipeLeft()
+        app.buttons["User Settings"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["userSettingsView"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["userSettingsInviteButton"].exists, "No invitation sharing in a person's settings")
+        let name = app.textFields["savedUserNameField"].firstMatch
+        XCTAssertEqual(name.placeholderValue, inviterName, "Empty shows their own name")
+        XCTAssertTrue(app.switches.matching(NSPredicate(format: "label == %@", "Receive Calls from This Person")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Their Own Name"].exists)
+        screenshot("Standard user settings")
+        name.tap()
+        name.typeText("Trail " + suffix)
+        app.buttons["saveUserNameButton"].tap()
+        let renamed = inviterRows("Trail " + suffix).firstMatch
+        XCTAssertTrue(renamed.waitForExistence(timeout: 3))
+        renamed.swipeLeft()
+        app.buttons["User Settings"].firstMatch.tap()
+        app.buttons["deleteUserButton"].firstMatch.tap()
+        let confirm = app.alerts.buttons["confirmDeleteUserButton"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.alerts.staticTexts["Delete Trail \(suffix)?"].exists)
+        confirm.tap()
+        XCTAssertTrue(renamed.waitForNonExistence(timeout: 3))
+    }
+    #endif
+
     /// Waiting alone is a normal wait: the implementation must not report a lost connection.
     @MainActor
     func testAdvancedCallAloneReportsWaitingNotReconnecting() {

@@ -76,7 +76,7 @@ struct AdvancedSavedUsersSelection: View {
             }
         }
         .sheet(item: $editingUser) { user in
-            SavedUserNameView(viewModel: viewModel, user: user)
+            AdvancedUserSettingsView(viewModel: viewModel, user: user)
         }
     }
 }
