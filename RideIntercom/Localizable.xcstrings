@@ -2312,6 +2312,26 @@
         }
       }
     },
+    "Invite Someone New" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい相手を招待"
+          }
+        }
+      }
+    },
+    "Only you see this name. If you leave it empty, it will be %@. They see the name they chose for themselves." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あなたの端末だけで使う名前です。空のままなら「%@」になります。相手には、相手が自分で決めた名前が表示されます。"
+          }
+        }
+      }
+    },
     "Open Call" : {
       "localizations" : {
         "ja" : {
@@ -2338,6 +2358,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@をグループから外しますか？"
+          }
+        }
+      }
+    },
+    "RideCom invitation for %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RideComの招待（%@さん宛て）"
           }
         }
       }
@@ -5445,6 +5475,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保存された接続先が別のグループと競合しています。保存済みのグループを読み込み直してください。"
+          }
+        }
+      }
+    },
+    "Their Name" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手の名前"
           }
         }
       }

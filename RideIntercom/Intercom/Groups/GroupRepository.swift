@@ -480,6 +480,11 @@ extension GroupRepository {
         try update(call.groups, credential: call.credential) { next in
             guard let index = next.contactInvitations.firstIndex(where: { $0.id == context.id }) else { throw GroupStorageError.invalidUpdate }
             try Self.remember(recipient, identity: verified.identity, in: &next)
+            if let nickname = old.nickname,
+               let user = next.users.firstIndex(where: { $0.memberIDs.contains(recipient.id) }),
+               next.users[user].localName == nil {
+                next.users[user].localName = nickname
+            }
             next.contactInvitations[index].credentialReference = try self.prepareKey(payload.encodedSecret())
             next.contactInvitations[index].state = .confirmed
             next.contactInvitations[index].receiptID = receipt.id
@@ -532,6 +537,17 @@ extension GroupRepository {
 
     func cancelContactInvitation(_ id: UUID) throws {
         try setContactInvitationState(id, state: .cancelled)
+    }
+
+    /// Names an outgoing invitation before it completes; nil clears the name.
+    func setContactInvitationNickname(_ id: UUID, nickname: String?) throws {
+        guard let snapshot, let record = snapshot.contactInvitations.first(where: { $0.id == id }),
+              record.direction == .outgoing, record.state == .pending else { throw GroupStorageError.invalidUpdate }
+        guard record.nickname != nickname else { return }
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            guard let index = next.contactInvitations.firstIndex(where: { $0.id == id }) else { throw GroupStorageError.invalidUpdate }
+            next.contactInvitations[index].nickname = nickname
+        }
     }
 
     private func setContactInvitationState(_ id: UUID, state: ContactInvitationRecord.State) throws {

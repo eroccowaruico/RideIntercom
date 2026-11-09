@@ -106,6 +106,22 @@ extension IntercomViewModel {
         }
     }
 
+    /// Saves the name the inviter gives the person before sending. Blank clears it.
+    @discardableResult
+    /// `refresh: false` saves without republishing state, for saves made while a share sheet opens.
+    func setContactInvitationNickname(_ id: UUID, _ name: String, refresh: Bool = true) -> Bool {
+        guard canEditSavedGroups else { return false }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty || IntercomGroup.isValidName(trimmed) else { return false }
+        do {
+            try groupRepository.setContactInvitationNickname(id, nickname: trimmed.isEmpty ? nil : trimmed)
+            if refresh { refreshGroupStorageStatus() }
+            return true
+        } catch {
+            return false
+        }
+    }
+
     func cancelContactInvitation(_ id: UUID) throws {
         guard canEditSavedGroups else { throw ContactInvitationError.unavailable }
         // Commit the cancellation before stopping; a failed save remains retryable.

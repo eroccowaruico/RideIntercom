@@ -56,6 +56,42 @@ struct ContactBootstrapTests {
         #expect(friend.callSession.startMediaCallCount == 0)
     }
 
+    @Test func provisionalNamesPairAColorWithACreatureAndAvoidNamesInUse() {
+        var generator = SystemRandomNumberGenerator()
+        #expect(ProvisionalName.all(japanese: true).count == 112)
+        #expect(ProvisionalName.all(japanese: true).contains("青いキツネ"))
+        #expect(ProvisionalName.all(japanese: false).contains("Blue Fox"))
+        let used = Set(ProvisionalName.all(japanese: false).filter { $0 != "White Gull" })
+        #expect(ProvisionalName.candidate(japanese: false, avoiding: used, using: &generator) == "White Gull")
+        let everything = Set(ProvisionalName.all(japanese: false))
+        #expect(ProvisionalName.candidate(japanese: false, avoiding: everything, using: &generator) == "Blue Fox 2")
+    }
+
+    @Test func theNameGivenBeforeSendingBecomesTheSavedUsersLocalName() throws {
+        let author = AppTestSupport.makeHarness(groups: [], localMemberID: "contact-author")
+        let friend = AppTestSupport.makeHarness(groups: [], localMemberID: "contact-friend")
+        let a = author.viewModel, b = friend.viewModel
+        let authorNotification = RecordingCallSession(), friendNotification = RecordingCallSession()
+        a.contactSessionFactory = { authorNotification }
+        b.contactSessionFactory = { friendNotification }
+        defer { a.disconnect(); b.disconnect() }
+        let url = try #require(a.makeContactInviteURL())
+        let id = try #require(GroupInviteTokenCodec.decodeJoinURL(url, contactBootstrap: true).directInvitation).context.id
+        #expect(a.setContactInvitationNickname(id, "  Riding Buddy  "))
+        #expect(a.contactInvitationRecord(id)?.nickname == "Riding Buddy")
+
+        try b.acceptContactInviteURL(url)
+        friendNotification.authenticate(["contact-author"])
+        let receipt = try #require(friendNotification.sentApplicationDataMessages.last {
+            $0.namespace == DirectInvitationReceipt.namespace
+        })
+        authorNotification.authenticate(["contact-friend"])
+        authorNotification.onEvent?(.receivedApplicationData(peerID: "contact-friend", message: receipt))
+        let user = try #require(a.savedRemoteUsers.first)
+        #expect(user.localName == "Riding Buddy", "The inviter's own word for the person names them on this device")
+        #expect(user.displayName != "Riding Buddy", "The person's shared name is kept separately")
+    }
+
     @Test func reInvitingAnExistingContactReplacesThePairCallKeyOnBothDevices() throws {
         let callID = IntercomGroup.directCallID(memberIDs: ["contact-author", "contact-friend"])
         let authorCall = try IntercomGroup(id: callID, name: "Direct Call", members: [

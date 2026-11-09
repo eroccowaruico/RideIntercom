@@ -53,7 +53,15 @@ final class StandardInterfaceUITests: XCTestCase {
         plus.tap()
         let share = app.buttons["shareContactInvitationButton"].firstMatch
         XCTAssertTrue(share.waitForExistence(timeout: 3))
-        XCTAssertEqual(share.label, "Share Invitation")
+        XCTAssertEqual(share.label, "Send Invitation")
+        // Name first: an empty field whose placeholder is the provisional name.
+        XCTAssertTrue(app.navigationBars["Invite Someone New"].exists)
+        let name = app.textFields["contactInvitationNameField"].firstMatch
+        XCTAssertTrue(name.exists)
+        XCTAssertTrue([nil, "", name.placeholderValue].contains(name.value as? String), "The field opens empty")
+        XCTAssertFalse((name.placeholderValue ?? "").isEmpty)
+        // Return closes the keyboard before sharing (see the backlog for swiping with it open).
+        name.typeText("Trail Partner\n")
         screenshot("Standard contact invitation before native sharing")
         share.tap()
         let copy = nativeInvitationCopyAction()
@@ -110,15 +118,23 @@ final class StandardInterfaceUITests: XCTestCase {
         accept.tap()
         XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts[inviterName].firstMatch.waitForExistence(timeout: 3))
+        revealUser(inviterName)
         XCTAssertEqual(contactUserRows().count, originalUsers + 1)
         screenshot("Japanese accepted contact saved while notification remains separate")
         tab("グループ", id: "groupsTab")
         XCTAssertEqual(contactGroupRows().count, originalGroups)
         app.terminate(); app.launch(); app.activate()
         tab("ユーザー", id: "usersTab")
-        XCTAssertTrue(app.staticTexts[inviterName].firstMatch.waitForExistence(timeout: 5))
+        revealUser(inviterName)
         XCTAssertEqual(contactUserRows().count, originalUsers + 1)
+    }
+
+    /// Pending invitations left by earlier runs can push saved users below the fold.
+    private func revealUser(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
+        let users = app.descendants(matching: .any)["standardUsersList"].firstMatch
+        XCTAssertTrue(users.waitForExistence(timeout: 5), file: file, line: line)
+        for _ in 0..<10 where !app.staticTexts[name].firstMatch.exists { users.swipeUp() }
+        XCTAssertTrue(app.staticTexts[name].firstMatch.waitForExistence(timeout: 5), file: file, line: line)
     }
 
     @MainActor

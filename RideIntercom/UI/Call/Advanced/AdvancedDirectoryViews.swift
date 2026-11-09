@@ -141,8 +141,10 @@ struct AdvancedGroupsView: View {
         .accessibilityIdentifier("standardGroupsList")
     }
 
-    // No key state: groups store no key; the call credential is derived when the call starts.
-    private func groupValue(_ group: IntercomGroup) -> String { group.members.count.memberCountText }
+    /// Member count and whether the stored call key is present (`groupsMissingKeys`).
+    private func groupValue(_ group: IntercomGroup) -> String {
+        "\(group.members.count.memberCountText) · \(viewModel.groupsMissingKeys.contains(group.id) ? "key missing" : "key ready")"
+    }
 }
 
 /// One implementation record: the name, its stored values, an identifier line and the live state.

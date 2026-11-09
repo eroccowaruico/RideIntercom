@@ -37,7 +37,7 @@ Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存�
 | 項目ID | 表示・操作 |
 |---|---|
 | `inviteContactButton` | Usersの＋。押した時点で一件の招待を保存し、共通の共有sheetを開く。通常group作成の購入条件を流用せず、ログインと保存可能性を確認する |
-| `contactInvitationSheet` / `shareContactInvitationButton` | Share InvitationからOS標準の共有先を選ぶ。InvitationShareは保存した同一tokenを使用し、export時にログイン世代・期限・取消・鍵を再確認する。共有の取消・Copyで新しい招待やユーザーを増やさない |
+| `contactInvitationSheet` / `contactInvitationNameField` / `shareContactInvitationButton` | 未送信の送った招待は見出し「Invite Someone New」（新しい相手を招待）で、先に「Their Name」（相手の名前）を入れる。欄は空で開いてキーボードを出し、プレースホルダーは`ProvisionalName`の仮名（色と生き物の語、端末の言語、使用中の呼び名と重ならない。シートを開いている間は変えない）。空のままなら仮名を使う。名前は`ContactInvitationRecord.nickname`にこの端末だけで保存し（欄を離れたとき・Return・キャンセル・閉じたとき）、招待が成立したときに保存ユーザーの`localName`が空ならそれにする。相手には送らない。Send Invitation（招待を送る）からOS標準の共有先を選び、文面は「RideCom invitation for {呼び名}」。左上は「Cancel」。InvitationShareは保存した同一tokenを使用し、export時にログイン世代・期限・取消・鍵を再確認する。共有の取消・Copyで新しい招待やユーザーを増やさない |
 | `pendingContactInvitation-<UUID>` | Invitationsの独立した行（登録完了後の確認通知の再送も区別して表示）。招待／受諾通知の待機状態を表示し、通常の保存ユーザーと区別する |
 | `contactInvitationStatus` | 未受諾、保存済みの相手、受諾通知の送信待ち・一時停止・配達確認を区別する。通常通話中の通知は通話終了待ちとし、接続や共有だけで成功と表示しない |
 | `retryContactInvitationButton` | 明示的に通知を再開する。通常通話を奪わず、通信は最大60秒。表示用の独自timerを持たず、共通VMの通知所有IDと保存状態から表示を更新する |

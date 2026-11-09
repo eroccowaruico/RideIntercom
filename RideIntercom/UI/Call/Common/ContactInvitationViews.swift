@@ -51,6 +51,23 @@ struct ContactInvitationSheet: View {
     let viewModel: IntercomViewModel
     let invitationID: UUID
     @State private var confirmsCancellation = false
+    @State private var name = ""
+    /// Chosen once per opening so the placeholder does not change while the sheet is open.
+    @State private var candidate = ""
+    @FocusState private var nameFocused: Bool
+
+    private var isUnsent: Bool { record.map { $0.direction == .outgoing && $0.state == .pending } ?? false }
+    private var effectiveName: String {
+        let typed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return typed.isEmpty ? candidate : typed
+    }
+
+    private func saveName() { saveName(refresh: true) }
+
+    private func saveName(refresh: Bool) {
+        guard isUnsent, !candidate.isEmpty else { return }
+        viewModel.setContactInvitationNickname(invitationID, effectiveName, refresh: refresh)
+    }
 
     private var record: ContactInvitationRecord? {
         viewModel.contactInvitationRecord(invitationID)
@@ -60,16 +77,29 @@ struct ContactInvitationSheet: View {
         NavigationStack {
             Form {
                 if let record {
-                    if record.direction == .outgoing && record.state == .pending {
+                    if isUnsent {
+                        // Name first: who the invitation is for, in the inviter's own words.
+                        Section {
+                            TextField("Their Name", text: $name, prompt: Text(verbatim: candidate))
+                                .focused($nameFocused)
+                                .submitLabel(.done)
+                                .onSubmit(saveName)
+                                // Leaving the field (for example, to send) saves the name.
+                                // Without republishing, so the share sheet it may be opening is not redrawn.
+                                .onChange(of: nameFocused) { _, focused in if !focused { saveName(refresh: false) } }
+                                .accessibilityIdentifier("contactInvitationNameField")
+                        } header: {
+                            Text("Their Name")
+                        } footer: {
+                            Text("Only you see this name. If you leave it empty, it will be \(candidate). They see the name they chose for themselves.")
+                        }
                         Section {
                             ShareLink(item: InvitationShare(viewModel: viewModel, contactInvitationID: invitationID),
-                                subject: Text("RideCom Invite"), message: Text("Add me on RideCom."),
+                                subject: Text("RideCom Invite"), message: Text("RideCom invitation for \(effectiveName)"),
                                 preview: SharePreview(Text("RideCom Invite"))) {
-                                    Label("Share Invitation", systemImage: "square.and.arrow.up")
+                                    Label("Send Invitation", systemImage: "square.and.arrow.up")
                                 }
                                 .accessibilityIdentifier("shareContactInvitationButton")
-                        } footer: {
-                            Text("Sharing does not register a person. Their acceptance will identify them.")
                         }
                     }
                     Section {
@@ -92,10 +122,11 @@ struct ContactInvitationSheet: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Contact Invitation")
+            .navigationTitle(isUnsent ? "Invite Someone New" : "Contact Invitation")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button(isUnsent ? "Cancel" : "Close") {
+                        saveName()
                         viewModel.dismissContactInvitationPresentation(expectedPresentationID: "share-" + invitationID.uuidString)
                     }
                         .accessibilityIdentifier("closeContactInvitationButton")
@@ -111,7 +142,16 @@ struct ContactInvitationSheet: View {
                 Text("Stops retries on this device. A link already shared may still be accepted until it expires.")
             }
         }
+        .onAppear {
+            guard candidate.isEmpty else { return }
+            let used = Set(viewModel.savedRemoteUsers.map(\.resolvedDisplayName))
+                .union(viewModel.pendingContactInvitations.compactMap(\.nickname))
+            if let saved = record?.nickname { name = saved }
+            candidate = ProvisionalName.candidate(avoiding: used.subtracting([record?.nickname].compactMap { $0 }))
+            if isUnsent && record?.nickname == nil { nameFocused = true }
+        }
         .onDisappear {
+            saveName()
             if viewModel.contactInvitationID == invitationID { viewModel.stopContactInvitationSession() }
         }
         #if os(macOS)

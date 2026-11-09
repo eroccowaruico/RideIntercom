@@ -12,6 +12,9 @@ struct ContactInvitationRecord: Codable, Equatable, Identifiable {
     var receiptID: UUID?
     var peerMemberID: String?
     var peerDeviceKey: String?
+    /// The inviter's own word for the person, kept on this device only. Becomes the saved user's
+    /// local name when the invitation completes; never sent or shown to the other person.
+    var nickname: String?
 
     var canResume: Bool { (state == .pending || state == .confirmed) && credentialReference != nil }
     var isValid: Bool {
