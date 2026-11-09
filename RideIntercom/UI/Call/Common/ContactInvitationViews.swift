@@ -33,7 +33,8 @@ struct ContactInvitationSheet: View {
                     Form { Text("This invitation is no longer available.") }.formStyle(.grouped)
                 }
             }
-            .navigationTitle(isCreating ? "Invite Someone New" : isAdvanced ? "Contact Invitation" : "")
+            // Standard's detail has no title: the name is its heading. A verbatim empty title adds no catalog key.
+            .navigationTitle(isCreating ? Text("Invite Someone New") : isAdvanced ? Text("Contact Invitation") : Text(verbatim: ""))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
