@@ -38,7 +38,7 @@ Diagnostics は package から得た runtime snapshot / report を正とする�
 
 ## 画面構成
 
-`diagnosticsPagePicker`でOverview、TX、RX、Network、Appliedを切り替える。5ページの選択には標準menu Pickerを使う。iOSのアクセシビリティ文字サイズでは、横向きでmenuが画面に収まらずスクロールできないため、同じ識別子の標準NavigationLinkから選択List（`diagnosticsPageSelection`、選択中にcheckmark）を開き、選ぶと元の画面へ戻る。幅600pt以上ではOverview以外のページに現在のOverviewも並べる。画面内のページ選択は表示状態であり、ViewModelのsnapshotや通話状態を作り直さない。Overviewの `diagnosticsOthersCannotHearButton` はTX、`diagnosticsCannotHearButton`・`diagnosticsAudioDropsButton`・`diagnosticsAudioDelayedButton` はRXへ移動する。これらはページと該当する段へ移動し展開する案内であり、原因を自動診断した結果ではない。TXの各段とRXの相手および出力詳細は標準DisclosureGroupで開閉する。
+`diagnosticsPagePicker`でOverview、TX、RX、Network、Appliedを切り替える。5ページの選択には標準menu Pickerを使う。iOSのアクセシビリティ文字サイズでは、横向きでmenuが画面に収まらずスクロールできないため、同じ識別子の標準NavigationLinkから選択List（`diagnosticsPageSelection`、選択中にcheckmark）を開き、選ぶと元の画面へ戻る。幅600pt以上ではOverview以外のページの左にOverviewの内容（Pipelineの要約と症状の案内）を並べる。旧来の概要カード（Audio Path / Call / Network Quality / Invite）は[Overview](../../../design/詳細画面/診断と詳細画面の構成.md#overview)のとおり廃止し、どこにも表示しない（行の値はAppliedのCall・Inviteが引き続き使う）。画面内のページ選択は表示状態であり、ViewModelのsnapshotや通話状態を作り直さない。Overviewの `diagnosticsOthersCannotHearButton` はTX、`diagnosticsCannotHearButton`・`diagnosticsAudioDropsButton`・`diagnosticsAudioDelayedButton` はRXへ移動する。これらはページと該当する段へ移動し展開する案内であり、原因を自動診断した結果ではない。TXの各段とRXの相手および出力詳細は標準DisclosureGroupで開閉する。
 
 TX/RXは従来のpipeline、NetworkはLocal・Internet別にRTT、loss、jitter、送信待ち、event dropsと最後に観測した経路を表示し、経過15秒超をStaleとする。経路が一致する単一の最新metricsのみ利用し、未取得値をNot measuredとする。Overviewは既存stageから最初のblocked、なければ最初のwaiting/idle、各stage、参加者と経路を示す。TX/RXは機器、VAD、観測経路、相手別情報と出力buffer/resetを既存値から表示し、差分履歴を持たない毎秒値はNot measuredとする。Appliedはcodec、Sessionの要求と解決済み設定、stream実測sample rate、未計測のIO buffer、Unsupported、Ducking、機器、VAD、isolation、Call/InviteおよびInternet Serviceを表示する。Sessionの解決済み設定はハードウェア実測と区別し、未取得はNot measuredとする。
 
@@ -47,7 +47,6 @@ TX/RXは従来のpipeline、NetworkはLocal・Internet別にRTT、loss、jitter�
 | 診断画面 | `diagnosticsScrollView` | package runtime report と App 状態を要約する | `DiagnosticsView` | 表示中0.5秒。開く時点は即時、非表示のsnapshot作成は5秒 | `TimelineView` + `ScrollView` |
 | 送信パイプライン | `liveTransmitPipelineView` | ローカル送信がどこまで進んでいるかを読む | `LiveTransmitPipelineView` | 0.5 秒 | compact row。effect chain は TX bus 内に内包表示 |
 | 受信パイプライン | `liveReceivePipelineView` | 受信音声が出力までどこまで進んでいるかを読む | `LiveReceivePipelineView` | 0.5 秒 | compact row。peer bus は複数行一覧、effect chain は該当 bus 内に内包表示。RX master FXは実グラフの内容のみを表示する |
-| 現在状態一覧 | `diagnosticsOverviewGrid` | pipeline と重複しない App 状態を見る | `DiagnosticsOverviewGrid` | 0.5 秒 | 先頭のadaptive grid。Audio Path / Call / Network Quality / Invite |
 
 ### Diagnosticsの状態と遷移
 

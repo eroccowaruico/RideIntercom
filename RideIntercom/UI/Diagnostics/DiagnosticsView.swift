@@ -25,8 +25,8 @@ struct DiagnosticsView: View {
                                 Group {
                                     if geometry.size.width >= 600 && !dynamicTypeSize.isAccessibilitySize && page != .overview {
                                         HStack(alignment: .top, spacing: AppSpacing.l) {
-                                            DiagnosticsOverviewGrid(rows: viewModel.diagnosticsOverviewRows)
-                                                .frame(maxWidth: AppSize.callColumnMaxWidth)
+                                            overviewContent
+                                                .frame(maxWidth: AppSize.callColumnMaxWidth, alignment: .leading)
                                             pageContent
                                                 .frame(maxWidth: AppSize.callColumnMaxWidth, alignment: .leading)
                                         }
@@ -80,11 +80,7 @@ struct DiagnosticsView: View {
     @ViewBuilder private var pageContent: some View {
         switch page {
         case .overview:
-            VStack(alignment: .leading, spacing: AppSpacing.l) {
-                DiagnosticsOverviewGrid(rows: viewModel.diagnosticsOverviewRows)
-                pipelineOverview
-                symptomButtons
-            }
+            overviewContent
         case .tx:
             LiveTransmitPipelineView(viewModel: viewModel, expandedStage: $expandedStage)
         case .rx:
@@ -93,6 +89,14 @@ struct DiagnosticsView: View {
             DiagnosticsNetworkView(viewModel: viewModel)
         case .applied:
             DiagnosticsAppliedView(viewModel: viewModel)
+        }
+    }
+
+    // The former summary cards are retired; Overview is the pipeline summary and the symptom actions.
+    private var overviewContent: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.l) {
+            pipelineOverview
+            symptomButtons
         }
     }
 

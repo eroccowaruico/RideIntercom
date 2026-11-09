@@ -30,7 +30,8 @@ final class DesignSystemDiagnosticsUITests: XCTestCase {
         choose("Applied", in: picker, app: app, capture: true)
         XCTAssertTrue(app.descendants(matching: .any)["diagnosticsAppliedCodec"].firstMatch.waitForExistence(timeout: 3))
         choose("Overview", in: picker, app: app, capture: true)
-        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsOverviewGrid"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsCannotHearButton"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["diagnosticsOverviewGrid"].firstMatch.exists, "The summary cards are retired")
         choose("Applied", in: picker, app: app, capture: true)
         XCTAssertTrue(app.descendants(matching: .any)["diagnosticsAppliedCodec"].firstMatch.waitForExistence(timeout: 3))
         XCUIDevice.shared.orientation = .portrait
@@ -55,7 +56,8 @@ final class DesignSystemDiagnosticsUITests: XCTestCase {
         XCTAssertTrue(tab.waitForExistence(timeout: 8)); tab.tap()
         let picker = app.descendants(matching: .any)["diagnosticsPagePicker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsOverviewGrid"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsCannotHearButton"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["diagnosticsOverviewGrid"].firstMatch.exists, "The summary cards are retired")
 
         choose("TX", in: picker, app: app)
         XCTAssertTrue(app.descendants(matching: .any)["liveTransmitPipelineView"].firstMatch.waitForExistence(timeout: 3))
