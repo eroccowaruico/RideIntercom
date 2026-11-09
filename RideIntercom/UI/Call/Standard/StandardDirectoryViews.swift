@@ -21,7 +21,7 @@ struct StandardUsersView: View {
         List {
             RecentCallSection(viewModel: viewModel, pendingSwitch: $pendingSwitch) { selectedTab = .call }
             CallStorageSection(viewModel: viewModel)
-            PendingContactInvitationsSection(viewModel: viewModel)
+            StandardPendingInvitationsSection(viewModel: viewModel)
             Section {
                 if viewModel.savedRemoteUsers.isEmpty {
                     // The heading and one action only; the button says what to do.

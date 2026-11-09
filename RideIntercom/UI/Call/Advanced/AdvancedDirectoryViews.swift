@@ -12,7 +12,6 @@ struct AdvancedUsersView: View {
             CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab)
             RecentCallSection(viewModel: viewModel, pendingSwitch: $pendingSwitch) { selectedTab = .call }
             CallStorageSection(viewModel: viewModel)
-            PendingContactInvitationsSection(viewModel: viewModel)
             Section {
                 if viewModel.savedRemoteUsers.isEmpty {
                     ContentUnavailableView("No Saved Users", systemImage: "person.2",
@@ -39,6 +38,7 @@ struct AdvancedUsersView: View {
             } footer: {
                 Text("Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.")
             }
+            AdvancedInvitationsSection(viewModel: viewModel)
             CallErrorSection(viewModel: viewModel)
         }
         .readableScrollWidth()

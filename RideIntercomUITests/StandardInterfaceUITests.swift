@@ -298,6 +298,41 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor
+    func testAdvancedInvitationShowsTheStoredRecordAndItsOperations() throws {
+        launch()
+        tab("Settings", id: "settingsTab")
+        selectLayout("Advanced")
+        tab("Users", id: "usersTab")
+        let previous = contactPendingIDs()
+        let plus = app.buttons["inviteContactButton"].firstMatch
+        XCTAssertTrue(plus.waitForExistence(timeout: 3))
+        plus.tap()
+        XCTAssertTrue(app.textFields["contactInvitationNameField"].firstMatch.waitForExistence(timeout: 3))
+        app.buttons["closeContactInvitationButton"].tap()
+        // Advanced lists the record as stored, at the end of Users, and opens its own detail.
+        let list = app.descendants(matching: .any)["standardUsersList"].firstMatch
+        var added: String?
+        for _ in 0..<6 {
+            added = contactPendingIDs().subtracting(previous).first
+            if added != nil { break }
+            list.swipeUp()
+        }
+        let row = app.buttons[try XCTUnwrap(added)].firstMatch
+        XCTAssertTrue(row.label.contains("outgoing · pending"), row.label)
+        row.tap()
+        XCTAssertTrue(app.staticTexts["ContactInvitationRecord"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["retryContactInvitationButton"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["contactInvitationState"].exists, "No Standard state word in Advanced")
+        screenshot("Advanced contact invitation record")
+        app.buttons["cancelPendingContactInvitationButton"].tap()
+        let confirm = app.alerts.buttons["confirmCancelContactInvitationButton"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "on this device")).firstMatch.exists)
+        confirm.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor
     func testAdvancedCallLeavesGroupCreationInGroups() {
         launch()
         tab("Settings", id: "settingsTab")
