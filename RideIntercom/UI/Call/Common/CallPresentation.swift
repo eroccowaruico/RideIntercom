@@ -28,48 +28,17 @@ struct CallPanel: View {
                 }
                 // Always present, so the toolbar does not change shape between calls.
                 ToolbarItem(placement: .primaryAction) {
-                    CallMoreMenu(viewModel: viewModel, settings: $settings, addingMembers: $addingMembers)
+                    if viewModel.interfaceMode == .standard {
+                        StandardCallMoreMenu(viewModel: viewModel, settings: $settings, addingMembers: $addingMembers)
+                    } else {
+                        AdvancedCallMoreMenu(viewModel: viewModel, settings: $settings, addingMembers: $addingMembers)
+                    }
                 }
             }
         }
         .destinationSettingsSheet($settings, viewModel: viewModel)
         .sheet(item: $addingMembers) { group in SavedUsersView(viewModel: viewModel, groupID: group.id) }
         .inspectorColumnWidth(min: 320, ideal: 380, max: 420)
-    }
-}
-
-/// The call's More menu: settings for this group or person, adding members, and the invitation.
-struct CallMoreMenu: View {
-    let viewModel: IntercomViewModel
-    @Binding var settings: DestinationSettingsTarget?
-    @Binding var addingMembers: IntercomGroup?
-
-    var body: some View {
-        if let group = viewModel.selectedGroup {
-            Menu {
-                if group.kind == .group {
-                    Button("Group Settings", systemImage: "gearshape") { settings = .group(group.id) }
-                        .accessibilityIdentifier("callGroupSettingsButton")
-                    Button(LocalizedStringKey(viewModel.interfaceMode == .standard ? "Add Members" : "Add Saved Users"),
-                           systemImage: "person.badge.plus") { addingMembers = group }
-                        .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: group.id).isEmpty
-                                  || group.members.count >= IntercomGroup.maximumMemberCount)
-                        .accessibilityIdentifier("callAddMembersButton")
-                } else {
-                    // A removed saved user leaves the entry disabled, so the menu is never empty.
-                    let userID = viewModel.savedUserID(forDirectCall: group)
-                    Button("User Settings", systemImage: "gearshape") { settings = userID.map { .user($0) } }
-                        .disabled(userID == nil)
-                        .accessibilityIdentifier("callUserSettingsButton")
-                }
-                if viewModel.canShareSelectedGroup {
-                    CallInvitationButton(viewModel: viewModel, group: group)
-                }
-            } label: {
-                Label("More", systemImage: "ellipsis")
-            }
-            .accessibilityIdentifier("callMoreMenu")
-        }
     }
 }
 

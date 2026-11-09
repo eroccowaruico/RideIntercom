@@ -59,7 +59,9 @@ final class DesignSystemCallUITests: XCTestCase {
         defer { attachEvidence("Group settings entries") }
         startStandardCall()
         XCTAssertFalse(app.buttons["inviteButton"].exists, "Sharing lives in the More menu")
-        XCTAssertTrue(app.openCallMoreMenuItem("callAddMembersButton").exists)
+        let invite = app.openCallMoreMenuItem("callAddMembersButton")
+        XCTAssertTrue(invite.exists)
+        XCTAssertEqual(invite.label, "Invite Members", "Standard names the intent, not the saved-user mechanism")
         app.buttons["callGroupSettingsButton"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["groupSettingsAddMembersButton"].exists)

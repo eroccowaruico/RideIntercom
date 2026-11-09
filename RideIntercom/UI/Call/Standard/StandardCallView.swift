@@ -205,7 +205,7 @@ struct StandardCallView: View {
                                   name: member.resolvedDisplayName) { viewModel.removeMember(member.id, from: group.id) }
             }
             if group.kind == .group {
-                Button("Add Saved Users", systemImage: "person.badge.plus") { addingUsers = group }
+                Button("Invite Members", systemImage: "person.badge.plus") { addingUsers = group }
                     .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: group.id).isEmpty
                               || group.members.count >= IntercomGroup.maximumMemberCount)
                     .accessibilityIdentifier("addSavedUsersButton")

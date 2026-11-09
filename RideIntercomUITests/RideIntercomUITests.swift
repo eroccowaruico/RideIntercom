@@ -1365,9 +1365,10 @@ final class RideIntercomUITests: XCTestCase {
 
         let groupRows = talkGroupRows
         while groupRows.count > 0 {
-            let countBeforeDelete = groupRows.count
             let groupRow = groupRows.firstMatch
             guard groupRow.waitForExistence(timeout: 1) else { return }
+            // Rows are lazy: deleting one can load another, so check that this row went away.
+            let deleted = groupRow.identifier
 
             groupRow.swipeLeft()
             let deleteButton = app.buttons["Delete"].firstMatch
@@ -1375,7 +1376,7 @@ final class RideIntercomUITests: XCTestCase {
             deleteButton.tap()
             app.confirmDestinationDelete()
 
-            XCTAssertLessThan(talkGroupRows.count, countBeforeDelete)
+            XCTAssertTrue(app.buttons[deleted].waitForNonExistence(timeout: 3))
         }
     }
 
@@ -1385,15 +1386,15 @@ final class RideIntercomUITests: XCTestCase {
         openUsersTab()
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-"))
         while rows.count > 0 {
-            let countBeforeDelete = rows.count
             let row = rows.firstMatch
             guard row.waitForExistence(timeout: 1) else { return }
+            let deleted = row.identifier
             row.swipeLeft()
             let deleteButton = app.buttons["Delete"].firstMatch
             XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
             deleteButton.tap()
             app.confirmDestinationDelete()
-            XCTAssertLessThan(rows.count, countBeforeDelete)
+            XCTAssertTrue(app.buttons[deleted].waitForNonExistence(timeout: 3))
         }
     }
 
