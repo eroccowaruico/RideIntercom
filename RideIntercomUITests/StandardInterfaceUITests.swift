@@ -81,6 +81,11 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertEqual(contactUserRows().count, originalUsers)
         XCTAssertEqual(contactPendingIDs().subtracting(originalPending).count, 1,
                        "Cancel and Copy reuse the one explicitly created pending invitation")
+        // The pending row names who it is for and says one state word.
+        let added = try XCTUnwrap(contactPendingIDs().subtracting(originalPending).first)
+        let row = app.buttons[added].firstMatch
+        XCTAssertTrue(row.label.contains("Trail Partner"), row.label)
+        XCTAssertTrue(row.label.contains("Waiting to be accepted"), row.label)
         tab("Groups", id: "groupsTab")
         XCTAssertEqual(contactGroupRows().count, originalGroups)
         tab("Users", id: "usersTab")

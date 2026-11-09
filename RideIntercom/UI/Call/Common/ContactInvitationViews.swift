@@ -8,33 +8,17 @@ struct PendingContactInvitationsSection: View {
         if !viewModel.pendingContactInvitations.isEmpty {
             Section("Invitations") {
                 ForEach(viewModel.pendingContactInvitations) { record in
-                    // Not-yet-joined people never look like saved users: a dashed person and an inline re-share.
-                    let outgoing = record.direction == .outgoing
-                    HStack {
-                        Button { viewModel.showContactInvitation(record.id) } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Label(LocalizedStringKey(outgoing ? "Invitation" : "Acceptance Notification"),
-                                      systemImage: outgoing ? "person.crop.circle.dashed" : "envelope")
-                                Text(LocalizedStringKey(viewModel.contactInvitationStatus(for: record)))
-                                    .font(.subheadline).foregroundStyle(Color.secondary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("pendingContactInvitation-\(record.id)")
-                        if outgoing && record.state == .pending {
-                            ShareLink(item: InvitationShare(viewModel: viewModel, contactInvitationID: record.id),
-                                      subject: Text("RideCom Invite"), message: Text("Add me on RideCom."),
-                                      preview: SharePreview(Text("RideCom Invite"))) {
-                                Text("Share Again").font(.subheadline)
-                                    .frame(minWidth: 44, minHeight: 44)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityIdentifier("reshareContactInvitation-\(record.id)")
+                    Button { viewModel.showContactInvitation(record.id) } label: {
+                        if viewModel.interfaceMode == .advanced {
+                            AdvancedInvitationRow(record: record)
+                        } else {
+                            StandardInvitationRow(name: viewModel.contactInvitationName(for: record),
+                                                  state: viewModel.contactInvitationStateWord(for: record),
+                                                  isSending: viewModel.contactInvitationIsSending(record))
                         }
                     }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("pendingContactInvitation-\(record.id)")
                 }
             }
         }
@@ -44,6 +28,56 @@ struct PendingContactInvitationsSection: View {
                     .accessibilityIdentifier("contactInvitationMessage")
             }
         }
+    }
+}
+
+/// Not-yet-joined people never look like saved users: a dashed avatar, the name, one state word.
+/// Sending states show progress instead of a chevron; resending lives in the invitation's detail.
+private struct StandardInvitationRow: View {
+    let name: String
+    let state: String
+    let isSending: Bool
+
+    var body: some View {
+        HStack(spacing: AppSpacing.m) {
+            PendingAvatar()
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: name).foregroundStyle(Color.primary).lineLimit(2)
+                Text(LocalizedStringKey(state)).font(.subheadline).foregroundStyle(Color.secondary)
+                    .accessibilityIdentifier("pendingContactInvitationState")
+            }
+            Spacer(minLength: 0)
+            if isSending {
+                ProgressView()
+            } else {
+                Image(systemName: "chevron.forward")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.secondary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Advanced shows the `ContactInvitationRecord` as stored.
+private struct AdvancedInvitationRow: View {
+    let record: ContactInvitationRecord
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: String(record.id.uuidString.prefix(8)).lowercased())
+                .font(.headline.monospaced()).foregroundStyle(Color.primary)
+            Text(verbatim: "\(record.direction.rawValue) · \(record.state.rawValue)\(record.canResume ? " · canResume" : "")")
+                .font(.subheadline.monospaced()).foregroundStyle(Color.primary)
+            Text(verbatim: "expiresAt \(Date(timeIntervalSince1970: record.expiresAt).formatted(.iso8601))")
+                .font(.caption.monospaced()).foregroundStyle(Color.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
     }
 }
 

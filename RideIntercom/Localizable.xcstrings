@@ -2372,6 +2372,16 @@
         }
       }
     },
+    "Sending a reply" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返信を届けています"
+          }
+        }
+      }
+    },
     "Set a destination" : {
       "localizations" : {
         "ja" : {
@@ -6248,6 +6258,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "現在の通話が終わるまで通知は待機します。"
+          }
+        }
+      }
+    },
+    "Waiting to be accepted" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受け取り待ち"
           }
         }
       }

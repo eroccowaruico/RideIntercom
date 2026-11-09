@@ -109,6 +109,23 @@ extension IntercomViewModel {
         return record
     }
 
+    /// Who the invitation is for: the inviter's own word for the person, or the inviter we accepted.
+    func contactInvitationName(for record: ContactInvitationRecord) -> String {
+        if let peer = record.peerMemberID,
+           let user = savedRemoteUsers.first(where: { $0.memberIDs.contains(peer) }) { return user.resolvedDisplayName }
+        return record.nickname ?? String(localized: "Invitation")
+    }
+
+    /// True while this device is delivering its reply; nothing for the person to do.
+    func contactInvitationIsSending(_ record: ContactInvitationRecord) -> Bool {
+        record.direction == .incoming || record.state == .confirmed
+    }
+
+    /// One state word for the list row; the detail explains it.
+    func contactInvitationStateWord(for record: ContactInvitationRecord) -> String {
+        contactInvitationIsSending(record) ? "Sending a reply" : "Waiting to be accepted"
+    }
+
     func contactInvitationStatus(for record: ContactInvitationRecord) -> String {
         if record.direction == .incoming && record.state == .delivered {
             return "Contact saved. The acceptance notification was delivered."
