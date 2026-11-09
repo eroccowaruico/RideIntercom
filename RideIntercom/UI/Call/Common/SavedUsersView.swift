@@ -1,41 +1,24 @@
 import SwiftUI
 
+/// Choosing saved users for a new group or for an existing one. Each mode has its own selection
+/// screen; both share the selection's data and operations and the invitation step that follows.
 struct SavedUsersView: View {
     @Bindable var viewModel: IntercomViewModel
     var groupID: UUID?
     @Environment(\.dismiss) private var dismiss
-    @State private var selection: Set<UUID> = []
-    /// Empty by default: the selected people's names are the placeholder and the name if left empty.
-    @State private var groupName = ""
-    @State private var editingUser: SavedUser?
     /// Set once saved users were committed to this group. Adding them only lists
     /// them here; their devices get the group key from the shared invitation.
     @State private var invitationGroupID: UUID?
     private var invitationGroup: IntercomGroup? { viewModel.groups.first { $0.id == invitationGroupID } }
 
-    private var users: [SavedUser] { viewModel.availableUsers(for: groupID) }
-
-    /// "Haruka, Kenta and Yu" from the people chosen so far, in the list's order.
-    private var suggestedName: String? {
-        let names = users.filter { selection.contains($0.id) }.map(\.resolvedDisplayName)
-        return names.isEmpty ? nil : names.formatted(.list(type: .and))
-    }
-
-    private var effectiveName: String {
-        let typed = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return typed.isEmpty ? (suggestedName ?? "") : typed
-    }
-    private var memberCount: Int {
-        (viewModel.groups.first { $0.id == groupID }?.members.count ?? 1)
-        + users.filter { selection.contains($0.id) }.reduce(0) { $0 + $1.memberIDs.count }
-    }
-
     var body: some View {
         NavigationStack {
             if let group = invitationGroup {
                 invitationStep(group)
+            } else if viewModel.interfaceMode == .advanced {
+                AdvancedSavedUsersSelection(viewModel: viewModel, groupID: groupID, onSaved: finish)
             } else {
-                selectionForm
+                StandardMemberSelection(viewModel: viewModel, groupID: groupID, onSaved: finish)
             }
         }
         // A group removed during the invitation step has nothing left to share.
@@ -45,6 +28,12 @@ struct SavedUsersView: View {
         #endif
     }
 
+    /// Creating selects the new group. Only added people need the invitation.
+    private func finish(_ addedTo: UUID?) {
+        if let addedTo { invitationGroupID = addedTo } else { dismiss() }
+    }
+
+    /// Until saved users receive the group automatically, the added people get it by a shared link.
     private func invitationStep(_ group: IntercomGroup) -> some View {
         Form {
             Section {
@@ -62,77 +51,49 @@ struct SavedUsersView: View {
             }
         }
     }
+}
 
-    private var selectionForm: some View {
-        Form {
-            if groupID == nil {
-                Section("Group name") {
-                    TextField("Group name", text: $groupName, prompt: suggestedName.map { Text(verbatim: $0) })
-                        .accessibilityIdentifier("savedUsersGroupNameField")
-                }
-            }
-            Section {
-                if users.isEmpty {
-                    Text("People you invite directly, or whose invitations you accept, are saved here. Deleting a group does not remove them.")
-                }
-                ForEach(users) { user in
-                    HStack {
-                        Toggle(user.resolvedDisplayName, isOn: Binding(
-                            get: { selection.contains(user.id) },
-                            set: { if $0 { selection.insert(user.id) } else { selection.remove(user.id) } }
-                        ))
-                        .accessibilityIdentifier("selectUser-\(user.id)")
-                        Button { editingUser = user } label: {
-                            Label("Edit \(user.resolvedDisplayName)", systemImage: "pencil")
-                                .labelStyle(.iconOnly)
-                                .frame(minWidth: 44, minHeight: 44)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("editUser-\(user.id)")
-                    }
-                    .appDeleteActions {
-                        if viewModel.removeSavedUser(user.id) { selection.remove(user.id) }
-                    }
-                }
-            } header: {
-                Text("Saved Users")
-            } footer: {
-                Text("After you add them, send the group invitation so they can join. Selecting a user does not call or notify them. Deleting a saved user keeps existing groups and calls.")
-            }
-            Section {
-                Text("\(memberCount) of 8 members including you")
-                if let message = viewModel.groupErrorMessage {
-                    Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger)
-                        .accessibilityIdentifier("savedUsersErrorLabel")
-                }
-            }
-        }
-        .navigationTitle(LocalizedStringKey(groupID == nil ? "New Group" : "Invite Members"))
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }.accessibilityIdentifier("closeSavedUsersButton")
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                // A new group connects at once when no other call is live, so the button says so.
-                Button(LocalizedStringKey(groupID != nil ? "Add Users"
-                                          : viewModel.hasAnyActiveGroupConnection ? "Create Group" : "Create and Connect")) {
-                    let saved = if let groupID {
-                        viewModel.addSavedUsers(selection, to: groupID)
-                    } else {
-                        viewModel.createTalkGroup(name: effectiveName, userIDs: selection)
-                    }
-                    guard saved else { return }
-                    // Creating selects the new group. Only added people need the invitation.
-                    if selection.isEmpty { dismiss() } else { invitationGroupID = groupID ?? viewModel.selectedGroup?.id }
-                }
-                .disabled(!viewModel.canEditSavedGroups || memberCount > 8 || (groupID != nil && selection.isEmpty)
-                          || (groupID == nil && (!IntercomGroup.isValidName(effectiveName) || effectiveName.contains("|"))))
-                .accessibilityIdentifier("saveUserSelectionButton")
-            }
-        }
-        .sheet(item: $editingUser) { user in
-            SavedUserNameView(viewModel: viewModel, user: user)
-        }
+/// The selection's data and its save operation, shared by both modes' selection screens.
+struct MemberSelection {
+    let viewModel: IntercomViewModel
+    let groupID: UUID?
+    var selected: Set<UUID> = []
+    var typedName = ""
+
+    var users: [SavedUser] { viewModel.availableUsers(for: groupID) }
+
+    /// "Haruka, Kenta and Yu" from the people chosen so far, in the list's order.
+    var suggestedName: String? {
+        let names = users.filter { selected.contains($0.id) }.map(\.resolvedDisplayName)
+        return names.isEmpty ? nil : names.formatted(.list(type: .and))
+    }
+
+    var groupName: String {
+        let typed = typedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return typed.isEmpty ? (suggestedName ?? "") : typed
+    }
+
+    var memberCount: Int {
+        (viewModel.groups.first { $0.id == groupID }?.members.count ?? 1)
+        + users.filter { selected.contains($0.id) }.reduce(0) { $0 + $1.memberIDs.count }
+    }
+
+    var canSave: Bool {
+        viewModel.canEditSavedGroups && memberCount <= IntercomGroup.maximumMemberCount
+            && (groupID == nil ? IntercomGroup.isValidName(groupName) && !groupName.contains("|") : !selected.isEmpty)
+    }
+
+    mutating func toggle(_ id: UUID) {
+        if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
+    }
+
+    /// Saves, then returns the group the people were added to, or nil when nobody was added.
+    /// Returns `.none` when saving failed.
+    func save() -> UUID?? {
+        let saved = if let groupID { viewModel.addSavedUsers(selected, to: groupID) }
+                    else { viewModel.createTalkGroup(name: groupName, userIDs: selected) }
+        guard saved else { return .none }
+        return .some(selected.isEmpty ? nil : groupID ?? viewModel.selectedGroup?.id)
     }
 }
 

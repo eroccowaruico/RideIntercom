@@ -43,6 +43,8 @@ struct MacScreenRenderingTests {
                          language: language, named: "group-settings")
         try await record(SavedUserNameView(viewModel: vm, user: user), size: .init(width: 480, height: 560),
                          language: language, named: "user-settings")
+        try await record(SavedUsersView(viewModel: vm), size: .init(width: 480, height: 560),
+                         language: language, named: "new-group")
     }
 
     /// The lists and the call column as the window lays them out. The root `inspector` itself is

@@ -124,7 +124,8 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 3))
         revealUser(inviterName)
-        XCTAssertEqual(contactUserRows().count, originalUsers + 1)
+        // Rows are lazy and earlier runs leave users, so count the inviter's rows rather than all rows.
+        XCTAssertEqual(inviterRows(inviterName).count, 1, "Accepting saves exactly the inviter")
         screenshot("Japanese accepted contact saved while notification remains separate")
         // The received invitation's detail names who it is from and says one state word.
         app.descendants(matching: .any)["standardUsersList"].firstMatch.swipeDown()
@@ -142,7 +143,15 @@ final class StandardInterfaceUITests: XCTestCase {
         app.terminate(); app.launch(); app.activate()
         tab("ユーザー", id: "usersTab")
         revealUser(inviterName)
-        XCTAssertEqual(contactUserRows().count, originalUsers + 1)
+        XCTAssertEqual(inviterRows(inviterName).count, 1)
+    }
+
+    /// The saved user's own row (the pending invitation row shows the same name), scrolled into view.
+    @MainActor private func inviterRows(_ name: String) -> XCUIElementQuery {
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardUser-", name))
+        let list = app.descendants(matching: .any)["standardUsersList"].firstMatch
+        for _ in 0..<10 where rows.count == 0 { list.swipeUp() }
+        return rows
     }
 
     /// Pending invitations left by earlier runs can push saved users below the fold.
@@ -297,6 +306,7 @@ final class StandardInterfaceUITests: XCTestCase {
         screenshot("Japanese settings and unavailable purchases")
     }
 
+    #if os(iOS)
     @MainActor
     func testAdvancedInvitationShowsTheStoredRecordAndItsOperations() throws {
         launch()
@@ -331,6 +341,46 @@ final class StandardInterfaceUITests: XCTestCase {
         confirm.tap()
         XCTAssertTrue(row.waitForNonExistence(timeout: 5))
     }
+    #endif
+
+    #if os(iOS)
+    /// New Group: pick from your users with a check mark, see "n/8", then one action at the bottom.
+    @MainActor
+    func testStandardNewGroupPicksUsersWithOneActionBelow() throws {
+        launch()
+        let suffix = String(UUID().uuidString.prefix(6))
+        let inviterName = "Pick " + suffix
+        app.open(try InvitationURLFixture.make(inviter: "ui-pick-" + suffix, sharedName: inviterName, contact: true))
+        let accept = app.buttons["acceptContactInvitationButton"].firstMatch
+        XCTAssertTrue(accept.waitForExistence(timeout: 5))
+        accept.tap()
+        XCTAssertTrue(accept.waitForNonExistence(timeout: 5))
+        tab("Groups", id: "groupsTab")
+        app.buttons["standardCreateGroupButton"].firstMatch.tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "selectUser-", inviterName)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch.exists,
+                       "Rows only select; renaming lives in the person's settings")
+        XCTAssertTrue(app.staticTexts["Your Users"].exists)
+        let count = app.staticTexts["memberSelectionCount"].firstMatch
+        XCTAssertEqual(count.label, "1/8 people including you")
+        row.tap()
+        XCTAssertTrue(row.isSelected)
+        XCTAssertEqual(count.label, "2/8 people including you")
+        let action = app.buttons["saveUserSelectionButton"].firstMatch
+        XCTAssertEqual(action.label, "Create and Connect")
+        XCTAssertTrue(action.isHittable)
+        XCTAssertEqual(app.textFields["savedUsersGroupNameField"].placeholderValue, inviterName)
+        screenshot("Standard new group with a user picked")
+        action.tap()
+        // Until saved users get the group automatically, the added person still needs the invitation.
+        XCTAssertTrue(app.staticTexts["sendGroupInvitationMessage"].waitForExistence(timeout: 5))
+        app.buttons["finishAddingUsersButton"].tap()
+        XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 5))
+        app.buttons["standardEndCallButton"].tap()
+        app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
+    }
+    #endif
 
     /// Waiting alone is a normal wait: the implementation must not report a lost connection.
     @MainActor
