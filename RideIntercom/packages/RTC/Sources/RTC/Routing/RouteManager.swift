@@ -345,7 +345,10 @@ public actor RouteManager: CallSession {
     private func updateState() {
         let live = availableRoutes.intersection(started)
         activeRoute = live.contains(configuration.preferredRoute) ? configuration.preferredRoute : live.sorted { $0.rawValue < $1.rawValue }.first
-        let state: CallConnectionState = live.isEmpty && configuration.enabledRoutes.isSubset(of: blocked) ? .failed : !memberSnapshot.isEmpty ? (isMediaStarted ? .mediaReady : .connected) : (live.isEmpty && !retries.isEmpty ? .reconnecting : .connecting)
+        // A started route still on its first attempt (Local searching alone, say) is a normal wait,
+        // so another route's retry does not make the call reconnecting.
+        let searching = started.subtracting(blocked).contains { routeStates[$0] == .connecting && retries[$0] == nil }
+        let state: CallConnectionState = live.isEmpty && configuration.enabledRoutes.isSubset(of: blocked) ? .failed : !memberSnapshot.isEmpty ? (isMediaStarted ? .mediaReady : .connected) : (live.isEmpty && !retries.isEmpty && !searching ? .reconnecting : .connecting)
         if connectionState != state { emitState(state) }
     }
     private func emitRouteSnapshot() { emit(.routeChanged(routeSnapshot())) }

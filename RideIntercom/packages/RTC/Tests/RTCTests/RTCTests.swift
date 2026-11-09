@@ -320,6 +320,28 @@ import Testing
     #expect(!values.contains { if case .error(.connectionFailed) = $0 { true } else { false } })
 }
 
+/// Waiting alone is not a lost connection: while a started route is still searching, a failed
+/// route that will retry leaves the call connecting. Reconnecting starts once nothing is attempting.
+@Test func aRouteStillSearchingKeepsTheCallConnectingWhileAnotherRetries() async throws {
+    let internet = FakeRoute(kind: .webRTC), local = FakeRoute(kind: .multipeer)
+    let configuration = CallRouteConfiguration(enabledRoutes: [.multipeer, .webRTC], preferredRoute: .multipeer,
+        selectionMode: .automaticFallbackAndRestore, fallbackDelay: 0)
+    let manager = RouteManager(routes: [internet, local], configuration: configuration)
+    let recorded = CallEventRecorder(), events = manager.events
+    let listener = Task { for await event in events { await recorded.append(event) } }
+    defer { listener.cancel() }
+    await manager.prepare(makeRequest(configuration: configuration)); await manager.startConnection()
+    for _ in 0..<100 where internet.startConnectionCount == 0 { try await Task.sleep(for: .milliseconds(10)) }
+    internet.yield(.stateChanged(.webRTC, .failed))
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(!(await recorded.values).contains(.stateChanged(.reconnecting)))
+    local.yield(.stateChanged(.multipeer, .failed))
+    for _ in 0..<100 where !(await recorded.values).contains(.stateChanged(.reconnecting)) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect((await recorded.values).contains(.stateChanged(.reconnecting)))
+}
+
 @Test(arguments: [false, true])
 func blockedRouteWaitsForExplicitRestartAndPreservesOtherRoutes(localAvailable: Bool) async throws {
     let internet = FakeRoute(kind: .webRTC), local = FakeRoute(kind: .multipeer)
