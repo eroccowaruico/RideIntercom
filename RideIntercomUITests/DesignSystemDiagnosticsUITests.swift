@@ -3,6 +3,30 @@ import XCTest
 
 @MainActor
 final class DesignSystemDiagnosticsUITests: XCTestCase {
+    func testDiagnosticsPagesAreSegmentsAtTheStandardTextSize() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "advanced"
+        app.launch()
+        defer { app.terminate() }
+        let tab = app.tabBars.buttons["Diagnostics"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: 8)); tab.tap()
+        let picker = app.segmentedControls["diagnosticsPagePicker"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3), app.debugDescription)
+        // Every page is visible at once, without opening a menu.
+        for page in ["Overview", "TX", "RX", "Network", "Applied"] {
+            XCTAssertTrue(picker.buttons[page].isHittable, page)
+        }
+        XCTAssertTrue(picker.buttons["Overview"].isSelected)
+        attachScreen("Diagnostics pages as segments")
+        picker.buttons["Network"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsNetworkPaths"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(picker.buttons["Network"].isSelected)
+    }
+
     func testDiagnosticsMenuAtAccessibilitySizeInLandscape() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -131,6 +155,7 @@ final class DesignSystemDiagnosticsUITests: XCTestCase {
     private func choose(_ title: String, in picker: XCUIElement, app: XCUIApplication, capture: Bool = false) {
         XCTAssertTrue(picker.isHittable, picker.debugDescription)
         if capture { attachScreen("Diagnostics picker before \(title)") }
+        if picker.buttons[title].exists { picker.buttons[title].tap(); return }
         picker.tap()
         if capture {
             attachScreen("Diagnostics picker choices for \(title)")

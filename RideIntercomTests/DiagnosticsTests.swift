@@ -167,6 +167,18 @@ struct DiagnosticsTests {
         #expect(displayStages.map(\.state) == [.passing, .passing, .idle])
     }
 
+    @Test func effectStagesKeepTheImplementationStateWordThatTheDotMerges() {
+        func stage(_ state: AudioEffectStageRuntimeState) -> EffectChainStage {
+            EffectChainStage(snapshot: AudioEffectStageSnapshot(id: "isolation", package: "AudioMixer", name: "SoundIsolation",
+                                                                shortLabel: "ISO", detail: "", state: state))
+        }
+        // The dot merges waiting with unavailable and bypassed with idle; the word keeps them apart.
+        #expect(stage(.waiting).state == stage(.unavailable).state)
+        #expect(stage(.bypassed).state == stage(.idle).state)
+        #expect([AudioEffectStageRuntimeState.active, .waiting, .unavailable, .bypassed, .idle].map { stage($0).runtimeState }
+                == ["active", "waiting", "unavailable", "bypassed", "idle"])
+    }
+
     @Test func diagnosticsRowsSummarizeCurrentAppState() {
         let harness = AppTestSupport.makeHarness()
         let overviewRows = harness.viewModel.diagnosticsOverviewRows

@@ -10,6 +10,9 @@ struct EffectChainStage: Equatable, Identifiable {
     let shortLabel: String
     let detail: String
     let state: PipelineStepState
+    /// The implementation's own state word (`active`, `waiting`, `unavailable`, `bypassed`, `idle`),
+    /// shown as is because `state` merges some of them.
+    let runtimeState: String?
 
     nonisolated init(
         id: String,
@@ -17,7 +20,8 @@ struct EffectChainStage: Equatable, Identifiable {
         name: String,
         shortLabel: String,
         detail: String,
-        state: PipelineStepState
+        state: PipelineStepState,
+        runtimeState: String? = nil
     ) {
         self.id = id
         self.package = package
@@ -25,6 +29,7 @@ struct EffectChainStage: Equatable, Identifiable {
         self.shortLabel = shortLabel
         self.detail = detail
         self.state = state
+        self.runtimeState = runtimeState
     }
 }
 
@@ -36,7 +41,8 @@ extension EffectChainStage {
             name: snapshot.name,
             shortLabel: snapshot.shortLabel,
             detail: snapshot.detail,
-            state: PipelineStepState(snapshot.state)
+            state: PipelineStepState(snapshot.state),
+            runtimeState: snapshot.state.rawValue
         )
     }
 }

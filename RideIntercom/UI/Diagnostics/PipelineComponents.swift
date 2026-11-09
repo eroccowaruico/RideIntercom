@@ -236,10 +236,18 @@ struct EffectChainStageChip: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                Text(stage.name)
-                    .font(AppTypography.captionStrong)
-                    .foregroundStyle(AppColorPalette.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.s) {
+                    Text(stage.name)
+                        .font(AppTypography.captionStrong)
+                        .foregroundStyle(AppColorPalette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: AppSpacing.xs)
+                    if let runtimeState = stage.runtimeState {
+                        Text(verbatim: runtimeState)
+                            .font(AppTypography.caption2Mono)
+                            .foregroundStyle(AppColorPalette.textSecondary)
+                    }
+                }
 
                 Text(stage.detail)
                     .font(AppTypography.caption2Mono)
@@ -254,6 +262,6 @@ struct EffectChainStageChip: View {
         .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.card))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(stage.name)
-        .accessibilityValue("\(stage.state.statusText), \(stage.package), \(stage.detail)")
+        .accessibilityValue("\(stage.runtimeState ?? stage.state.statusText), \(stage.package), \(stage.detail)")
     }
 }

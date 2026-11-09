@@ -1,7 +1,8 @@
 import Foundation
 import AudioMixer
 
-enum AudioEffectStageRuntimeState: Equatable, Sendable {
+/// The raw value is the name Advanced shows as is.
+enum AudioEffectStageRuntimeState: String, Equatable, Sendable {
     case active
     case bypassed
     case unavailable

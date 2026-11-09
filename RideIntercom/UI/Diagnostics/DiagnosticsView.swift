@@ -58,7 +58,7 @@ struct DiagnosticsView: View {
         .onDisappear { viewModel.isDiagnosticsVisible = false }
     }
 
-    // A menu Picker cannot be scrolled when accessibility text fills a landscape screen,
+    // Every page is visible at once as segments. Accessibility text sizes don't fit five segments,
     // so those sizes open the pages as a pushed selection list instead.
     @ViewBuilder private var pageSelector: some View {
         #if os(iOS)
@@ -70,10 +70,10 @@ struct DiagnosticsView: View {
             }
             .accessibilityIdentifier("diagnosticsPagePicker")
         } else {
-            pagePicker.pickerStyle(.menu)
+            pagePicker.pickerStyle(.segmented).labelsHidden()
         }
         #else
-        pagePicker.pickerStyle(.menu)
+        pagePicker.pickerStyle(.segmented).labelsHidden()
         #endif
     }
 

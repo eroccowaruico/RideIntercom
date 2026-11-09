@@ -1260,6 +1260,9 @@ final class RideIntercomUITests: XCTestCase {
         let picker = app.descendants(matching: .any)["diagnosticsPagePicker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 3))
         XCTAssertTrue(picker.isHittable, picker.debugDescription)
+        // Segments are tapped directly; the accessibility-size list opens first.
+        let segment = picker.buttons[title].exists ? picker.buttons[title] : picker.radioButtons[title]
+        if segment.exists { segment.tap(); return }
         picker.tap()
         let choice = app.buttons[title].firstMatch
         XCTAssertTrue(choice.waitForExistence(timeout: 3), app.debugDescription)
