@@ -19,7 +19,14 @@ struct MacScreenRenderingTests {
         let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
         defer { vm.disconnect() }
         try await record(NavigationStack { SettingsView(viewModel: vm) },
-                         size: .init(width: 900, height: 680), language: language, named: "settings")
+                         size: .init(width: 900, height: 1900), language: language, named: "settings")
+        try await record(Form {
+            StandardInterfaceModeSection(viewModel: vm)
+            StandardInternetConnectionSection(viewModel: vm, isEditing: .constant(false))
+        }.formStyle(.grouped), size: .init(width: 600, height: 360), language: language, named: "settings-developer")
+        vm.setInterfaceMode(.advanced)
+        try await record(NavigationStack { SettingsView(viewModel: vm) },
+                         size: .init(width: 900, height: 2600), language: "en", named: "settings-advanced")
     }
     @Test(arguments: ["en", "ja"]) func callColumn(language: String) async throws {
         try await render(.call, language: language)

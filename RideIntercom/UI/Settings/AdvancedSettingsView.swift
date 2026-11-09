@@ -5,7 +5,7 @@ struct AdvancedSettingsView: View {
     @Binding var isEditingInternet: Bool
 
     var body: some View {
-        InterfaceModeSection(viewModel: viewModel)
+        AdvancedInterfaceModeSection(viewModel: viewModel)
         AccountSettingsPanel(viewModel: viewModel)
         StoreAccessSection(access: viewModel.storeAccess)
         LocalDisplayNameSection(viewModel: viewModel)
@@ -13,12 +13,12 @@ struct AdvancedSettingsView: View {
         CallNotificationSettingsSection(notifications: viewModel.notifications)
         CallStatusDisplaySection(viewModel: viewModel)
         CommunicationPanel(viewModel: viewModel)
-        InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
+        AdvancedInternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
         AudioSessionPanel(viewModel: viewModel)
         AudioIOPanel(viewModel: viewModel)
         VoiceActivityPanel(viewModel: viewModel)
         TransmitCodecPanel(viewModel: viewModel)
-        AudioCheckPanel(viewModel: viewModel)
+        AdvancedAudioCheckPanel(viewModel: viewModel)
         ResetSettingsPanel(viewModel: viewModel)
     }
 }

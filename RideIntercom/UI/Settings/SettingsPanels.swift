@@ -20,26 +20,12 @@ struct CallDisconnectTimerSection: View {
             .pickerStyle(.menu)
             .accessibilityIdentifier("watchCallDisconnectIntervalPicker")
         } header: {
-            Label("Automatic Disconnection", systemImage: "timer")
+            Text("Automatic Disconnection")
         } footer: {
             Text("Applies when starting a new call. Waiting and reconnecting count toward this time. You can start another call after the timer ends it.")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("callDisconnectTimerSection")
-    }
-}
-
-struct InterfaceModeSection: View {
-    let viewModel: IntercomViewModel
-    var body: some View {
-        Section {
-            Picker("App Layout", selection: Binding(get: { viewModel.interfaceMode }, set: viewModel.setInterfaceMode)) {
-                Text("Standard").tag(InterfaceMode.standard)
-                Text("Advanced").tag(InterfaceMode.advanced)
-            }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("interfaceModePicker")
-        } footer: { Text("Advanced includes detailed call information and diagnostics. Switching layouts keeps your call connected.") }
     }
 }
 
@@ -68,7 +54,7 @@ struct CommunicationPanel: View {
             .disabled(!viewModel.canToggleRTCTransportRoute(.webRTC))
             .accessibilityIdentifier("internetRouteToggle")
         } header: {
-            Label("Communication", systemImage: "network")
+            Text("Communication")
                 .accessibilityIdentifier("communicationPanel")
         } footer: {
             Text("Internet controls this device’s service connection. Nearby riders can relay calls for riders with Internet off. Relay uses battery and data. Changing these settings ends the current connection; connect again to apply them.")
@@ -126,7 +112,7 @@ struct AudioSessionPanel: View {
             }
 
         } header: {
-            Label("Audio Session", systemImage: "slider.horizontal.3")
+            Text("Audio Session")
         } footer: {
             Text("Burst mode uses the default session for intercom-style audio and explicit echo cancellation. Stream mode uses voice-chat routing for continuous conversation.")
                 .font(.footnote)
@@ -179,7 +165,7 @@ struct AudioIOPanel: View {
                 .accessibilityIdentifier("soundIsolationToggle")
             }
         } header: {
-            Label("Audio I/O", systemImage: "waveform")
+            Text("Audio I/O")
         }
         .accessibilityIdentifier("audioIOPanel")
     }
@@ -251,7 +237,7 @@ struct TransmitCodecPanel: View {
                 )
             }
         } header: {
-            Label("Transmit Codec", systemImage: "antenna.radiowaves.left.and.right")
+            Text("Transmit Codec")
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 if viewModel.preferredTransmitCodec == .opus {
@@ -296,115 +282,6 @@ private struct BitRateStepper: View {
     }
 }
 
-struct AudioCheckPanel: View {
-    @Bindable var viewModel: IntercomViewModel
-
-    var body: some View {
-        Section {
-            Button {
-                if viewModel.audioCheckPhase.isInProgress {
-                    viewModel.cancelAudioCheck()
-                } else {
-                    viewModel.startAudioCheck()
-                }
-            } label: {
-                if viewModel.audioCheckPhase.isInProgress {
-                    Label("Stop Audio Check", systemImage: "stop.fill")
-                } else {
-                    Label("Record 5s and Play", systemImage: "record.circle.fill")
-                }
-            }
-            .disabled(!viewModel.audioCheckPhase.isInProgress && !viewModel.canStartAudioCheck)
-            .accessibilityValue(Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue)))
-            .accessibilityIdentifier("audioCheckButton")
-
-            Text(LocalizedStringKey(viewModel.audioCheckStatusMessage))
-                .font(AppTypography.footnote)
-                .foregroundStyle(AppColorPalette.textSecondary)
-                .lineLimit(nil)
-                .accessibilityIdentifier("audioCheckStatusLabel")
-
-            if viewModel.interfaceMode == .advanced {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Call")
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: AppSpacing.xxs) {
-                        Text(viewModel.connectionLabel)
-                            .font(AppTypography.bodyStrong)
-                            .foregroundStyle(AppColorPalette.textPrimary)
-                            .accessibilityIdentifier("liveAudioStateLabel")
-                        HStack(spacing: AppSpacing.xs) {
-                            Image(systemName: "circle.fill")
-                                .foregroundStyle(statusColor)
-                                .accessibilityHidden(true)
-                            Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue))
-                                .foregroundStyle(.primary)
-                                .accessibilityIdentifier("audioCheckPhaseLabel")
-                        }
-                        .font(AppTypography.captionStrongMono)
-                    }
-                }
-
-                AudioCheckMeterSection(
-                    title: "Microphone Input",
-                    systemImage: "mic.fill",
-                    level: viewModel.diagnosticsInputLevel,
-                    peakLevel: viewModel.diagnosticsInputPeakLevel,
-                    isMuted: viewModel.isMuted,
-                    accessibilityIdentifier: "audioCheckInputMeter"
-                )
-                .listRowSeparator(.hidden)
-
-                AudioCheckMeterSection(
-                    title: "Speaker Output",
-                    systemImage: "speaker.wave.2.fill",
-                    level: viewModel.diagnosticsOutputLevel,
-                    peakLevel: viewModel.diagnosticsOutputPeakLevel,
-                    isMuted: false,
-                    accessibilityIdentifier: "audioCheckOutputMeter"
-                )
-                .listRowSeparator(.hidden)
-            }
-            if viewModel.interfaceMode == .standard && viewModel.hasAnyActiveGroupConnection {
-                Text("End your call before checking audio.")
-            }
-            LabeledContent("Recording Input") {
-                Text(viewModel.isUsingWatchAudio ? "Watch Microphone" : "This Device: \(viewModel.audioCheckInputPortName)")
-            }
-            .accessibilityIdentifier("audioCheckInputSource")
-            LabeledContent("Playback Output") {
-                Text(viewModel.isUsingWatchAudio ? "Watch Speaker" : "This Device: \(viewModel.audioCheckOutputPortName)")
-            }
-            .accessibilityIdentifier("audioCheckOutputDestination")
-            if viewModel.isUsingWatchAudio {
-                Text("Watch is using audio. Stop it before starting a check on this device.")
-            } else {
-                Text(viewModel.isMuted ? "Microphone mute: On" : "Microphone mute: Off")
-                    .accessibilityIdentifier("audioCheckMuteState")
-            }
-        } header: {
-            Label("Audio Check", systemImage: "waveform")
-                .accessibilityIdentifier("audioCheckPanel")
-        }
-    }
-
-    private var statusColor: Color {
-        switch viewModel.audioCheckPhase {
-        case .idle, .preparing:
-            AppColorPalette.neutral
-        case .recording:
-            AppColorPalette.danger
-        case .playing:
-            AppColorPalette.success
-        case .completed:
-            AppColorPalette.info
-        case .failed:
-            AppColorPalette.danger
-        }
-    }
-
-}
-
 struct VoiceActivityPanel: View {
     @Bindable var viewModel: IntercomViewModel
 
@@ -422,7 +299,7 @@ struct VoiceActivityPanel: View {
             .accessibilityIdentifier("vadSensitivityPicker")
 
         } header: {
-            Label("Voice Activity", systemImage: "waveform.badge.mic")
+            Text("Voice Activity")
                 .accessibilityIdentifier("voiceActivityPanel")
         }
     }
@@ -437,7 +314,7 @@ struct ResetSettingsPanel: View {
             Button(role: .destructive) {
                 isConfirmingReset = true
             } label: {
-                Label("Reset All Settings", systemImage: "arrow.counterclockwise")
+                Text("Reset All Settings")
             }
             .accessibilityIdentifier("resetAllSettingsButton")
         } footer: {
@@ -456,24 +333,3 @@ struct ResetSettingsPanel: View {
         }
     }
 }
-
-struct InternetConnectionPanel: View {
-    @Bindable var viewModel: IntercomViewModel
-    @Binding var isEditing: Bool
-    var body: some View {
-        Section {
-            Text(LocalizedStringKey(viewModel.interfaceMode == .advanced
-                ? (viewModel.hasInternetCredentials ? "Device token configured" : "Not configured")
-                : (viewModel.hasInternetCredentials ? "Internet is set up" : "Internet is not set up")))
-                .accessibilityIdentifier("internetConfigurationStatus")
-            Button("Configure Internet Connection") { isEditing = true }
-                .accessibilityIdentifier("configureInternetConnection")
-        } header: { Label("Internet Connection", systemImage: "globe") }
-        footer: {
-            Text(LocalizedStringKey(viewModel.interfaceMode == .advanced
-                ? "Set the service address and connect with Apple, or enter a device token for testing."
-                : "Enter your service address and continue with Apple."))
-        }
-    }
-}
-

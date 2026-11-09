@@ -30,7 +30,7 @@ struct StandardSettingsView: View {
         }
         AudioIOPanel(viewModel: viewModel)
         VoiceActivityPanel(viewModel: viewModel)
-        AudioCheckPanel(viewModel: viewModel)
+        StandardAudioCheckSection(viewModel: viewModel)
         Section {
             NavigationLink("Advanced Settings for Developers") {
                 Form {
@@ -48,9 +48,9 @@ struct StandardSettingsView: View {
                                 .foregroundStyle(AppColorPalette.warning)
                         }
                     }
-                    InterfaceModeSection(viewModel: viewModel)
+                    StandardInterfaceModeSection(viewModel: viewModel)
                     // Display and Internet only; audio session and codec stay in Advanced Settings.
-                    InternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)
+                    StandardInternetConnectionSection(viewModel: viewModel, isEditing: $isEditingInternet)
                 }
                 .formStyle(.grouped)
                 .navigationTitle("Advanced Settings for Developers")

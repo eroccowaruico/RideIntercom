@@ -33,7 +33,7 @@ struct StoreAccessSection: View {
             }
             if let message = access.message { Text(LocalizedStringKey(message)).foregroundStyle(.secondary) }
         } header: {
-            Label("Access", systemImage: "ticket").accessibilityIdentifier("storeAccessSection")
+            Text("Access").accessibilityIdentifier("storeAccessSection")
         } footer: {
             if access.evaluation(at: Date()).origin == .testDistribution {
                 Text("Test distribution access does not require a purchase.")

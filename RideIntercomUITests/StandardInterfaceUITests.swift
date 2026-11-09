@@ -577,13 +577,28 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(noisy.isSelected)
         screenshot("Standard routine settings with Noisy selected")
 
+        // Audio Check is one action; ports, mute and meters belong to Advanced.
+        let check = app.buttons["audioCheckButton"].firstMatch
+        revealStandardSettingsControl(check)
+        XCTAssertEqual(check.label, "Record 5s and Play")
+        for identifier in ["audioCheckInputSource", "audioCheckOutputDestination", "audioCheckMuteState",
+                           "audioCheckInputMeter", "audioCheckPhaseLabel", "audioCheckStatusLabel"] {
+            XCTAssertFalse(app.descendants(matching: .any)[identifier].firstMatch.exists,
+                           "Advanced detail in Standard Audio Check: \(identifier)")
+        }
+        screenshot("Standard Audio Check is one action")
+
         let more = app.buttons["moreSettingsLink"].firstMatch
         revealStandardSettingsControl(more)
         more.tap()
         XCTAssertTrue(app.navigationBars["Advanced Settings for Developers"].waitForExistence(timeout: 3))
         let layout = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
         XCTAssertTrue(layout.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["configureInternetConnection"].firstMatch.exists)
+        XCTAssertTrue(layout.buttons["Standard"].exists && layout.buttons["Advanced"].exists, "Both layouts are visible at once")
+        XCTAssertTrue(layout.buttons["Standard"].isSelected)
+        let internet = app.buttons["configureInternetConnection"].firstMatch
+        revealStandardSettingsControl(internet)
+        XCTAssertEqual(internet.label, "Set Up Internet Connection")
         // Specialist audio settings belong to Advanced Settings only.
         for identifier in ["audioSessionPanel", "transmitCodecPanel",
                            "vadSensitivityPicker", "resetAllSettingsButton", "communicationSettingsLink",
@@ -612,8 +627,7 @@ final class StandardInterfaceUITests: XCTestCase {
         revealStandardSettingsControl(more)
         more.tap()
         XCTAssertTrue(layout.waitForExistence(timeout: 3))
-        XCTAssertTrue(layout.label.contains("Standard") || (layout.value as? String)?.contains("Standard") == true,
-                      "Reset keeps the selected layout")
+        XCTAssertTrue(layout.buttons["Standard"].isSelected, "Reset keeps the selected layout")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         revealStandardSettingsControl(vad)
         XCTAssertTrue(vad.buttons["Standard"].firstMatch.isSelected,
@@ -734,7 +748,7 @@ final class StandardInterfaceUITests: XCTestCase {
         tab("Settings", id: "settingsTab")
         openInternetSettings()
         XCTAssertTrue(app.textFields["internetWorkerURL"].waitForExistence(timeout: 3))
-        XCTAssertEqual(app.textFields["internetWorkerURL"].placeholderValue, "Service Address")
+        XCTAssertEqual(app.textFields["internetWorkerURL"].placeholderValue, "Address starting with https://")
         XCTAssertFalse(app.secureTextFields["internetDeviceToken"].exists)
         XCTAssertFalse(app.buttons["saveInternetConnection"].exists)
         XCTAssertTrue(app.buttons["prepareInternetAppleSignIn"].exists)
@@ -818,9 +832,13 @@ final class StandardInterfaceUITests: XCTestCase {
         }
         let picker = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
         for _ in 0..<6 where !picker.isHittable { app.swipeDown() }
-        XCTAssertTrue(picker.waitForExistence(timeout: 3)); picker.tap()
-        let choice = app.buttons[title].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3))
+        // A segmented picker shows each layout as its own button; a menu needs opening first.
+        // Advanced spells the layouts in English only; Standard uses the localized words.
+        let names = [title, ["標準": "Standard", "詳細": "Advanced"][title] ?? title]
+        let choice = names.lazy.flatMap { [picker.buttons[$0], picker.radioButtons[$0]] }.first { $0.exists } ?? picker.buttons[title]
         if choice.exists { choice.tap() } else {
+            picker.tap()
             let menu = app.menuItems[title].firstMatch
             XCTAssertTrue(menu.waitForExistence(timeout: 3)); menu.tap()
         }

@@ -8,9 +8,9 @@ StandardとAdvancedの設定トップはシステムのgrouped Form背景を使�
 
 ## 表示切替と共通設定
 
-App Layout（`interfaceModePicker`）はStandard / Advancedの標準Picker。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・本人の表示名・利用権、通話設定、通信経路への入口、音声入出力・VAD・録音再生チェックの順に表示し、リセットを最下部に置く。通信経路はCommunication（`communicationSettingsLink`）に有効な経路を表示し、別画面で設定する。Advanced Settings for Developers（`moreSettingsLink`）には見出し（`advancedSettingsWarningTitle`）と設定変更の注意（`advancedSettingsWarning`）、App Layout、Internet接続だけを置く。Audio Session・送信codecは[絶対ルール](../../../policies/開発方針.md#standardとadvancedの設計の絶対ルール)によりStandardに置かず、Advancedの設定だけで扱う。Internet接続は自動化が未実装の間もここから設定できる。AdvancedはApp Layoutを先頭、通信経路とInternet接続を主画面に表示し、音声設定をAudio Session・Audio I/O・Voice Activity・Transmit Codec・Audio Checkの順に表示する。録音チェックの接続状態やmeterはAdvancedに限る。
+App Layout（`interfaceModePicker`）は2つを並べた標準の`Picker(.segmented)`（Standardは「標準／詳細」、Advancedは`Standard`／`Advanced`）。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・本人の表示名・利用権、通話設定、通信経路への入口、音声入出力・VAD・録音再生チェックの順に表示し、リセットを最下部に置く。通信経路はCommunication（`communicationSettingsLink`）に有効な経路を表示し、別画面で設定する。Advanced Settings for Developers（`moreSettingsLink`）には見出し（`advancedSettingsWarningTitle`）と設定変更の注意（`advancedSettingsWarning`）、App Layout、Internet接続だけを置く。Audio Session・送信codecは[絶対ルール](../../../policies/開発方針.md#standardとadvancedの設計の絶対ルール)によりStandardに置かず、Advancedの設定だけで扱う。Internet接続は自動化が未実装の間もここから設定できる。AdvancedはApp Layoutを先頭、通信経路とInternet接続を主画面に表示し、音声設定をAudio Session・Audio I/O・Voice Activity・Transmit Codec・Audio Checkの順に表示する。録音チェックの接続状態やmeterはAdvancedに限る。Sectionの見出しは両表示とも文字だけで、記号を付けない。Standardと同じ語・部品をAdvancedで使い回さないよう、表示が分かれるSection（App Layout、Internet接続、Audio Check）はStandardが`StandardSettingsSections.swift`、Advancedが`AdvancedSettingsSections.swift`に別の型で持つ。
 
-StandardのInternet接続はInternet is set up / Internet is not set upとService Addressを表示し、Appleによる接続操作を案内する。手動のDevice access token入力・保存はAdvancedだけに表示する。AdvancedはWorker URLを含め従来の項目・識別子・保存操作とDiagnosticsを維持する。両表示で同じ設定保存先と音声処理を使う。商品未設定でも配布環境を独立に確認し、テスト配布で利用可能か、判定不能ならCheck Accessを表示する。配布の権利がない場合はNot Available Yetとし、商品未設定のRestore Purchasesは表示しない。
+StandardのInternet接続（`StandardInternetConnectionSection`）は状態の語（Set up＝設定済み・緑の印／Not set up＝未設定）と「Set Up Internet Connection」（インターネット接続を設定）だけを置き、footerはない。sheet（`StandardInternetConnectionEditor`）はService Address（プレースホルダー「https://で始まるアドレス」）とAppleによる接続。手動のDevice access token入力・保存はAdvancedだけに表示する。Advanced（`AdvancedInternetConnectionPanel`・`AdvancedInternetConnectionEditor`）は`Device token configured`／`Not configured`、Worker URL、手動のDevice access tokenと保存操作、Diagnosticsを維持する。両表示で同じ設定保存先と音声処理を使う。商品未設定でも配布環境を独立に確認し、テスト配布で利用可能か、判定不能ならCheck Accessを表示する。配布の権利がない場合はNot Available Yetとし、商品未設定のRestore Purchasesは表示しない。
 
 
 Settings はアカウントのサインアウトと削除、通信経路、Audio Session、入出力、Audio Check、送信 codec、VAD、設定リセットを扱う。設定値の型、既定値、永続化は `docs/spec/App/Configuration/設定値一覧.md` を正とする。
@@ -21,10 +21,10 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 |---|---|---|---|---|---|
 | 設定画面 | `settingsScrollView` | 通話前後の調整、確認、自己診断を行う | `SettingsView` | 常時 | `Form` |
 | 通信設定 | `communicationPanel` | RTC package に渡す有効 route を選択する | `CommunicationPanel` | 常時 | `Communication` section |
-| Internet接続設定 | なし（子IDを使用） | サービスURLと端末資格の保存 | `InternetConnectionPanel` | 常時 | `Internet Connection` section |
+| Internet接続設定 | なし（子IDを使用） | サービスURLと端末資格の保存 | `StandardInternetConnectionSection`／`AdvancedInternetConnectionPanel` | 常時 | `Internet Connection` section |
 | Audio Session設定 | `audioSessionPanel` | SessionManager の mode、speaker、echo cancellation、Duck Other Audio の組み合わせを選択する | `AudioSessionPanel` | 常時 | `Audio Session` section |
 | 音声I/O設定 | `audioIOPanel` | 入出力ポートと effect chain の有効/無効を選択する | `AudioIOPanel` | 常時 | `Audio I/O` section |
-| オーディオチェック設定 | `audioCheckPanel` | 自己録音/再生で経路確認する | `AudioCheckPanel` | 常時 | `Audio Check` section |
+| オーディオチェック設定 | `audioCheckPanel` | 自己録音/再生で経路確認する | `StandardAudioCheckSection`／`AdvancedAudioCheckPanel` | 常時 | `Audio Check` section |
 | 送信コーデック設定 | `transmitCodecPanel` | 送信 codec と bitrate を選ぶ | `TransmitCodecPanel` | 常時 | `Transmit Codec` section |
 | Voice Activity設定 | `voiceActivityPanel` | 発話検出の感度を調整する | `VoiceActivityPanel` | 常時 | `Voice Activity` section |
 | 設定リセット | `resetSettingsPanel` | 調整値だけを既定へ戻す | `ResetSettingsPanel` | 常時 | 最下部 |
@@ -114,13 +114,13 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | チェック状態表示 | `audioCheckPanel` | `audioCheckPhaseLabel` | `Audio Check` | `audioCheckPhase` | Advanced | 右寄せの文字と状態色の記号 | idle / recording / playing / completed / failed。文字は標準の前景色 |
 | マイク入力確認 | `audioCheckPanel` | `audioCheckInputMeter` | `Microphone Input` | `diagnosticsInputLevel`, `diagnosticsInputPeakLevel` | Advanced | 入力メーター | 権限未許可時は上がらない |
 | スピーカー出力確認 | `audioCheckPanel` | `audioCheckOutputMeter` | `Speaker Output` | `diagnosticsOutputLevel`, `diagnosticsOutputPeakLevel` | Advanced | 出力メーター | 最終出力へ回した音声を示す |
-| チェック状態メッセージ | `audioCheckPanel` | `audioCheckStatusLabel` | 状態文言 | `String` | 常時 | footnote | 実行中、完了、失敗 |
-| 録音入力元 | `audioCheckPanel` | `audioCheckInputSource` | `Recording Input` | `isUsingWatchAudio`, `audioCheckInputPortName` | 常時 | `LabeledContent` | Watch音声使用中は`Watch Microphone`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実入力ポート、それ以外は選択済み入力ポートを表示 |
-| 再生出力先 | `audioCheckPanel` | `audioCheckOutputDestination` | `Playback Output` | `isUsingWatchAudio`, `audioCheckOutputPortName` | 常時 | `LabeledContent` | Watch音声使用中は`Watch Speaker`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実出力ポート、それ以外は選択済み出力ポートを表示 |
-| マイクミュート状態 | `audioCheckPanel` | `audioCheckMuteState` | `Microphone mute: On` / `Off` | `isMuted` | `isUsingWatchAudio == false` | 状態テキスト | 現在のマイクミュート状態を表示。Watch音声使用中は、Watch音声を停止してからこの端末のチェックを開始する案内を表示 |
+| チェック状態メッセージ | `audioCheckPanel` | `audioCheckStatusLabel` | 状態文言 | `String` | Advancedは常時。Standardは開始できない理由（Watchが音声を使用中、接続中）か、待機以外の進行・結果があるときだけ | footnote。Standardの進行中は小さな進行表示を添える | 実行中、完了、失敗 |
+| 録音入力元 | `audioCheckPanel` | `audioCheckInputSource` | `Recording Input` | `isUsingWatchAudio`, `audioCheckInputPortName` | Advanced | `LabeledContent` | Watch音声使用中は`Watch Microphone`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実入力ポート、それ以外は選択済み入力ポートを表示 |
+| 再生出力先 | `audioCheckPanel` | `audioCheckOutputDestination` | `Playback Output` | `isUsingWatchAudio`, `audioCheckOutputPortName` | Advanced | `LabeledContent` | Watch音声使用中は`Watch Speaker`、それ以外は`This Device: ポート名`。録音・再生中はAudio Sessionの実出力ポート、それ以外は選択済み出力ポートを表示 |
+| マイクミュート状態 | `audioCheckPanel` | `audioCheckMuteState` | `Microphone mute: On` / `Off` | `isMuted` | Advanced | 状態テキスト | 現在のマイクミュート状態を表示。Watch音声使用中は、Watch音声を停止してからこの端末のチェックを開始する案内を別の行で表示 |
 | チェック実行・停止ボタン | `audioCheckPanel` | `audioCheckButton` | `Record 5s and Play` / `Stop Audio Check` | Action | 常時 | 同じボタンで開始と停止を切り替える。進行中以外は開始不可条件で disabled | 二重起動と通話中の競合を防ぐ。準備・録音・再生中は停止可能 |
 
-音声チェックの実行・停止と状態文はSectionの先頭に置き、その後に機器・ミュートの情報を示す。操作は標準Formのボタン行とし、使用不可の理由やWatch所有中の案内を残す。
+Standardの音声チェックは「Record 5s and Play」（5秒録音して再生）の1操作と、その下の状態文だけを置く。機器・ミュート・meterは出さない。Advancedは[詳細画面見本](../../../design/詳細画面/詳細画面見本.html)の順にCall、Audio Check、Recording Input、Playback Output、meter、ミュート、状態文、操作を並べる。操作は標準Formのボタン行とし、使用不可の理由やWatch所有中の案内を残す。
 
 ## Transmit Codec
 
@@ -186,7 +186,7 @@ Apple認証の登録入口はserver側で有効化されている必要があり
 | 設定確認 | `internetConfigurationStatus` は保存の有無。認証成功とは区別し、DiagnosticsのCheck Internet Serviceへ誘導 |
 
 
-Audio Checkは録音入力元・再生先・ミュート設定を常時表示する。準備前は選択値、録音・再生中はAudio Sessionが確定した実機器名を表示し、実行中の入力・出力選択は変更できない。Watchが音声を所有する場合はWatchマイク・Watchスピーカーと明示し、Stop後の明示的な開始を案内する。
+AdvancedのAudio Checkは録音入力元・再生先・ミュート設定を常時表示する。準備前は選択値、録音・再生中はAudio Sessionが確定した実機器名を表示し、実行中の入力・出力選択は変更できない。Watchが音声を所有する場合はWatchマイク・Watchスピーカーと明示し、Stop後の明示的な開始を案内する。
 
 開始時のcategory/route確定と録音中の実機器切替を区別する。準備完了時の実snapshotを基準とし、古い遅着snapshotで次のチェックを中断しない。録音・再生中の実機器切替・切断・割り込み・Media Services resetは停止し、再実行を案内する。録音再生sourceのqueueは録音長に応じて最大5秒に限定し、通常通話のlive queueは変更しない。
 

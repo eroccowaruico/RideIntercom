@@ -1006,7 +1006,7 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["receive-pipeline-output-step"].exists)
         selectDiagnosticsPage("Overview")
         revealDiagnosticOverview()
-        XCTAssertTrue(app.descendants(matching: .any)["realDeviceCallDebugSummaryLabel"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["diagnosticsStageDots-RX"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioIOPanel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["audioCheckPanel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["callAudioOutputPicker"].exists)
@@ -1300,9 +1300,13 @@ final class RideIntercomUITests: XCTestCase {
             more.tap()
         }
         let picker = app.descendants(matching: .any)["interfaceModePicker"].firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 3)); picker.tap()
-        let choice = app.buttons[title].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3))
+        // A segmented picker shows each layout as its own button; a menu needs opening first.
+        // Advanced spells the layouts in English only; Standard uses the localized words.
+        let names = [title, ["標準": "Standard", "詳細": "Advanced"][title] ?? title]
+        let choice = names.lazy.flatMap { [picker.buttons[$0], picker.radioButtons[$0]] }.first { $0.exists } ?? picker.buttons[title]
         if choice.exists { choice.tap() } else {
+            picker.tap()
             let menu = app.menuItems[title].firstMatch
             XCTAssertTrue(menu.waitForExistence(timeout: 3)); menu.tap()
         }
@@ -1331,7 +1335,7 @@ final class RideIntercomUITests: XCTestCase {
     private func revealDiagnosticOverview() {
         let scroll = app.descendants(matching: .any)["diagnosticsScrollView"].firstMatch
         for _ in 0..<8 {
-            if app.descendants(matching: .any)["realDeviceCallDebugSummaryLabel"].exists { return }
+            if app.descendants(matching: .any)["diagnosticsStageDots-RX"].exists { return }
             scroll.swipeUp()
         }
     }
