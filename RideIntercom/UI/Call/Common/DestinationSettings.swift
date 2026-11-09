@@ -65,6 +65,7 @@ struct GroupSettingsView: View {
     @State private var addingUsers = false
     @State private var editingMember: GroupMember?
     @State private var confirmsDelete = false
+    @State private var pendingRemoval: PendingMemberRemoval?
 
     private var group: IntercomGroup? { viewModel.groups.first { $0.id == groupID && $0.kind == .group } }
 
@@ -79,7 +80,8 @@ struct GroupSettingsView: View {
                     Section {
                         ForEach(Array(group.members.dropFirst())) { member in
                             Label { Text(member.resolvedDisplayName) } icon: { DestinationAvatar(isGroup: false, diameter: 28) }
-                                .memberRowActions(edit: { editingMember = member }) {
+                                .memberRowActions(edit: { editingMember = member }, pending: $pendingRemoval,
+                                                  name: member.resolvedDisplayName) {
                                     viewModel.removeMember(member.id, from: groupID)
                                 }
                         }
@@ -144,6 +146,7 @@ struct GroupSettingsView: View {
             .sheet(item: $editingMember) { member in
                 GroupMemberNameView(viewModel: viewModel, groupID: groupID, member: member)
             }
+            .memberRemoveConfirmation($pendingRemoval)
             .accessibilityIdentifier("groupSettingsView")
         }
         #if os(macOS)
@@ -154,14 +157,29 @@ struct GroupSettingsView: View {
 
 extension View {
     /// Member names are changed from the row's menu or swipe, not a pencil button.
-    func memberRowActions(edit: @escaping () -> Void, canDelete: Bool = true, delete: @escaping () -> Void) -> some View {
-        swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if canDelete { Button(role: .destructive, action: delete) { Label("Delete", systemImage: "trash") } }
+    func memberRowActions(edit: @escaping () -> Void, canRemove: Bool = true,
+                          pending: Binding<PendingMemberRemoval?>, name: String,
+                          remove: @escaping () -> Void) -> some View {
+        let ask = { pending.wrappedValue = PendingMemberRemoval(name: name, perform: remove) }
+        return swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if canRemove { Button(role: .destructive, action: ask) { Label("Remove", systemImage: "person.badge.minus") } }
             Button(action: edit) { Label("Edit Name", systemImage: "pencil") }
         }
         .contextMenu {
             Button(action: edit) { Label("Edit Name", systemImage: "pencil") }
-            if canDelete { Button(role: .destructive, action: delete) { Label("Delete", systemImage: "trash") } }
+            if canRemove { Button(role: .destructive, action: ask) { Label("Remove", systemImage: "person.badge.minus") } }
+        }
+    }
+
+    /// Removing a member always asks first. Held by the screen: an alert on a row does not
+    /// appear once its swipe closes.
+    func memberRemoveConfirmation(_ pending: Binding<PendingMemberRemoval?>) -> some View {
+        alert(pending.wrappedValue.map { Text("Remove \($0.name) from the group?") } ?? Text(verbatim: ""),
+              isPresented: Binding(get: { pending.wrappedValue != nil }, set: { if !$0 { pending.wrappedValue = nil } }),
+              presenting: pending.wrappedValue) { item in
+            Button("Remove", role: .destructive, action: item.perform)
+                .accessibilityIdentifier("confirmRemoveMemberButton")
+            Button("Cancel", role: .cancel) { }
         }
     }
 }
@@ -169,5 +187,10 @@ extension View {
 struct PendingDestinationDelete {
     let name: String
     let endsCall: Bool
+    let perform: () -> Void
+}
+
+struct PendingMemberRemoval {
+    let name: String
     let perform: () -> Void
 }

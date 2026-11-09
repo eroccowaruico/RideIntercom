@@ -457,9 +457,15 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(renamed.waitForExistence(timeout: 3))
         attachScreen("Advanced group participant name edited in management")
         renamed.swipeLeft()
-        let removeMember = app.buttons["Delete"].firstMatch
+        let removeMember = app.buttons["Remove"].firstMatch
         XCTAssertTrue(removeMember.waitForExistence(timeout: 3))
         removeMember.tap()
+        // Removing a member asks first, naming the member.
+        let removal = app.alerts.firstMatch
+        XCTAssertTrue(removal.waitForExistence(timeout: 3))
+        XCTAssertTrue(removal.staticTexts["Remove Group Alex from the group?"].exists, removal.debugDescription)
+        attachScreen("Remove member asks first")
+        removal.buttons["confirmRemoveMemberButton"].firstMatch.tap()
         XCTAssertTrue(renamed.waitForNonExistence(timeout: 3))
         closeManagementAndReturnToCall()
         XCTAssertTrue(app.descendants(matching: .any)["emptyRemoteParticipantsLabel"].firstMatch.waitForExistence(timeout: 3))

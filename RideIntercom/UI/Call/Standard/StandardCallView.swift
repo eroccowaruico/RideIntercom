@@ -8,6 +8,7 @@ struct StandardCallView: View {
     @State private var editingMember: MemberNameSelection?
     @State private var pendingEndReference: CallReference?
     @State private var confirmsEnd = false
+    @State private var pendingRemoval: PendingMemberRemoval?
 
     var body: some View {
         CallHeightLayout { compactHeight, regularWidth in
@@ -102,6 +103,7 @@ struct StandardCallView: View {
             Button("Cancel", role: .cancel) { pendingEndReference = nil }
                 .accessibilityIdentifier("standardCancelEndCallButton")
         }
+        .memberRemoveConfirmation($pendingRemoval)
         .sheet(item: $addingUsers) { group in SavedUsersView(viewModel: viewModel, groupID: group.id) }
         .sheet(item: $editingMember) { selection in
             GroupMemberNameView(viewModel: viewModel, groupID: selection.groupID, member: selection.member)
@@ -202,7 +204,8 @@ struct StandardCallView: View {
                     }
                 }
                 .memberRowActions(edit: { editingMember = .init(groupID: group.id, member: member) },
-                                  canDelete: group.kind == .group) { viewModel.removeMember(member.id, from: group.id) }
+                                  canRemove: group.kind == .group, pending: $pendingRemoval,
+                                  name: member.resolvedDisplayName) { viewModel.removeMember(member.id, from: group.id) }
             }
             if group.kind == .group {
                 Button("Add Saved Users", systemImage: "person.badge.plus") { addingUsers = group }
