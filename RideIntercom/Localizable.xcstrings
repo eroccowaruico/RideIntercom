@@ -2213,6 +2213,16 @@
         }
       }
     },
+    "Disconnect from %@ and connect to %@." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@との接続を切断して、%2$@に接続します。"
+          }
+        }
+      }
+    },
     "Displayed call reference" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2272,6 +2282,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接続先を設定し直してください"
+          }
+        }
+      }
+    },
+    "Switch connection?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続を切り替えますか？"
           }
         }
       }
@@ -5170,16 +5190,6 @@
         }
       }
     },
-    "Switch calls?" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "通話を切り替えますか？"
-          }
-        }
-      }
-    },
     "Switch to This Call" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5263,16 +5273,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通話の呼び出しは受け付けられませんでした。"
-          }
-        }
-      }
-    },
-    "The current call ends." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今の接続を切断します。"
           }
         }
       }

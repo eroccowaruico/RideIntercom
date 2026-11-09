@@ -120,6 +120,12 @@ final class DesignSystemCallUITests: XCTestCase {
                 continue
             }
             asked = true
+            // The confirmation names the call that ends and the one that starts.
+            XCTAssertTrue(app.staticTexts["Switch connection?"].firstMatch.exists)
+            let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Disconnect from'")).firstMatch
+            XCTAssertTrue(message.exists, app.debugDescription)
+            XCTAssertTrue(message.label.contains(String(currentName.prefix(12))) && message.label.contains(targetName), message.label)
+            attachEvidence("Switch confirmation dialog")
             // On iPhone the dialog is a popover without a Cancel button; tapping outside cancels it.
             let cancel = app.buttons["switchCallCancelButton"].firstMatch
             if cancel.exists { cancel.tap() } else { app.otherElements["PopoverDismissRegion"].firstMatch.tap() }
