@@ -126,6 +126,17 @@ final class StandardInterfaceUITests: XCTestCase {
         revealUser(inviterName)
         XCTAssertEqual(contactUserRows().count, originalUsers + 1)
         screenshot("Japanese accepted contact saved while notification remains separate")
+        // The received invitation's detail names who it is from and says one state word.
+        app.descendants(matching: .any)["standardUsersList"].firstMatch.swipeDown()
+        let received = try XCTUnwrap(contactPendingIDs().subtracting(originalPending).first)
+        app.buttons[received].firstMatch.tap()
+        let state = app.descendants(matching: .any)["contactInvitationState"].firstMatch
+        XCTAssertTrue(state.waitForExistence(timeout: 3))
+        XCTAssertTrue(["返信を届けています", "返信が届いていません"].contains(state.label), state.label)
+        XCTAssertTrue(app.staticTexts[inviterName + "からの招待"].exists)
+        XCTAssertEqual(app.buttons["cancelPendingContactInvitationButton"].firstMatch.label, "この相手を削除")
+        screenshot("Japanese received contact invitation detail")
+        app.buttons["closeContactInvitationButton"].tap()
         tab("グループ", id: "groupsTab")
         XCTAssertEqual(contactGroupRows().count, originalGroups)
         app.terminate(); app.launch(); app.activate()
@@ -168,17 +179,24 @@ final class StandardInterfaceUITests: XCTestCase {
         let row = app.buttons[added].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 3))
         row.tap()
-        let retry = app.buttons["retryContactInvitationButton"].firstMatch
-        XCTAssertTrue(retry.waitForExistence(timeout: 3))
-        retry.tap()
-        let status = app.staticTexts["contactInvitationStatus"].firstMatch
-        XCTAssertEqual(status.label, "Waiting for the current call to end.")
-        screenshot("Contact retry waits while the current call remains connected")
-        app.buttons["cancelPendingContactInvitationButton"].tap()
+        // The detail: one state word, one sentence, one main action, the name and cancelling.
+        let state = app.descendants(matching: .any)["contactInvitationState"].firstMatch
+        XCTAssertTrue(state.waitForExistence(timeout: 3))
+        XCTAssertEqual(state.label, "Waiting to be accepted")
+        XCTAssertTrue(app.staticTexts["You sent this invitation"].exists)
+        XCTAssertEqual(app.buttons["shareContactInvitationButton"].firstMatch.label, "Send Again")
+        XCTAssertFalse(app.buttons["retryContactInvitationButton"].exists, "Resending a sent invitation is sharing it again")
+        let nameField = app.textFields["contactInvitationNameField"].firstMatch
+        XCTAssertTrue(nameField.exists)
+        XCTAssertFalse((nameField.value as? String ?? "").isEmpty, "The name given when sending is kept")
+        screenshot("Contact invitation detail while the current call remains connected")
+        let cancelInvitation = app.buttons["cancelPendingContactInvitationButton"].firstMatch
+        XCTAssertEqual(cancelInvitation.label, "Cancel Invitation")
+        cancelInvitation.tap()
         let confirm = app.alerts.buttons["confirmCancelContactInvitationButton"].firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "on this device")).firstMatch.exists)
-        screenshot("Contact cancellation describes local retries")
+        XCTAssertTrue(app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "until it expires")).firstMatch.exists)
+        screenshot("Contact cancellation does not promise to revoke a sent link")
         confirm.tap()
         XCTAssertTrue(row.waitForNonExistence(timeout: 5))
         XCTAssertEqual(contactUserRows().count, originalUsers)
