@@ -95,9 +95,47 @@ struct DiagnosticsView: View {
     // The former summary cards are retired; Overview is the pipeline summary and the symptom actions.
     private var overviewContent: some View {
         VStack(alignment: .leading, spacing: AppSpacing.l) {
+            verdicts
             pipelineOverview
             symptomButtons
         }
+    }
+
+    private var pipelineSteps: (tx: [PipelineStep], rx: [PipelineStep]) {
+        let input = DiagnosticsInput(viewModel)
+        let tx = TransmitPipelinePresentation(input: input)
+        let rx = ReceivePipelinePresentation(input: input)
+        return ([tx.sessionStep, tx.inputStreamStep, tx.mixerBusStep, tx.mixerEffectChainStep, tx.codecStep, tx.rtcStep],
+                [rx.rtcReceiveStep, rx.codecDecodeStep, rx.peerBusStep, rx.receiveMixStep, rx.masterBusStep, rx.masterEffectChainStep, rx.outputStep])
+    }
+
+    /// The conclusion first: one verdict per direction with the reason the stages report.
+    private var verdicts: some View {
+        let steps = pipelineSteps
+        return GroupBox {
+            VStack(alignment: .leading, spacing: AppSpacing.m) {
+                verdictRow("TX", verdict: PipelineVerdict(steps: steps.tx))
+                verdictRow("RX", verdict: PipelineVerdict(steps: steps.rx))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func verdictRow(_ name: String, verdict: PipelineVerdict) -> some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            Label {
+                Text(verbatim: "\(name): \(verdict.text)").font(.headline)
+            } icon: {
+                PipelineStateDot(state: verdict.state)
+            }
+            if let reason = verdict.reason {
+                Text(verbatim: reason)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("diagnosticsVerdict-\(name)")
     }
 
     private var pagePicker: some View {
@@ -148,15 +186,9 @@ struct DiagnosticsView: View {
     }
 
     private var pipelineOverview: some View {
-        let input = DiagnosticsInput(viewModel)
-        let tx = TransmitPipelinePresentation(input: input)
-        let rx = ReceivePipelinePresentation(input: input)
-        let txSteps = [tx.sessionStep, tx.inputStreamStep, tx.mixerBusStep, tx.mixerEffectChainStep, tx.codecStep, tx.rtcStep]
-        let rxSteps = [rx.rtcReceiveStep, rx.codecDecodeStep, rx.peerBusStep, rx.receiveMixStep, rx.masterBusStep, rx.masterEffectChainStep, rx.outputStep]
+        let (txSteps, rxSteps) = pipelineSteps
         return GroupBox("Pipeline") {
             VStack(alignment: .leading, spacing: AppSpacing.m) {
-                pipelineSummary("TX", steps: txSteps)
-                pipelineSummary("RX", steps: rxSteps)
                 stageOverview("TX", steps: txSteps)
                 stageOverview("RX", steps: rxSteps)
                 if let group = viewModel.selectedGroup {
@@ -174,14 +206,23 @@ struct DiagnosticsView: View {
         }
     }
 
-    private func pipelineSummary(_ name: String, steps: [PipelineStep]) -> some View {
-        let blocked = steps.first { $0.state == .blocked || $0.state == .muted }
-        let firstPending = steps.first { $0.state == .waiting || $0.state == .idle }
-        let step = blocked ?? firstPending
-        return Text("\(name): \(step.map { "\($0.title) — \($0.detail)" } ?? "Running")")
-            .accessibilityIdentifier("diagnosticsPipelineSummary-\(name)")
-    }
+}
 
+/// Eight-point state dot; Idle is a dashed ring so state never relies on color alone.
+private struct PipelineStateDot: View {
+    let state: PipelineStepState
+    @ScaledMetric(relativeTo: .headline) private var size: CGFloat = 8
+    var body: some View {
+        Group {
+            if state == .idle {
+                Circle().strokeBorder(state.color, style: StrokeStyle(lineWidth: 1.5, dash: [2, 2]))
+            } else {
+                Circle().fill(state.color)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
 }
 
 #if os(iOS)

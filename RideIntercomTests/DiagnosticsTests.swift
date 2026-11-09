@@ -207,5 +207,26 @@ struct DiagnosticsTests {
         #expect(model.networkDiagnosticsSummary.contains("Not measured"))
     }
 
+
+    @Test func verdictNamesTheFirstStoppedThenWaitingStageWithItsReason() {
+        func step(_ title: String, _ state: PipelineStepState, _ detail: String = "") -> PipelineStep {
+            PipelineStep(id: title, package: "", title: title, detail: detail, icon: "", state: state, accessibilityIdentifier: title)
+        }
+        #expect(PipelineVerdict(steps: [step("Session", .passing), step("Input", .passing)])
+            == PipelineVerdict(steps: [step("A", .passing)]))
+        #expect(PipelineVerdict(steps: [step("Session", .passing)]).text == "Passing")
+        #expect(PipelineVerdict(steps: [step("Session", .passing)]).reason == nil)
+        let waiting = PipelineVerdict(steps: [step("Session", .passing), step("VAD", .waiting, "Not speaking"), step("Codec", .idle)])
+        #expect(waiting.state == .waiting)
+        #expect(waiting.text == "Waiting at VAD")
+        #expect(waiting.reason == "Not speaking")
+        let blocked = PipelineVerdict(steps: [step("Session", .waiting, "Joining"), step("Input", .blocked, "Audio device disconnected.")])
+        #expect(blocked.text == "Blocked at Input")
+        #expect(blocked.reason == "Audio device disconnected.")
+        #expect(PipelineVerdict(steps: [step("Output", .muted, "Muted")]).text == "Muted at Output")
+        #expect(PipelineVerdict(steps: [step("Session", .idle), step("Input", .idle)]).text == "Idle")
+        #expect(PipelineVerdict(steps: [step("Session", .passing), step("Codec", .idle, "Media Idle")]).text == "Idle at Codec")
+    }
+
 }
 }

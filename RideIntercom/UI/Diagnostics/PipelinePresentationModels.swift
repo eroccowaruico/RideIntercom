@@ -74,3 +74,28 @@ extension PipelineStepState {
     }
 }
 
+
+/// The one-line verdict for a direction: the first stopped stage, else the first waiting one,
+/// else Passing or Idle. The reason is that stage's existing detail.
+struct PipelineVerdict: Equatable {
+    let state: PipelineStepState
+    let text: String
+    let reason: String?
+
+    init(steps: [PipelineStep]) {
+        if let step = steps.first(where: { $0.state == .blocked || $0.state == .muted })
+            ?? steps.first(where: { $0.state == .waiting }) {
+            self.init(state: step.state, text: "\(step.state.statusText) at \(step.title)", reason: step.detail)
+        } else if !steps.isEmpty && steps.allSatisfy({ $0.state == .passing }) {
+            self.init(state: .passing, text: PipelineStepState.passing.statusText, reason: nil)
+        } else if let step = steps.first(where: { $0.state == .idle }), steps.contains(where: { $0.state == .passing }) {
+            self.init(state: .idle, text: "Idle at \(step.title)", reason: step.detail)
+        } else {
+            self.init(state: .idle, text: PipelineStepState.idle.statusText, reason: nil)
+        }
+    }
+
+    private init(state: PipelineStepState, text: String, reason: String?) {
+        self.state = state; self.text = text; self.reason = reason
+    }
+}
