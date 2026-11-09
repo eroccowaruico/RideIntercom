@@ -110,6 +110,41 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertTrue(app.buttons["callAccessoryOpenButton"].firstMatch.exists, "Cancel keeps the call")
     }
 
+    /// The bar above the tab bar names the call and its state, and offers Mute and End.
+    /// Only its End asks first; Cancel keeps the call.
+    @MainActor
+    func testCallAccessoryShowsStateAndAsksBeforeEnding() {
+        defer { attachEvidence("Call accessory") }
+        startStandardCall()
+        app.closeCallIfOpen()
+        let open = app.buttons["callAccessoryOpenButton"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 3))
+        XCTAssertTrue(open.label.hasPrefix("Design ") && open.label.contains(", "), "Name and state word: \(open.label)")
+        let mute = app.buttons["callAccessoryMuteButton"].firstMatch
+        let end = app.buttons["callAccessoryEndButton"].firstMatch
+        for control in [mute, end] {
+            XCTAssertTrue(control.exists && control.isHittable, control.debugDescription)
+            XCTAssertGreaterThanOrEqual(control.frame.width, 44)
+        }
+        XCTAssertGreaterThanOrEqual(end.frame.minX - mute.frame.maxX, 0, "End sits after Mute")
+        mute.tap()
+        XCTAssertTrue(open.label.hasSuffix("Muted"), open.label)
+        attachEvidence("Call accessory muted")
+        end.tap()
+        let confirm = app.buttons["callAccessoryConfirmEndButton"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3), "End asks first")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Disconnect from Design'")).firstMatch.exists)
+        attachEvidence("Call accessory end confirmation")
+        let cancel = app.buttons["Cancel"].firstMatch
+        if cancel.exists { cancel.tap() } else { app.otherElements["PopoverDismissRegion"].firstMatch.tap() }
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(open.exists, "Cancel keeps the call")
+        end.tap()
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        confirm.tap()
+        XCTAssertTrue(open.waitForNonExistence(timeout: 5), "Ending removes the bar")
+    }
+
     @MainActor
     func testChoosingAnotherGroupDuringACallAsksBeforeSwitching() {
         defer { attachEvidence("Switch confirmation") }
