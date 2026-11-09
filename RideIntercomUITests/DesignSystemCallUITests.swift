@@ -26,14 +26,17 @@ final class DesignSystemCallUITests: XCTestCase {
             XCTAssertTrue(control.waitForExistence(timeout: 5), control.debugDescription)
             XCTAssertTrue(control.isHittable, control.debugDescription)
         }
-        // The hero names the kind and size above the destination.
-        let kind = app.staticTexts["standardCallKind"].firstMatch
-        XCTAssertTrue(kind.exists, kind.debugDescription)
-        XCTAssertTrue(kind.label.hasPrefix("Group · "), kind.label)
+        // The hero is one element: kind, size and destination, with the state as its value.
+        let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
+        XCTAssertTrue(hero.exists, hero.debugDescription)
+        XCTAssertTrue(hero.label.hasPrefix("Group · "), hero.label)
+        XCTAssertLessThan(hero.frame.maxY, mute.frame.minY, "Controls sit below the hero")
+        // No guidance text under the controls; the mute button's own label says Muted.
+        XCTAssertFalse(app.staticTexts["standardMicrophoneStatus"].exists)
         mute.tap()
-        let microphoneStatus = app.staticTexts["standardMicrophoneStatus"].firstMatch
+        let microphoneStatus = app.staticTexts["standardMuteState"].firstMatch
         XCTAssertTrue(microphoneStatus.waitForExistence(timeout: 3))
-        XCTAssertEqual(microphoneStatus.label, "Microphone muted")
+        XCTAssertEqual(microphoneStatus.label, "Muted")
         let previousSpeakerValue = speaker.value as? String
         XCTAssertNotNil(previousSpeakerValue)
         speaker.tap()
@@ -46,7 +49,7 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertTrue(end.waitForExistence(timeout: 3))
         XCTAssertTrue(end.isHittable)
         XCTAssertFalse(app.buttons["standardConnectButton"].exists)
-        XCTAssertEqual(microphoneStatus.label, "Microphone muted")
+        XCTAssertEqual(microphoneStatus.label, "Muted")
     }
 
     /// Settings open from named entries: the call's More menu and a row's swipe or menu.
@@ -68,7 +71,9 @@ final class DesignSystemCallUITests: XCTestCase {
         name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + renamed)
         app.buttons["saveGroupSettingsButton"].tap()
         XCTAssertTrue(name.waitForNonExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts[renamed].firstMatch.waitForExistence(timeout: 3), "The open call shows the new name")
+        let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
+        XCTAssertTrue(hero.waitForExistence(timeout: 3))
+        XCTAssertTrue(hero.label.contains(renamed), "The open call shows the new name: \(hero.label)")
         XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.exists, "Renaming keeps the call")
 
         openGroups()
@@ -213,7 +218,7 @@ final class DesignSystemCallUITests: XCTestCase {
                 XCTAssertFalse(label.frame.intersects(button.frame), "Control labels and buttons must not overlap")
             }
         }
-        let state = app.staticTexts["standardCallStatus"].firstMatch
+        let state = app.descendants(matching: .any)["standardCallHero"].firstMatch
         XCTAssertTrue(state.exists, state.debugDescription)
         let originalY = state.frame.minY
         let lower = details.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))

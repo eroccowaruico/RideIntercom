@@ -198,8 +198,8 @@ final class StandardInterfaceUITests: XCTestCase {
         let mute = app.buttons["standardMuteButton"].firstMatch
         XCTAssertTrue(mute.waitForExistence(timeout: 3))
         mute.tap()
-        XCTAssertTrue(app.staticTexts["standardMicrophoneStatus"].waitForExistence(timeout: 3))
-        XCTAssertEqual(app.staticTexts["standardMicrophoneStatus"].label, "Microphone muted")
+        XCTAssertTrue(app.staticTexts["standardMuteState"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertEqual(app.staticTexts["standardMuteState"].firstMatch.label, "Muted")
         tab("Settings", id: "settingsTab")
         assertPurchasesUnavailable("Not Available Yet")
         #if os(iOS)
@@ -225,8 +225,8 @@ final class StandardInterfaceUITests: XCTestCase {
         selectLayout("Standard")
         tab("Call", id: "callTab")
         XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["standardMicrophoneStatus"].waitForExistence(timeout: 3))
-        XCTAssertEqual(app.staticTexts["standardMicrophoneStatus"].label, "Microphone muted")
+        XCTAssertTrue(app.staticTexts["standardMuteState"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertEqual(app.staticTexts["standardMuteState"].firstMatch.label, "Muted")
         XCTAssertTrue(app.staticTexts["standardSpeakerVolumeLabel"].exists)
         XCTAssertEqual(app.staticTexts["standardSpeakerVolumeLabel"].label, "Speaker Volume")
         screenshot("Standard call after switching layouts")
@@ -314,7 +314,7 @@ final class StandardInterfaceUITests: XCTestCase {
     }
 
     @MainActor
-    func testStandardDestinationStaysCenteredWhenRotating() {
+    func testStandardHeroNamesTheDestinationWhenRotating() {
         #if os(iOS)
         launch()
         tab("Groups", id: "groupsTab")
@@ -326,7 +326,6 @@ final class StandardInterfaceUITests: XCTestCase {
         name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String)?.count ?? 0) + destination)
         app.buttons["saveUserSelectionButton"].tap()
         XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 5))
-        let title = app.staticTexts[destination].firstMatch
         defer { XCUIDevice.shared.orientation = .portrait }
         for orientation in [UIDeviceOrientation.portrait, .landscapeLeft, .landscapeRight] {
             XCUIDevice.shared.orientation = orientation
@@ -335,19 +334,18 @@ final class StandardInterfaceUITests: XCTestCase {
                 return orientation.isLandscape ? frame.width > frame.height : frame.height > frame.width
             }, object: app)
             XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
-            XCTAssertTrue(title.waitForExistence(timeout: 3))
-            XCTAssertTrue(title.isHittable)
+            // The hero is one element; its label names the destination after rotating.
             let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
             XCTAssertTrue(hero.waitForExistence(timeout: 3), app.debugDescription)
-            XCTAssertEqual(title.frame.midX, hero.frame.midX, accuracy: 4,
-                           "The destination stays centered within its hero after rotating")
+            XCTAssertTrue(hero.label.contains(destination), hero.label)
+            XCTAssertTrue(app.frame.contains(hero.frame), "The hero stays on screen")
             if orientation.isLandscape {
                 let details = app.descendants(matching: .any)["standardCallDetailsScroll"].firstMatch
                 XCTAssertTrue(details.waitForExistence(timeout: 3))
                 XCTAssertLessThanOrEqual(hero.frame.maxX, details.frame.minX + 1,
                                          "The hero belongs to the fixed left column")
             }
-            screenshot("Standard destination centered after rotation \(orientation.rawValue)")
+            screenshot("Standard hero after rotation \(orientation.rawValue)")
         }
         XCUIDevice.shared.orientation = .portrait
         app.buttons["standardEndCallButton"].tap()

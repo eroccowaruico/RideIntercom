@@ -1,5 +1,4 @@
 import SwiftUI
-import RTC
 
 struct StandardCallView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -17,7 +16,6 @@ struct StandardCallView: View {
                     List {
                         Section {
                             accessibleCompactHero(group)
-                            if viewModel.canControlMicrophone { microphoneStatus }
                         }
                         CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab, excludesSelected: true)
                         CallStorageSection(viewModel: viewModel)
@@ -28,7 +26,7 @@ struct StandardCallView: View {
                     .clipped()
                     .accessibilityIdentifier("standardCallDetailsScroll")
                     VStack {
-                        primaryActions(group, compact: true, showsStatus: false)
+                        primaryActions(group, compact: true)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, AppSpacing.screen)
@@ -57,10 +55,15 @@ struct StandardCallView: View {
                     CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab, excludesSelected: true)
                     CallStorageSection(viewModel: viewModel)
                     if let group = viewModel.selectedGroup {
+                        // The glass card is its own section's row background: it lines up with the sections
+                        // below, and the section's rounded clip falls on the card's edge.
                         Section {
-                            hero(group, compact: false)
-                                .listRowBackground(Color.clear)
+                            hero(group, compact: false, card: false)
+                                .padding(.vertical, AppSpacing.xs)
+                                .listRowBackground(StandardHeroCard.surface)
                                 .listRowSeparator(.hidden)
+                        }
+                        Section {
                             primaryActions(group, compact: false)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -69,6 +72,11 @@ struct StandardCallView: View {
                     }
                     CallErrorSection(viewModel: viewModel)
                 }
+                // The hero sits right under the sheet's toolbar, as in the design sample.
+                .contentMargins(.top, AppSpacing.s, for: .scrollContent)
+                #if os(iOS)
+                .listSectionSpacing(.compact)
+                #endif
                 .frame(maxWidth: AppSize.singleColumnMaxWidth)
             }
         }
@@ -84,7 +92,6 @@ struct StandardCallView: View {
             if new == .audioPaused && old != .audioPaused { return .warning }
             return nil
         }
-        .navigationTitle("Call")
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("standardCallScreen")
         .alert("End Call?", isPresented: $confirmsEnd) {
@@ -101,61 +108,50 @@ struct StandardCallView: View {
         }
     }
 
-    private func hero(_ group: IntercomGroup, compact: Bool) -> some View {
-        VStack(spacing: compact ? AppSpacing.xs : AppSpacing.l) {
-            // At accessibility sizes the state must stay on screen with the controls,
-            // so the decorative avatar and the kind line give way.
-            if !dynamicTypeSize.isAccessibilitySize {
-                DestinationAvatar(isGroup: group.kind == .group, diameter: compact ? 44 : 64)
-                kindLine(group)
-            }
+    /// The status hero: a glass card, leading-aligned, with the kind and size, the destination,
+    /// the state and its reason. The route is not shown. VoiceOver reads it as one element.
+    private func hero(_ group: IntercomGroup, compact: Bool, card: Bool = true) -> some View {
+        VStack(alignment: .leading, spacing: compact ? AppSpacing.xxs : AppSpacing.xs) {
+            // At accessibility sizes the state must stay on screen with the controls.
+            if !(compact && dynamicTypeSize.isAccessibilitySize) { kindLine(group) }
             Text(viewModel.callTitle(for: group))
                 .font(AppTypography.destinationTitle)
-                .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .accessibilityAddTraits(.isHeader)
             // Words are never broken: when the symbol and state do not fit side by side, stack them.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: AppSpacing.m) { statusSymbolView; statusTitle }
-                VStack(spacing: AppSpacing.xs) { statusSymbolView; statusTitle }
+                HStack(spacing: AppSpacing.s) { statusSymbolView; statusTitle }
+                VStack(alignment: .leading, spacing: AppSpacing.xs) { statusSymbolView; statusTitle }
             }
             .font(.title3.weight(.semibold))
+            .padding(.top, AppSpacing.xxs)
             statusDetail
-            routeLine(group)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, compact ? 0 : AppSpacing.m)
-        .appCallHeroStyle()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("standardCallHero")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(StandardHeroCard(drawsSurface: card))
+        .standardHeroAccessibility(kind: kindText(group), name: viewModel.callTitle(for: group),
+                                   status: viewModel.standardCallStatus)
     }
 
+    /// Landscape at accessibility sizes: name and state side by side so the controls keep their room.
     private func accessibleCompactHero(_ group: IntercomGroup) -> some View {
         HStack(alignment: .center, spacing: AppSpacing.screen) {
-            Label {
-                Text(viewModel.callTitle(for: group)).lineLimit(2).accessibilityAddTraits(.isHeader)
-            } icon: {
-                Image(systemName: group.kind == .group ? "person.3.fill" : "person.fill")
-                    .foregroundStyle(AppColorPalette.buttonProminentBackground)
-            }
-            .font(AppTypography.destinationTitle)
+            Text(viewModel.callTitle(for: group))
+                .font(AppTypography.destinationTitle)
+                .lineLimit(2)
             Spacer(minLength: 0)
             HStack {
-                if viewModel.standardCallStatus == .connecting { ProgressView().controlSize(.small) }
-                else { Image(systemName: statusSymbol).foregroundStyle(statusColor).accessibilityHidden(true) }
+                statusSymbolView
                 VStack(alignment: .leading) {
-                    Text(LocalizedStringKey(viewModel.standardCallStatus.title))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("standardCallStatus")
+                    statusTitle
                     statusDetail
                 }
             }
             .font(.title3.weight(.semibold))
         }
-        .frame(maxWidth: .infinity)
-        .appCallHeroStyle()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("standardCallHero")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(StandardHeroCard())
+        .standardHeroAccessibility(kind: kindText(group), name: viewModel.callTitle(for: group),
+                                   status: viewModel.standardCallStatus)
     }
 
     @ViewBuilder private func detailSections(_ group: IntercomGroup) -> some View {
@@ -221,46 +217,27 @@ struct StandardCallView: View {
 
     @ViewBuilder private var statusSymbolView: some View {
         if viewModel.standardCallStatus == .connecting {
-            ProgressView().controlSize(.small)
+            // Only the progress carries the warning color; the words keep the label color.
+            ProgressView().controlSize(.small).tint(AppColorPalette.warning)
         } else {
-            Image(systemName: statusSymbol).foregroundStyle(statusColor).accessibilityHidden(true)
+            Image(systemName: statusSymbol).foregroundStyle(statusColor)
         }
     }
 
     private var statusTitle: some View {
         Text(LocalizedStringKey(viewModel.standardCallStatus.title))
             .fixedSize()
-            .accessibilityIdentifier("standardCallStatus")
     }
 
-    /// Kind and size above the name: "Group · 4 people" or "User".
+    private func kindText(_ group: IntercomGroup) -> String {
+        group.kind == .group ? String(localized: "Group · \(group.members.count) people") : String(localized: "User")
+    }
+
+    /// Kind and size above the name with the kind's symbol: "Group · 4 people" or "User".
     private func kindLine(_ group: IntercomGroup) -> some View {
-        Group {
-            if group.kind == .group {
-                Text("Group · \(group.members.count) people")
-            } else {
-                Text("User")
-            }
-        }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .accessibilityIdentifier("standardCallKind")
-    }
-
-    /// While connected, the short route names only; diagnostics stay in Advanced.
-    @ViewBuilder private func routeLine(_ group: IntercomGroup) -> some View {
-        let routes = group.id == viewModel.activeGroupID ? viewModel.availableCallRoutes : []
-        if !routes.isEmpty {
-            HStack(spacing: AppSpacing.s) {
-                if routes.contains(.multipeer) { Text("Local Network") }
-                if routes.contains(.multipeer) && routes.contains(.webRTC) { Text(verbatim: "·") }
-                if routes.contains(.webRTC) { Text("Internet") }
-            }
-            .font(.subheadline)
+        Label(kindText(group), systemImage: group.kind == .group ? "person.3.fill" : "person.fill")
+            .font(AppTypography.subheadlineStrong)
             .foregroundStyle(.secondary)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("standardCallRoute")
-        }
     }
 
     /// The reason sits on its own line under the state instead of after a dash.
@@ -269,7 +246,6 @@ struct StandardCallView: View {
             Text(LocalizedStringKey(detail))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .accessibilityIdentifier("standardCallStatusDetail")
         }
     }
 
@@ -292,12 +268,7 @@ struct StandardCallView: View {
         }
     }
 
-    private var microphoneStatus: some View {
-        Text(LocalizedStringKey(viewModel.isMuted ? "Microphone muted" : viewModel.isMicrophoneCaptureRunning ? "Microphone on" : "Microphone waiting for the call"))
-            .font(.footnote).accessibilityIdentifier("standardMicrophoneStatus")
-    }
-
-    @ViewBuilder private func primaryActions(_ group: IntercomGroup, compact: Bool, showsStatus: Bool = true) -> some View {
+    @ViewBuilder private func primaryActions(_ group: IntercomGroup, compact: Bool) -> some View {
         let reference = viewModel.currentCallReference
         let access = viewModel.accountAccessID
         if group.id == viewModel.activeGroupID, viewModel.hasAnyActiveGroupConnection {
@@ -309,7 +280,6 @@ struct StandardCallView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            if showsStatus && viewModel.canControlMicrophone { microphoneStatus }
         } else {
             Button(LocalizedStringKey(viewModel.hasAnyActiveGroupConnection ? "Switch to This Call" : "Connect"), systemImage: "phone") {
                 viewModel.startCall(to: .group(group.id), accountAccessID: access)
@@ -419,5 +389,47 @@ private struct CallMuteButtonStyle: ViewModifier {
         } else {
             content.buttonStyle(.glass)
         }
+    }
+}
+
+/// The hero's glass card. Standard only: Advanced draws its own call status.
+private struct StandardHeroCard: ViewModifier {
+    /// In a List the card is drawn as the row background instead (`surface`).
+    var drawsSurface = true
+
+    /// In a List the glass follows the section's corners. Elsewhere there is no container to be
+    /// concentric with, so it uses the design sample's 18pt continuous corners.
+    static var surface: some View { glass(in: ConcentricRectangle()) }
+
+    private static func glass(in shape: some Shape) -> some View {
+        shape.fill(.clear)
+            #if os(macOS)
+            // On Mac the hero is the one place that carries a faint brand tint.
+            .glassEffect(.regular.tint(RideComColors.accent.opacity(0.08)), in: shape)
+            #else
+            .glassEffect(.regular, in: shape)
+            #endif
+    }
+
+    func body(content: Content) -> some View {
+        if drawsSurface {
+            content.padding(AppSpacing.xxl)
+                .background(Self.glass(in: RoundedRectangle(cornerRadius: 18, style: .continuous)))
+        } else {
+            content
+        }
+    }
+}
+
+private extension View {
+    /// One element: the label names the destination, the value is the state and its reason.
+    func standardHeroAccessibility(kind: String, name: String, status: StandardCallStatus) -> some View {
+        let state = String(localized: .init(stringLiteral: status.title))
+        let reason = status.detail.map { String(localized: .init(stringLiteral: $0)) }
+        return accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: "\(kind), \(name)"))
+            .accessibilityValue(Text(verbatim: [state, reason].compactMap { $0 }.joined(separator: ", ")))
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("standardCallHero")
     }
 }
