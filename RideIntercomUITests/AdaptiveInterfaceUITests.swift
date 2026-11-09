@@ -19,6 +19,51 @@ final class AdaptiveInterfaceUITests: XCTestCase {
     @MainActor func testEnglishTabsSheetsAndCallAcrossRotation() { checkInterface(japanese: false) }
     @MainActor func testJapaneseTabsSheetsAndCallAcrossRotation() { checkInterface(japanese: true) }
 
+    /// On wide screens rows stay at most 640 pt and centered while the list itself spans the area.
+    @MainActor func testListsAndSettingsKeepReadableWidth() {
+        app = XCUIApplication()
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "standard"
+        app.launchArguments = ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launch(); app.activate()
+        // Switch tabs in portrait and rotate only to measure; the tab bar moves in landscape.
+        tab("ユーザー", id: "usersTab")
+        let users = element("standardUsersList")
+        XCTAssertTrue(users.waitForExistence(timeout: 5))
+        checkBothOrientations("Users") { self.assertReadableWidth(users.cells.firstMatch, in: users) }
+        tab("設定", id: "settingsTab")
+        let settings = element("settingsScrollView")
+        let nameCell = app.cells.containing(.textField, identifier: "localDisplayNameField").firstMatch
+        checkBothOrientations("Settings") { self.assertReadableWidth(nameCell, in: settings) }
+    }
+
+    @MainActor private func checkBothOrientations(_ name: String, _ check: () -> Void) {
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
+            XCUIDevice.shared.orientation = orientation
+            check()
+            screenshot("\(name) \(orientation == .portrait ? "portrait" : "landscape")")
+        }
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    @MainActor private func assertReadableWidth(_ row: XCUIElement, in list: XCUIElement,
+                                                file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(row.waitForExistence(timeout: 5), file: file, line: line)
+        // Rotation animates; let the layout settle before measuring.
+        for _ in 0..<20 where row.frame.width > 641 { usleep(200_000) }
+        XCTAssertLessThanOrEqual(row.frame.width, 641, "Rows stop at the readable width", file: file, line: line)
+        if XCUIDevice.shared.orientation.isPortrait {
+            XCTAssertEqual(row.frame.midX, list.frame.midX, accuracy: 2, "Rows are centered", file: file, line: line)
+        } else if UIDevice.current.userInterfaceIdiom == .pad {
+            // The list runs under the floating sidebar; rows center in the area beside it.
+            XCTAssertGreaterThan(row.frame.midX, list.frame.midX + 40, "Rows clear the sidebar", file: file, line: line)
+        }
+        if app.frame.width > 800 {
+            XCTAssertGreaterThan(list.frame.width, 700, "The list itself spans the area", file: file, line: line)
+        }
+    }
+
     @MainActor private func checkInterface(japanese: Bool) {
         app = XCUIApplication()
         app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"

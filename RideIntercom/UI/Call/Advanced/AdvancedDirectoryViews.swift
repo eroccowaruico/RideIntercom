@@ -37,6 +37,7 @@ struct AdvancedUsersView: View {
             }
             CallErrorSection(viewModel: viewModel)
         }
+        .readableScrollWidth()
         .navigationTitle("Users")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -85,6 +86,7 @@ struct AdvancedGroupsView: View {
             }
             CallErrorSection(viewModel: viewModel)
         }
+        .readableScrollWidth()
         .navigationTitle("Groups")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

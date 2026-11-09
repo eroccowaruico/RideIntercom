@@ -55,6 +55,7 @@ struct StandardUsersView: View {
         }
         .scrollContentBackground(.hidden)
         .background(AppColorPalette.standardScreenBackground)
+        .readableScrollWidth()
         .navigationTitle("Users")
         .directorySearch($query, count: viewModel.savedRemoteUsers.count)
         .toolbar {
@@ -119,6 +120,7 @@ struct StandardGroupsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(AppColorPalette.standardScreenBackground)
+        .readableScrollWidth()
         .navigationTitle("Groups")
         .directorySearch($query, count: viewModel.regularGroups.count)
         .toolbar {

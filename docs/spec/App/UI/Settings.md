@@ -2,7 +2,7 @@
 
 ## 目的
 
-StandardとAdvancedの設定トップはシステムのgrouped Form背景を使い、内容の幅を最大640ptに保つ。モード切替時は新モードの設定トップへ戻り、通話・設定値は共通ViewModelに保持する。
+StandardとAdvancedの設定トップはシステムのgrouped Form背景を使い、内容の幅を最大640ptに保つ。Form自体は描く領域いっぱいに置き（背景とスクロールバーは端まで）、`readableScrollWidth()`で左右の`contentMargins`を足して行を中央に寄せる。iPadの横で浮かぶサイドバーの分も安全領域として足し、見えている領域の中央に置く。モード切替時は新モードの設定トップへ戻り、通話・設定値は共通ViewModelに保持する。
 
 本書は Settings タブの UI 項目を定義する。
 

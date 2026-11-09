@@ -13,8 +13,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(maxWidth: AppSize.singleColumnMaxWidth)
-        .frame(maxWidth: .infinity)
+        .readableScrollWidth()
         .accessibilityIdentifier("settingsScrollView")
         .sheet(isPresented: $isEditingInternet) {
             NavigationStack {

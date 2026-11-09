@@ -15,6 +15,12 @@ struct MacScreenRenderingTests {
     @Test(arguments: ["en", "ja"]) func groupsList(language: String) async throws {
         try await render(.groups, language: language)
     }
+    @Test(arguments: ["en", "ja"]) func settingsList(language: String) async throws {
+        let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
+        defer { vm.disconnect() }
+        try await record(NavigationStack { SettingsView(viewModel: vm) },
+                         size: .init(width: 900, height: 680), language: language, named: "settings")
+    }
     @Test(arguments: ["en", "ja"]) func callColumn(language: String) async throws {
         try await render(.call, language: language)
     }

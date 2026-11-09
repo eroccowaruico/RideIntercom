@@ -124,3 +124,24 @@ extension View {
             .overlay(shape.stroke(AppColorPalette.cardBorder, lineWidth: AppBorderWidth.card))
     }
 }
+
+/// Caps scroll content at the single-column width and centers it in the visible area, while the List
+/// or Form itself (background and scroll indicator) still spans the whole area. A horizontal content
+/// margin replaces the list's safe-area inset (the floating iPad sidebar), so the inset is added back.
+private struct ReadableScrollWidth: ViewModifier {
+    @State private var margins = EdgeInsets()
+    func body(content: Content) -> some View {
+        content
+            .contentMargins(.leading, margins.leading, for: .scrollContent)
+            .contentMargins(.trailing, margins.trailing, for: .scrollContent)
+            .onGeometryChange(for: EdgeInsets.self) { proxy in
+                let extra = max(0, (proxy.size.width - AppSize.singleColumnMaxWidth) / 2)
+                return EdgeInsets(top: 0, leading: proxy.safeAreaInsets.leading + extra,
+                                  bottom: 0, trailing: proxy.safeAreaInsets.trailing + extra)
+            } action: { margins = $0 }
+    }
+}
+
+extension View {
+    func readableScrollWidth() -> some View { modifier(ReadableScrollWidth()) }
+}
