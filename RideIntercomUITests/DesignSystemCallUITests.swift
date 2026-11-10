@@ -160,51 +160,28 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertTrue(open.waitForNonExistence(timeout: 5), "Ending removes the bar")
     }
 
+    /// A connection is one place at a time: choosing another group during a call only opens the live call.
+    /// No confirmation appears; leaving takes ending the call first.
     @MainActor
-    func testChoosingAnotherGroupDuringACallAsksBeforeSwitching() {
-        defer { attachEvidence("Switch confirmation") }
+    func testChoosingAnotherGroupDuringACallOpensTheLiveCall() {
+        defer { attachEvidence("Choosing another group during a call") }
         startStandardCall()
         let second = "Second " + UUID().uuidString.prefix(6)
         createGroup(named: second)
-        var asked = false
-        for row in 0..<2 {
-            openGroups()
-            let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardGroup-"))
-            XCTAssertTrue(rows.element(boundBy: row).waitForExistence(timeout: 3))
-            let target = rows.element(boundBy: row)
-            let targetName = String(target.label.prefix(12))
-            // The accessory above the tab bar names the live call.
-            let current = app.buttons["callAccessoryOpenButton"].firstMatch
-            XCTAssertTrue(current.waitForExistence(timeout: 3))
-            let currentName = current.label
-            target.tap()
-            let confirm = app.buttons["switchCallConfirmButton"].firstMatch
-            guard confirm.waitForExistence(timeout: 2) else {
-                XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.waitForExistence(timeout: 3),
-                              "Choosing the current call reopens it")
-                continue
-            }
-            asked = true
-            // The confirmation names the call that ends and the one that starts.
-            XCTAssertTrue(app.staticTexts["Switch connection?"].firstMatch.exists)
-            let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Disconnect from'")).firstMatch
-            XCTAssertTrue(message.exists, app.debugDescription)
-            XCTAssertTrue(message.label.contains(String(currentName.prefix(12))) && message.label.contains(targetName), message.label)
-            attachEvidence("Switch confirmation dialog")
-            // On iPhone the dialog is a popover without a Cancel button; tapping outside cancels it.
-            let cancel = app.buttons["switchCallCancelButton"].firstMatch
-            if cancel.exists { cancel.tap() } else { app.otherElements["PopoverDismissRegion"].firstMatch.tap() }
-            XCTAssertTrue(confirm.waitForNonExistence(timeout: 3))
-            XCTAssertEqual(current.label, currentName, "Cancelling keeps the current call")
-            target.tap()
-            XCTAssertTrue(confirm.waitForExistence(timeout: 3))
-            confirm.tap()
-            XCTAssertTrue(app.buttons["standardEndCallButton"].firstMatch.waitForExistence(timeout: 5))
-            openGroups()
-            XCTAssertTrue(current.waitForExistence(timeout: 3))
-            XCTAssertTrue(current.label.hasPrefix(targetName), "Switching makes the chosen group the current call")
-        }
-        XCTAssertTrue(asked, "One of the two groups is not the current call and must ask before switching")
+        openGroups()
+        let current = app.buttons["callAccessoryOpenButton"].firstMatch
+        XCTAssertTrue(current.waitForExistence(timeout: 3))
+        let currentName = current.label
+        let other = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardGroup-", second)).firstMatch
+        XCTAssertTrue(other.waitForExistence(timeout: 3))
+        other.tap()
+        XCTAssertFalse(app.alerts.firstMatch.waitForExistence(timeout: 1), "No switch confirmation")
+        let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
+        XCTAssertTrue(hero.waitForExistence(timeout: 3))
+        XCTAssertFalse(hero.label.contains(second), "The live call is shown, not the chosen group: \(hero.label)")
+        openGroups()
+        XCTAssertTrue(current.waitForExistence(timeout: 3))
+        XCTAssertEqual(current.label, currentName, "The live call is unchanged")
     }
 
     @MainActor

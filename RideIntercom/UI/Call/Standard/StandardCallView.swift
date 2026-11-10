@@ -350,8 +350,9 @@ struct StandardCallView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-        } else {
-            Button(LocalizedStringKey(viewModel.hasAnyActiveGroupConnection ? "Switch to This Call" : "Connect"), systemImage: "phone") {
+        } else if !viewModel.hasAnyActiveGroupConnection {
+            // Connected elsewhere, there is no switch here: ending that call comes first.
+            Button("Connect", systemImage: "phone") {
                 viewModel.startCall(to: .group(group.id), accountAccessID: access)
             }
             .appProminentButtonStyle()

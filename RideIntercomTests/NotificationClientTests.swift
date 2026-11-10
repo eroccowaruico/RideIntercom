@@ -572,6 +572,8 @@ struct NotificationClientTests {
         let current = h.viewModel.currentCallReference
         #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST")))
         #expect(h.viewModel.currentCallReference == current)
+        // One place at a time: the notice only opens the live call, with no error.
+        #expect(h.viewModel.selectedGroup?.id == groupID && h.viewModel.groupErrorMessage == nil)
     }
 
     /// A new one-to-one connection sends the call notification exactly once; reopening the live call does not

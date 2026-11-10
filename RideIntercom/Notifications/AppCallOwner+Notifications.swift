@@ -14,6 +14,12 @@ extension AppCallOwner {
             return false
         }
         guard viewModel === model, model.hasCurrentAccountAccess, model.accountAccessID == accessID else { return false }
+        // In one place at a time: while connected elsewhere, the notice only opens the current call.
+        if model.hasAnyActiveGroupConnection, !model.isActiveCall(.user(userID)) {
+            model.showLiveCall()
+            callPresentationID = UUID()
+            return false
+        }
         let started = model.startCall(to: .user(userID), accountAccessID: accessID, allowSwitchingCall: false)
         callPresentationID = UUID()
         return started

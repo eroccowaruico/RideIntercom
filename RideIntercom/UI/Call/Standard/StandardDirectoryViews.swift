@@ -8,7 +8,6 @@ struct StandardUsersView: View {
     @Binding var selectedTab: AppTab
     @State private var settings: DestinationSettingsTarget?
     @State private var pendingDelete: PendingDestinationDelete?
-    @State private var pendingSwitch: CallDestination?
     @State private var query = ""
 
     private var users: [SavedUser] {
@@ -19,13 +18,13 @@ struct StandardUsersView: View {
 
     var body: some View {
         List {
-            RecentCallSection(viewModel: viewModel, pendingSwitch: $pendingSwitch) { selectedTab = .call }
+            RecentCallSection(viewModel: viewModel) { selectedTab = .call }
             CallStorageSection(viewModel: viewModel)
             StandardPendingInvitationsSection(viewModel: viewModel)
             Section {
                 ForEach(users) { user in
                     Button {
-                        viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
+                        viewModel.open(.user(user.id)) { selectedTab = .call }
                     } label: {
                         DirectoryRowLabel(title: user.resolvedDisplayName, isGroup: false,
                                           status: viewModel.isInCall(with: .user(user.id)) ? viewModel.callStatus(for: viewModel.activeGroupID) : nil)
@@ -69,7 +68,6 @@ struct StandardUsersView: View {
         }
         .destinationSettingsSheet($settings, viewModel: viewModel)
         .destinationDeleteConfirmation($pendingDelete)
-        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
     }
 }
 
@@ -80,7 +78,6 @@ struct StandardGroupsView: View {
     @State private var previousSelection: UUID?
     @State private var settings: DestinationSettingsTarget?
     @State private var pendingDelete: PendingDestinationDelete?
-    @State private var pendingSwitch: CallDestination?
     @State private var query = ""
 
     private var groups: [IntercomGroup] {
@@ -95,7 +92,7 @@ struct StandardGroupsView: View {
             Section {
                 ForEach(groups) { group in
                     Button {
-                        viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
+                        viewModel.open(.group(group.id)) { selectedTab = .call }
                     } label: {
                         DirectoryGroupLabel(viewModel: viewModel, group: group)
                     }
@@ -124,7 +121,6 @@ struct StandardGroupsView: View {
         }) { SavedUsersView(viewModel: viewModel) }
         .destinationSettingsSheet($settings, viewModel: viewModel)
         .destinationDeleteConfirmation($pendingDelete)
-        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
         .overlay {
             if viewModel.regularGroups.isEmpty {
@@ -204,7 +200,6 @@ extension View {
 /// The last destination leads the people list so talking again is one tap.
 struct RecentCallSection: View {
     let viewModel: IntercomViewModel
-    @Binding var pendingSwitch: CallDestination?
     let onOpen: () -> Void
 
     private func isGroup(_ destination: CallDestination) -> Bool {
@@ -223,7 +218,7 @@ struct RecentCallSection: View {
         if !viewModel.hasAnyActiveGroupConnection,
            let destination = viewModel.recentCallDestination, let title = viewModel.recentCallTitle {
             Section("Recent Call") {
-                Button { viewModel.open(destination, pending: $pendingSwitch, onOpen: onOpen) } label: {
+                Button { viewModel.open(destination, onOpen: onOpen) } label: {
                     DirectoryRowLabel(title: title, isGroup: isGroup(destination), detail: detail(destination), status: nil)
                 }
                 .directoryRowButtonStyle()

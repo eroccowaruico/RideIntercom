@@ -27,25 +27,28 @@ struct DestinationOpeningTests {
         #expect(vm.selectedGroup?.id == first.id)
     }
 
-    @Test func choosingAnotherDestinationDuringACallAsksFirst() throws {
+    /// A connection is one place at a time: another choice shows the live call and never switches or asks.
+    @Test func choosingAnotherDestinationDuringACallShowsTheLiveCall() throws {
         let h = try harness(); let vm = h.viewModel
         defer { vm.disconnect() }
         let first = vm.groups[0], second = vm.groups[1]
         #expect(vm.openDestination(.group(first.id)) == .opened)
         let reference = vm.currentCallReference
-        #expect(vm.openDestination(.group(second.id)) == .needsSwitchConfirmation)
+        #expect(vm.openDestination(.group(second.id)) == .showsLiveCall)
         #expect(vm.activeGroupID == first.id && vm.currentCallReference == reference)
-        #expect(vm.selectedGroup?.id == first.id, "Asking must not change what the call screen shows")
+        #expect(vm.selectedGroup?.id == first.id)
+        #expect(vm.groupErrorMessage == nil)
     }
 
-    @Test func confirmingTheSwitchReplacesTheCall() throws {
+    /// Leaving takes ending the call; then the next choice connects there.
+    @Test func afterEndingTheCallTheNextChoiceConnects() throws {
         let h = try harness(); let vm = h.viewModel
         defer { vm.disconnect() }
         let first = vm.groups[0], second = vm.groups[1]
         #expect(vm.openDestination(.group(first.id)) == .opened)
-        vm.switchCall(to: .group(second.id))
-        #expect(vm.activeGroupID == second.id && vm.selectedGroup?.id == second.id)
-        #expect(vm.hasAnyActiveGroupConnection)
+        #expect(vm.endCall(vm.currentCallReference))
+        #expect(vm.openDestination(.group(second.id)) == .opened)
+        #expect(vm.activeGroupID == second.id && vm.hasAnyActiveGroupConnection)
     }
 
     private func harness() throws -> AppTestSupport.Harness {

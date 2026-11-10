@@ -285,7 +285,8 @@ struct CallView: View {
                 .accessibilityIdentifier("disconnectButton")
             } else {
                 Button {
-                    if let destination { viewModel.startCall(to: destination, accountAccessID: accessID) }
+                    // One place at a time: a different live call is not replaced from here.
+                    if let destination { viewModel.startCall(to: destination, accountAccessID: accessID, allowSwitchingCall: false) }
                 } label: {
                     Label("Connect", systemImage: "antenna.radiowaves.left.and.right")
                 }

@@ -1,6 +1,8 @@
 import Foundation
 
-enum DestinationOpening: Equatable { case opened, needsSwitchConfirmation }
+/// Choosing from a list: `opened` started or reopened that call; `showsLiveCall` kept you where you are,
+/// because a connection is one place at a time and leaving it takes ending the call first.
+enum DestinationOpening: Equatable { case opened, showsLiveCall }
 
 nonisolated enum CallDestination: Codable, Equatable, Sendable {
     case group(UUID)
@@ -111,15 +113,23 @@ extension IntercomViewModel {
         return started
     }
 
-    /// Choosing someone from a list: connect when idle and reopen the current call.
-    /// A different live call is replaced only after `switchCall(to:)` is confirmed.
+    /// Choosing someone from a list: connect when idle, reopen the current call. While connected (waiting
+    /// included) you stay in one place: another choice only shows the live call, never switches or asks.
+    @discardableResult
     func openDestination(_ destination: CallDestination) -> DestinationOpening {
-        if hasAnyActiveGroupConnection, !isActiveCall(destination) { return .needsSwitchConfirmation }
+        if hasAnyActiveGroupConnection, !isActiveCall(destination) {
+            showLiveCall()
+            return .showsLiveCall
+        }
         connectOrShow(destination)
         return .opened
     }
 
-    func switchCall(to destination: CallDestination) { connectOrShow(destination) }
+    /// Shows the call that is live now, without connecting or switching anything.
+    func showLiveCall() {
+        guard let live = groups.first(where: { $0.id == activeGroupID }) else { return }
+        selectGroup(live, connectIfIdle: false)
+    }
 
     /// A start that cannot proceed still shows the destination, where the reason is explained.
     private func connectOrShow(_ destination: CallDestination) {

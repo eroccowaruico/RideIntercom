@@ -5,7 +5,6 @@ struct AdvancedUsersView: View {
     @Binding var selectedTab: AppTab
     @State private var settings: DestinationSettingsTarget?
     @State private var pendingDelete: PendingDestinationDelete?
-    @State private var pendingSwitch: CallDestination?
 
     var body: some View {
         List {
@@ -18,7 +17,7 @@ struct AdvancedUsersView: View {
                 }
                 ForEach(viewModel.savedRemoteUsers) { user in
                     Button {
-                        viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
+                        viewModel.open(.user(user.id)) { selectedTab = .call }
                     } label: {
                         AdvancedRecordRow(title: user.resolvedDisplayName, value: userValue(user),
                                           detail: "Name shared by this person: \(user.displayName)",
@@ -53,7 +52,6 @@ struct AdvancedUsersView: View {
         .accessibilityIdentifier("standardUsersList")
         .destinationSettingsSheet($settings, viewModel: viewModel)
         .destinationDeleteConfirmation($pendingDelete)
-        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
     }
 
     /// `SavedUser` as stored: the direct group's short id and the device count, or no direct group yet.
@@ -71,7 +69,6 @@ struct AdvancedGroupsView: View {
     @State private var previousSelection: UUID?
     @State private var settings: DestinationSettingsTarget?
     @State private var pendingDelete: PendingDestinationDelete?
-    @State private var pendingSwitch: CallDestination?
 
     var body: some View {
         List {
@@ -83,7 +80,7 @@ struct AdvancedGroupsView: View {
                 }
                 ForEach(viewModel.regularGroups) { group in
                     Button {
-                        viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
+                        viewModel.open(.group(group.id)) { selectedTab = .call }
                     } label: {
                         AdvancedRecordRow(title: group.name, value: groupValue(group), detail: group.id.shortRecordID,
                                           monospacedDetail: true,
@@ -110,7 +107,7 @@ struct AdvancedGroupsView: View {
                                                     state: viewModel.isInCall(with: .group(group.id)) ? "active" : nil)
                         if let userID = viewModel.savedUserID(forDirectCall: group) {
                             Button {
-                                viewModel.open(.user(userID), pending: $pendingSwitch) { selectedTab = .call }
+                                viewModel.open(.user(userID)) { selectedTab = .call }
                             } label: { row }
                             .directoryRowButtonStyle()
                             .accessibilityIdentifier("advancedDirectGroup-\(group.id)")
@@ -138,7 +135,6 @@ struct AdvancedGroupsView: View {
         }) { SavedUsersView(viewModel: viewModel) }
         .destinationSettingsSheet($settings, viewModel: viewModel)
         .destinationDeleteConfirmation($pendingDelete)
-        .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
     }
 

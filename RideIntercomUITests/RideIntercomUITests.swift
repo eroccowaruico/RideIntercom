@@ -326,10 +326,15 @@ final class RideIntercomUITests: XCTestCase {
         let user = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-")).firstMatch
         XCTAssertTrue(user.waitForExistence(timeout: 3))
         user.tap()
-        // The invitation's group is still connected, so choosing the person asks before switching.
-        let confirm = app.buttons["switchCallConfirmButton"].firstMatch
-        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
-        confirm.tap()
+        // The invitation's group is still connected: choosing the person only shows that call, so end it first.
+        XCTAssertFalse(app.alerts.firstMatch.waitForExistence(timeout: 1), "No switch confirmation")
+        let disconnect = app.buttons["disconnectButton"].firstMatch
+        XCTAssertTrue(disconnect.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["directCallHelpLabel"].exists)
+        disconnect.tap()
+        openUsersTab()
+        XCTAssertTrue(user.waitForExistence(timeout: 3))
+        user.tap()
         XCTAssertTrue(app.staticTexts["directCallHelpLabel"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["addSavedUsersButton"].exists)
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
