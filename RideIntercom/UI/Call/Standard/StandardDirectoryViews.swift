@@ -49,8 +49,6 @@ struct StandardUsersView: View {
                         _ = viewModel.removeSavedUser(user.id)
                     }
                 }
-            } footer: {
-                Text("Only direct invitations save a person here. Removing a saved user keeps your existing groups and calls.")
             }
             CallErrorSection(viewModel: viewModel)
         }

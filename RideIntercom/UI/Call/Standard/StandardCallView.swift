@@ -158,10 +158,6 @@ struct StandardCallView: View {
     }
 
     @ViewBuilder private func detailSections(_ group: IntercomGroup) -> some View {
-        if group.kind == .direct {
-            Section { Text("Share the invitation from More the first time. Your friend needs to open this call too; this does not send a notification.")
-                .font(.footnote).foregroundStyle(.secondary) }
-        }
         if group.id == viewModel.activeGroupID {
             audioDetails
             if viewModel.isAudioPausedForDeviceChange, viewModel.canResumeAudioOnThisDevice {
@@ -377,11 +373,12 @@ struct StandardCallView: View {
                 }
                 .modifier(CallMuteButtonStyle(isMuted: viewModel.isOutputMuted, tint: AppColorPalette.buttonProminentBackground))
                 .buttonBorderShape(.circle)
-                .accessibilityLabel("Mute Speaker")
-                .accessibilityValue(viewModel.isOutputMuted ? "Muted" : "Unmuted")
+                // Silence, not "Speaker": the phone's Speaker switches where the sound goes.
+                .accessibilityLabel("Silence")
+                .accessibilityValue(viewModel.isOutputMuted ? "On" : "Off")
                 .accessibilityAddTraits(viewModel.isOutputMuted ? .isSelected : [])
                 .accessibilityIdentifier("standardSpeakerButton")
-                Text("Speaker").font(AppTypography.footnoteStrong)
+                Text(viewModel.isOutputMuted ? "Silenced" : "Silence").font(AppTypography.footnoteStrong)
                     .fixedSize(horizontal: horizontalLabels, vertical: true)
                     .accessibilityIdentifier("standardSpeakerControlLabel")
             }
@@ -401,25 +398,27 @@ struct StandardCallView: View {
         }
     }
 
+    /// The volume of where the sound goes now: the slider alone, no number. A tick marks 100%;
+    /// above it, "Louder" says it is raised.
     private var audioDetails: some View {
-        Section("Audio") {
-            VStack(alignment: .leading) {
-                HStack {
-                    Text("Speaker Volume").accessibilityIdentifier("standardSpeakerVolumeLabel")
-                    Spacer()
-                    Text("\(Int(viewModel.masterOutputVolume * 100))%")
-                        .monospacedDigit().accessibilityIdentifier("standardSpeakerVolumeValue")
+        Section {
+            HStack(spacing: AppSpacing.s) {
+                Image(systemName: "speaker").foregroundStyle(.secondary).accessibilityHidden(true)
+                Slider(value: Binding(get: { Double(viewModel.masterOutputVolume) }, set: { viewModel.setMasterOutputVolume(Float($0)) }),
+                       in: 0...2) {
+                    Text("Volume")
+                } ticks: {
+                    SliderTick(1.0)
                 }
-                HStack(spacing: AppSpacing.s) {
-                    Image(systemName: "speaker").foregroundStyle(.secondary).accessibilityHidden(true)
-                    Slider(value: Binding(get: { Double(viewModel.masterOutputVolume) }, set: { viewModel.setMasterOutputVolume(Float($0)) }), in: 0...2) {
-                        Text("Speaker Volume")
-                    }
-                    .labelsHidden()
-                    // What actually plays, so a moving symbol you cannot hear points at the volume or device.
-                    StandardVoiceIndicator(kind: .output, level: viewModel.diagnosticsOutputLevel,
-                                           isSilenced: viewModel.isOutputMuted, label: Text("Output"))
-                        .accessibilityIdentifier("standardVoiceIndicatorOutput")
+                .labelsHidden()
+                .accessibilityIdentifier("standardVolumeSlider")
+                // What actually plays, so a moving symbol you cannot hear points at the volume or device.
+                StandardVoiceIndicator(kind: .output, level: viewModel.diagnosticsOutputLevel,
+                                       isSilenced: viewModel.isOutputMuted, label: Text("Output"))
+                    .accessibilityIdentifier("standardVoiceIndicatorOutput")
+                if viewModel.masterOutputVolume > 1 {
+                    Text("Louder").font(.footnote).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("standardVolumeLouder")
                 }
             }
             if viewModel.supportsSoundIsolation {

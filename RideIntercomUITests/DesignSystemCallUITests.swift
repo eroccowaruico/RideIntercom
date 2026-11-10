@@ -241,10 +241,17 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertTrue(state.waitForExistence(timeout: 3))
         XCTAssertEqual(state.label, "Muted")
         XCTAssertEqual(mute.value as? String, "Muted")
-        let value = app.staticTexts["standardSpeakerVolumeValue"].firstMatch
-        for _ in 0..<4 where !value.exists { app.swipeUp() }
-        XCTAssertTrue(value.waitForExistence(timeout: 3))
-        XCTAssertEqual(value.label, "100%")
+        // The volume is the slider alone: no number, and "Louder" only above 100%.
+        let volume = app.sliders["standardVolumeSlider"].firstMatch
+        for _ in 0..<4 where !volume.exists { app.swipeUp() }
+        XCTAssertTrue(volume.waitForExistence(timeout: 3))
+        XCTAssertEqual(volume.label, "Volume")
+        XCTAssertFalse(app.staticTexts["100%"].exists)
+        XCTAssertFalse(app.staticTexts["standardVolumeLouder"].exists, "100% is not louder")
+        // The output switch is Silence, read as On or Off; never "Speaker".
+        let silence = app.buttons["standardSpeakerButton"].firstMatch
+        XCTAssertEqual(silence.label, "Silence")
+        XCTAssertEqual(silence.value as? String, "Off")
         // Voice indicators: what plays at the volume's right end, and your microphone first in the members.
         let output = app.descendants(matching: .any)["standardVoiceIndicatorOutput"].firstMatch
         XCTAssertTrue(output.exists, app.debugDescription)
@@ -282,7 +289,7 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertTrue(details.waitForExistence(timeout: 5))
         XCTAssertTrue(controls.waitForExistence(timeout: 5))
         XCTAssertLessThanOrEqual(details.frame.maxY, controls.frame.minY + 1, "Information and controls must occupy separate regions")
-        let labels = [("standardMuteState", "Mute"), ("standardSpeakerControlLabel", "Speaker"), ("standardEndControlLabel", "End")].map { id, expected in
+        let labels = [("standardMuteState", "Mute"), ("standardSpeakerControlLabel", "Silence"), ("standardEndControlLabel", "End")].map { id, expected in
             let label = app.staticTexts[id].firstMatch
             XCTAssertTrue(label.exists, label.debugDescription)
             XCTAssertEqual(label.label, expected)

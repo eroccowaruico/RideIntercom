@@ -110,8 +110,9 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         let status = app.staticTexts["standardMuteState"].firstMatch
         assertVisible(status)
         XCTAssertEqual(status.label, mutedText)
-        assertVisible(app.staticTexts["standardSpeakerVolumeLabel"])
-        XCTAssertEqual(app.staticTexts["standardSpeakerVolumeLabel"].label, japanese ? "スピーカー音量" : "Speaker Volume")
+        assertVisible(app.sliders["standardVolumeSlider"])
+        XCTAssertEqual(app.sliders["standardVolumeSlider"].label, japanese ? "音量" : "Volume")
+        XCTAssertEqual(app.staticTexts["standardSpeakerControlLabel"].label, japanese ? "消音" : "Silence")
         screenshot("\(japanese ? "Japanese" : "English") landscape muted call")
 
         tab(japanese ? "ユーザー" : "Users", id: "usersTab")
