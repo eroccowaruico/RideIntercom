@@ -480,7 +480,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         </div>
         <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>Call（シート）：グループ通話</b>Call status → Input → Output → Participants。相手ごとに受信のメーター（<code>voiceLevel</code>のバーと<code>voicePeakLevel</code>の印）と、実装の値の文<code>LEVEL n  PEAK n</code>（相手がミュート中は<code>MUTED</code>）を出す。Participants の下でそのまま Add Saved Users。グループの設定は「…」メニュー。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
+      <figcaption><b>Call（シート）：グループ通話</b>Call status → Input → Output → Participants。相手ごとに受信のメーター（<code>voiceLevel</code>のバーと<code>voicePeakLevel</code>の印）と、実装の値の文<code>LEVEL n  PEAK n</code>（相手がミュート中は<code>MUTED</code>）を出す。Participants の下でそのまま Add Saved Users。グループの設定はツールバーの設定のボタン（招待は Participants の下の別のボタン）。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
     </figure>
 
     <figure>
@@ -577,7 +577,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="fhd g2"><span class="gdot"></span>Automatic Disconnection</div>
           <div class="card"><div class="frow"><span class="g">Regular Calls</span><span class="tail">3 hours <span class="chev">⌃</span></span></div><div class="frow"><span class="g">Calls Started from Watch</span><span class="tail">5 minutes <span class="chev">⌃</span></span></div></div>
           <div class="fhd g2"><span class="gdot"></span>Call Notifications</div>
-          <div class="card"><div class="frow"><span class="g">Receive Call Requests</span><span class="toggle"></span></div><div class="frow"><span class="g mono">receivesNotifications</span><span class="v">true</span></div><div class="frow"><span class="g mono">authorizationDenied</span><span class="v">false</span></div><div class="frow"><span class="g mono">isBusy</span><span class="v">false</span></div><div class="frow"><span class="g mono">message</span><span class="v">—</span></div></div>
+          <div class="card"><div class="frow"><span class="g mono">receivesNotifications</span><span class="v">true</span></div><div class="frow"><span class="g mono">authorizationDenied</span><span class="v">false</span></div><div class="frow"><span class="g mono">isBusy</span><span class="v">false</span></div><div class="frow"><span class="g mono">message</span><span class="v">—</span></div></div>
           <div class="fhd g2"><span class="gdot"></span>Call status display</div>
           <div class="card"><div class="frow"><span class="g">Show call status outside the app</span><span class="toggle off"></span></div></div>
           <div class="gsep"></div>
@@ -614,7 +614,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <li>Your Display Name <span>Your name · Save Name</span></li></ol></div>
       <div class="og g2"><b>通話</b><ol>
         <li>Automatic Disconnection <span>Regular Calls · Calls Started from Watch</span></li>
-        <li>Call Notifications <span>Receive Call Requests（isEnabled）と CallNotifications の値をそのまま</span></li>
+        <li>Call Notifications <span>CallNotifications の値をそのまま（読むだけ。通知の設定はOSだけ）</span></li>
         <li>Call status display <span>Show call status outside the app（macOSはmenu bar）</span></li></ol></div>
       <div class="og g3"><b>接続</b><ol>
         <li>Communication <span>Local Network · Internet</span></li>
