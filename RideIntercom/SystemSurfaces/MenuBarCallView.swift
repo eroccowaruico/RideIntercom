@@ -8,7 +8,8 @@ struct MenuBarCallView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if let call = owner.currentLivePresentation {
+        // Not connected reads like no call: no state word and nothing to mute or end.
+        if let call = owner.currentLivePresentation, call.status != .ready, call.status != .chooseDestination {
             Text(LocalizedStringKey(call.status.menuBarTitle))
                 .accessibilityIdentifier("menuBarCallStatus")
             if call.canControlMicrophone {
@@ -66,7 +67,7 @@ private extension StandardCallStatus {
     var menuBarTitle: String {
         switch self {
         case .chooseDestination: "No active call"
-        case .ready: "Ready to connect"
+        case .ready: "No active call"
         case .connecting: "Connecting"
         case .inCall: "In a call"
         case .audioPaused: "Audio paused"

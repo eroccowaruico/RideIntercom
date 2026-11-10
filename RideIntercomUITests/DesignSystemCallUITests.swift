@@ -53,6 +53,9 @@ final class DesignSystemCallUITests: XCTestCase {
         end.tap()
         let cancel = app.alerts.firstMatch.buttons["standardCancelEndCallButton"].firstMatch
         XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+        // The question names the call it ends.
+        let heroName = hero.label.components(separatedBy: ", ").last ?? ""
+        XCTAssertEqual(app.alerts.firstMatch.label, "Disconnect from \(heroName)?", hero.label)
         XCTAssertTrue(app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.exists)
         cancel.tap()
         XCTAssertTrue(end.waitForExistence(timeout: 3))

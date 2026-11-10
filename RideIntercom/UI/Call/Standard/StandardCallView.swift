@@ -8,6 +8,7 @@ struct StandardCallView: View {
     @State private var editingMember: MemberNameSelection?
     @State private var pendingEndReference: CallReference?
     @State private var confirmsEnd = false
+    @State private var endingCallName = ""
     @State private var pendingRemoval: PendingMemberRemoval?
 
     var body: some View {
@@ -96,7 +97,8 @@ struct StandardCallView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("standardCallScreen")
-        .alert("End Call?", isPresented: $confirmsEnd) {
+        // Ending cannot be undone, so the question names the call, as the accessory's does.
+        .alert(Text("Disconnect from \(endingCallName)?"), isPresented: $confirmsEnd) {
             Button("End Call", role: .destructive) {
                 if let reference = pendingEndReference { viewModel.endCall(reference) }
                 pendingEndReference = nil
@@ -192,34 +194,22 @@ struct StandardCallView: View {
                 .frame(minHeight: 44)
             }
             ForEach(Array(group.members.dropFirst())) { member in
-                VStack(alignment: .leading, spacing: AppSpacing.m) {
-                    HStack {
-                        HStack {
-                            DestinationAvatar(isGroup: false)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(member.resolvedDisplayName)
-                                if group.id == viewModel.activeGroupID { memberState(member) }
-                            }
-                        }
-                        .accessibilityElement(children: .combine)
-                        Spacer()
-                        // Only someone in the conversation has a voice to show; still and grey while quiet.
-                        if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
-                            StandardVoiceIndicator(kind: .peer, level: member.voiceLevel, isSilenced: member.isMuted,
-                                                   label: Text("\(member.resolvedDisplayName)'s voice"))
-                                .accessibilityIdentifier("standardVoiceIndicator-\(member.id)")
-                        }
-                    }
-                    .frame(minHeight: 44)
+                Group {
+                    // Someone in the conversation opens their own volume with a tap; it stays hidden otherwise.
                     if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
-                        VStack(alignment: .leading) {
-                            Text("Volume").accessibilityIdentifier("standardPeerVolumeLabel-\(member.id)")
+                        DisclosureGroup {
                             Slider(value: Binding(get: { Double(viewModel.remoteOutputVolume(for: member.id)) },
                                                   set: { viewModel.setRemoteOutputVolume(peerID: member.id, volume: Float($0)) }), in: 0...1) {
                                 Text("Volume for \(member.resolvedDisplayName)")
                             }
                             .labelsHidden()
+                            .accessibilityIdentifier("standardPeerVolume-\(member.id)")
+                        } label: {
+                            memberRow(member, in: group)
                         }
+                        .accessibilityIdentifier("standardPeerRow-\(member.id)")
+                    } else {
+                        memberRow(member, in: group)
                     }
                 }
                 .standardMemberRowActions(edit: { editingMember = .init(groupID: group.id, member: member) },
@@ -235,6 +225,27 @@ struct StandardCallView: View {
         } header: {
             Text("People in This Call").accessibilityIdentifier("standardCallParticipantsHeading")
         }
+    }
+
+    private func memberRow(_ member: GroupMember, in group: IntercomGroup) -> some View {
+        HStack {
+            HStack {
+                DestinationAvatar(isGroup: false)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(member.resolvedDisplayName)
+                    if group.id == viewModel.activeGroupID { memberState(member) }
+                }
+            }
+            .accessibilityElement(children: .combine)
+            Spacer()
+            // Only someone in the conversation has a voice to show; still and grey while quiet.
+            if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
+                StandardVoiceIndicator(kind: .peer, level: member.voiceLevel, isSilenced: member.isMuted,
+                                       label: Text("\(member.resolvedDisplayName)'s voice"))
+                    .accessibilityIdentifier("standardVoiceIndicator-\(member.id)")
+            }
+        }
+        .frame(minHeight: 44)
     }
 
     /// One state word under the name while in this call: speaking, connecting, or not connected.
@@ -384,7 +395,11 @@ struct StandardCallView: View {
             }
             if !vertical { Spacer(minLength: AppSpacing.destructiveSeparation) }
             controlLayout {
-                Button(role: .destructive) { pendingEndReference = reference; confirmsEnd = true } label: {
+                Button(role: .destructive) {
+                    pendingEndReference = reference
+                    endingCallName = viewModel.groups.first { $0.id == viewModel.activeGroupID }.map { viewModel.callTitle(for: $0) } ?? ""
+                    confirmsEnd = true
+                } label: {
                     Image(systemName: "phone.down.fill").frame(width: symbol, height: symbol)
                 }
                 .buttonStyle(.glassProminent).tint(AppColorPalette.danger)

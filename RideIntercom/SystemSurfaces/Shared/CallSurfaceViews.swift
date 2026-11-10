@@ -85,7 +85,6 @@ struct SelectedCallContent: View {
                 if let currentCall {
                     BackgroundWidgetCallButtons(call: currentCall)
                 } else {
-                    Text("Not connected").font(.caption).foregroundStyle(.secondary)
                     Button(intent: BackgroundCallControlIntent(destinationID: destination.id)) {
                         Label("Start call", systemImage: "phone.fill")
                             .frame(maxWidth: .infinity, minHeight: 44)
@@ -143,7 +142,8 @@ struct BackgroundWidgetCallButtons: View {
                 .font(.caption2)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-        } else {
+        } else if call.status != .ready && call.status != .chooseDestination {
+            // Not connected needs no word: the name and Connect say it.
             Label {
                 Text(String(localized: .init(stringLiteral: statusTitle)))
             } icon: { CallSurfaceStatusIcon(status: call.status) }
@@ -202,7 +202,6 @@ struct CallActivityContent: View {
         VStack(alignment: .leading, spacing: 6) {
             CallActivityBrand()
             CallActivityStatus(call: call)
-            CallActivityMicrophone(call: call)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -217,12 +216,16 @@ struct CallActivityBrand: View {
     }
 }
 
+/// The state alone; while muted it reads "In a call · Muted", as the call accessory does. No microphone sentence.
 struct CallActivityStatus: View {
     let call: CallLivePresentation
+    private var text: String {
+        let word = String(localized: .init(stringLiteral: call.status.title))
+        return call.isMuted && call.canControlMicrophone ? String(localized: "\(word) · Muted") : word
+    }
     var body: some View {
         Label {
-            Text(String(localized: .init(stringLiteral: call.status.title)))
-                .fixedSize(horizontal: false, vertical: true)
+            Text(text).fixedSize(horizontal: false, vertical: true)
         } icon: { CallSurfaceStatusIcon(status: call.status) }
     }
 }
