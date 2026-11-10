@@ -10,11 +10,21 @@ struct AudioPortPicker: View {
     var body: some View {
         Picker(LocalizedStringKey(title), selection: selection) {
             ForEach(ports) { port in
-                Text(port.name).tag(port as AudioPortInfo)
+                label(port).tag(port as AudioPortInfo)
             }
         }
         .pickerStyle(.menu)
         .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    /// The app's own choices read in the person's language; a device keeps the name the system gives it.
+    private func label(_ port: AudioPortInfo) -> Text {
+        switch port.id {
+        case AudioPortInfo.systemDefault.id: Text("Auto")
+        case AudioPortInfo.receiver.id: Text("Receiver")
+        case AudioPortInfo.speaker.id: Text("Speaker")
+        default: Text(verbatim: port.name)
+        }
     }
 }
 

@@ -31,6 +31,14 @@ struct CallStatusTextTests {
         #expect(ja("Contact Invitation") == "招待")
         #expect(ja("No Groups Yet") == "まだグループがありません")
         #expect(ja("Invite Someone") == "新しい相手を招待")
+        // No English left in Standard: the app's own audio choices and the audio check's reasons read in Japanese.
+        #expect(ja("Auto") == "自動")
+        #expect(ja("Receiver") == "受話口")
+        for reason in ["Audio recording processing failed", "Incomplete microphone recording", "Preparing Watch audio check",
+                       "Waiting for Watch playback", "Watch audio check failed", "Watch playback did not start"] {
+            #expect(ja(reason) != reason, "\(reason) has no Japanese")
+        }
+        #expect(ja("Set up Internet calling to use notifications.") == "通知を利用するにはインターネット通話を設定してください。")
         #expect(ja("Create and Connect") == "作成して接続")
     }
 }
