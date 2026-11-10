@@ -85,24 +85,37 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
         revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
-        // The invitation sits in the call's More menu, not as a standalone share button.
+        // Standard's call shares no bare link: the temporary group link lives in Group Settings only.
         XCTAssertFalse(app.buttons["inviteButton"].exists)
-        let invite = app.openCallMoreMenuItem("inviteButton")
-        invite.tap()
+        XCTAssertFalse(app.buttons["callMoreMenu"].exists)
+        let openSettings = {
+            self.app.buttons["callGroupSettingsButton"].firstMatch.tap()
+            let invite = self.app.buttons["groupSettingsInviteButton"].firstMatch
+            XCTAssertTrue(invite.waitForExistence(timeout: 3))
+            invite.tap()
+        }
+        let closeSettings = {
+            let close = self.app.buttons["closeGroupSettingsButton"].firstMatch
+            XCTAssertTrue(close.waitForExistence(timeout: 3))
+            close.tap()
+            XCTAssertTrue(close.waitForNonExistence(timeout: 3))
+        }
+        openSettings()
         let copy = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
-        // Dismiss without choosing a share destination. From the menu the share sheet is a
-        // popover anchored to the toolbar, so tap outside it rather than swiping it down.
+        // Dismiss without choosing a share destination.
         let outside = app.otherElements["PopoverDismissRegion"].firstMatch
-        if outside.exists { outside.tap() } else { app.swipeDown() }
+        if outside.exists { outside.tap() } else { copy.swipeDown() }
         XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        closeSettings()
         revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
-        app.openCallMoreMenuItem("inviteButton").tap()
+        openSettings()
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
         copy.tap()
         XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        closeSettings()
         revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
@@ -1074,10 +1087,7 @@ final class RideIntercomUITests: XCTestCase {
         let initialCount = groupRows.count
         let groupRow = groupRows.firstMatch
         XCTAssertTrue(groupRow.waitForExistence(timeout: 3))
-        groupRow.swipeLeft()
-        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 2))
-        app.buttons["Delete"].tap()
-        app.confirmDestinationDelete()
+        app.deleteGroupRow(groupRow)
         XCTAssertLessThan(talkGroupRows.count, initialCount)
     }
 
@@ -1399,11 +1409,7 @@ final class RideIntercomUITests: XCTestCase {
             // Rows are lazy: deleting one can load another, so check that this row went away.
             let deleted = groupRow.identifier
 
-            groupRow.swipeLeft()
-            let deleteButton = app.buttons["Delete"].firstMatch
-            XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
-            deleteButton.tap()
-            app.confirmDestinationDelete()
+            app.deleteGroupRow(groupRow)
 
             XCTAssertTrue(app.buttons[deleted].waitForNonExistence(timeout: 3))
         }

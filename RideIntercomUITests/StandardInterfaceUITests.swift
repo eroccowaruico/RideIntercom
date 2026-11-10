@@ -392,6 +392,33 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["sendGroupInvitationMessage"].waitForExistence(timeout: 5))
         app.buttons["finishAddingUsersButton"].tap()
         XCTAssertTrue(app.buttons["standardEndCallButton"].waitForExistence(timeout: 5))
+        // Group Settings: tapping a member opens their settings, where Remove from Group asks first.
+        // No long-press menus: the row's swipe offers Remove, and the settings carry it as a named button.
+        app.buttons["callGroupSettingsButton"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForExistence(timeout: 3))
+        let member = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                                                      "groupSettingsMember-", inviterName)).firstMatch
+        XCTAssertTrue(member.waitForExistence(timeout: 3))
+        let me = app.descendants(matching: .any)["groupSettingsSelf"].firstMatch
+        XCTAssertTrue(me.exists, "You come first in the members, as in the call")
+        XCTAssertLessThan(me.frame.minY, member.frame.minY)
+        XCTAssertFalse(app.staticTexts["Touch and hold a member to rename or remove them."].exists)
+        member.tap()
+        let remove = app.buttons["removeGroupMemberButton"].firstMatch
+        XCTAssertTrue(remove.waitForExistence(timeout: 3))
+        XCTAssertEqual(remove.label, "Remove from Group")
+        // As the design: titled with their name, only your name for them, then Remove from Group.
+        XCTAssertTrue(app.navigationBars[inviterName].exists, app.debugDescription)
+        XCTAssertEqual(app.textFields["groupMemberNameField"].firstMatch.placeholderValue, inviterName)
+        XCTAssertFalse(app.buttons["resetGroupMemberNameButton"].exists, "No Use Shared Name: empty returns to it")
+        screenshot("Standard group member settings")
+        remove.tap()
+        let removal = app.alerts.firstMatch
+        XCTAssertTrue(removal.waitForExistence(timeout: 3))
+        XCTAssertTrue(removal.staticTexts["Remove \(inviterName) from the group?"].exists, removal.debugDescription)
+        removal.buttons["confirmRemoveMemberButton"].firstMatch.tap()
+        XCTAssertTrue(member.waitForNonExistence(timeout: 3), "The member leaves the group")
+        app.buttons["closeGroupSettingsButton"].tap()
         app.buttons["standardEndCallButton"].tap()
         app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
     }
@@ -535,11 +562,7 @@ final class StandardInterfaceUITests: XCTestCase {
         tab("Groups", id: "groupsTab")
         let created = app.buttons.containing(.staticText, identifier: groupName).firstMatch
         XCTAssertTrue(created.waitForExistence(timeout: 3))
-        created.swipeLeft()
-        let delete = app.buttons["Delete"].firstMatch
-        XCTAssertTrue(delete.waitForExistence(timeout: 3))
-        delete.tap()
-        app.confirmDestinationDelete()
+        app.deleteGroupRow(created)
         XCTAssertTrue(created.waitForNonExistence(timeout: 3))
     }
 
@@ -583,9 +606,7 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(app.buttons["standardEndCallButton"].waitForNonExistence(timeout: 3))
         tab("Groups", id: "groupsTab")
         let row = app.buttons.containing(.staticText, identifier: destination).firstMatch
-        row.swipeLeft()
-        app.buttons["Delete"].firstMatch.tap()
-        app.confirmDestinationDelete()
+        app.deleteGroupRow(row)
         XCTAssertTrue(row.waitForNonExistence(timeout: 3))
         #endif
     }

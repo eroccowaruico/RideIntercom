@@ -98,7 +98,8 @@ struct StandardGroupsView: View {
                     }
                     .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardGroup-\(group.id)")
-                    .standardDestinationRowActions("Group Settings", settings: { settings = .group(group.id) },
+                    // Only Group Settings: deleting a group (or leaving it) lives inside Group Settings.
+                    .standardDestinationRowActions("Group Settings", settings: { settings = .group(group.id) }, canDelete: false,
                                            pending: $pendingDelete, name: group.name, endsCall: viewModel.isInCall(with: .group(group.id))) {
                         viewModel.deleteGroup(group.id)
                     }

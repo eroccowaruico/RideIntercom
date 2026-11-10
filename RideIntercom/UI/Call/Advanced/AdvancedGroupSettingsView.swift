@@ -36,10 +36,9 @@ struct AdvancedGroupSettingsView: View {
                     } header: {
                         Text("Members")
                     } footer: {
+                        // iPhone and iPad swipe the row (no long-press menu); a mouse cannot swipe, so a Mac right-clicks.
                         #if os(macOS)
                         Text("Control-click a member to rename or remove them.")
-                        #else
-                        Text("Touch and hold a member to rename or remove them.")
                         #endif
                     }
                     if viewModel.canShareGroup(groupID) {

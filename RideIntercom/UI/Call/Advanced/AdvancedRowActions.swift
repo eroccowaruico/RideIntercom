@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Advanced's list and member row actions.
+/// Advanced's list and member row actions: a swipe; a Mac gets the same items on right-click (no long press).
 extension View {
     /// Long-press and swipe offer the settings entry first, then Delete, which always asks first:
     /// Delete only fills `pending`; the list shows the alert (`destinationDeleteConfirmation`).
@@ -15,7 +15,7 @@ extension View {
             }
             Button(action: settings) { Label(settingsTitle, systemImage: "gearshape") }
         }
-        .contextMenu {
+        .macRightClickMenu {
             Button(action: settings) { Label(settingsTitle, systemImage: "gearshape") }
             if canDelete {
                 Button(role: .destructive, action: ask) { Label("Delete", systemImage: "trash") }
@@ -32,7 +32,7 @@ extension View {
             if canRemove { Button(role: .destructive, action: ask) { Label("Remove", systemImage: "person.badge.minus") } }
             Button(action: edit) { Label("Edit Name", systemImage: "pencil") }
         }
-        .contextMenu {
+        .macRightClickMenu {
             Button(action: edit) { Label("Edit Name", systemImage: "pencil") }
             if canRemove { Button(role: .destructive, action: ask) { Label("Remove", systemImage: "person.badge.minus") } }
         }

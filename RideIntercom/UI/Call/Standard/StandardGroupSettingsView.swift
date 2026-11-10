@@ -28,13 +28,29 @@ struct StandardGroupSettingsView: View {
                             .accessibilityIdentifier("groupSettingsNameField")
                     }
                     Section {
+                        // You come first, as in the call; your own row opens nothing.
+                        HStack(spacing: AppSpacing.m) {
+                            DestinationAvatar(isGroup: false, diameter: 28).accessibilityHidden(true)
+                            Text("You")
+                        }
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("groupSettingsSelf")
                         ForEach(Array(group.members.dropFirst())) { member in
-                            HStack(spacing: AppSpacing.m) {
-                                DestinationAvatar(isGroup: false, diameter: 28).accessibilityHidden(true)
-                                Text(verbatim: member.resolvedDisplayName).lineLimit(2)
+                            // The tap opens the member's own page; the swipe removes them.
+                            Button { editingMember = member } label: {
+                                HStack(spacing: AppSpacing.m) {
+                                    DestinationAvatar(isGroup: false, diameter: 28).accessibilityHidden(true)
+                                    Text(verbatim: member.resolvedDisplayName).lineLimit(2)
+                                    Spacer()
+                                    Image(systemName: "chevron.forward").font(.footnote.weight(.semibold))
+                                        .foregroundStyle(.tertiary).accessibilityHidden(true)
+                                }
+                                .frame(minHeight: 44)
+                                .contentShape(.rect)
                             }
-                            .frame(minHeight: 44)
-                            .standardMemberRowActions(edit: { editingMember = member }, pending: $pendingRemoval,
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("groupSettingsMember-\(member.id)")
+                            .standardMemberRowActions(canRemove: viewModel.canEditSavedGroups, pending: $pendingRemoval,
                                                       name: member.resolvedDisplayName) {
                                 viewModel.removeMember(member.id, from: groupID)
                             }
@@ -53,12 +69,6 @@ struct StandardGroupSettingsView: View {
                         .accessibilityIdentifier("groupSettingsAddMembersButton")
                     } header: {
                         Text("Members")
-                    } footer: {
-                        #if os(macOS)
-                        Text("Control-click a member to rename or remove them.")
-                        #else
-                        Text("Touch and hold a member to rename or remove them.")
-                        #endif
                     }
                     // Temporary: the only way to bring in someone who is not yet one of your users,
                     // until Invite Members can invite new people (see the backlog).
@@ -115,7 +125,9 @@ struct StandardGroupSettingsView: View {
             }
             .sheet(isPresented: $invitingMembers) { SavedUsersView(viewModel: viewModel, groupID: groupID) }
             .sheet(item: $editingMember) { member in
-                GroupMemberNameView(viewModel: viewModel, groupID: groupID, member: member)
+                // The member's own page ends with removing them, for whoever can edit the group.
+                StandardGroupMemberView(viewModel: viewModel, groupID: groupID, member: member,
+                                        remove: viewModel.canEditSavedGroups ? { viewModel.removeMember(member.id, from: groupID) } : nil)
             }
             .memberRemoveConfirmation($pendingRemoval)
             .accessibilityIdentifier("groupSettingsView")

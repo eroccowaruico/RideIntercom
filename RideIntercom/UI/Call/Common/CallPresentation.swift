@@ -29,7 +29,7 @@ struct CallPanel: View {
                 // Always present, so the toolbar does not change shape between calls.
                 ToolbarItem(placement: .primaryAction) {
                     if viewModel.interfaceMode == .standard {
-                        StandardCallMoreMenu(viewModel: viewModel, settings: $settings, addingMembers: $addingMembers)
+                        StandardCallSettingsButton(viewModel: viewModel, settings: $settings)
                     } else {
                         AdvancedCallMoreMenu(viewModel: viewModel, settings: $settings, addingMembers: $addingMembers)
                     }
@@ -96,13 +96,6 @@ struct CallAccessory: View {
             }
             .padding(.leading, AppSpacing.l)
             .padding(.trailing, AppSpacing.xs)
-            .contextMenu {
-                Button("Open Call", systemImage: "phone.fill", action: open)
-                if viewModel.canControlMicrophone {
-                    Button("Mute", systemImage: "mic.slash") { viewModel.setCallMuted(!viewModel.isMuted, for: reference) }
-                }
-                Button("End Call", systemImage: "phone.down.fill", role: .destructive) { pendingEnd = reference }
-            }
             .confirmationDialog(Text("Disconnect from \(name)?"), isPresented: Binding(
                 get: { pendingEnd != nil }, set: { if !$0 { pendingEnd = nil } }),
                                 titleVisibility: .visible, presenting: pendingEnd) { shown in

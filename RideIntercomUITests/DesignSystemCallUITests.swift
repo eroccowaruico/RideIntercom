@@ -64,17 +64,20 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertEqual(microphoneStatus.label, "Muted")
     }
 
-    /// Settings open from named entries: the call's More menu and a row's swipe or menu.
-    /// The row tap only connects, so rows carry no pencil or info buttons.
+    /// Settings open from named, visible entries: the call's settings button (no "…" menu) and a row's swipe.
+    /// Invite Members is its own button under the members. No long-press menus.
     @MainActor
     func testGroupSettingsOpenFromTheCallMenuAndTheListRow() {
         defer { attachEvidence("Group settings entries") }
         startStandardCall()
-        XCTAssertFalse(app.buttons["inviteButton"].exists, "Sharing lives in the More menu")
-        let invite = app.openCallMoreMenuItem("callAddMembersButton")
-        XCTAssertTrue(invite.exists)
+        XCTAssertFalse(app.buttons["callMoreMenu"].exists, "No More menu in Standard")
+        XCTAssertFalse(app.buttons["inviteButton"].exists, "No bare link sharing in the call")
+        let invite = app.buttons["addSavedUsersButton"].firstMatch
+        XCTAssertTrue(invite.waitForExistence(timeout: 3))
         XCTAssertEqual(invite.label, "Invite Members", "Standard names the intent, not the saved-user mechanism")
-        app.buttons["callGroupSettingsButton"].firstMatch.tap()
+        let settingsButton = app.buttons["callGroupSettingsButton"].firstMatch
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 3), "The settings button sits in the toolbar")
+        settingsButton.tap()
         XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForExistence(timeout: 3))
         // Standard: Invite Members under the members, the same words as the call's menu; Delete Group last.
         XCTAssertEqual(app.buttons["groupSettingsAddMembersButton"].label, "Invite Members")
@@ -101,27 +104,27 @@ final class DesignSystemCallUITests: XCTestCase {
         row.swipeLeft()
         let settings = app.buttons["Group Settings"].firstMatch
         XCTAssertTrue(settings.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Delete"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["Delete"].firstMatch.exists, "A group's swipe offers Group Settings only")
         settings.tap()
         XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForExistence(timeout: 3))
         attachEvidence("Group settings from the row")
         app.buttons["closeGroupSettingsButton"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForNonExistence(timeout: 3))
         XCTAssertTrue(app.buttons["callAccessoryOpenButton"].firstMatch.exists, "Settings do not end the call")
-        // Delete asks first, names the group and says the live connection ends; Cancel keeps it.
+        // Deleting a group lives at the end of Group Settings and asks first; Cancel keeps it and the call.
         row.swipeLeft()
-        let delete = app.buttons["Delete"].firstMatch
-        XCTAssertTrue(delete.waitForExistence(timeout: 3))
-        delete.tap()
+        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        settings.tap()
+        let deleteGroup = app.buttons["deleteGroupButton"].firstMatch
+        XCTAssertTrue(deleteGroup.waitForExistence(timeout: 3))
+        deleteGroup.tap()
         let alert = app.alerts.firstMatch
         XCTAssertTrue(alert.waitForExistence(timeout: 3))
-        XCTAssertTrue(alert.staticTexts["Delete \(renamed)?"].exists, alert.debugDescription)
-        XCTAssertTrue(alert.staticTexts["The current connection ends."].exists)
-        XCTAssertEqual(alert.buttons["confirmDeleteDestinationButton"].firstMatch.label, "Disconnect and Delete")
         attachEvidence("Delete a live group asks first")
         alert.buttons["Cancel"].firstMatch.tap()
         XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
-        XCTAssertTrue(row.exists, "Cancel keeps the group")
+        app.buttons["closeGroupSettingsButton"].tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 3), "Cancel keeps the group")
         XCTAssertTrue(app.buttons["callAccessoryOpenButton"].firstMatch.exists, "Cancel keeps the call")
     }
 

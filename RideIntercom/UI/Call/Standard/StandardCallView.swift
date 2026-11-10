@@ -5,11 +5,9 @@ struct StandardCallView: View {
     let viewModel: IntercomViewModel
     @Binding var selectedTab: AppTab
     @State private var addingUsers: IntercomGroup?
-    @State private var editingMember: MemberNameSelection?
     @State private var pendingEndReference: CallReference?
     @State private var confirmsEnd = false
     @State private var endingCallName = ""
-    @State private var pendingRemoval: PendingMemberRemoval?
 
     var body: some View {
         CallHeightLayout { compactHeight, regularWidth in
@@ -111,11 +109,7 @@ struct StandardCallView: View {
             Button("Cancel", role: .cancel) { pendingEndReference = nil }
                 .accessibilityIdentifier("standardCancelEndCallButton")
         }
-        .memberRemoveConfirmation($pendingRemoval)
         .sheet(item: $addingUsers) { group in SavedUsersView(viewModel: viewModel, groupID: group.id) }
-        .sheet(item: $editingMember) { selection in
-            GroupMemberNameView(viewModel: viewModel, groupID: selection.groupID, member: selection.member)
-        }
     }
 
     /// The status hero: a glass card, leading-aligned, with the kind and size, the destination,
@@ -217,9 +211,6 @@ struct StandardCallView: View {
                         memberRow(member, in: group)
                     }
                 }
-                .standardMemberRowActions(edit: { editingMember = .init(groupID: group.id, member: member) },
-                                  canRemove: group.kind == .group, pending: $pendingRemoval,
-                                  name: member.resolvedDisplayName) { viewModel.removeMember(member.id, from: group.id) }
             }
             if group.kind == .group {
                 Button("Invite Members", systemImage: "person.badge.plus") { addingUsers = group }
@@ -460,11 +451,6 @@ struct StandardCallView: View {
     }
 }
 
-private struct MemberNameSelection: Identifiable {
-    let groupID: UUID
-    let member: GroupMember
-    var id: String { member.id }
-}
 
 
 private struct CallMuteButtonStyle: ViewModifier {

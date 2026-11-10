@@ -4499,6 +4499,16 @@
         }
       }
     },
+    "Remove from Group" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "グループから外す"
+          }
+        }
+      }
+    },
     "Remove its saved users, groups, settings and keys from this device, then sign in and set up Internet calling again. You will need new invitations to reconnect with friends." : {
       "localizations" : {
         "ja" : {
