@@ -60,16 +60,29 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertTrue(name.exists)
         XCTAssertTrue([nil, "", name.placeholderValue].contains(name.value as? String), "The field opens empty")
         XCTAssertFalse((name.placeholderValue ?? "").isEmpty)
-        // Return closes the keyboard before sharing (see the backlog for swiping with it open).
-        name.typeText("Trail Partner\n")
+        // Send with the keyboard still up, then close the share sheet by dragging its own header down,
+        // as a person does: the invitation sheet stays open under it.
+        name.typeText("Trail Partner")
         screenshot("Standard contact invitation before native sharing")
         share.tap()
         let copy = nativeInvitationCopyAction()
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
         screenshot("Contact invitation native sharing")
+        // The share sheet runs in another process; its header row sits about 190 pt above Copy.
+        copy.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: -190))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(share.waitForExistence(timeout: 3), "The invitation sheet stays after the share sheet closes")
+        XCTAssertTrue(app.navigationBars["Invite Someone New"].exists)
+        XCTAssertEqual(name.value as? String, "Trail Partner", "The typed name stays")
+        screenshot("Contact invitation after closing native sharing")
+        // A swipe down on the invitation sheet's visible top, keyboard up again, closes only the share sheet.
+        name.tap()
+        share.tap()
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
         app.swipeDown()
         XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(share.waitForExistence(timeout: 3))
+        XCTAssertTrue(share.waitForExistence(timeout: 3), "A swipe above the share sheet keeps the invitation sheet")
         share.tap()
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
         copy.tap()

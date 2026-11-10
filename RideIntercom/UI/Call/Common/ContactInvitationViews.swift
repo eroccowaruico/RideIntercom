@@ -49,6 +49,9 @@ struct ContactInvitationSheet: View {
             }
             .accessibilityIdentifier("contactInvitationSheet")
         }
+        // While naming and sending, only Cancel closes the sheet. With the keyboard up, a swipe meant
+        // to close the share sheet otherwise lands on this sheet and closes both.
+        .interactiveDismissDisabled(isCreating)
         .onDisappear {
             if viewModel.contactInvitationID == invitationID { viewModel.stopContactInvitationSession() }
         }
