@@ -16,7 +16,7 @@
   --accent: #1179C0; --green: #34C77B; --aqua: #0BA59B; --warn: #FFAC33; --red: #F5484E; --idle: #8A9099;
   --top: #CFE5F6; --base: #EBF1F7; --card: #FFFFFF; --navy: #0E2238;
   --label: #0B1220; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3); --sep: rgba(60,60,67,.16); --fill: rgba(118,118,128,.12);
-  --glass: rgba(255,255,255,.86); --glass-edge: rgba(17,121,192,.10);
+  --glass: rgba(255,255,255,.58); --glass-edge: rgba(17,121,192,.10);
   --page: #FBFCFE; --pcard: #FFFFFF; --pline: #E3E8EF; --measure: #E5484D;
 }
 :root[data-scheme="dark"] {
@@ -66,6 +66,15 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
 .lrow + .lrow::before { content: ""; position: absolute; top: 0; left: 12px; right: 0; border-top: .5px solid var(--sep); }
 .lrow .g { flex: 1; min-width: 0; }
 .sub { color: var(--label2); font-size: 11.5px; }
+
+
+/* 面の重なり */
+.layers { position: relative; width: 300px; height: 470px; border-radius: 34px; overflow: hidden; background: linear-gradient(180deg, var(--top), var(--base) 45%); padding: 46px 14px 0; box-shadow: inset 0 0 0 1px var(--pline); }
+.layers .lv { position: absolute; right: 6px; font-size: 10px; font-weight: 700; color: #fff; background: var(--navy); border-radius: 999px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 5px; z-index: 5; }
+.layers .acc { position: absolute; left: 12px; right: 12px; bottom: 76px; height: 44px; border-radius: 22px; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 12.5px; }
+.layers .tb { position: absolute; left: 12px; right: 12px; bottom: 16px; height: 52px; border-radius: 26px; display: flex; justify-content: space-around; align-items: center; font-size: 10px; color: var(--label2); }
+.layers .bare { width: 32px; height: 32px; display: grid; place-items: center; font-size: 16px; }
+.lvtbl td:first-child { white-space: nowrap; font-weight: 600; }
 
 /* 状態 */
 .st { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; }
@@ -216,8 +225,31 @@ th { font-size: 11.5px; color: var(--label2); font-weight: 600; }
       <tr><td>deepNavy</td><td colspan="3"><span class="chip" style="background:#0E2238"></span>#0E2238（外観で変わらない）</td><td>ライブアクティビティの背景tint</td></tr>
     </tbody></table></div>
   <div class="row-flex">
-    <div><div class="surface" style="width:320px"><div class="grp-h">背景の上の白いカード</div><div class="card"><div class="lrow"><span class="g">行の文字</span><span style="color:var(--accent)">リンク</span></div><div class="lrow"><span class="g sub">補助の文字（footer・補足だけ）</span></div></div></div>
+    <div><div class="surface" style="width:320px"><div class="grp-h">背景の上の不透明のカード</div><div class="card"><div class="lrow"><span class="g">行の文字</span><span style="color:var(--accent)">リンク</span></div><div class="lrow"><span class="g sub">補助の文字（footer・補足だけ）</span></div></div></div>
       <div class="cap"><b>背景とカード</b>カードが背景に溶けないこと（ライト1.13以上、ダーク1.14以上）。青い文字は白いカードの上で4.65。</div></div>
+  </div>
+
+  <h3>面の重なり</h3>
+  <p class="note">背景だけをグラデーションにし、行・カードは不透明、その上に浮かぶ状態のヒーロー・操作・ナビゲーションだけをOSのガラスにする（<a href="カラーテーマ.md#面の重なり">面の重なり</a>）。ガラスにガラスを重ねず、ガラスの中の操作は記号だけ。下から開くシートは層1から積み直す。</p>
+  <div class="row-flex">
+    <div><div class="layers">
+      <span class="lv" style="top:12px">1</span>
+      <div class="glass" style="border-radius:16px;padding:10px 12px;position:relative"><span class="lv" style="top:6px">4</span><div class="sub" style="font-weight:600">グループ・4人</div><div style="font-size:18px;font-weight:700">週末ツーリング</div><div style="font-weight:600;color:var(--green)">会話中</div></div>
+      <div style="display:flex;justify-content:space-around;margin:12px 0;position:relative"><span class="lv" style="top:-4px;right:-6px">5</span><span class="cb gl" style="width:48px;height:48px;font-size:18px"><svg class="i"><use href="#mic-slash"/></svg></span><span class="cb gl" style="width:48px;height:48px;font-size:18px"><svg class="i"><use href="#speaker-slash"/></svg></span><span class="cb end" style="width:48px;height:48px;font-size:18px"><svg class="i"><use href="#phone-down"/></svg></span></div>
+      <div class="card" style="position:relative"><span class="lv" style="top:12px;right:8px">2</span><div class="lrow"><span class="g">ハルカ</span></div><div class="lrow"><span class="g">ケンタ</span></div></div>
+      <div class="acc glass"><span class="lv" style="top:-8px;right:8px">6</span><span style="color:var(--green)"><svg class="i"><use href="#wave"/></svg></span><span style="flex:1;font-weight:600">週末ツーリング</span><span class="bare"><svg class="i"><use href="#mic-slash"/></svg></span><span class="bare" style="color:var(--red)"><svg class="i"><use href="#phone-down"/></svg></span></div>
+      <div class="tb glass"><span>ユーザー</span><span>設定</span></div>
+    </div>
+    <div class="cap"><b>重なりの見本</b>番号は下の表の層。アクセサリ（6）はOSのガラスで、中のミュートと切断は記号だけ（円の面を足さない）。行（2）は不透明で、背景の変化が終わった一定の色の上に並ぶ。</div></div>
+    <div class="tbl" style="flex:1;min-width:300px"><table class="lvtbl" style="min-width:0"><thead><tr><th>層</th><th>面</th><th>使う場所</th></tr></thead><tbody>
+      <tr><td>1 背景</td><td>グラデーション（不透明）。MacはOS標準</td><td>画面、全体の高さのシート、通話の右の列</td></tr>
+      <tr><td>2 内容の面</td><td>不透明（Listの行と同じ色）</td><td>行、Advanced・Diagnosticsのカード、エラーの行</td></tr>
+      <tr><td>3 入れ子の面</td><td>不透明で一段濃い面</td><td>カードの中の小さな面、値の印</td></tr>
+      <tr><td>4 状態の面</td><td>ガラス</td><td>Standardの状態ヒーローだけ。中に操作を置かない</td></tr>
+      <tr><td>5 操作</td><td>ガラスのボタン</td><td>主要・補助・円形の操作（背景か内容の面の上）</td></tr>
+      <tr><td>6 ナビゲーション</td><td>OSのガラス（そのまま）</td><td>タブバー、ツールバーのボタン、通話のアクセサリ、サイドバー、検索欄</td></tr>
+      <tr><td>7 一時的な重なり</td><td>OSのガラス（そのまま）</td><td>メニュー、確認、popover</td></tr>
+    </tbody></table></div>
   </div>
 
   <!-- 状態 -->

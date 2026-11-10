@@ -14,13 +14,13 @@
 :root {
   color-scheme: light;
   --accent: #1179C0; --ok: #34C77B; --warn: #FFAC33; --err: #F5484E; --idle: #8A9099; --voice: #0BA59B;
-  --bg: linear-gradient(180deg, #CFE5F6, #EBF1F7 25%); --card: #FFFFFF; --line: #E2E6EC; --sub: #F6F8FA;
+  --bg: linear-gradient(180deg, #CFE5F6, #EBF1F7 25%); --card: #FFFFFF; --line: #E2E6EC; --sub: #F2F2F7; --glass: rgba(255,255,255,.58); --glass-edge: rgba(17,121,192,.10);
   --label: #10161F; --label2: #5B6472; --label3: #98A0AB; --page: #FBFCFE;
 }
 :root[data-scheme="dark"] {
   color-scheme: dark;
   --accent: #2F95DC; --ok: #3CC98F; --warn: #FFB340; --err: #FF6B6B; --idle: #7D8590; --voice: #5BF3E2;
-  --bg: linear-gradient(180deg, #0E2238, #03070D 25%); --card: #1C1C1E; --line: #263040; --sub: #1B2330;
+  --bg: linear-gradient(180deg, #0E2238, #03070D 25%); --card: #1C1C1E; --line: #263040; --sub: #2C2C2E; --glass: rgba(255,255,255,.08); --glass-edge: rgba(255,255,255,.14);
   --label: #EEF2F6; --label2: #A3ADBA; --label3: #6C7684; --page: #0A0E14;
 }
 * { box-sizing: border-box; }
@@ -131,7 +131,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .toggle::after { content: ""; position: absolute; right: 2px; top: 2px; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 .toggle.off { background: var(--line); } .toggle.off::after { right: auto; left: 2px; }
 .btn { display: flex; justify-content: center; align-items: center; height: 34px; border-radius: 17px; font-weight: 700; font-size: 12px; }
-.btn.danger { background: var(--err); color: #fff; } .btn.gl { background: var(--card); border: 1px solid var(--line); color: var(--accent); }
+.btn.danger { background: var(--err); color: #fff; } .btn.gl { background: var(--glass); border: 1px solid var(--glass-edge); color: var(--accent); backdrop-filter: blur(14px) saturate(1.6); }
 .circle { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; background: var(--card); border: 1px solid var(--line); flex: none; }
 .slider { display: flex; align-items: center; gap: 6px; color: var(--label2); }
 .slider .track { flex: 1; height: 5px; border-radius: 3px; background: var(--line); position: relative; }

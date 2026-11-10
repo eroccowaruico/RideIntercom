@@ -25,7 +25,7 @@
   --label2: rgba(60, 60, 67, .58);
   --label3: rgba(60, 60, 67, .38);
   --sep: rgba(60, 60, 67, .16);
-  --glass: rgba(255, 255, 255, .86);
+  --glass: rgba(255, 255, 255, .58);
   --glass-edge: rgba(17, 121, 192, .10);
   --glass-shadow: 0 4px 14px rgba(21, 132, 204, .06);
   --fill: rgba(118, 118, 128, .10);
@@ -141,7 +141,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
 .glass { background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--glass-shadow); backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6); }
 .card { border-radius: 18px; padding: 14px; }
-.group { border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+.group { border-radius: 14px; overflow: hidden; margin-bottom: 14px; background: var(--grouped-card); }
 .group-h { font-size: 11.5px; color: var(--label2); padding: 0 6px 5px; text-transform: none; font-weight: 600; }
 .row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 44px; position: relative; }
 .row + .row::before { content: ""; position: absolute; top: 0; left: 46px; right: 0; border-top: .5px solid var(--sep); }
@@ -211,7 +211,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .tab.on { color: var(--accent); opacity: 1; background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .accessory { position: absolute; left: 14px; right: 14px; bottom: 84px; height: 46px; border-radius: 24px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; font-size: 12.5px; }
 .accessory .grow { flex: 1; min-width: 0; font-weight: 600; }
-.accessory .mini { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--fill); font-size: 15px; flex: none; }
+.accessory .mini { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; flex: none; }
+.accessory .mini.on { background: var(--red); color: #fff; }
 .accessory .mini.end { color: var(--red); margin-left: 4px; }
 .accessory .two { display: grid; line-height: 1.25; }
 .accessory .two small { color: var(--label2); font-weight: 500; font-size: 11px; }
@@ -525,7 +526,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="body" style="padding-top:70px">
           <div style="font-size:26px;font-weight:700;padding:0 4px">あなたの名前</div>
           <p class="note" style="padding:4px 4px 14px">仲間に表示される名前です。本名でなくてかまいません。</p>
-          <div class="group glass"><div class="row"><span class="grow" style="color:var(--label3)">例: ナオ</span></div></div>
+          <div class="group"><div class="row"><span class="grow" style="color:var(--label3)">例: ナオ</span></div></div>
           <div class="btn prom" style="margin-top:18px;opacity:.45">はじめる</div>
         </div>
       </div></div>
@@ -596,7 +597,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           </div>
           <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
           <div class="group-h" style="margin-top:8px">メンバー</div>
-          <div class="group glass">
+          <div class="group">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分</span><span class="vi l2" role="img" aria-label="自分の声"><svg class="i"><use href="#mic"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="vi l0" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
@@ -625,11 +626,11 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
           </div>
           <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:62%"></i><b style="left:62%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span><span class="val">大きめ</span></div>
-          <div class="group glass" style="margin-top:10px">
+          <div class="group" style="margin-top:10px">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分<div class="sub">ミュート中</div></span><span class="vi muted" role="img" aria-label="ミュート中"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
           </div>
-          <div class="group glass" style="margin-top:10px">
+          <div class="group" style="margin-top:10px">
             <div class="row"><span class="grow">受信する声を分離</span><span class="toggle offt"></span></div>
           </div>
         </div>
@@ -671,13 +672,13 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="ltitle">ユーザー</div>
         <div class="body">
           <div class="group-h">前回</div>
-          <div class="group glass"><div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">週末ツーリング<div class="sub">グループ・4人</div></span><svg class="i chev"><use href="#chev"/></svg></div></div>
-          <div class="group glass">
+          <div class="group"><div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">週末ツーリング<div class="sub">グループ・4人</div></span><svg class="i chev"><use href="#chev"/></svg></div></div>
+          <div class="group">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub tag ok"><svg class="i"><use href="#wave"/></svg>会話中</div></span><svg class="i chev"><use href="#chev"/></svg></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><svg class="i chev"><use href="#chev"/></svg></div>
           </div>
           <div class="group-h">招待中</div>
-          <div class="group glass">
+          <div class="group">
             <div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">受け取り待ち</div></span><svg class="i chev"><use href="#chev"/></svg></div>
             <div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">リョウ<div class="sub">返信を届けています</div></span><span class="spin" style="color:var(--label2)"></span></div>
           </div>
@@ -693,7 +694,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>ユーザー（最初の画面・会話中）</b>行をタップするとすぐ接続して通話のシートを開く（会話中は切替を確認）。右上 + で新しい相手を招待。成立前は「招待中」に状態の語1つで並べ、タップで招待の詳細を開く（<a href="../招待と登録の設計.md">招待と登録の設計</a>）。タブはグループタブを表示しない既定の2つ。下の通話のアクセサリは縮めず、名前・状態・ミュート・切断（確認付き）を置く。</figcaption>
+      <figcaption><b>ユーザー（最初の画面・会話中）</b>行をタップするとすぐ接続して通話のシートを開く（会話中は切替を確認）。右上 + で新しい相手を招待。成立前は「招待中」に状態の語1つで並べ、タップで招待の詳細を開く（<a href="../招待と登録の設計.md">招待と登録の設計</a>）。タブはグループタブを表示しない既定の2つ。下の通話のアクセサリは縮めず、名前・状態・ミュート・切断（確認付き）を置く。アクセサリの面はOSのガラスで、ミュートと切断は記号だけ（円の面を足さない。ミュート中だけ赤い円）。</figcaption>
     </figure>
 
     <!-- 招待の詳細 -->
@@ -706,9 +707,9 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="btn prom" style="margin:4px 0"><svg class="i"><use href="#share"/></svg>もう一度送る</div>
           <p class="note" style="padding:0 6px;margin:0 0 12px">マキに、同じ招待をもう一度送ります。</p>
           <div class="group-h">呼び名</div>
-          <div class="group glass"><div class="row"><span class="grow">マキ<span style="color:var(--accent)">|</span></span></div></div>
+          <div class="group"><div class="row"><span class="grow">マキ<span style="color:var(--accent)">|</span></span></div></div>
           <div class="ffoot">あなたの端末だけで使う名前です。空にすると、招待を作ったときの名前に戻ります。</div>
-          <div class="group glass"><div class="row"><span class="grow" style="color:var(--red)">招待を取り消す</span></div></div>
+          <div class="group"><div class="row"><span class="grow" style="color:var(--red)">招待を取り消す</span></div></div>
         </div>
         <div class="tabbar glass">
           <div class="tab on"><svg class="i"><use href="#person2"/></svg>ユーザー</div>
@@ -725,7 +726,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="navbar"><span class="navbtn" style="color:var(--accent)"><svg class="i"><use href="#plus"/></svg></span></div>
         <div class="ltitle">グループ</div>
         <div class="body">
-          <div class="group glass">
+          <div class="group">
             <div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">週末ツーリング<div class="sub">4人</div></span><svg class="i chev"><use href="#chev"/></svg></div>
             <div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">白馬 パウダー部<div class="sub">6人</div></span><svg class="i chev"><use href="#chev"/></svg></div>
             <div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">家族ドライブ<div class="sub">3人</div></span><svg class="i chev"><use href="#chev"/></svg></div>
@@ -764,8 +765,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="dest">ハルカ</div>
             <div class="status wait"><span class="spin"></span>呼び出し中</div>
             <div class="route">応答すると会話を始めます</div>
-            <div class="stack" style="margin-top:14px"><div class="btn danger">呼び出しを取り消す</div></div>
           </div>
+          <div class="stack" style="margin-bottom:12px"><div class="btn danger">呼び出しを取り消す</div></div>
           <p class="note" style="padding:0 4px">応答がないまま期限が過ぎると「応答がありませんでした」と表示し、もう一度呼び出せます。</p>
         </div>
         <div class="sheetgrab"></div>
@@ -782,8 +783,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="dest">週末ツーリング</div>
             <div class="status idle"><svg class="i"><use href="#iphone-slash"/></svg>別の端末で接続中</div>
             <div class="route">iPadで接続したため、この端末は切断しました</div>
-            <div class="stack" style="margin-top:14px"><div class="btn prom"><svg class="i f"><use href="#phone"/></svg>この端末で接続</div></div>
           </div>
+          <div class="stack" style="margin-bottom:12px"><div class="btn prom"><svg class="i f"><use href="#phone"/></svg>この端末で接続</div></div>
         </div>
         <div class="sheetgrab"></div>
       </div></div>
@@ -919,7 +920,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="navbar" style="justify-content:flex-start"><span class="link" style="display:flex;align-items:center;gap:2px;font-size:14px"><svg class="i"><use href="#back"/></svg>設定</span></div>
         <div class="ltitle">開発者向けの高度な設定</div>
         <div class="body">
-          <div class="banner glass" style="background:color-mix(in srgb,var(--orange) 12%,var(--grouped-card));border-color:transparent"><span class="ic"><svg class="i"><use href="#warn"/></svg></span><div><b>通常は変更しないでください</b><p>ここの設定を変えると、音声や接続が正しく動かなくなることがあります。初期値以外の組み合わせはテストしていません。</p></div></div>
+          <div class="banner" style="background:color-mix(in srgb,var(--orange) 12%,var(--grouped-card))"><span class="ic"><svg class="i"><use href="#warn"/></svg></span><div><b>通常は変更しないでください</b><p>ここの設定を変えると、音声や接続が正しく動かなくなることがあります。初期値以外の組み合わせはテストしていません。</p></div></div>
           <div class="group-h g5"><span class="gdot"></span>画面表示</div>
           <div class="group"><div class="seg3"><span class="on">標準</span><span>詳細</span></div><div class="row"><span class="grow">グループタブを表示</span><span class="toggle offt"></span></div></div>
           <div class="ffoot">詳細表示では診断と細かな設定を表示します（英語のみ）。グループタブをオンにすると、3人以上で話すグループの作成と一覧を使えます。</div>
@@ -978,7 +979,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="rcol">
           <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
           <div class="group-h" style="margin-top:6px">メンバー</div>
-          <div class="group glass">
+          <div class="group">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分</span><span class="vi l2" role="img" aria-label="自分の声"><svg class="i"><use href="#mic"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="vi l0" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
@@ -1000,8 +1001,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="col">
           <div style="font-size:22px;font-weight:700;padding:0 4px 8px">ユーザー</div>
           <div class="group-h">前回</div>
-          <div class="group glass"><div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">週末ツーリング<div class="sub tag ok"><svg class="i"><use href="#wave"/></svg>会話中</div></span></div></div>
-          <div class="group glass">
+          <div class="group"><div class="row"><span class="avatar g"><svg class="i"><use href="#person3"/></svg></span><span class="grow">週末ツーリング<div class="sub tag ok"><svg class="i"><use href="#wave"/></svg>会話中</div></span></div></div>
+          <div class="group">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ</span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ</span></div>
@@ -1017,14 +1018,14 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             </div></div>
           <div class="slider" style="margin-top:8px"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
                   <div class="group-h">メンバー</div>
-          <div class="group glass">
+          <div class="group">
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分</span><span class="vi l2" role="img" aria-label="自分の声"><svg class="i"><use href="#mic"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="vi l0" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span><span class="tail"><span class="link">呼び出す</span></span></div>
           </div>
           <div class="group-h">招待中</div>
-          <div class="group glass"><div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">受け取り待ち</div></span><svg class="i chev"><use href="#chev"/></svg></div></div>
+          <div class="group"><div class="row"><span class="avatar pending"><svg class="i"><use href="#person"/></svg></span><span class="grow">マキ<div class="sub">受け取り待ち</div></span><svg class="i chev"><use href="#chev"/></svg></div></div>
                 </div>
       </div></div>
       <figcaption><b>iPad・Mac（幅1000pt以上）</b>サイドバー＋一覧＋右の列の通話（<code>inspector</code>）。接続していない間は通話の列を出さない。幅が狭くなると通話はシートに変わる。Macは背景をOS標準にする（デザインシステム見本の「macOS」）。</figcaption>
