@@ -43,7 +43,7 @@ struct StandardUsersView: View {
                     }
                     .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardUser-\(user.id)")
-                    .destinationRowActions("User Settings", settings: { settings = .user(user.id) },
+                    .standardDestinationRowActions("User Settings", settings: { settings = .user(user.id) },
                                            pending: $pendingDelete, name: user.resolvedDisplayName) {
                         _ = viewModel.removeSavedUser(user.id)
                     }
@@ -110,7 +110,7 @@ struct StandardGroupsView: View {
                     }
                     .directoryRowButtonStyle()
                     .accessibilityIdentifier("standardGroup-\(group.id)")
-                    .destinationRowActions("Group Settings", settings: { settings = .group(group.id) },
+                    .standardDestinationRowActions("Group Settings", settings: { settings = .group(group.id) },
                                            pending: $pendingDelete, name: group.name, endsCall: viewModel.isInCall(with: .group(group.id))) {
                         viewModel.deleteGroup(group.id)
                     }

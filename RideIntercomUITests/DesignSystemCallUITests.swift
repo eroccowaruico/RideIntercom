@@ -64,8 +64,9 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertEqual(invite.label, "Invite Members", "Standard names the intent, not the saved-user mechanism")
         app.buttons["callGroupSettingsButton"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["groupSettingsView"].firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["groupSettingsAddMembersButton"].exists)
-        XCTAssertTrue(app.buttons["deleteGroupButton"].exists)
+        // Standard: Invite Members under the members, the same words as the call's menu; Delete Group last.
+        XCTAssertEqual(app.buttons["groupSettingsAddMembersButton"].label, "Invite Members")
+        XCTAssertEqual(app.buttons["deleteGroupButton"].label, "Delete Group")
         let name = app.textFields["groupSettingsNameField"].firstMatch
         XCTAssertTrue(name.waitForExistence(timeout: 3))
         name.tap()

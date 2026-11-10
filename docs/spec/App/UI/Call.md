@@ -102,11 +102,11 @@ Users / Groupsのルート識別子`standardUsersList` / `standardGroupsList`は
 
 ## グループの設定と相手の設定
 
-[操作の流れ](../../../design/操作の流れ.md)の「設定は名前の付いた入口から」に従い、StandardとAdvancedで同じ画面を使う。入口は通話の…メニューと、Users / Groupsの行の長押し（contextMenu）・swipeだけで、行のタップは接続の1つの意味に保つ。開いても選択中の通話・表示中の通話を切り替えない。
+[操作の流れ](../../../design/操作の流れ.md)の「設定は名前の付いた入口から」に従う。画面はモードごとに別のView（Group Settingsは`StandardGroupSettingsView`・`AdvancedGroupSettingsView`、User Settingsは`StandardUserSettingsView`・`AdvancedUserSettingsView`）で、`GroupSettingsView`・`UserSettingsView`が選ぶ。一覧の行・メンバーの行の長押し・swipeもモードごとの修飾子（`standardDestinationRowActions`・`standardMemberRowActions`／`advanced…`）で、削除・外すの確認（`destinationDeleteConfirmation`・`memberRemoveConfirmation`）だけを安全規則として共通にする。入口は通話の…メニューと、Users / Groupsの行の長押し（contextMenu）・swipeだけで、行のタップは接続の1つの意味に保つ。開いても選択中の通話・表示中の通話を切り替えない。
 
 | 画面 | 項目 | 操作 |
 |---|---|---|
-| Group Settings（`groupSettingsView`） | 名前（`groupSettingsNameField`）、メンバー（行の長押し・swipeで`Edit Name`と`Remove`。`Remove`は標準の`alert`で「{名前}をグループから外しますか？」と確認し、確定は`confirmRemoveMemberButton`）、`Add Members`（`groupSettingsAddMembersButton`）、招待（`groupSettingsInviteButton`）、`Delete Group`（`deleteGroupButton`） | `Done`（`saveGroupSettingsButton`）で名前を保存して閉じる。名前は端末内の`renameGroup`で保存し、接続中でも再接続しない。`|`・空白だけは保存しない。`Delete Group`は確認（`confirmDeleteGroupButton`）の後に削除し、接続中なら切断する。`Cancel`（`closeGroupSettingsButton`）は名前を保存しない |
+| Group Settings（`groupSettingsView`） | 名前（`groupSettingsNameField`）、メンバー（行の長押し・swipeで`Edit Name`と`Remove`。`Remove`は標準の`alert`で「{名前}をグループから外しますか？」と確認し、確定は`confirmRemoveMemberButton`）、メンバーの下の追加の行（`groupSettingsAddMembersButton`。Standardは破線のアバターと`Invite Members`（メンバーを招待）で、通話の…メニューと同じ語。Advancedは`Add Members`）、招待（`groupSettingsInviteButton`。Standardでは新しい人を招待できるまでの暫定）、`Delete Group`（`deleteGroupButton`。Standardは記号なしの赤い文字） | `Done`（`saveGroupSettingsButton`）で名前を保存して閉じる。名前は端末内の`renameGroup`で保存し、接続中でも再接続しない。`|`は保存しない。Standardの名前の欄はプレースホルダーにメンバーの名前から作った名前（例: Haruka and Kenta）を出し、空にして`Done`を押すとその名前を保存する。Advancedは空白だけの名前を保存しない。`Delete Group`は確認（`confirmDeleteGroupButton`）の後に削除し、接続中なら切断する。`Cancel`（`closeGroupSettingsButton`）は名前を保存しない |
 | User Settings（`userSettingsView`） | Standardはこの端末での名前、本人の名前、この相手からの呼び出しを受け取る（暫定で呼び出す）、`Delete User`。Advancedは端末での呼び名、本人の名前、Use Shared Name、呼び出しの許可、招待（`userSettingsInviteButton`）、`Delete User`（`deleteUserButton`） | `Save`で呼び名を保存。削除は確認の後で、既存groupと進行中の通話を保持する |
 
 対象groupの消失・種別不一致では設定の内容を表示しない。設定の招待は対象group IDに固定した共有（`InvitationShare(settingsGroupID:)`）を使い、表示中の通話が別のgroupでも、共有時に対象groupの存在・鍵・権限を再検証する。通話画面の招待は従来どおり表示中の通話に固定し、選択が変われば共有しない。Advancedの通話の参加者は状態と音声操作だけを表示する。Standardの通話のメンバーは行の長押し・swipeで名前の編集と通常groupからの削除を行う。

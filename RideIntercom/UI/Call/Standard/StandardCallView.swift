@@ -200,7 +200,7 @@ struct StandardCallView: View {
                         }
                     }
                 }
-                .memberRowActions(edit: { editingMember = .init(groupID: group.id, member: member) },
+                .standardMemberRowActions(edit: { editingMember = .init(groupID: group.id, member: member) },
                                   canRemove: group.kind == .group, pending: $pendingRemoval,
                                   name: member.resolvedDisplayName) { viewModel.removeMember(member.id, from: group.id) }
             }
