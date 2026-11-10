@@ -68,6 +68,19 @@ Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存�
 
 通話は接続先が選ばれているときだけ開くため、未選択の画面と`chooseUserButton`・`chooseGroupButton`は置かない。現在の通話があるときはCurrent Callから戻れ、保存データの復旧操作とエラーも表示する。グループの一覧と新規作成はGroupsタブが提供する。タブ移動だけでは既存通話を切り替えず、一覧での別の接続先の選択は切替の確認を経る。
 
+## 1対1の自動の呼び出し
+
+一覧（`openDestination`／`switchCall`）で相手を選び、新しく1対1の接続を始めたときは、接続と同時に呼び出しの通知を送る（`IntercomViewModel.beginDirectRing(to:)`、既存の`CallNotifications.send(to:)`）。すでにその1対1の通話中なら送らない。グループは呼び出さない。状態は`directRing`（相手・1対1の内部グループ・段階）に持ち、Standardの状態ヒーローは通話の状態より先にこの段階を出し、ヒーローの直下に主操作を1つ置く（その下に円形の操作）。
+
+| 段階 | 状態 | 補足 | 主操作 |
+|---|---|---|---|
+| 呼び出し中（`ringing`） | 呼び出し中（進行表示） | 応答すると会話を始めます | 「呼び出しを取り消す」（`cancelDirectRingButton`。通知を取り消し、ヒーローは接続中に戻る） |
+| 応答がなかった（`noAnswer`、送ってから120秒） | 応答がありませんでした | {名前}が選ぶと会話を始めます | 「もう一度呼び出す」（`ringAgainButton`） |
+| 送れなかった（`sendFailed`、送信の失敗・`retry_later`・`rejected`） | 呼び出しを送れませんでした | 通信できる場所でもう一度お試しください | 「もう一度呼び出す」 |
+| 届けられない（`undeliverable`、相手の許可がない・`no_destinations`） | {名前}に呼び出しを届けられません | {名前}がこの端末からの呼び出しを受け取る設定になっていません | 「ほかの方法で知らせる」（`shareDirectCallButton`。この1対1を開くリンクの共有。Standardで共有を独立して置く唯一の例外） |
+
+相手が参加して会話中になるか、通話が終わると`settleDirectRing()`で段階を消し、呼び出し中なら通知を取り消す。どの段階でも1対1の接続は待機したまま続く。拒否・相手が別の会話中の表示（serverの応答状態が要る）と、4秒ごとの呼び出し中の音は未実装（[バックログ](../../../backlog/画面実装とデザイン見本の差分.md)）。
+
 ## ユーザー指定の個別通話
 
 | 項目 | 表示・操作 |
@@ -83,7 +96,7 @@ Standard／AdvancedのUsers画面は別の構成を維持し、招待の保存�
 
 Groupsの`New Group`（`standardCreateGroupButton`）から標準Formを開く。見出しは「New Group」（既存groupへの追加は「Invite Members」）。名前入力（`savedUsersGroupNameField`）は空欄で開き、選んだ保存ユーザーの名前の並び（`ListFormatter`）をプレースホルダーにして、空のまま作成するとその名前を使う。Standard（`StandardMemberSelection`）は「Your Users」（あなたのユーザー）に保存ユーザーを1人1行で並べ、行はアバター・名前・選択の印（`checkmark.circle.fill`／`circle`、VoiceOverは選択状態）だけで、行のタップは選ぶだけ（`selectUser-{UUID}`）。行に名前の編集・削除を置かず、説明の文とfooterを置かない。一覧の下（`safeAreaBar`）に「{n}/8 people including you」（自分を含めて{n}/8人、`memberSelectionCount`）と主要操作1つ（`saveUserSelectionButton`。作成は`Create and Connect`（作成して接続）、別の通話中は`Create Group`、既存groupへの追加は`Send Invitation`（招待を送る））を置く。Advanced（`AdvancedSavedUsersSelection`）は従来どおり行ごとの`Toggle`・名前の編集・削除、`Saved Users`の説明、ツールバーの`Create and Connect`／`Add Users`。選択の値と保存は両モード共通の`MemberSelection`。保存済みの相手を使うグループを作成し、待機中ならそのまま接続する。相手を加えたときは、相手の端末へグループを自動で届ける機能がまだないため、続けて招待の共有の画面（`sendGroupInvitationMessage`）を出す。`Cancel`（`closeSavedUsersButton`）では変更しない。
 
-Usersの行の`User Settings`（`userSettingsView`）は相手の設定を開く。モードごとに別のView（`StandardUserSettingsView`・`AdvancedUserSettingsView`）で、`UserSettingsView`が選ぶ。Standardは、見本の項目だけを置く。「Name on This Device」（この端末での名前、`savedUserNameField`。今の呼び名で開き、空なら本人の名前をプレースホルダーに出す）と「Their Own Name」（本人の名前、`savedUserOriginalName`）、「Receive Calls from This Person」（この相手からの呼び出しを受け取る、`allowCallRequests-{UUID}`）、最後に赤の`Delete User`（ユーザーを削除、`deleteUserButton`。確認はタイトル「{呼び名}を削除しますか？」と「削除」（`confirmDeleteUserButton`）・「キャンセル」で、削除の同期が未実装のため本文を出さない）。`Save`（`saveUserNameButton`）では、空欄か本人の名前と同じなら呼び名を解除して本人名に従い、それ以外は端末内の呼び名として保存する。招待の共有、`Use Shared Name`、説明のfooterは置かない。呼び出しの送信（「{呼び名}を呼び出す」、`sendCallRequest-{UUID}`。送信中は「呼び出しを取り消す」）は、相手を選んだときに自動で呼び出す機能ができるまで暫定で同じSectionに残す。AdvancedもUsersの行の操作（スワイプ・長押しの「User Settings」）から開く。Advancedの作成・追加Form（`AdvancedSavedUsersSelection`）の行は選ぶだけで、名前と選択中のチェックの印（`selectUser-{UUID}`、VoiceOverは選択状態）を出し、鉛筆・削除・説明・footerを置かない。端末での呼び名、本人名、`Use Shared Name`（`resetUserNameButton`）、`Call Notifications`（`Allow Call Requests`・`Send Call Request`）、内部のdirect groupがあれば招待（`userSettingsInviteButton`）、`Delete User`を置き、`closeUserSettingsButton`で閉じる。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。
+Usersの行の`User Settings`（`userSettingsView`）は相手の設定を開く。モードごとに別のView（`StandardUserSettingsView`・`AdvancedUserSettingsView`）で、`UserSettingsView`が選ぶ。Standardは、見本の項目だけを置く。「Name on This Device」（この端末での名前、`savedUserNameField`。今の呼び名で開き、空なら本人の名前をプレースホルダーに出す）と「Their Own Name」（本人の名前、`savedUserOriginalName`）、「Receive Calls from This Person」（この相手からの呼び出しを受け取る、`allowCallRequests-{UUID}`）、最後に赤の`Delete User`（ユーザーを削除、`deleteUserButton`。確認はタイトル「{呼び名}を削除しますか？」と「削除」（`confirmDeleteUserButton`）・「キャンセル」で、削除の同期が未実装のため本文を出さない）。`Save`（`saveUserNameButton`）では、空欄か本人の名前と同じなら呼び名を解除して本人名に従い、それ以外は端末内の呼び名として保存する。招待の共有、`Use Shared Name`、説明のfooterは置かない。Standardの相手の設定には呼び出しの送信を置かない。一覧で相手を選ぶと、新しく1対1の接続を始めるときに自動で呼び出す（下の[1対1の自動の呼び出し](#1対1の自動の呼び出し)）。AdvancedもUsersの行の操作（スワイプ・長押しの「User Settings」）から開く。Advancedの作成・追加Form（`AdvancedSavedUsersSelection`）の行は選ぶだけで、名前と選択中のチェックの印（`selectUser-{UUID}`、VoiceOverは選択状態）を出し、鉛筆・削除・説明・footerを置かない。端末での呼び名、本人名、`Use Shared Name`（`resetUserNameButton`）、`Call Notifications`（`Allow Call Requests`・`Send Call Request`）、内部のdirect groupがあれば招待（`userSettingsInviteButton`）、`Delete User`を置き、`closeUserSettingsButton`で閉じる。同じ名前の別IDは統合しない。行のDeleteは独立一覧からの削除であり、既存グループと進行中の通話を保持する。表示名変更は既存グループにも反映する。
 
 StandardではCallのParticipantsの`Invite Members`（メンバーを招待、`addSavedUsersButton`）、両モードで通話の…メニュー（`callAddMembersButton`）とGroup Settings（`groupSettingsAddMembersButton`）から保存ユーザーを追加する。現在のgroup IDを操作対象として固定し、直接招待関係のある保存ユーザーのうち、まだ含まれない相手を選択して追加する。自分を含め8memberまでで、重複・古い操作対象・保存失敗は確定しない。`savedUsersErrorLabel`で失敗を示す。選択だけでは相手へ通知しないことと、追加後に招待の共有が必要なことをFormに表示する。AppleログインやID宛て通知の完成を表す画面ではない。
 

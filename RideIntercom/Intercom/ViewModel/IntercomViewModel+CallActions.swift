@@ -120,7 +120,12 @@ extension IntercomViewModel {
 
     /// A start that cannot proceed still shows the destination, where the reason is explained.
     private func connectOrShow(_ destination: CallDestination) {
-        guard !startCall(to: destination, accountAccessID: accountAccessID) else { return }
+        let wasActive = isActiveCall(destination)
+        guard !startCall(to: destination, accountAccessID: accountAccessID) else {
+            // Choosing a person rings them as the connection starts, unless that call was already live.
+            if case .user(let id) = destination, !wasActive { beginDirectRing(to: id) }
+            return
+        }
         let message = groupErrorMessage
         switch destination {
         case .group(let id): if let group = groups.first(where: { $0.id == id }) { selectGroup(group, connectIfIdle: false) }

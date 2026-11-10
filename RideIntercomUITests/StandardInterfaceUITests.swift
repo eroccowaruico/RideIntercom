@@ -400,6 +400,33 @@ final class StandardInterfaceUITests: XCTestCase {
     #if os(iOS)
     /// User Settings: your name for them, their own name, receiving their calls, and deleting.
     @MainActor
+    /// Choosing a person connects and rings them at once. Without their permission nothing is sent: the hero
+    /// says the request cannot reach them and offers to let them know another way.
+    func testChoosingAPersonShowsTheRingInTheHero() throws {
+        launch()
+        let suffix = String(UUID().uuidString.prefix(6))
+        let inviterName = "Rider " + suffix
+        app.open(try InvitationURLFixture.make(inviter: "ui-ring-" + suffix, sharedName: inviterName, contact: true))
+        let accept = app.buttons["acceptContactInvitationButton"].firstMatch
+        XCTAssertTrue(accept.waitForExistence(timeout: 5))
+        accept.tap()
+        XCTAssertTrue(accept.waitForNonExistence(timeout: 5))
+        let row = inviterRows(inviterName).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        row.tap()
+        let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
+        XCTAssertTrue(hero.waitForExistence(timeout: 5))
+        let reached = NSPredicate(format: "value BEGINSWITH %@", "Can't reach \(inviterName) with a call request")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: reached, object: hero)], timeout: 5), .completed,
+                       String(describing: hero.value))
+        XCTAssertTrue(app.buttons["shareDirectCallButton"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["cancelDirectRingButton"].exists)
+        screenshot("One-to-one call cannot ring")
+        app.buttons["standardEndCallButton"].firstMatch.tap()
+        app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
+    }
+
+    @MainActor
     func testStandardUserSettingsShowTheNamesReceivingAndDelete() throws {
         launch()
         let suffix = String(UUID().uuidString.prefix(6))
