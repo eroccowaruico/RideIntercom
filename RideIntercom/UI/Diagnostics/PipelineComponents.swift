@@ -258,7 +258,7 @@ struct EffectChainStageChip: View {
         }
         .padding(.horizontal, AppSpacing.s)
         .padding(.vertical, AppSpacing.xs)
-        .background(AppColorPalette.panelSurface.opacity(0.42))
+        .background(AppColorPalette.panelSurface)
         .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.card))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(stage.name)

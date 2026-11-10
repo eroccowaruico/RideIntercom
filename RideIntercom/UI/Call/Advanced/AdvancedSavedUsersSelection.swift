@@ -60,6 +60,7 @@ struct AdvancedSavedUsersSelection: View {
                 }
             }
         }
+        .screenBackground(AppColorPalette.listScreenBackground)
         .navigationTitle(LocalizedStringKey(groupID == nil ? "New Group" : "Invite Members"))
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

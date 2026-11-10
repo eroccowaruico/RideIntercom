@@ -78,6 +78,7 @@ struct StandardMemberSelection: View {
             .padding(.horizontal, AppSpacing.screen)
             .padding(.vertical, AppSpacing.s)
         }
+        .screenBackground(AppColorPalette.listScreenBackground)
         .navigationTitle(LocalizedStringKey(groupID == nil ? "New Group" : "Invite Members"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

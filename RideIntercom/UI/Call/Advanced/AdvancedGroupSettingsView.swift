@@ -62,6 +62,7 @@ struct AdvancedGroupSettingsView: View {
                 }
             }
             .formStyle(.grouped)
+            .screenBackground(AppColorPalette.listScreenBackground)
             .navigationTitle("Group Settings")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

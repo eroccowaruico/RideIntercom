@@ -8,20 +8,26 @@ struct CallEntryView: View {
     var body: some View {
         Group {
             if viewModel.selectedGroup != nil {
+                // The call's own content starts with the error, as an opaque card.
                 CallView(viewModel: viewModel)
                     .navigationTitle(viewModel.selectedCallTitle)
+            } else if let message = viewModel.groupErrorMessage, message != viewModel.groupStorageNotice {
+                ScrollView { AdvancedCallErrorCard(message: message).padding(AppSpacing.screen) }
+                    .screenBackground(AppColorPalette.listScreenBackground)
             }
         }
-        .safeAreaInset(edge: .top) {
-            if let message = viewModel.groupErrorMessage,
-               viewModel.selectedGroup != nil || message != viewModel.groupStorageNotice {
-                Label(LocalizedStringKey(message), systemImage: "exclamationmark.circle")
-                    .font(.callout)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(.regularMaterial)
-                    .accessibilityIdentifier("groupErrorLabel")
-            }
-        }
+    }
+}
+
+/// An error or notice is content: an opaque card in the scroll, never a Material band over it.
+struct AdvancedCallErrorCard: View {
+    let message: String
+
+    var body: some View {
+        Label(LocalizedStringKey(message), systemImage: "exclamationmark.circle")
+            .font(.callout)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .appCallCardStyle()
+            .accessibilityIdentifier("groupErrorLabel")
     }
 }

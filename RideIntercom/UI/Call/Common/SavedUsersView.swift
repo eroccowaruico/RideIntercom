@@ -44,6 +44,7 @@ struct SavedUsersView: View {
                 Text("Adding people only lists them on this device. You can send the invitation later from Invite.")
             }
         }
+        .screenBackground(AppColorPalette.listScreenBackground)
         .navigationTitle(LocalizedStringKey("Send Invitation"))
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

@@ -16,10 +16,14 @@ enum AppColorPalette {
     static let callScreenBackground = RideComColors.screenBackground(endingAt: 0.45)
     /// Lists, Settings and every Advanced screen: the change ends at 25%, so rows sit on one even color.
     static let listScreenBackground = RideComColors.screenBackground(endingAt: 0.25)
+    /// Layer 2: cards drawn by hand (Advanced, Diagnostics) match a List row, opaque.
+    /// Layer 3: the nested surface inside a card, also opaque.
     #if os(macOS)
+    static let cardSurface: Color = Color(nsColor: .controlBackgroundColor)
     static let panelSurface: Color = Color(nsColor: .windowBackgroundColor)
     #else
-    static let panelSurface: Color = Color(uiColor: .systemBackground)
+    static let cardSurface: Color = Color(uiColor: .secondarySystemGroupedBackground)
+    static let panelSurface: Color = Color(uiColor: .tertiarySystemGroupedBackground)
     #endif
     static let cardBorder: Color = Color.secondary.opacity(0.35)
 
@@ -131,7 +135,7 @@ extension View {
     private func appCardStyle() -> some View {
         let shape = RoundedRectangle(cornerRadius: AppCornerRadius.card)
         return padding(AppSpacing.xl)
-            .glassEffect(.regular, in: shape)
+            .background(AppColorPalette.cardSurface, in: shape)
             .overlay(shape.stroke(AppColorPalette.cardBorder, lineWidth: AppBorderWidth.card))
     }
 }

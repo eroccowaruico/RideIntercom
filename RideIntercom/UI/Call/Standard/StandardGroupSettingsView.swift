@@ -82,6 +82,7 @@ struct StandardGroupSettingsView: View {
                 }
             }
             .formStyle(.grouped)
+            .screenBackground(AppColorPalette.listScreenBackground)
             .navigationTitle("Group Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

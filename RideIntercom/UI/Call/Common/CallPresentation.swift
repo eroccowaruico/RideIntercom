@@ -77,7 +77,7 @@ struct CallAccessory: View {
                 if viewModel.canControlMicrophone {
                     Button { viewModel.setCallMuted(!viewModel.isMuted, for: reference) } label: {
                         circle("mic.slash", foreground: viewModel.isMuted ? .white : .primary,
-                               fill: viewModel.isMuted ? AppColorPalette.danger : Color.secondary.opacity(0.16))
+                               fill: viewModel.isMuted ? AppColorPalette.danger : .clear)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Mute")
@@ -85,9 +85,9 @@ struct CallAccessory: View {
                     .accessibilityAddTraits(viewModel.isMuted ? .isSelected : [])
                     .accessibilityIdentifier("callAccessoryMuteButton")
                 }
-                // End keeps a glass circle with a red symbol, never a red fill beside a muted one.
+                // The accessory is already glass: End is the red symbol alone, never a red fill beside a muted one.
                 Button { pendingEnd = reference } label: {
-                    circle("phone.down.fill", foreground: AppColorPalette.danger, fill: Color.secondary.opacity(0.16))
+                    circle("phone.down.fill", foreground: AppColorPalette.danger, fill: .clear)
                 }
                 .buttonStyle(.plain)
                 .padding(.leading, AppSpacing.xs)
@@ -122,6 +122,7 @@ struct CallAccessory: View {
         return viewModel.isMuted && viewModel.canControlMicrophone ? String(localized: "\(word) · Muted") : word
     }
 
+    /// A symbol on the accessory's glass; only Muted fills its circle, as the state's mark.
     private func circle(_ symbol: String, foreground: Color, fill: Color) -> some View {
         Image(systemName: symbol)
             .font(.body)

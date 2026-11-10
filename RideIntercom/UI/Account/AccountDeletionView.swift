@@ -43,6 +43,7 @@ struct AccountDeletionView: View {
             }
             if let message { Section { Text(LocalizedStringKey(message)); Button("Try Again", action: load) } }
         }
+        .screenBackground(AppColorPalette.listScreenBackground)
         .navigationTitle("Delete Account")
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { authorization?.cancel(); dismiss() } } }
         .confirmationDialog("Permanently delete this account's data?", isPresented: $confirmsManualDeletion, titleVisibility: .visible) {
@@ -135,6 +136,7 @@ struct AccountDeletionProgressView: View {
                 }
             }.padding(32).frame(maxWidth: AppSize.singleColumnMaxWidth).frame(maxWidth: .infinity)
         }
+        .screenBackground(AppColorPalette.listScreenBackground)
         .task {
             await account.resumeDeletion()
             prepareAuthorization()

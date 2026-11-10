@@ -46,7 +46,7 @@ struct ReceiveMasterMixGroup: View {
             }
             .padding(.horizontal, AppSpacing.s)
             .padding(.vertical, AppSpacing.xs)
-            .background(AppColorPalette.panelSurface.opacity(0.42))
+            .background(AppColorPalette.panelSurface)
             .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.card))
             .padding(.leading, CompactPipelineLayout.childIndent)
             .accessibilityElement(children: .combine)

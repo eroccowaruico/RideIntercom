@@ -142,6 +142,7 @@ struct ContactInvitationAcceptanceView: View {
                 }
             }
             .formStyle(.grouped)
+            .screenBackground(AppColorPalette.listScreenBackground)
             .navigationTitle("Contact Invitation")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

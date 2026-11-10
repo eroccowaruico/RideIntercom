@@ -41,6 +41,7 @@ struct AdvancedUserSettingsView: View {
                 if let message = viewModel.groupErrorMessage { Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger) }
             }
             .formStyle(.grouped)
+            .screenBackground(AppColorPalette.listScreenBackground)
             .navigationTitle("User Settings")
             .accessibilityIdentifier("userSettingsView")
             .alert("Delete User?", isPresented: $confirmsDelete) {

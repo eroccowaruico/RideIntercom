@@ -197,7 +197,7 @@ SoundIsolation対応環境では、送信・peer・masterのVoice Isolation操�
 
 | 状態 | 表示・動作 |
 |---|---|
-| 鍵不足・保存失敗・不正招待・command過負荷 | Call入口の `groupErrorLabel`。標準Labelをsafe area内に配置し、理由と再招待/再試行を表示する。切断後にも表示し、新しい接続は利用者の操作で開始する |
+| 鍵不足・保存失敗・不正招待・command過負荷 | Call入口の `groupErrorLabel`。AdvancedはCallの内容の先頭に不透明のカード（`AdvancedCallErrorCard`。接続先がないときはそのカードだけのScrollView）で置き、`Material`の帯にしない。理由と再招待/再試行を表示する。切断後にも表示し、新しい接続は利用者の操作で開始する |
 | 新規グループ作成・有効な選択/接続 | 以前のgroupエラーを解除。通話中に別groupの招待が失敗しても旧通話は維持 |
 
 情報は色だけに依存せずテキストとアイコンで伝え、通常エラーは文脈内に表示する。[Apple HIG Alerts](https://developer.apple.com/design/human-interface-guidelines/alerts)に従い、明示的に全groupを消すresetだけ確認を要求する。
@@ -224,4 +224,4 @@ AdvancedではGroups管理画面の参加者名から、StandardではCallの参
 
 ## 共通の操作表現
 
-StandardとAdvancedの接続・音声再開には標準`glassProminent`、補助操作には`glass`のButtonStyleを使う。Advancedの参加者操作と、Form内の設定コントロールを維持する。画面の背景は、上端のbackgroundTop（ライト`#CFE5F6`、ダーク`#0E2238`）から下へbackgroundBase（ライト`#EBF1F7`、ダーク`#03070D`）に変わり、変化の終わりから下は一定の色にする（`AppColorPalette`の`callScreenBackground`・`listScreenBackground`と`screenBackground(_:)`。List・Formは標準のセルのまま、背景を画面に固定する）。終わりの位置は、StandardのCall・Appleログイン・名前の入力が高さの45%（ガラスのヒーローと操作が変化の上に乗る）、Users・Groups・招待のシート・Settingsとその中の画面・AdvancedのCall・Diagnosticsが25%（行は一定の色の上に並ぶ）。macOSは標準のwindowの背景で、グラデーションを使わない（[背景のグラデーション](../../../design/カラーテーマ.md#背景のグラデーション)）。共通の青いtintで揃える。
+StandardとAdvancedの接続・音声再開には標準`glassProminent`、補助操作には`glass`のButtonStyleを使う。Advancedの参加者操作と、Form内の設定コントロールを維持する。画面の背景は、上端のbackgroundTop（ライト`#CFE5F6`、ダーク`#0E2238`）から下へbackgroundBase（ライト`#EBF1F7`、ダーク`#03070D`）に変わり、変化の終わりから下は一定の色にする（`AppColorPalette`の`callScreenBackground`・`listScreenBackground`と`screenBackground(_:)`。List・Formは標準のセルのまま、背景を画面に固定する）。終わりの位置は、StandardのCall・Appleログイン・名前の入力が高さの45%（ガラスのヒーローと操作が変化の上に乗る）、Users・Groups・招待のシート・Settingsとその中の画面・AdvancedのCall・Diagnosticsが25%（行は一定の色の上に並ぶ）。macOSは標準のwindowの背景で、グラデーションを使わない（[背景のグラデーション](../../../design/カラーテーマ.md#背景のグラデーション)）。下から開くシート（メンバーを招待・新しいグループと招待の送信、グループの設定、相手の設定、メンバーの呼び名、招待の受け取り、購入、アカウントの削除と削除中の表示）も同じ25%の背景にし、Formの標準の単色にしない。面は[面の重なり](../../../design/カラーテーマ.md#面の重なり)に従い、独自に描くAdvanced・Diagnosticsのカード（`appCallCardStyle`・`appDiagnosticsCardStyle`）は不透明の`cardSurface`（`secondarySystemGroupedBackground`）に`cardBorder`の枠線、Diagnosticsの入れ子の面は不透明の`panelSurface`（`tertiarySystemGroupedBackground`）で、ガラス・Material・薄めた色にしない。ガラスはStandardの状態ヒーロー、ボタン、ナビゲーションだけ。通話のアクセサリの中のミュート（オフ）と切断は、OSのガラスの上に記号だけを置き、ミュート中だけDangerで塗った円に白い記号にする。共通の青いtintで揃える。

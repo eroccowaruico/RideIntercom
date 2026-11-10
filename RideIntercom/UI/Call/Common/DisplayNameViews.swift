@@ -45,6 +45,7 @@ struct GroupMemberNameView: View {
                 Text("This edit stays on this device. People you have not invited directly remain in this group only.").font(.footnote)
                 if let error = viewModel.groupErrorMessage { Text(LocalizedStringKey(error)).foregroundStyle(AppColorPalette.danger) }
             }
+            .screenBackground(AppColorPalette.listScreenBackground)
             .navigationTitle("Edit Name")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

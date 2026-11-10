@@ -23,7 +23,8 @@ struct StorePurchaseView: View {
                 }
             }
             .frame(maxWidth: AppSize.singleColumnMaxWidth)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .screenBackground(AppColorPalette.listScreenBackground)
             .navigationTitle("Purchases")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

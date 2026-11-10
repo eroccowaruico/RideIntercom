@@ -47,6 +47,7 @@ struct CallView: View {
 
     private var primaryColumn: some View {
         VStack(alignment: .leading, spacing: AppSpacing.screen) {
+            if let message = viewModel.groupErrorMessage { AdvancedCallErrorCard(message: message) }
             statusHeader
             controls
                 if viewModel.selectedGroup?.kind == .direct {

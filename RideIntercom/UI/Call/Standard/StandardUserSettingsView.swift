@@ -54,6 +54,7 @@ struct StandardUserSettingsView: View {
                 }
             }
             .formStyle(.grouped)
+            .screenBackground(AppColorPalette.listScreenBackground)
             .navigationTitle("User Settings")
             .accessibilityIdentifier("userSettingsView")
             .alert("Delete \(current.resolvedDisplayName)?", isPresented: $confirmsDelete) {
