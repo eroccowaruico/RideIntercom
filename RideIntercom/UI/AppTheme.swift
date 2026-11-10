@@ -148,14 +148,24 @@ private struct ReadableScrollWidth: ViewModifier {
     @State private var margins: EdgeInsets?
     func body(content: Content) -> some View {
         content
+            #if os(macOS)
+            // A macOS List ignores the horizontal content margins; the safe area moves its rows in.
+            .safeAreaPadding(.horizontal, margins?.leading ?? 0)
+            #else
             .contentMargins(.leading, margins?.leading, for: .scrollContent)
             .contentMargins(.trailing, margins?.trailing, for: .scrollContent)
+            #endif
             .onGeometryChange(for: EdgeInsets?.self) { proxy in
                 let extra = max(0, (proxy.size.width - AppSize.singleColumnMaxWidth) / 2)
                 // Only centre once the space beside the column is wider than the system's margin.
                 guard extra > AppSpacing.regularMargin else { return nil }
+                #if os(macOS)
+                // Added to the safe area by safeAreaPadding, so only the space beside the column.
+                return EdgeInsets(top: 0, leading: extra, bottom: 0, trailing: extra)
+                #else
                 return EdgeInsets(top: 0, leading: proxy.safeAreaInsets.leading + extra,
                                   bottom: 0, trailing: proxy.safeAreaInsets.trailing + extra)
+                #endif
             } action: { margins = $0 }
     }
 }

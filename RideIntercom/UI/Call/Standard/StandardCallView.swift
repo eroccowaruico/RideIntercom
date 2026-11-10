@@ -37,11 +37,16 @@ struct StandardCallView: View {
                 }
             } else if (compactHeight || regularWidth), let group = viewModel.selectedGroup {
                 HStack(alignment: .top, spacing: AppSpacing.screen) {
+                    // Landscape: the left column takes 45% and holds the state and controls in its middle,
+                    // as in the design sample; the details scroll on the right.
                     VStack(spacing: AppSpacing.m) {
                         hero(group, compact: compactHeight)
                         primaryActions(group, compact: compactHeight)
                     }
-                    .frame(maxWidth: AppSize.callColumnMaxWidth)
+                    .frame(maxWidth: AppSize.callColumnMaxWidth, maxHeight: compactHeight ? .infinity : nil)
+                    .containerRelativeFrame(.horizontal) { length, _ in
+                        compactHeight ? length * 0.45 : min(length, AppSize.callColumnMaxWidth)
+                    }
                     List {
                         CurrentCallSection(viewModel: viewModel, selectedTab: $selectedTab, excludesSelected: true)
                         CallStorageSection(viewModel: viewModel)

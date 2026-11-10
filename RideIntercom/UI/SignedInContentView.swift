@@ -58,7 +58,9 @@ struct SignedInContentView: View {
         .toolbar {
             if showsAccessory {
                 ToolbarItem {
-                    Button("Current Call", systemImage: "phone.fill", action: openLiveCall)
+                    // The call's name and state, as the iPhone's call accessory shows them.
+                    Button(action: openLiveCall) { macCallLabel }
+                        .labelStyle(.titleAndIcon)
                         .accessibilityIdentifier("callAccessoryOpenButton")
                 }
             }
@@ -122,6 +124,19 @@ struct SignedInContentView: View {
         false
         #endif
     }
+
+    #if os(macOS)
+    @ViewBuilder private var macCallLabel: some View {
+        if let id = viewModel.activeGroupID, let group = viewModel.groups.first(where: { $0.id == id }) {
+            let status = viewModel.callStatus(for: id)
+            Label {
+                Text(verbatim: "\(viewModel.callTitle(for: group)) · \(String(localized: .init(stringLiteral: status.title)))")
+            } icon: {
+                CallStatusSymbol(status: status)
+            }
+        }
+    }
+    #endif
 
     private var showsAccessory: Bool { viewModel.hasAnyActiveGroupConnection && !showsCall.wrappedValue }
 
