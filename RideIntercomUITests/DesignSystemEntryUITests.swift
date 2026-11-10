@@ -37,6 +37,26 @@ final class DesignSystemEntryUITests: XCTestCase {
         }
     }
 
+    /// At the standard text size: the icon and name above, the reason right before the button at the bottom.
+    func testSignInPutsTheReasonAndButtonAtTheBottom() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-out"
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "standard"
+        app.launch()
+        defer { attach(app, "Sign-in at the standard size"); app.terminate() }
+        let glyph = app.descendants(matching: .any)["signInBrandGlyph"].firstMatch
+        let reason = app.staticTexts["signInReason"].firstMatch
+        let button = app.buttons["signInWithAppleButton"].firstMatch
+        XCTAssertTrue(glyph.waitForExistence(timeout: 5))
+        let window = app.windows.firstMatch.frame
+        XCTAssertGreaterThan(button.frame.minY, window.minY + window.height * 0.7, "\(button.frame)")
+        XCTAssertLessThan(glyph.frame.maxY, window.minY + window.height * 0.5, "\(glyph.frame)")
+        XCTAssertLessThan(reason.frame.maxY, button.frame.minY)
+        XCTAssertLessThan(button.frame.minY - reason.frame.maxY, 40, "The reason sits right before the button")
+    }
+
     func testSignedInPersonChoosesANameBeforeUsingTheApp() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -74,6 +94,10 @@ final class DesignSystemEntryUITests: XCTestCase {
         XCTAssertTrue(invite.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(invite.frame.height, 44, "\(invite.frame)")
         XCTAssertGreaterThan(invite.frame.width, app.windows.firstMatch.frame.width / 2, "\(invite.frame)")
+        // Centred in the list's area, not pushed up as a list row.
+        let window = app.windows.firstMatch.frame
+        XCTAssertGreaterThan(invite.frame.midY, window.minY + window.height * 0.4, "\(invite.frame)")
+        XCTAssertLessThan(invite.frame.midY, window.minY + window.height * 0.75, "\(invite.frame)")
         attach(app, "Users empty state")
     }
 

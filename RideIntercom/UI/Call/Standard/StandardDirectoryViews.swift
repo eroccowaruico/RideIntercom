@@ -23,18 +23,6 @@ struct StandardUsersView: View {
             CallStorageSection(viewModel: viewModel)
             StandardPendingInvitationsSection(viewModel: viewModel)
             Section {
-                if viewModel.savedRemoteUsers.isEmpty {
-                    // The heading and one action only; the button says what to do.
-                    ContentUnavailableView {
-                        Label("No Saved Users", systemImage: "person.2")
-                    } actions: {
-                        Button("Invite Someone") { viewModel.beginContactInvitationPresentation() }
-                            .appProminentButtonStyle()
-                            .disabled(!viewModel.canEditSavedGroups)
-                            .emptyStateActionWidth()
-                            .accessibilityIdentifier("emptyUsersInviteButton")
-                    }
-                }
                 ForEach(users) { user in
                     Button {
                         viewModel.open(.user(user.id), pending: $pendingSwitch) { selectedTab = .call }
@@ -64,6 +52,21 @@ struct StandardUsersView: View {
             }
         }
         .accessibilityIdentifier("standardUsersList")
+        // The heading and one action only, centred in the list's area. After the list's identifier,
+        // which would otherwise replace the action's.
+        .overlay {
+            if viewModel.savedRemoteUsers.isEmpty {
+                ContentUnavailableView {
+                    Label("No Saved Users", systemImage: "person.2")
+                } actions: {
+                    Button("Invite Someone") { viewModel.beginContactInvitationPresentation() }
+                        .appProminentButtonStyle()
+                        .disabled(!viewModel.canEditSavedGroups)
+                        .emptyStateActionWidth()
+                        .accessibilityIdentifier("emptyUsersInviteButton")
+                }
+            }
+        }
         .destinationSettingsSheet($settings, viewModel: viewModel)
         .destinationDeleteConfirmation($pendingDelete)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
@@ -90,17 +93,6 @@ struct StandardGroupsView: View {
         List {
             CallStorageSection(viewModel: viewModel)
             Section {
-                if viewModel.regularGroups.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Groups Yet", systemImage: "person.3")
-                    } actions: {
-                        Button("New Group") { beginCreatingGroup() }
-                            .appProminentButtonStyle()
-                            .disabled(!viewModel.canEditSavedGroups)
-                            .emptyStateActionWidth()
-                            .accessibilityIdentifier("emptyGroupsCreateButton")
-                    }
-                }
                 ForEach(groups) { group in
                     Button {
                         viewModel.open(.group(group.id), pending: $pendingSwitch) { selectedTab = .call }
@@ -134,6 +126,19 @@ struct StandardGroupsView: View {
         .destinationDeleteConfirmation($pendingDelete)
         .switchCallConfirmation($pendingSwitch, viewModel: viewModel) { selectedTab = .call }
         .accessibilityIdentifier("standardGroupsList")
+        .overlay {
+            if viewModel.regularGroups.isEmpty {
+                ContentUnavailableView {
+                    Label("No Groups Yet", systemImage: "person.3")
+                } actions: {
+                    Button("New Group") { beginCreatingGroup() }
+                        .appProminentButtonStyle()
+                        .disabled(!viewModel.canEditSavedGroups)
+                        .emptyStateActionWidth()
+                        .accessibilityIdentifier("emptyGroupsCreateButton")
+                }
+            }
+        }
     }
 
     private func beginCreatingGroup() {
@@ -178,11 +183,12 @@ struct DirectoryRowLabel: View {
 
 extension View {
     /// A row is the whole tap target. On Mac a default button in a list draws as a push button.
+    /// The name keeps the text color: only state symbols carry color.
     @ViewBuilder func directoryRowButtonStyle() -> some View {
         #if os(macOS)
         buttonStyle(.plain)
         #else
-        self
+        foregroundStyle(.primary)
         #endif
     }
 
@@ -201,15 +207,26 @@ struct RecentCallSection: View {
     @Binding var pendingSwitch: CallDestination?
     let onOpen: () -> Void
 
+    private func isGroup(_ destination: CallDestination) -> Bool {
+        if case .group = destination { true } else { false }
+    }
+
+    /// The kind and size, as the call's hero says it: "Group · 4 people" or "User".
+    private func detail(_ destination: CallDestination) -> String {
+        guard case .group(let id) = destination, let group = viewModel.groups.first(where: { $0.id == id }) else {
+            return String(localized: "User")
+        }
+        return String(localized: "Group · \(group.members.count) people")
+    }
+
     var body: some View {
         if !viewModel.hasAnyActiveGroupConnection,
            let destination = viewModel.recentCallDestination, let title = viewModel.recentCallTitle {
             Section("Recent Call") {
                 Button { viewModel.open(destination, pending: $pendingSwitch, onOpen: onOpen) } label: {
-                    Label { Text(title).accessibilityIdentifier("recentCallName") } icon: {
-                        Image(systemName: "arrow.clockwise")
-                    }
+                    DirectoryRowLabel(title: title, isGroup: isGroup(destination), detail: detail(destination), status: nil)
                 }
+                .directoryRowButtonStyle()
                 .accessibilityIdentifier("recentCallButton")
             }
         }
@@ -221,7 +238,8 @@ private extension View {
     /// would size it to the words.
     func emptyStateActionWidth() -> some View {
         containerRelativeFrame(.horizontal) { length, _ in
-            min(length - 4 * AppSpacing.screen, AppSize.focusedMaxWidth)
+            // Never negative: the container can be measured at zero width before layout settles.
+            max(0, min(length - 4 * AppSpacing.screen, AppSize.focusedMaxWidth))
         }
     }
 }

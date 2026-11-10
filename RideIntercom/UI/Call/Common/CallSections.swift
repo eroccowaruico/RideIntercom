@@ -13,6 +13,7 @@ struct CurrentCallSection: View {
                     viewModel.selectGroup(group, connectIfIdle: false)
                     selectedTab = .call
                 } label: { Label(viewModel.callTitle(for: group), systemImage: "phone.fill") }
+                .directoryRowButtonStyle()
                 .accessibilityIdentifier("standardCurrentCallButton")
             }
         }

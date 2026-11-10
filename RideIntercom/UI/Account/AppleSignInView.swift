@@ -16,11 +16,13 @@ struct AppleSignInView: View {
                             signInContent.frame(maxWidth: 420)
                         }
                     } else {
+                        // As in the design: the icon and name above, the reason right before the button at the bottom.
                         VStack(spacing: 32) {
                             brand
+                            Spacer(minLength: 0)
                             signInContent
                         }
-                        .frame(maxWidth: 420)
+                        .frame(maxWidth: 420, maxHeight: .infinity)
                     }
                 }
                 .padding(32)
