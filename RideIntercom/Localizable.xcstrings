@@ -634,7 +634,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通話の呼び出しを許可"
+            "value" : "この相手からの呼び出しを受け取る"
           }
         }
       }
@@ -645,7 +645,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この相手からの通話の呼び出しを許可します。1対1で接続すると許可を共有します。受信にはこの端末の通知も有効にしてください。通知だけで通話は始まりません。"
+            "value" : "この相手からの呼び出しを受け取ります。1対1で接続するとこの設定を共有します。受け取るにはこの端末の通知も有効にしてください。呼び出しだけで接続は始まりません。"
           }
         }
       }
@@ -1359,7 +1359,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通話の呼び出しを取り消す"
+            "value" : "呼び出しを取り消す"
           }
         }
       }
@@ -1746,7 +1746,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "連絡先への招待"
+            "value" : "招待"
           }
         }
       }
@@ -2985,7 +2985,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しい相手を追加"
+            "value" : "新しい相手を招待"
           }
         }
       }
@@ -3429,7 +3429,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本人が共有している名前"
+            "value" : "本人の名前"
           }
         }
       }
@@ -5111,7 +5111,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通話の招待を共有"
+            "value" : "招待を共有"
           }
         }
       }
@@ -5593,7 +5593,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この通話に切り替え"
+            "value" : "接続を切り替える"
           }
         }
       }
@@ -5727,7 +5727,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このデバイスからグループを削除します。接続中の場合は切断します。"
+            "value" : "この端末からグループを削除します。接続中の場合は切断します。"
           }
         }
       }
@@ -6174,7 +6174,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "送信する声を明瞭にする"
+            "value" : "送信する声を分離"
           }
         }
       }
@@ -6233,7 +6233,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ミュート解除中"
+            "value" : "オフ"
           }
         }
       }
@@ -6394,7 +6394,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しい個別通話の招待を共有する前に、インターネット接続の設定でアカウントを確認してください。"
+            "value" : "新しい招待を共有する前に、インターネット接続の設定でアカウントを確認してください。"
           }
         }
       }
@@ -6450,7 +6450,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "声を分離"
+            "value" : "受信する声を分離"
           }
         }
       }
@@ -6683,7 +6683,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "双方で通話の招待を作成しました。同じ通話につながるように、この通話の招待を共有してください。"
+            "value" : "お互いに招待を作りました。同じ接続先につながるように、この招待を共有してください。"
           }
         }
       }

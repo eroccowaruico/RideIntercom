@@ -19,9 +19,18 @@ struct CallStatusTextTests {
         #expect(ja(StandardCallStatus.connecting.detail ?? "") == "相手の参加を待っています")
         #expect(ja("End Call") == "切断")
         #expect(ja("Recent Call") == "前回の接続先")
-        #expect(ja("Voice Isolation") == "声を分離")
+        // The glossary: say which voice isolation works on, invite (never add), and the words below.
+        #expect(ja("Voice Isolation") == "受信する声を分離")
+        #expect(ja("Transmit Voice Isolation Effect") == "送信する声を分離")
+        #expect(ja("Unmuted") == "オフ")
+        #expect(ja("Allow Call Requests") == "この相手からの呼び出しを受け取る")
+        #expect(ja("Cancel Call Request") == "呼び出しを取り消す")
+        #expect(ja("Share Call Invite") == "招待を共有")
+        #expect(ja("Name shared by this person") == "本人の名前")
+        #expect(ja("Switch to This Call") == "接続を切り替える")
+        #expect(ja("Contact Invitation") == "招待")
         #expect(ja("No Groups Yet") == "まだグループがありません")
-        #expect(ja("Invite Someone") == "新しい相手を追加")
+        #expect(ja("Invite Someone") == "新しい相手を招待")
         #expect(ja("Create and Connect") == "作成して接続")
     }
 }
