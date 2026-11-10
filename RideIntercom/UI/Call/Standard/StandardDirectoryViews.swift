@@ -29,8 +29,9 @@ struct StandardUsersView: View {
                         Label("No Saved Users", systemImage: "person.2")
                     } actions: {
                         Button("Invite Someone") { viewModel.beginContactInvitationPresentation() }
-                            .buttonStyle(.glassProminent)
+                            .appProminentButtonStyle()
                             .disabled(!viewModel.canEditSavedGroups)
+                            .emptyStateActionWidth()
                             .accessibilityIdentifier("emptyUsersInviteButton")
                     }
                 }
@@ -96,8 +97,9 @@ struct StandardGroupsView: View {
                         Label("No Groups Yet", systemImage: "person.3")
                     } actions: {
                         Button("New Group") { beginCreatingGroup() }
-                            .buttonStyle(.glassProminent)
+                            .appProminentButtonStyle()
                             .disabled(!viewModel.canEditSavedGroups)
+                            .emptyStateActionWidth()
                             .accessibilityIdentifier("emptyGroupsCreateButton")
                     }
                 }
@@ -212,6 +214,16 @@ struct RecentCallSection: View {
                 }
                 .accessibilityIdentifier("recentCallButton")
             }
+        }
+    }
+}
+
+private extension View {
+    /// The empty state's action spans the row, up to the focused width; its actions area alone
+    /// would size it to the words.
+    func emptyStateActionWidth() -> some View {
+        containerRelativeFrame(.horizontal) { length, _ in
+            min(length - 4 * AppSpacing.screen, AppSize.focusedMaxWidth)
         }
     }
 }

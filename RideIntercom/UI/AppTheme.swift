@@ -38,6 +38,8 @@ enum AppSpacing {
     static let xl: CGFloat = 12
     static let xxl: CGFloat = 14
     static let screen: CGFloat = 16
+    /// The system's side margin at regular width.
+    static let regularMargin: CGFloat = 20
     static let callControls: CGFloat = 24
     static let destructiveSeparation: CGFloat = 32
 }
@@ -54,7 +56,11 @@ enum AppSize {
     static let twoColumnMinimumWidth: CGFloat = 600
     static let callControlDiameter: CGFloat = 64
     static let callControlCompactDiameter: CGFloat = 56
+    /// What `.glass`/`.glassProminent` add around a circular button's label (measured: a 64pt label drew a 78pt circle).
+    static let callControlGlassPadding: CGFloat = 7
     static let singleColumnMaxWidth: CGFloat = 640
+    /// One focused group: sign-in, name input, an empty state.
+    static let focusedMaxWidth: CGFloat = 420
     static let callColumnMaxWidth: CGFloat = 560
     static let tapPrimary = CGSize(width: 44, height: 44)
     static let buttonPrimaryMinHeight: CGFloat = 44
@@ -98,6 +104,9 @@ extension View {
             .tint(AppColorPalette.buttonProminentBackground)
             .foregroundStyle(AppColorPalette.buttonProminentForeground)
             .frame(minHeight: max(AppSize.buttonPrimaryMinHeight, platformButtonMinHeight))
+            // The full width of where it sits, never a capsule as wide as its words.
+            .buttonSizing(.flexible)
+            .frame(maxWidth: .infinity)
     }
 
     func appSecondaryButtonStyle() -> some View {
@@ -131,13 +140,16 @@ extension View {
 /// or Form itself (background and scroll indicator) still spans the whole area. A horizontal content
 /// margin replaces the list's safe-area inset (the floating iPad sidebar), so the inset is added back.
 private struct ReadableScrollWidth: ViewModifier {
-    @State private var margins = EdgeInsets()
+    /// Nil keeps the system's margins (compact 16pt, regular 20pt), so sections stay inset rounded groups.
+    @State private var margins: EdgeInsets?
     func body(content: Content) -> some View {
         content
-            .contentMargins(.leading, margins.leading, for: .scrollContent)
-            .contentMargins(.trailing, margins.trailing, for: .scrollContent)
-            .onGeometryChange(for: EdgeInsets.self) { proxy in
+            .contentMargins(.leading, margins?.leading, for: .scrollContent)
+            .contentMargins(.trailing, margins?.trailing, for: .scrollContent)
+            .onGeometryChange(for: EdgeInsets?.self) { proxy in
                 let extra = max(0, (proxy.size.width - AppSize.singleColumnMaxWidth) / 2)
+                // Only centre once the space beside the column is wider than the system's margin.
+                guard extra > AppSpacing.regularMargin else { return nil }
                 return EdgeInsets(top: 0, leading: proxy.safeAreaInsets.leading + extra,
                                   bottom: 0, trailing: proxy.safeAreaInsets.trailing + extra)
             } action: { margins = $0 }

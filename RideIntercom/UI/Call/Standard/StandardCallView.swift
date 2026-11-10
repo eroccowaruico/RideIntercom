@@ -66,6 +66,8 @@ struct StandardCallView: View {
                         }
                         Section {
                             primaryActions(group, compact: false)
+                                // The row of controls spans the hero's width, as in the design sample.
+                                .listRowInsets(.horizontal, AppSpacing.xs)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                         }
@@ -166,7 +168,7 @@ struct StandardCallView: View {
                 Section {
                     Text("Check your headphones or speaker, then resume audio.")
                     Button("Resume Audio") { viewModel.resumeAudioAfterDeviceChange() }
-                        .buttonStyle(.glassProminent).controlSize(.large)
+                        .appProminentButtonStyle()
                         .disabled(viewModel.authenticatedPeerIDs.isEmpty)
                         .accessibilityIdentifier("resumeAudioButton")
                 }
@@ -342,12 +344,16 @@ struct StandardCallView: View {
 
     private func controlRow(reference: CallReference, diameter: CGFloat, vertical: Bool, horizontalLabels: Bool) -> some View {
         let controlLayout = horizontalLabels ? AnyLayout(HStackLayout(spacing: AppSpacing.xs)) : AnyLayout(VStackLayout(spacing: AppSpacing.m))
-        let layout = vertical ? AnyLayout(VStackLayout(spacing: AppSpacing.m)) : AnyLayout(HStackLayout(alignment: .top, spacing: AppSpacing.callControls))
+        // Side by side, the three spread across the column with the outer ones at its edges;
+        // End keeps at least 32pt from its neighbour.
+        let layout = vertical ? AnyLayout(VStackLayout(spacing: AppSpacing.m)) : AnyLayout(HStackLayout(alignment: .top, spacing: 0))
+        // The glass style pads its label; the label is smaller so the visible circle is the diameter.
+        let symbol = diameter - 2 * AppSize.callControlGlassPadding
         return layout {
             if viewModel.canControlMicrophone {
                 controlLayout {
                     Button { viewModel.setCallMuted(!viewModel.isMuted, for: reference) } label: {
-                        Image(systemName: "mic.slash").frame(width: diameter, height: diameter)
+                        Image(systemName: "mic.slash").frame(width: symbol, height: symbol)
                     }
                     .modifier(CallMuteButtonStyle(isMuted: viewModel.isMuted))
                     .buttonBorderShape(.circle)
@@ -364,9 +370,10 @@ struct StandardCallView: View {
                 Label("Control the microphone on your Watch", systemImage: "applewatch")
                     .font(.caption).accessibilityIdentifier("standardMicrophoneStatus")
             }
+            if !vertical { Spacer(minLength: AppSpacing.callControls) }
             controlLayout {
                 Button { viewModel.toggleOutputMute() } label: {
-                    Image(systemName: "speaker.slash").frame(width: diameter, height: diameter)
+                    Image(systemName: "speaker.slash").frame(width: symbol, height: symbol)
                 }
                 .modifier(CallMuteButtonStyle(isMuted: viewModel.isOutputMuted, tint: AppColorPalette.buttonProminentBackground))
                 .buttonBorderShape(.circle)
@@ -378,9 +385,10 @@ struct StandardCallView: View {
                     .fixedSize(horizontal: horizontalLabels, vertical: true)
                     .accessibilityIdentifier("standardSpeakerControlLabel")
             }
+            if !vertical { Spacer(minLength: AppSpacing.destructiveSeparation) }
             controlLayout {
                 Button(role: .destructive) { pendingEndReference = reference; confirmsEnd = true } label: {
-                    Image(systemName: "phone.down.fill").frame(width: diameter, height: diameter)
+                    Image(systemName: "phone.down.fill").frame(width: symbol, height: symbol)
                 }
                 .buttonStyle(.glassProminent).tint(AppColorPalette.danger)
                 .buttonBorderShape(.circle)
@@ -389,7 +397,7 @@ struct StandardCallView: View {
                 Text("End").font(AppTypography.footnoteStrong)
                     .fixedSize(horizontal: horizontalLabels, vertical: true)
                     .accessibilityIdentifier("standardEndControlLabel")
-            }.padding(.leading, vertical ? 0 : max(0, AppSpacing.destructiveSeparation - AppSpacing.callControls))
+            }
         }
     }
 

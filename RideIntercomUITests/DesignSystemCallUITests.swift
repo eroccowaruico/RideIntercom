@@ -31,6 +31,15 @@ final class DesignSystemCallUITests: XCTestCase {
         XCTAssertTrue(hero.exists, hero.debugDescription)
         XCTAssertTrue(hero.label.hasPrefix("Group · "), hero.label)
         XCTAssertLessThan(hero.frame.maxY, mute.frame.minY, "Controls sit below the hero")
+        // As in the design: 64pt circles spread across the hero's width, the end ones near its edges,
+        // and End at least 32pt from its neighbour.
+        for control in [mute, speaker, end] {
+            XCTAssertEqual(control.frame.width, 64, accuracy: 1, control.debugDescription)
+            XCTAssertEqual(control.frame.height, 64, accuracy: 1, control.debugDescription)
+        }
+        XCTAssertEqual(mute.frame.minX - hero.frame.minX, 4, accuracy: 3, "\(mute.frame) \(hero.frame)")
+        XCTAssertEqual(hero.frame.maxX - end.frame.maxX, 4, accuracy: 3, "\(end.frame) \(hero.frame)")
+        XCTAssertGreaterThanOrEqual(end.frame.minX - speaker.frame.maxX, 32)
         // No guidance text under the controls; the mute button's own label says Muted.
         XCTAssertFalse(app.staticTexts["standardMicrophoneStatus"].exists)
         mute.tap()

@@ -60,6 +60,8 @@ final class DesignSystemEntryUITests: XCTestCase {
         XCTAssertTrue(field.exists && save.exists)
         XCTAssertEqual(save.label, "はじめる")
         XCTAssertFalse(save.isEnabled, "An empty name cannot be saved")
+        XCTAssertGreaterThanOrEqual(save.frame.width, app.windows.firstMatch.frame.width - 2 * 16 - 1,
+                                    "The primary action spans the content width: \(save.frame)")
         attach(app, "Name choice before typing")
         field.tap()
         field.typeText("ナオ")
@@ -67,6 +69,12 @@ final class DesignSystemEntryUITests: XCTestCase {
         save.tap()
         XCTAssertTrue(prompt.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["standardUsersList"].firstMatch.waitForExistence(timeout: 5))
+        // The empty state's one action is a full primary button, at least the 44pt touch target.
+        let invite = app.buttons["emptyUsersInviteButton"].firstMatch
+        XCTAssertTrue(invite.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(invite.frame.height, 44, "\(invite.frame)")
+        XCTAssertGreaterThan(invite.frame.width, app.windows.firstMatch.frame.width / 2, "\(invite.frame)")
+        attach(app, "Users empty state")
     }
 
     func testDeveloperWarningHasHeadingAndPreservesInternetEntry() {

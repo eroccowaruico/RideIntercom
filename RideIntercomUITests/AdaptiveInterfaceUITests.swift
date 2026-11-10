@@ -55,6 +55,11 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         XCTAssertLessThanOrEqual(row.frame.width, 641, "Rows stop at the readable width", file: file, line: line)
         if XCUIDevice.shared.orientation.isPortrait {
             XCTAssertEqual(row.frame.midX, list.frame.midX, accuracy: 2, "Rows are centered", file: file, line: line)
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                // The system margin stays, so sections are inset rounded groups, not edge-to-edge rows.
+                XCTAssertGreaterThanOrEqual(row.frame.minX - list.frame.minX, 16, "Rows keep the side margin",
+                                            file: file, line: line)
+            }
         } else if UIDevice.current.userInterfaceIdiom == .pad {
             // The list runs under the floating sidebar; rows center in the area beside it.
             XCTAssertGreaterThan(row.frame.midX, list.frame.midX + 40, "Rows clear the sidebar", file: file, line: line)

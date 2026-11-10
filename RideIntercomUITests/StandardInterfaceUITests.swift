@@ -370,6 +370,8 @@ final class StandardInterfaceUITests: XCTestCase {
         let action = app.buttons["saveUserSelectionButton"].firstMatch
         XCTAssertEqual(action.label, "Create and Connect")
         XCTAssertTrue(action.isHittable)
+        // The primary action spans the sheet's width, not a capsule as wide as its words.
+        XCTAssertGreaterThanOrEqual(action.frame.width, app.windows.firstMatch.frame.width - 2 * 16 - 1, "\(action.frame)")
         XCTAssertEqual(app.textFields["savedUsersGroupNameField"].placeholderValue, inviterName)
         screenshot("Standard new group with a user picked")
         action.tap()
