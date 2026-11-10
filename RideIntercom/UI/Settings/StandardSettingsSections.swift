@@ -21,37 +21,73 @@ struct StandardInterfaceModeSection: View {
     }
 }
 
-/// One action, and below it only what the person needs: why it can't start, its progress, or its result.
+/// One action; while it runs, the state word with the same voice indicator as a call, and one sentence below.
+/// Device names, numbers and meters stay in Advanced.
 struct StandardAudioCheckSection: View {
     @Bindable var viewModel: IntercomViewModel
 
+    private var phase: AudioCheckPhase { viewModel.audioCheckPhase }
+
     var body: some View {
         Section {
-            Button(viewModel.audioCheckPhase.isInProgress ? "Stop Audio Check" : "Record 5s and Play") {
-                if viewModel.audioCheckPhase.isInProgress { viewModel.cancelAudioCheck() } else { viewModel.startAudioCheck() }
+            Button(phase.isInProgress ? "Stop Audio Check" : "Record 5s and Play") {
+                if phase.isInProgress { viewModel.cancelAudioCheck() } else { viewModel.startAudioCheck() }
             }
-            .disabled(!viewModel.audioCheckPhase.isInProgress && !viewModel.canStartAudioCheck)
-            .accessibilityValue(Text(LocalizedStringKey(viewModel.audioCheckPhase.rawValue)))
+            .disabled(!phase.isInProgress && !viewModel.canStartAudioCheck)
+            .accessibilityValue(Text(LocalizedStringKey(phase.rawValue)))
             .accessibilityIdentifier("audioCheckButton")
-            if let note {
-                HStack(spacing: AppSpacing.s) {
-                    if viewModel.audioCheckPhase.isInProgress { ProgressView().controlSize(.small) }
-                    Text(note).font(.footnote).foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("audioCheckStatusLabel")
-            }
+            stateRow
         } header: {
             Text("Audio Check").accessibilityIdentifier("audioCheckPanel")
+        } footer: {
+            if let footer { Text(footer).accessibilityIdentifier("audioCheckFooter") }
         }
     }
 
-    /// Nothing while idle; the reason first when it can't start.
-    private var note: LocalizedStringKey? {
-        if viewModel.isUsingWatchAudio { return "Watch is using audio. Stop it before starting a check on this device." }
-        if viewModel.hasAnyActiveGroupConnection { return "End your call before checking audio." }
-        if viewModel.audioCheckPhase == .idle { return nil }
-        return LocalizedStringKey(viewModel.audioCheckStatusMessage)
+    @ViewBuilder private var stateRow: some View {
+        switch phase {
+        case .idle:
+            EmptyView()
+        case .preparing:
+            row(Text("Preparing now")) { ProgressView().controlSize(.small) }
+        case .recording:
+            row(Text("Recording now")) {
+                StandardVoiceIndicator(kind: .input, level: viewModel.diagnosticsInputLevel, label: Text("Your voice"))
+            }
+        case .playing:
+            row(Text("Playing back now")) {
+                StandardVoiceIndicator(kind: .output, level: viewModel.diagnosticsOutputLevel, label: Text("Output"))
+            }
+        case .completed:
+            row(Text("Audio check finished")) { EmptyView() }
+        case .failed:
+            // The implementation's reason, as one sentence.
+            row(Text(LocalizedStringKey(viewModel.audioCheckStatusMessage))) { EmptyView() }
+        }
+    }
+
+    private func row(_ title: Text, @ViewBuilder trailing: () -> some View) -> some View {
+        HStack {
+            title
+            Spacer()
+            trailing()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("audioCheckStatusLabel")
+    }
+
+    /// Why it cannot start, or what to do in this state.
+    private var footer: LocalizedStringKey? {
+        switch phase {
+        case .idle:
+            if viewModel.isUsingWatchAudio { return "Watch is using audio. Stop it before starting a check on this device." }
+            if viewModel.hasAnyActiveGroupConnection { return "End your call before checking audio." }
+            return nil
+        case .preparing, .failed: return nil
+        case .recording: return "Speak now. Your recording plays back next."
+        case .playing: return "If you can hear your recording, your microphone and speaker work."
+        case .completed: return "If you couldn't hear it, check the volume and your audio device."
+        }
     }
 }
 

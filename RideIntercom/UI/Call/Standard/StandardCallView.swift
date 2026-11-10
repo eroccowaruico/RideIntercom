@@ -177,18 +177,43 @@ struct StandardCallView: View {
             if let error = viewModel.audioErrorMessage { noticeSection(error) }
         }
         Section {
+            // You come first: whether your microphone picks up your voice.
+            if group.id == viewModel.activeGroupID {
+                HStack {
+                    DestinationAvatar(isGroup: false)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("You")
+                        if viewModel.isMuted {
+                            Text("Muted").font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    StandardVoiceIndicator(kind: .input, level: viewModel.diagnosticsInputLevel,
+                                           isSilenced: viewModel.isMuted, label: Text("Your voice"))
+                        .accessibilityIdentifier("standardVoiceIndicatorSelf")
+                }
+                .frame(minHeight: 44)
+            }
             ForEach(Array(group.members.dropFirst())) { member in
                 VStack(alignment: .leading, spacing: AppSpacing.m) {
                     HStack {
-                        DestinationAvatar(isGroup: false)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(member.resolvedDisplayName)
-                            if group.id == viewModel.activeGroupID { memberState(member) }
+                        HStack {
+                            DestinationAvatar(isGroup: false)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(member.resolvedDisplayName)
+                                if group.id == viewModel.activeGroupID { memberState(member) }
+                            }
                         }
+                        .accessibilityElement(children: .combine)
                         Spacer()
+                        // Only someone in the conversation has a voice to show; still and grey while quiet.
+                        if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
+                            StandardVoiceIndicator(kind: .peer, level: member.voiceLevel, isSilenced: member.isMuted,
+                                                   label: Text("\(member.resolvedDisplayName)'s voice"))
+                                .accessibilityIdentifier("standardVoiceIndicator-\(member.id)")
+                        }
                     }
                     .frame(minHeight: 44)
-                    .accessibilityElement(children: .combine)
                     if group.id == viewModel.activeGroupID, viewModel.authenticatedPeerIDs.contains(member.id) {
                         VStack(alignment: .leading) {
                             Text("Volume").accessibilityIdentifier("standardPeerVolumeLabel-\(member.id)")
@@ -220,11 +245,12 @@ struct StandardCallView: View {
     @ViewBuilder private func memberState(_ member: GroupMember) -> some View {
         Group {
             if member.isTalking {
-                Label("Speaking", systemImage: "waveform")
-                    .foregroundStyle(AppColorPalette.voiceLevel)
+                // The word goes with the indicator's steps; color alone never says who is speaking.
+                Text("Speaking")
+                    .foregroundStyle(.secondary)
                     .accessibilityIdentifier("standardMemberSpeaking-\(member.id)")
             } else if viewModel.authenticatedPeerIDs.contains(member.id) {
-                EmptyView()
+                if member.isMuted { Text("Muted").foregroundStyle(.secondary) }
             } else if viewModel.connectedPeerIDs.contains(member.id) {
                 // Reached but not yet verified: not part of the conversation yet.
                 Text("Connecting")
@@ -377,14 +403,17 @@ struct StandardCallView: View {
                     Text("\(Int(viewModel.masterOutputVolume * 100))%")
                         .monospacedDigit().accessibilityIdentifier("standardSpeakerVolumeValue")
                 }
-                Slider(value: Binding(get: { Double(viewModel.masterOutputVolume) }, set: { viewModel.setMasterOutputVolume(Float($0)) }), in: 0...2) {
-                    Text("Speaker Volume")
-                } minimumValueLabel: {
-                    Image(systemName: "speaker")
-                } maximumValueLabel: {
-                    Image(systemName: "speaker.wave.3")
+                HStack(spacing: AppSpacing.s) {
+                    Image(systemName: "speaker").foregroundStyle(.secondary).accessibilityHidden(true)
+                    Slider(value: Binding(get: { Double(viewModel.masterOutputVolume) }, set: { viewModel.setMasterOutputVolume(Float($0)) }), in: 0...2) {
+                        Text("Speaker Volume")
+                    }
+                    .labelsHidden()
+                    // What actually plays, so a moving symbol you cannot hear points at the volume or device.
+                    StandardVoiceIndicator(kind: .output, level: viewModel.diagnosticsOutputLevel,
+                                           isSilenced: viewModel.isOutputMuted, label: Text("Output"))
+                        .accessibilityIdentifier("standardVoiceIndicatorOutput")
                 }
-                .labelsHidden()
             }
             if viewModel.supportsSoundIsolation {
                 Toggle("Voice Isolation", isOn: Binding(get: { viewModel.receiveMasterSoundIsolationEnabled },

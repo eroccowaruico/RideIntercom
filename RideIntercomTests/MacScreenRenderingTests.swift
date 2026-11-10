@@ -24,6 +24,16 @@ struct MacScreenRenderingTests {
             StandardInterfaceModeSection(viewModel: vm)
             StandardInternetConnectionSection(viewModel: vm, isEditing: .constant(false))
         }.formStyle(.grouped), size: .init(width: 600, height: 360), language: language, named: "settings-developer")
+        // Standard Audio Check while recording and playing: the state word, the voice indicator, one sentence.
+        vm.audioCheckPhase = .recording
+        vm.audioCheckInputLevel = 0.2
+        try await record(Form { StandardAudioCheckSection(viewModel: vm) }.formStyle(.grouped),
+                         size: .init(width: 600, height: 260), language: language, named: "audio-check-recording")
+        vm.audioCheckPhase = .playing
+        vm.audioCheckOutputLevel = 0.05
+        try await record(Form { StandardAudioCheckSection(viewModel: vm) }.formStyle(.grouped),
+                         size: .init(width: 600, height: 260), language: language, named: "audio-check-playing")
+        vm.audioCheckPhase = .idle
         vm.setInterfaceMode(.advanced)
         try await record(NavigationStack { SettingsView(viewModel: vm) },
                          size: .init(width: 900, height: 2600), language: "en", named: "settings-advanced")

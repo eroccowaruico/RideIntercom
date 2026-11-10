@@ -179,6 +179,14 @@ struct DiagnosticsTests {
                 == ["active", "waiting", "unavailable", "bypassed", "idle"])
     }
 
+    @Test func voiceIndicatorStepsIgnoreNoiseAndRoundSpeechToQuarters() {
+        #expect(StandardVoiceIndicator.step(for: 0) == 0)
+        #expect(StandardVoiceIndicator.step(for: 0.0005) == 0, "Below the quietest speech is silence")
+        let quiet = StandardVoiceIndicator.step(for: 0.01), loud = StandardVoiceIndicator.step(for: 0.5)
+        #expect(quiet >= 0.25 && quiet < loud && loud <= 1)
+        #expect([quiet, loud].allSatisfy { ($0 * 4).rounded() == $0 * 4 }, "Steps, so the symbol does not flicker")
+    }
+
     @Test func diagnosticsRowsSummarizeCurrentAppState() {
         let harness = AppTestSupport.makeHarness()
         let overviewRows = harness.viewModel.diagnosticsOverviewRows

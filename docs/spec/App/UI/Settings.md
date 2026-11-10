@@ -120,7 +120,7 @@ App は route 実体を直接構築しない。Settings の `enabledRTCTransport
 | マイクミュート状態 | `audioCheckPanel` | `audioCheckMuteState` | `Microphone mute: On` / `Off` | `isMuted` | Advanced | 状態テキスト | 現在のマイクミュート状態を表示。Watch音声使用中は、Watch音声を停止してからこの端末のチェックを開始する案内を別の行で表示 |
 | チェック実行・停止ボタン | `audioCheckPanel` | `audioCheckButton` | `Record 5s and Play` / `Stop Audio Check` | Action | 常時 | 同じボタンで開始と停止を切り替える。進行中以外は開始不可条件で disabled | 二重起動と通話中の競合を防ぐ。準備・録音・再生中は停止可能 |
 
-Standardの音声チェックは「Record 5s and Play」（5秒録音して再生）の1操作と、その下の状態文だけを置く。機器・ミュート・meterは出さない。Advancedは[詳細画面見本](../../../design/詳細画面/詳細画面見本.html)の順にCall、Audio Check、Recording Input、Playback Output、meter、ミュート、状態文、操作を並べる。操作は標準Formのボタン行とし、使用不可の理由やWatch所有中の案内を残す。
+Standardの音声チェック（`StandardAudioCheckSection`）は「Record 5s and Play」（5秒録音して再生、実行中は「音声チェックを停止」）の1操作と、状態の行（`audioCheckStatusLabel`）、footerの1文（`audioCheckFooter`）だけを置く。状態の行は、準備中は進行表示と「準備しています」、録音中は「録音しています」と自分の声の[声のインジケーター](Call.md)（入力）、再生中は「再生しています」と出力のインジケーター、完了は「音声チェックが終わりました」、失敗は実装の理由の文。待機中は出さない。footerは、開始できないときは理由（通話中・Apple Watchが音声を使用中）、録音中・再生中・完了は次にすることの1文。機器名・ミュート・数値のmeterは出さない。Advancedは[詳細画面見本](../../../design/詳細画面/詳細画面見本.html)の順にCall、Audio Check、Recording Input、Playback Output、meter、ミュート、状態文、操作を並べる。操作は標準Formのボタン行とし、使用不可の理由やWatch所有中の案内を残す。
 
 ## Transmit Codec
 

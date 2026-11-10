@@ -236,6 +236,17 @@ final class DesignSystemCallUITests: XCTestCase {
         for _ in 0..<4 where !value.exists { app.swipeUp() }
         XCTAssertTrue(value.waitForExistence(timeout: 3))
         XCTAssertEqual(value.label, "100%")
+        // Voice indicators: what plays at the volume's right end, and your microphone first in the members.
+        let output = app.descendants(matching: .any)["standardVoiceIndicatorOutput"].firstMatch
+        XCTAssertTrue(output.exists, app.debugDescription)
+        XCTAssertEqual(output.label, "Output")
+        XCTAssertTrue(["Speaking", "Silent"].contains(output.value as? String ?? ""), output.debugDescription)
+        let own = app.descendants(matching: .any)["standardVoiceIndicatorSelf"].firstMatch
+        for _ in 0..<4 where !own.exists { app.swipeUp() }
+        XCTAssertTrue(own.waitForExistence(timeout: 3), app.debugDescription)
+        XCTAssertEqual(own.label, "Your voice")
+        XCTAssertEqual(own.value as? String, "Muted", "A muted microphone shows mic.slash, not steps")
+        attachEvidence("Voice indicators while muted")
     }
 
     @MainActor
