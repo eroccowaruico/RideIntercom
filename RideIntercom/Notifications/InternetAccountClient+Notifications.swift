@@ -72,12 +72,6 @@ extension InternetAccountClient {
               result.senderUserID.map(Self.notificationUserID) == true else { throw Failure.invalidResponse }
         return result
     }
-    func cancelCallNotification(origin: URL, token: String, recipientUserID: String, requestID: UUID) async throws {
-        try validateNotificationAccess(origin, token: token)
-        guard Self.notificationUserID(recipientUserID) else { throw Failure.invalidResponse }
-        let _: NotificationAcknowledgement = try await send(origin: origin,
-            path: "api/notifications/calls/\(recipientUserID)/\(requestID.uuidString.lowercased())", method: "DELETE", token: token)
-    }
     private func validateNotificationAccess(_ origin: URL, token: String) throws {
         _ = try Self.origin(origin.absoluteString)
         let parts = token.split(separator: ".", omittingEmptySubsequences: false).map(String.init)

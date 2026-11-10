@@ -8,8 +8,6 @@ final class CallNotifications {
     private(set) var authorizationDenied = false
     private(set) var isBusy = false
     private(set) var message: String?
-    private(set) var outgoing: Outgoing?
-    struct Outgoing { let contactID: UUID; let recipientID: String; let reply: CallNotificationReply }
     private var permissions: [CallNotificationPermission] = []
     @ObservationIgnored private let store: InternetConnectionSettingsStore
     @ObservationIgnored private let memberID: String
@@ -192,7 +190,7 @@ final class CallNotifications {
     func stop() -> Task<Void, Never>? {
         let previous = isEnabled || store.notificationRemovalPending ? try? store.notificationAccess(memberID: memberID) : nil
         let operation = deviceOperation
-        generation += 1; tokenGeneration += 1; isBusy = false; receivesNotifications = false; outgoing = nil
+        generation += 1; tokenGeneration += 1; isBusy = false; receivesNotifications = false
         deviceOperation = nil; deviceOperationID = nil
         if let previous {
             store.notificationRemovalPending = true
@@ -308,26 +306,9 @@ final class CallNotifications {
         do {
             let reply = try await client.sendCallNotification(origin: context.origin, token: context.accessToken, capability: capability, requestID: UUID())
             guard current(context, generation: expected), permission(contactID, context: context)?.sending?.capability == capability else { return nil }
-            outgoing = .init(contactID: contactID, recipientID: record.peer.userID, reply: reply)
-            switch reply.status {
-            case .accepted: message = "Notification accepted. Delivery is not confirmed."
-            case .processing: message = "The call request is being processed."
-            case .noDestinations: message = "This person has no notification destination available."
-            case .retryLater: message = "The call request could not be sent. Please try again later."
-            case .rejected: message = "The call request was not accepted."
-            case .cancelled: message = "Call request cancelled."
-            }
+            // A courtesy sent once: its result is not shown or followed up.
             return reply
-        } catch { if current(context, generation: expected) { message = "The call request could not be sent. Please try again later." }; return nil }
-    }
-    func cancelOutgoing() async {
-        guard let context = access(), let outgoing else { return }
-        let expected = generation
-        do {
-            try await client.cancelCallNotification(origin: context.origin, token: context.accessToken, recipientUserID: outgoing.recipientID, requestID: outgoing.reply.requestID)
-            guard current(context, generation: expected), self.outgoing?.reply.requestID == outgoing.reply.requestID else { return }
-            self.outgoing = nil; message = "Call request cancelled."
-        } catch { if current(context, generation: expected) { message = "The call request could not be cancelled. Please try again." } }
+        } catch { return nil }
     }
     func canReceive(_ tap: CallNotificationTap) -> Bool { receivingAccess(for: tap) != nil }
     private func receivingAccess(for tap: CallNotificationTap) -> CallNotificationServiceAccess? {

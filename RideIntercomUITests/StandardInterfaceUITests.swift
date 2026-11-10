@@ -400,9 +400,9 @@ final class StandardInterfaceUITests: XCTestCase {
     #if os(iOS)
     /// User Settings: your name for them, their own name, receiving their calls, and deleting.
     @MainActor
-    /// Choosing a person connects and rings them at once. Without their permission nothing is sent: the hero
-    /// says the request cannot reach them and offers to let them know another way.
-    func testChoosingAPersonShowsTheRingInTheHero() throws {
+    /// Choosing a person connects at once (an intercom: everyone joins together). A call notification is only a
+    /// courtesy: the hero keeps the call's own state and no ringing controls appear.
+    func testChoosingAPersonConnectsWithoutRingingControls() throws {
         launch()
         let suffix = String(UUID().uuidString.prefix(6))
         let inviterName = "Rider " + suffix
@@ -416,12 +416,11 @@ final class StandardInterfaceUITests: XCTestCase {
         row.tap()
         let hero = app.descendants(matching: .any)["standardCallHero"].firstMatch
         XCTAssertTrue(hero.waitForExistence(timeout: 5))
-        let reached = NSPredicate(format: "value BEGINSWITH %@", "Can't reach \(inviterName) with a call request")
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: reached, object: hero)], timeout: 5), .completed,
-                       String(describing: hero.value))
-        XCTAssertTrue(app.buttons["shareDirectCallButton"].firstMatch.exists)
-        XCTAssertFalse(app.buttons["cancelDirectRingButton"].exists)
-        screenshot("One-to-one call cannot ring")
+        XCTAssertTrue((hero.value as? String ?? "").hasPrefix("Connecting"), String(describing: hero.value))
+        for id in ["shareDirectCallButton", "cancelDirectRingButton", "ringAgainButton"] {
+            XCTAssertFalse(app.buttons[id].exists, id)
+        }
+        screenshot("One-to-one call without ringing controls")
         app.buttons["standardEndCallButton"].firstMatch.tap()
         app.alerts.firstMatch.buttons["standardConfirmEndCallButton"].firstMatch.tap()
     }

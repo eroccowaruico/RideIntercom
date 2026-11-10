@@ -70,9 +70,6 @@ struct SignedInContentView: View {
         }
         #endif
         .onChange(of: selectedTab) { _, current in if current != .call { listTab = current } }
-        // A one-to-one ring stops when they join or the call ends.
-        .onChange(of: viewModel.callStatus(for: viewModel.activeGroupID)) { viewModel.settleDirectRing() }
-        .onChange(of: viewModel.hasAnyActiveGroupConnection) { viewModel.settleDirectRing() }
         // Turning the tab off while it is shown returns to Users; calls and groups stay as they are.
         .onChange(of: viewModel.isGroupsTabVisible) { _, visible in
             guard !visible else { return }

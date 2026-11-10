@@ -30,9 +30,6 @@ final class IntercomViewModel {
     var menuBarEnabled = false
     var liveActivityEnabled = false
     var showsGroupsTab = false
-    /// Ringing the person a one-to-one call was started with, while they have not joined.
-    var directRing: DirectRing?
-    @ObservationIgnored var directRingTask: Task<Void, Never>?
     let enforceCallAccess: Bool
     @ObservationIgnored let callAccessNow: @MainActor () -> Date
     @ObservationIgnored let callAccessEvaluation: (@MainActor (Date) -> StoreAccessEvaluation)?

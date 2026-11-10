@@ -279,26 +279,14 @@ struct StandardCallView: View {
         .font(.footnote)
     }
 
-    /// The hero's words: ringing a one-to-one person first, then the call's own state.
+    /// The hero's words: the call's own state. A call notification never changes it.
     private var heroState: (title: String, detail: String?) {
-        if let group = viewModel.selectedGroup, let phase = viewModel.directRingPhase(for: group) {
-            let name = viewModel.callTitle(for: group)
-            switch phase {
-            case .ringing: return (String(localized: "Ringing"), String(localized: "Answering starts your conversation."))
-            case .noAnswer: return (String(localized: "No answer"), String(localized: "When \(name) chooses you, your conversation starts."))
-            case .sendFailed: return (String(localized: "Couldn't send the call request"), String(localized: "Try again where you have a connection."))
-            case .undeliverable: return (String(localized: "Can't reach \(name) with a call request"),
-                                         String(localized: "\(name) hasn't chosen to receive call requests from this device."))
-            }
-        }
         let status = viewModel.standardCallStatus
         return (String(localized: .init(stringLiteral: status.title)), status.detail.map { String(localized: .init(stringLiteral: $0)) })
     }
 
-    private var ringPhase: DirectRing.Phase? { viewModel.selectedGroup.flatMap(viewModel.directRingPhase(for:)) }
-
     @ViewBuilder private var statusSymbolView: some View {
-        if ringPhase == .ringing || (ringPhase == nil && viewModel.standardCallStatus == .connecting) {
+        if viewModel.standardCallStatus == .connecting {
             // Only the progress carries the warning color; the words keep the label color.
             ProgressView().controlSize(.small).tint(AppColorPalette.warning)
         } else {
@@ -355,13 +343,10 @@ struct StandardCallView: View {
         let access = viewModel.accountAccessID
         if group.id == viewModel.activeGroupID, viewModel.hasAnyActiveGroupConnection {
             let diameter = compact ? AppSize.callControlCompactDiameter : AppSize.callControlDiameter
-            VStack(spacing: AppSpacing.m) {
-                ringAction(group)
-                GlassEffectContainer(spacing: AppSpacing.callControls) {
-                    ViewThatFits(in: .horizontal) {
-                        controlRow(reference: reference, diameter: diameter, vertical: false, horizontalLabels: compact && dynamicTypeSize.isAccessibilitySize)
-                        controlRow(reference: reference, diameter: diameter, vertical: true, horizontalLabels: compact && dynamicTypeSize.isAccessibilitySize)
-                    }
+            GlassEffectContainer(spacing: AppSpacing.callControls) {
+                ViewThatFits(in: .horizontal) {
+                    controlRow(reference: reference, diameter: diameter, vertical: false, horizontalLabels: compact && dynamicTypeSize.isAccessibilitySize)
+                    controlRow(reference: reference, diameter: diameter, vertical: true, horizontalLabels: compact && dynamicTypeSize.isAccessibilitySize)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -372,31 +357,6 @@ struct StandardCallView: View {
             .appProminentButtonStyle()
             .disabled(!viewModel.canStartCalls)
             .accessibilityIdentifier("standardConnectButton")
-        }
-    }
-
-    /// The ringing state's one action, right under the hero (the design's 呼び出した側の表示).
-    @ViewBuilder private func ringAction(_ group: IntercomGroup) -> some View {
-        switch viewModel.directRingPhase(for: group) {
-        case .ringing:
-            Button("Cancel Ringing", role: .destructive) { viewModel.cancelDirectRing() }
-                .appSecondaryButtonStyle().buttonSizing(.flexible).frame(maxWidth: .infinity)
-                .accessibilityIdentifier("cancelDirectRingButton")
-        case .noAnswer, .sendFailed:
-            Button("Ring Again") { viewModel.ringAgain() }
-                .appSecondaryButtonStyle().buttonSizing(.flexible).frame(maxWidth: .infinity)
-                .accessibilityIdentifier("ringAgainButton")
-        case .undeliverable:
-            // The one place Standard shares a link on its own: it opens this conversation for them.
-            ShareLink(item: InvitationShare(viewModel: viewModel, groupID: group.id),
-                      subject: Text("RideCom Invite"), message: Text("Join me for a call on RideCom."),
-                      preview: SharePreview(Text(viewModel.callTitle(for: group)))) {
-                Text("Let Them Know Another Way")
-            }
-            .appSecondaryButtonStyle().buttonSizing(.flexible).frame(maxWidth: .infinity)
-            .accessibilityIdentifier("shareDirectCallButton")
-        case nil:
-            EmptyView()
         }
     }
 

@@ -105,7 +105,10 @@ extension IntercomViewModel {
         }
         if activeGroupID == selectedGroup.id, hasAnyActiveGroupConnection { return true }
         connectSelectedGroup(usingWatch: usingWatch)
-        return activeGroupID == selectedGroup.id && hasAnyActiveGroupConnection
+        let started = activeGroupID == selectedGroup.id && hasAnyActiveGroupConnection
+        // Every new one-to-one connection notifies the person once, from a list, Widget, Watch or Siri.
+        if started, case .user(let id) = destination { noticeNewDirectCall(to: id) }
+        return started
     }
 
     /// Choosing someone from a list: connect when idle and reopen the current call.
@@ -120,12 +123,7 @@ extension IntercomViewModel {
 
     /// A start that cannot proceed still shows the destination, where the reason is explained.
     private func connectOrShow(_ destination: CallDestination) {
-        let wasActive = isActiveCall(destination)
-        guard !startCall(to: destination, accountAccessID: accountAccessID) else {
-            // Choosing a person rings them as the connection starts, unless that call was already live.
-            if case .user(let id) = destination, !wasActive { beginDirectRing(to: id) }
-            return
-        }
+        guard !startCall(to: destination, accountAccessID: accountAccessID) else { return }
         let message = groupErrorMessage
         switch destination {
         case .group(let id): if let group = groups.first(where: { $0.id == id }) { selectGroup(group, connectIfIdle: false) }

@@ -48,9 +48,6 @@ struct NotificationClientTests {
         let result = try await client.readCallNotification(origin: origin, token: token, recipientUserID: userID, requestID: requestID)
         #expect(result.senderUserID == userID)
         #expect(NotificationHTTPStub.requests.last?.httpMethod == "GET")
-        NotificationHTTPStub.response = "{}"
-        try await client.cancelCallNotification(origin: origin, token: token, recipientUserID: userID, requestID: requestID)
-        #expect(NotificationHTTPStub.requests.last?.httpMethod == "DELETE")
         NotificationHTTPStub.status = 410
         await #expect(throws: (any Error).self) { try await client.readCallNotification(origin: origin, token: token, recipientUserID: userID, requestID: requestID) }
     }
@@ -455,7 +452,6 @@ struct NotificationClientTests {
         try fixture.notifications.receivePermission(message, peerID: "friend")
         NotificationHTTPStub.status = 403
         #expect(await fixture.notifications.send(to: fixture.user.id) == nil)
-        #expect(fixture.notifications.outgoing == nil)
         #expect(NotificationHTTPStub.requests.count == 1)
     }
 
@@ -578,78 +574,24 @@ struct NotificationClientTests {
         #expect(h.viewModel.currentCallReference == current)
     }
 
-    @Test func watchProjectsOnlySavedPeoplesPermissionAndRequestsWithoutStartingAudioThenCancelsOnlyCurrentRequest() async throws {
+    /// A new one-to-one connection sends the call notification exactly once; reopening the live call does not
+    /// send again, and nothing withdraws or follows it (an intercom: people join together).
+    @Test func startingAOneToOneCallSendsTheNotificationOnceAndNeverFollowsUp() async throws {
         let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
         let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
-        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
-        #expect(owner.watchSnapshot().targets.first?.canNotify == false)
-        let grant = try testCallNotificationGrant(owner: fixture.peer, allowedSender: fixture.local)
-        try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 1,
-            grant: grant, signer: fixture.peerSigner), peerID: "friend")
-        let snapshot = owner.watchSnapshot(), target = try #require(snapshot.targets.first)
-        #expect(target.canNotify)
-        NotificationHTTPStub.echoCallStatus = .accepted
-        let sent = await owner.handleWatchRequest(.init(.requestCall(target.id), snapshot: snapshot))
-        let first = try #require(sent.snapshot.notification)
-        #expect(sent.problem == nil && first.status == .accepted && first.canCancel)
-        #expect(h.callSession.connectedGroup == nil && !sent.snapshot.hasCall)
-        #expect(!String(decoding: try JSONEncoder().encode(sent), as: UTF8.self).contains(grant.capability))
-        let second = await owner.handleWatchRequest(.init(.requestCall(target.id), snapshot: sent.snapshot))
-        let current = try #require(second.snapshot.notification)
-        #expect(first.requestID != current.requestID)
-        let count = NotificationHTTPStub.requests.count
-        #expect(await owner.handleWatchRequest(.init(.cancelCallRequest(first.requestID), snapshot: second.snapshot)).problem == .stale)
-        #expect(NotificationHTTPStub.requests.count == count)
-        let cancelled = await owner.handleWatchRequest(.init(.cancelCallRequest(current.requestID), snapshot: second.snapshot))
-        #expect(cancelled.problem == nil && cancelled.snapshot.notification == nil)
-        #expect(NotificationHTTPStub.requests.last?.httpMethod == "DELETE")
-    }
-
-    @Test func watchRejectsGroupsMissingRevokedAndExpiredNotificationTargetsBeforeSending() async throws {
-        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
-        let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
-        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
-        #expect(h.viewModel.createTalkGroup(name: "Existing group"))
-        let snapshot = owner.watchSnapshot(), person = try #require(snapshot.targets.first { $0.id.contains("|user|") })
-        // The Watch lists individuals only; a group ID sent anyway is not a destination there.
-        #expect(!snapshot.targets.contains { $0.id.contains("|group|") })
-        let groupID = try #require(h.viewModel.regularGroups.first?.id)
-        let group = "\(h.viewModel.localMemberIdentity.memberID)|group|\(groupID.uuidString)"
-        #expect(await owner.handleWatchRequest(.init(.requestCall(group), snapshot: snapshot)).problem == .missingDestination)
-        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot)).problem == .denied)
-        #expect(await owner.handleWatchRequest(.init(.requestCall("missing"), snapshot: snapshot)).problem == .missingDestination)
-        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot), now: snapshot.validUntil).problem == .stale)
         try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 1,
             grant: try testCallNotificationGrant(owner: fixture.peer, allowedSender: fixture.local), signer: fixture.peerSigner), peerID: "friend")
-        let permitted = owner.watchSnapshot()
-        #expect(permitted.targets.first { $0.id == person.id }?.canNotify == true)
-        try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 2,
-            grant: nil, signer: fixture.peerSigner), peerID: "friend")
-        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: permitted)).problem == .denied)
-        // Remove the saved destination through storage without scheduling an unrelated
-        // revocation Task beyond this fixture's lifetime.
-        try h.viewModel.groupRepository.removeUser(fixture.user.id)
-        h.viewModel.refreshGroupStorageStatus(); fixture.users = []
-        #expect(await owner.handleWatchRequest(.init(.requestCall(person.id), snapshot: snapshot)).problem == .missingDestination)
-        #expect(NotificationHTTPStub.requests.isEmpty)
-    }
-
-    @Test func delayedWatchNotificationReplyCannotRestoreAnOldAccount() async throws {
-        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
-        let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
-        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
-        try fixture.notifications.receivePermission(.make(owner: fixture.peer, allowedSender: fixture.local, revision: 1,
-            grant: try testCallNotificationGrant(owner: fixture.peer, allowedSender: fixture.local), signer: fixture.peerSigner), peerID: "friend")
-        let snapshot = owner.watchSnapshot(), target = try #require(snapshot.targets.first)
         NotificationHTTPStub.echoCallStatus = .accepted
-        let gate = ManualAsyncGate(); NotificationHTTPStub.delayGate = gate
-        let task = Task { await owner.handleWatchRequest(.init(.requestCall(target.id), snapshot: snapshot)) }
-        await gate.waitForEntry(); fixture.current = false; owner.viewModel = nil
-        let cleanup = fixture.notifications.stop()
-        NotificationHTTPStub.delayGate = nil; await gate.release()
-        let reply = await task.value; await cleanup?.value
-        #expect(reply.problem == .noAccount && reply.snapshot.reference == nil && reply.snapshot.notification == nil)
-        #expect(fixture.notifications.outgoing == nil && h.callSession.connectedGroup == nil)
+        #expect(h.viewModel.openDestination(.user(fixture.user.id)) == .opened)
+        for _ in 0..<100 where NotificationHTTPStub.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(NotificationHTTPStub.requests.count == 1)
+        #expect(NotificationHTTPStub.requests.last?.httpMethod == "POST")
+        #expect(h.viewModel.openDestination(.user(fixture.user.id)) == .opened)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(NotificationHTTPStub.requests.count == 1, "Reopening the live call does not send again")
+        h.viewModel.disconnect()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(NotificationHTTPStub.requests.allSatisfy { $0.httpMethod != "DELETE" }, "Nothing withdraws the notification")
     }
 
     private func authenticateNotificationPeer(_ h: AppTestSupport.Harness, fixture: NotificationModelFixture) throws {

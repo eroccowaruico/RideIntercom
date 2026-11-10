@@ -65,13 +65,6 @@ struct CallNotificationContactSection: View {
                 set: { allowed in Task { await viewModel.setCallNotificationsAllowed(allowed, for: userID) } }))
                 .disabled(!viewModel.notifications.canUseNotifications || viewModel.notifications.isBusy)
                 .accessibilityIdentifier("allowCallRequests-\(userID)")
-            Button("Send Call Request") { Task { _ = await viewModel.notifications.send(to: userID) } }
-                .disabled(!viewModel.notifications.canNotify(userID) || viewModel.notifications.isBusy)
-                .accessibilityIdentifier("sendCallRequest-\(userID)")
-            if viewModel.notifications.outgoing?.contactID == userID {
-                Button("Cancel Call Request") { Task { await viewModel.notifications.cancelOutgoing() } }
-                    .accessibilityIdentifier("cancelCallRequest-\(userID)")
-            }
             if let message = viewModel.notifications.message { Text(LocalizedStringKey(message)).foregroundStyle(.secondary) }
         } header: { Text("Call Notifications") } footer: {
             Text("Allow this saved person to send call requests. Permission is shared when you connect one to one. Receiving also needs notifications enabled on this device. A request does not start a call automatically.")

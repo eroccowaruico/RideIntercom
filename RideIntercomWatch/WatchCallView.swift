@@ -55,7 +55,6 @@ private struct WatchDestinationList: View {
                             }
                         }
                         .disabled(client.isWaiting || audio.isPreparing)
-                        .swipeActions(edge: .trailing) { requestActions(target) }
                         .accessibilityIdentifier("watchTarget-\(target.id)")
                     }
                 } else if client.snapshot != nil {
@@ -72,11 +71,6 @@ private struct WatchDestinationList: View {
             } footer: {
                 Text("Audio uses your Watch. Keep your iPhone nearby.")
             }
-            if let notification = client.snapshot?.notification {
-                Section("Call Request") {
-                    Text(WatchText.notification(notification.status)).font(.footnote)
-                }
-            }
             if client.isWaiting || audio.isPreparing {
                 ProgressView("Updating…")
             }
@@ -91,20 +85,6 @@ private struct WatchDestinationList: View {
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("watchDestinationList")
-    }
-
-    // watchOS has no long-press menu; call requests sit behind a row swipe instead.
-    @ViewBuilder private func requestActions(_ target: WatchCallTarget) -> some View {
-        if target.canNotify {
-            Button("Send Call Request", systemImage: "bell") {
-                Task { await client.perform(.requestCall(target.id)) }
-            }
-        }
-        if let notification = client.snapshot?.notification, notification.canCancel {
-            Button("Cancel Call Request", systemImage: "bell.slash", role: .destructive) {
-                Task { await client.perform(.cancelCallRequest(notification.requestID)) }
-            }
-        }
     }
 }
 
@@ -273,16 +253,6 @@ private struct WatchMessageView<Action: View>: View {
 }
 
 private enum WatchText {
-    static func notification(_ status: CallNotificationStatus) -> LocalizedStringKey {
-        switch status {
-        case .accepted: "Notification accepted. Delivery is not confirmed."
-        case .processing: "The call request is being processed."
-        case .noDestinations: "This person has no notification destination available."
-        case .retryLater: "The call request could not be sent. Please try again later."
-        case .rejected: "The call request was not accepted."
-        case .cancelled: "Call request cancelled."
-        }
-    }
     static func problem(_ problem: WatchControlProblem) -> LocalizedStringKey {
         switch problem {
         case .unavailable: "Could not reach iPhone. Try again."

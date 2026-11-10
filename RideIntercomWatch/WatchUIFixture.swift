@@ -10,8 +10,8 @@ enum WatchUIFixture {
     static func apply(_ name: String, to connection: WatchConnectivityClient) {
         guard name != "unreachable" else { return }
         connection.client.setReachable(true)
-        let targets = [WatchCallTarget(id: "haruka", name: "Haruka Yamamoto", canNotify: true),
-                       WatchCallTarget(id: "ken", name: "Ken", canNotify: false)]
+        let targets = [WatchCallTarget(id: "haruka", name: "Haruka Yamamoto"),
+                       WatchCallTarget(id: "ken", name: "Ken")]
         let state: WatchCallState = switch name {
         case "signed-out": .signedOut
         case "connecting": .connecting

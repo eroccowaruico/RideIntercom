@@ -22,17 +22,10 @@ nonisolated struct WatchAudioCheckState: Codable, Equatable, Sendable {
 nonisolated struct WatchCallTarget: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String
-    var canNotify = false
 }
 
 nonisolated enum CallNotificationStatus: String, Codable, Sendable {
     case processing, accepted, noDestinations = "no_destinations", retryLater = "retry_later", rejected, cancelled
-}
-
-nonisolated struct WatchCallNotification: Codable, Equatable, Sendable {
-    let requestID: UUID
-    let status: CallNotificationStatus
-    let canCancel: Bool
 }
 
 nonisolated enum WatchCallState: String, Codable, Sendable {
@@ -48,7 +41,6 @@ nonisolated struct WatchCallSnapshot: Codable, Equatable, Sendable {
     let hasCall: Bool
     let isMuted: Bool
     let state: WatchCallState
-    var notification: WatchCallNotification?
     var audioCheck: WatchAudioCheckState? = nil
 
     func needsPublication(after previous: Self?) -> Bool {
@@ -58,7 +50,7 @@ nonisolated struct WatchCallSnapshot: Codable, Equatable, Sendable {
         return reference != previous.reference || targets != previous.targets
             || title != previous.title || hasCall != previous.hasCall
             || isMuted != previous.isMuted || state != previous.state
-            || notification != previous.notification || audioCheck != previous.audioCheck
+            || audioCheck != previous.audioCheck
     }
 }
 
@@ -79,8 +71,6 @@ nonisolated enum WatchCallAction: Codable, Equatable, Sendable {
     #endif
     case end
     case setMuted(Bool)
-    case requestCall(String)
-    case cancelCallRequest(UUID)
 }
 
 extension WatchCallAction {

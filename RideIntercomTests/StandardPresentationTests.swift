@@ -5,35 +5,15 @@ import Testing
 
 @MainActor @Suite(.serialized)
 struct StandardPresentationTests {
-    /// Choosing a person rings them as the one-to-one call starts; the hero follows the ring until they join.
-    @Test func choosingAPersonRingsThemAndTheHeroFollowsTheRing() throws {
+    /// Choosing a person connects and the hero keeps the call's own state: a call notification is a courtesy
+    /// that never adds a ringing state.
+    @Test func choosingAPersonKeepsTheHeroOnTheCallsOwnState() throws {
         let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
         defer { vm.disconnect() }
         let user = try #require(vm.savedRemoteUsers.first)
-        // No call-request permission here: nothing is sent and the hero says why.
         #expect(vm.openDestination(.user(user.id)) == .opened)
-        let direct = try #require(vm.selectedGroup)
-        #expect(direct.kind == .direct)
-        #expect(vm.directRingPhase(for: direct) == .undeliverable)
-        // Reopening the live call does not ring again.
-        vm.directRing = nil
-        #expect(vm.openDestination(.user(user.id)) == .opened)
-        #expect(vm.directRing == nil)
-        // A request that could not be sent, and one that went unanswered.
-        vm.directRing = DirectRing(contactID: user.id, groupID: direct.id, phase: .ringing)
-        vm.directRingSent(nil, contactID: user.id)
-        #expect(vm.directRingPhase(for: direct) == .sendFailed)
-        vm.directRing = DirectRing(contactID: user.id, groupID: direct.id, phase: .ringing)
-        vm.directRingExpired(contactID: user.id)
-        #expect(vm.directRingPhase(for: direct) == .noAnswer)
-        // Ending the call settles the ring.
-        vm.disconnect()
-        vm.settleDirectRing()
-        #expect(vm.directRing == nil)
-        // A group is never rung this way.
-        let group = try #require(vm.regularGroups.first)
-        #expect(vm.openDestination(.group(group.id)) == .opened)
-        #expect(vm.directRing == nil)
+        #expect(vm.selectedGroup?.kind == .direct)
+        #expect(vm.standardCallStatus == .connecting)
     }
 
     /// Standard hides Groups until turned on; the choice survives a restart; Advanced always shows Groups.
