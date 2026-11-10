@@ -602,6 +602,16 @@
         }
       }
     },
+    "Advanced shows diagnostics and detailed settings (English only). Turn on Show Groups Tab to create and list groups for three or more people. One-to-one connections work with it off." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詳細表示では診断と細かな設定を表示します（英語のみ）。「グループタブを表示」をオンにすると、3人以上で話すグループの作成と一覧を使えます。1対1の接続はオフのままでも使えます。"
+          }
+        }
+      }
+    },
     "After signing in, you can use nearby calls without an Internet connection." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5294,6 +5304,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ロック画面に接続状態を表示"
+          }
+        }
+      }
+    },
+    "Show Groups Tab" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "グループタブを表示"
           }
         }
       }

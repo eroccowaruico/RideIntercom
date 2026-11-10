@@ -16,4 +16,13 @@ extension IntercomViewModel {
         interfaceMode = mode
         saveAppSettings()
     }
+
+    /// Advanced always shows Groups; Standard only when the person has turned the tab on.
+    var isGroupsTabVisible: Bool { interfaceMode == .advanced || showsGroupsTab }
+
+    func setShowsGroupsTab(_ shows: Bool) {
+        guard canStartCalls, showsGroupsTab != shows else { return }
+        showsGroupsTab = shows
+        saveAppSettings()
+    }
 }

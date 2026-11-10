@@ -26,8 +26,10 @@ enum AppleAccountFixture {
             }
         }
         if let raw = environment["RIDEINTERCOM_INTERFACE_FIXTURE"], let layout = InterfaceMode(rawValue: raw) {
-            UserDefaults(suiteName: AppleAccountSession.storageNamespace(base: namespace, userID: userID))!
-                .set(layout.rawValue, forKey: "RideIntercom.settings.interfaceMode")
+            let scoped = UserDefaults(suiteName: AppleAccountSession.storageNamespace(base: namespace, userID: userID))!
+            scoped.set(layout.rawValue, forKey: "RideIntercom.settings.interfaceMode")
+            // UI tests reach groups through the tab; "0" checks the product default (hidden).
+            scoped.set(environment["RIDEINTERCOM_GROUPS_TAB"] != "0", forKey: "RideIntercom.settings.showsGroupsTab")
         }
         let defaults = UserDefaults(suiteName: namespace + ".AccountFixture")!
         let session = AppleAccountSession(keychain: FixtureKeychain(defaults: defaults), defaults: defaults,

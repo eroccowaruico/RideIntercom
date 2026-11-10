@@ -20,15 +20,18 @@ struct SignedInContentView: View {
                     }
                 }
             }.accessibilityIdentifier("usersTab")
-            Tab("Groups", systemImage: "person.3", value: .groups) {
-                NavigationStack {
-                    if viewModel.interfaceMode == .standard {
-                        StandardGroupsView(viewModel: viewModel, selectedTab: $selectedTab)
-                    } else {
-                        AdvancedGroupsView(viewModel: viewModel, selectedTab: $selectedTab)
+            // Standard shows Groups only when turned on in Advanced Settings for Developers.
+            if viewModel.isGroupsTabVisible {
+                Tab("Groups", systemImage: "person.3", value: .groups) {
+                    NavigationStack {
+                        if viewModel.interfaceMode == .standard {
+                            StandardGroupsView(viewModel: viewModel, selectedTab: $selectedTab)
+                        } else {
+                            AdvancedGroupsView(viewModel: viewModel, selectedTab: $selectedTab)
+                        }
                     }
-                }
-            }.accessibilityIdentifier("groupsTab")
+                }.accessibilityIdentifier("groupsTab")
+            }
             if viewModel.interfaceMode == .advanced {
                 Tab("Diagnostics", systemImage: "gauge", value: .diagnostics) {
                     NavigationStack { DiagnosticsView(viewModel: viewModel).navigationTitle("Diagnostics") }
@@ -67,6 +70,12 @@ struct SignedInContentView: View {
         }
         #endif
         .onChange(of: selectedTab) { _, current in if current != .call { listTab = current } }
+        // Turning the tab off while it is shown returns to Users; calls and groups stay as they are.
+        .onChange(of: viewModel.isGroupsTabVisible) { _, visible in
+            guard !visible else { return }
+            if listTab == .groups { listTab = .users }
+            if selectedTab == .groups { selectedTab = .users }
+        }
         // Ending the call returns to the list; there is no screen just for reconnecting.
         .onChange(of: viewModel.hasAnyActiveGroupConnection) { wasActive, isActive in
             if wasActive && !isActive && selectedTab == .call { selectedTab = listTab }

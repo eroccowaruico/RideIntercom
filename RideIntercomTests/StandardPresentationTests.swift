@@ -5,6 +5,27 @@ import Testing
 
 @MainActor @Suite(.serialized)
 struct StandardPresentationTests {
+    /// Standard hides Groups until turned on; the choice survives a restart; Advanced always shows Groups.
+    @Test func groupsTabStartsHiddenInStandardAndTheChoiceIsSaved() {
+        let namespace = "RideIntercom.GroupsTab." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: namespace)!
+        defer { defaults.removePersistentDomain(forName: namespace) }
+        let store = UserDefaultsAppSettingsStore(defaults: defaults)
+        let h = AppTestSupport.makeHarness(appSettingsStore: store)
+        defer { h.viewModel.disconnect() }
+        #expect(!h.viewModel.showsGroupsTab && !h.viewModel.isGroupsTabVisible)
+        let groups = h.viewModel.groups
+        h.viewModel.setShowsGroupsTab(true)
+        #expect(h.viewModel.isGroupsTabVisible && store.load().showsGroupsTab)
+        #expect(h.viewModel.groups == groups, "Showing the tab changes no groups")
+        let restarted = AppTestSupport.makeHarness(appSettingsStore: UserDefaultsAppSettingsStore(defaults: defaults))
+        defer { restarted.viewModel.disconnect() }
+        #expect(restarted.viewModel.isGroupsTabVisible)
+        h.viewModel.setShowsGroupsTab(false)
+        h.viewModel.setInterfaceMode(.advanced)
+        #expect(h.viewModel.isGroupsTabVisible, "Advanced always shows Groups")
+    }
+
     @Test func interfaceChoiceSurvivesRestartAndAudioEditsWithoutChangingCall() {
         let namespace = "RideIntercom.StandardUI." + UUID().uuidString
         let defaults = UserDefaults(suiteName: namespace)!

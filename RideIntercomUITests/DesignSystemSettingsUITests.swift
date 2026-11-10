@@ -3,6 +3,42 @@ import XCTest
 
 @MainActor
 final class DesignSystemSettingsUITests: XCTestCase {
+    /// The product default hides Groups in Standard; turning it on in Advanced Settings for Developers adds the
+    /// tab, and the choice stays after relaunching.
+    func testStandardGroupsTabIsOffUntilTurnedOn() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "standard"
+        app.launchEnvironment["RIDEINTERCOM_GROUPS_TAB"] = "0"
+        app.launch()
+        defer { app.terminate() }
+        let settings = app.tabBars.buttons["設定"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.tabBars.buttons["グループ"].exists, "Groups is hidden by default")
+        let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = "Standard tabs without Groups"
+        attachment.lifetime = .keepAlways; add(attachment)
+        settings.tap()
+        let more = app.buttons["moreSettingsLink"].firstMatch
+        reveal(more, in: app)
+        more.tap()
+        let toggle = app.switches["showsGroupsTabToggle"].firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        XCTAssertEqual(toggle.label, "グループタブを表示")
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.switches.firstMatch.tap()
+        XCTAssertTrue(app.tabBars.buttons["グループ"].waitForExistence(timeout: 3), "Turning it on adds the tab")
+        let shown = XCTAttachment(screenshot: app.screenshot()); shown.name = "Groups tab turned on"
+        shown.lifetime = .keepAlways; add(shown)
+        // The choice is saved: relaunch without the test fixture rewriting it.
+        app.terminate()
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = nil
+        app.launchEnvironment["RIDEINTERCOM_GROUPS_TAB"] = nil
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons["グループ"].waitForExistence(timeout: 8), "Still shown after relaunch")
+    }
+
     /// Standard shows the name and Edit on one row; the sheet opens with the current name,
     /// shows "e.g. Nao" when emptied, and keeps Done off until a name is there.
     func testStandardDisplayNameEditsInItsOwnSheet() {

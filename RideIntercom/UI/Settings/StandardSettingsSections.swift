@@ -13,10 +13,12 @@ struct StandardInterfaceModeSection: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .accessibilityIdentifier("interfaceModePicker")
+            Toggle("Show Groups Tab", isOn: Binding(get: { viewModel.showsGroupsTab }, set: viewModel.setShowsGroupsTab))
+                .accessibilityIdentifier("showsGroupsTabToggle")
         } header: {
             Text("App Layout")
         } footer: {
-            Text("Advanced shows diagnostics and detailed settings (English only).")
+            Text("Advanced shows diagnostics and detailed settings (English only). Turn on Show Groups Tab to create and list groups for three or more people. One-to-one connections work with it off.")
         }
     }
 }

@@ -38,6 +38,8 @@ struct AppSettings: Equatable {
     var menuBarEnabled = false
     var liveActivityEnabled = false
     var interfaceMode: InterfaceMode = .standard
+    /// Standard hides the Groups tab until the person turns it on; one-to-one calls never need it.
+    var showsGroupsTab = false
     var recentCallDestination: CallDestination?
     var callDisconnectInterval: CallDisconnectInterval
     var watchCallDisconnectInterval: CallDisconnectInterval
@@ -85,6 +87,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     private let menuBarKey = "RideIntercom.settings.menuBarEnabled"
     private let liveActivityKey = "RideIntercom.settings.liveActivityEnabled"
     private let interfaceModeKey = "RideIntercom.settings.interfaceMode"
+    private let showsGroupsTabKey = "RideIntercom.settings.showsGroupsTab"
     private let callDisconnectIntervalKey = "RideIntercom.settings.callDisconnectInterval"
     private let watchCallDisconnectIntervalKey = "RideIntercom.settings.watchCallDisconnectInterval"
     private let recentCallDestinationKey = "RideIntercom.history.recentCallDestination"
@@ -124,6 +127,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
         settings.menuBarEnabled = defaults.bool(forKey: menuBarKey)
         settings.liveActivityEnabled = defaults.bool(forKey: liveActivityKey)
         settings.interfaceMode = defaults.string(forKey: interfaceModeKey).flatMap(InterfaceMode.init(rawValue:)) ?? .standard
+        settings.showsGroupsTab = defaults.bool(forKey: showsGroupsTabKey)
         return settings
     }
 
@@ -131,6 +135,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
         defaults.set(settings.menuBarEnabled, forKey: menuBarKey)
         defaults.set(settings.liveActivityEnabled, forKey: liveActivityKey)
         defaults.set(settings.interfaceMode.rawValue, forKey: interfaceModeKey)
+        defaults.set(settings.showsGroupsTab, forKey: showsGroupsTabKey)
         defaults.set(settings.recentCallDestination.flatMap { try? JSONEncoder().encode($0) }, forKey: recentCallDestinationKey)
         defaults.set(settings.callDisconnectInterval.rawValue, forKey: callDisconnectIntervalKey)
         defaults.set(settings.watchCallDisconnectInterval.rawValue, forKey: watchCallDisconnectIntervalKey)

@@ -29,6 +29,7 @@ final class IntercomViewModel {
     let accountAccessID: UUID
     var menuBarEnabled = false
     var liveActivityEnabled = false
+    var showsGroupsTab = false
     let enforceCallAccess: Bool
     @ObservationIgnored let callAccessNow: @MainActor () -> Date
     @ObservationIgnored let callAccessEvaluation: (@MainActor (Date) -> StoreAccessEvaluation)?
@@ -285,6 +286,7 @@ final class IntercomViewModel {
         self.menuBarEnabled = appSettings.menuBarEnabled
         self.liveActivityEnabled = appSettings.liveActivityEnabled
         self.interfaceMode = appSettings.interfaceMode
+        self.showsGroupsTab = appSettings.showsGroupsTab
         let repository = groupRepository
         self.groupRepository = repository
         do {

@@ -438,6 +438,7 @@ extension IntercomViewModel {
         settings.menuBarEnabled = menuBarEnabled
         settings.liveActivityEnabled = liveActivityEnabled
         settings.interfaceMode = interfaceMode
+        settings.showsGroupsTab = showsGroupsTab
         appSettingsStore.save(settings)
     }
 
