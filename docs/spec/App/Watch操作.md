@@ -59,7 +59,7 @@ Watchの録音確認では、録音中のフレーム数や有音サンプル数
 
 | 画面 | 識別子 | 表示と操作 |
 |---|---|---|
-| 接続先一覧 | `watchDestinationList` | 「iPhoneに接続済み」、保存済みの相手（`watchTarget-{id}`、`person.fill`）。行タップで開始。呼出しの送信・取消は行のスワイプ操作（watchOSで長押しメニューの`contextMenu`が非推奨のため、デザインの長押しから置き換え）。footerに音声の注意書きを1回、末尾に更新。背景はaccentのグラデーション |
+| 接続先一覧 | `watchDestinationList` | 見出しは小さなRideCom（rideBlue、inline）。その下にSectionの見出しとして小さな補足「iPhoneに接続済み」（`watchConnectionStatus`、押せる行にしない）。保存済みの相手（`watchTarget-{id}`、rideBlueの円に白い`person.fill`のアバター）。会話中の画面の名前と状態は左寄せ。行タップで開始。呼出しの送信・取消は行のスワイプ操作（watchOSで長押しメニューの`contextMenu`が非推奨のため、デザインの長押しから置き換え）。footerに音声の注意書きを1回、末尾に更新。背景はaccentのグラデーション |
 | 通話画面 | `watchActiveCall` | 戻るを隠し、左上（`topBarLeading`）に切断（`watchEndCallButton`）。押すと確認（「切断しますか？」とdestructiveの「切断」）。中央に相手名と状態（`watchCallStatus`。状態の語だけを1行に置き、音声停止・利用不能では次の行に「iPhoneを確認してください」）。下半分いっぱいに送話パネル。音声停止・利用不能では背景を黒にする |
 | 送話パネル | `watchHoldToTalk` | 角丸（`ConcentricRectangle`）の横長パネル。待機は「押して話す」（`mic`、淡いaccent）、押下中は「話しています」（`waveform`、voiceで塗る）、準備中は進行表示、音声停止は無効。押下の開始・解除で触覚。視差効果を減らす設定では記号の動きを止める |
 | iPhone未接続／サインアウト | `watchMessage` | 黒背景に記号と案内。未接続は「もう一度試す」で更新 |

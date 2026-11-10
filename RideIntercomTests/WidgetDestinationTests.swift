@@ -36,6 +36,23 @@ struct WidgetDestinationTests {
         #expect(Set(entries[0].keys) == ["id", "name", "kind"])
     }
 
+    /// A Widget or Control added now starts on the previous destination; none when it is gone or unknown.
+    @Test func newWidgetsDefaultToThePreviousDestination() async throws {
+        let file = try temporaryFile(); defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let store = WidgetDestinationStore(fileURL: file)
+        let user = WidgetCallDestination(id: "scope|user|\(UUID())", name: "Friend", kind: .user)
+        let group = WidgetCallDestination(id: "scope|group|\(UUID())", name: "Riders", kind: .group)
+        let query = WidgetCallDestinationQuery(store: store)
+        try store.write(.init(destinations: [user, group], recentDestinationID: group.id))
+        #expect(await query.defaultResult() == group)
+        try store.write(.init(destinations: [user], recentDestinationID: group.id))
+        #expect(await query.defaultResult() == nil, "A removed destination is not the default")
+        // A snapshot written before the field existed still decodes, with no default.
+        try Data(#"{"version":1,"destinations":[{"id":"\#(user.id)","name":"Friend","kind":"user"}]}"#.utf8).write(to: file)
+        #expect(store.readSnapshot()?.destinations == [user])
+        #expect(await query.defaultResult() == nil)
+    }
+
     @Test func ownerPublishesCurrentSavedTargetsAndClearsAfterSignOut() async throws {
         let file = try temporaryFile(); defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
         let store = WidgetDestinationStore(fileURL: file), account = AccountFixture(); defer { account.remove() }; account.signIn()

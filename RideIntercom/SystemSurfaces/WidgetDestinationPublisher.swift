@@ -28,9 +28,11 @@ extension WidgetDestinationStore {
         WidgetCenter.shared.reloadTimelines(ofKind: "RideIntercom.SelectedCall")
     }) { self.store = store; self.reload = reload }
 
-    func publish(_ destinations: [WidgetCallDestination], currentDestinationID: String? = nil, currentCall: CallLivePresentation? = nil) {
+    func publish(_ destinations: [WidgetCallDestination], currentDestinationID: String? = nil, currentCall: CallLivePresentation? = nil,
+                 recentDestinationID: String? = nil) {
         guard store.fileURL != nil else { return }
-        let snapshot = WidgetDestinationSnapshot(destinations: destinations, currentDestinationID: currentDestinationID, currentCall: currentCall)
+        let snapshot = WidgetDestinationSnapshot(destinations: destinations, currentDestinationID: currentDestinationID, currentCall: currentCall,
+                                                 recentDestinationID: recentDestinationID)
         guard published != snapshot || store.readSnapshot() != snapshot else { return }
         do {
             try store.write(snapshot)
@@ -68,13 +70,18 @@ extension AppCallOwner {
                 }
                 return targets.first { $0.destination == destination }?.entity.id
             }()
+            let recentDestinationID = viewModel?.recentCallDestination.flatMap { recent in
+                targets.first { $0.destination == recent }?.entity.id
+            }
             return WidgetDestinationSnapshot(destinations: destinations,
                 currentDestinationID: currentDestinationID,
-                currentCall: currentLivePresentation)
+                currentCall: currentLivePresentation,
+                recentDestinationID: recentDestinationID)
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in self?.observeWidgetDestinations() }
         }
-        widgetDestinations.publish(snapshot.destinations, currentDestinationID: snapshot.currentDestinationID, currentCall: snapshot.currentCall)
+        widgetDestinations.publish(snapshot.destinations, currentDestinationID: snapshot.currentDestinationID, currentCall: snapshot.currentCall,
+                                   recentDestinationID: snapshot.recentDestinationID)
     }
 
     func startWidgetCall(id: String) throws {

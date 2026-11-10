@@ -40,17 +40,18 @@ private struct WatchDestinationList: View {
     var body: some View {
         List {
             Section {
-                Label("Connected to iPhone", systemImage: "iphone")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("watchConnectionStatus")
                 if let targets = client.snapshot?.targets, !targets.isEmpty {
                     ForEach(targets) { target in
                         Button { Task { await audio.startCall(to: target.id) } } label: {
                             Label {
                                 Text(verbatim: target.name).lineLimit(2)
                             } icon: {
-                                Image(systemName: "person.fill").foregroundStyle(RideComColors.accent)
+                                // The person avatar: a rideBlue circle, as in every list.
+                                Image(systemName: "person.fill")
+                                    .font(.footnote)
+                                    .foregroundStyle(.white)
+                                    .frame(width: 28, height: 28)
+                                    .background(RideComColors.accent.gradient, in: .circle)
                             }
                         }
                         .disabled(client.isWaiting || audio.isPreparing)
@@ -62,6 +63,12 @@ private struct WatchDestinationList: View {
                         .font(.footnote)
                         .accessibilityIdentifier("watchNoTargets")
                 }
+            } header: {
+                // A small note under the title, not a row that looks tappable.
+                Label("Connected to iPhone", systemImage: "iphone")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("watchConnectionStatus")
             } footer: {
                 Text("Audio uses your Watch. Keep your iPhone nearby.")
             }
@@ -79,7 +86,9 @@ private struct WatchDestinationList: View {
                 .disabled(client.isWaiting)
         }
         .containerBackground(RideComColors.accent.gradient, for: .navigation)
-        .navigationTitle("RideCom")
+        // A small RideCom in rideBlue, not the large grey title.
+        .navigationTitle { Text("RideCom").foregroundStyle(RideComColors.accent) }
+        .navigationBarTitleDisplayMode(.inline)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("watchDestinationList")
     }
@@ -110,18 +119,18 @@ private struct WatchActiveCallView: View {
     var body: some View {
         GeometryReader { proxy in
             VStack(spacing: 6) {
-                VStack(spacing: 2) {
+                // The name and state read from the leading edge, as on iPhone.
+                VStack(alignment: .leading, spacing: 2) {
                     if let title = client.snapshot?.title {
                         Text(verbatim: title)
                             .font(.headline)
                             .lineLimit(2)
-                            .multilineTextAlignment(.center)
                             .accessibilityAddTraits(.isHeader)
                     }
                     status
                     if let problem = audio.problem { Text(problem).font(.caption2).foregroundStyle(.secondary) }
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Spacer(minLength: 0)
                 WatchTalkPanel(client: client, audio: audio, state: state)
                     .frame(height: proxy.size.height / 2)

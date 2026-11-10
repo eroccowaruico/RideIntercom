@@ -18,6 +18,9 @@ nonisolated struct WidgetDestinationSnapshot: Codable, Equatable {
     let destinations: [WidgetCallDestination]
     var currentDestinationID: String? = nil
     var currentCall: CallLivePresentation? = nil
+    /// The last destination that connected; a new Widget or Control starts with it.
+    /// Optional, so a snapshot written before it existed still decodes.
+    var recentDestinationID: String? = nil
 
     func currentCall(for configured: WidgetCallDestination?) -> CallLivePresentation? {
         guard let configured,
@@ -63,6 +66,11 @@ nonisolated struct WidgetCallDestinationQuery: EntityStringQuery {
         store.read().filter { identifiers.contains($0.id) }
     }
     func suggestedEntities() async throws -> [WidgetCallDestination] { store.read() }
+    /// A Widget or Control added now is set to the previous destination, so it works at once.
+    func defaultResult() async -> WidgetCallDestination? {
+        guard let snapshot = store.readSnapshot(), let id = snapshot.recentDestinationID else { return nil }
+        return snapshot.destinations.first { $0.id == id }
+    }
     func entities(matching string: String) async throws -> [WidgetCallDestination] {
         store.read().filter { $0.name.localizedCaseInsensitiveContains(string) }
     }

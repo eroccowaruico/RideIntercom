@@ -67,18 +67,31 @@ struct SelectedCallContent: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top) {
                 if let destination {
-                    Image(systemName: destination.kind == .user ? "person.fill" : "person.3.fill")
-                        .font(.title3)
-                        .foregroundStyle(RideComColors.accent)
-                        .widgetAccentable()
+                    // The kind in words beside its symbol, so a person and a group read apart.
+                    Label {
+                        Text(destination.kind == .user ? "User" : "Group")
+                    } icon: {
+                        Image(systemName: destination.kind == .user ? "person.fill" : "person.3.fill")
+                            .foregroundStyle(RideComColors.accent)
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .widgetAccentable()
+                    Spacer(minLength: 0)
+                    RideComAppMark(size: 22)
+                } else {
+                    // Not set yet: the app's mark and name say whose Widget this is.
+                    Label { Text(verbatim: "RideCom") } icon: { RideComAppMark(size: 20) }
+                        .font(.caption.weight(.semibold))
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
-                RideComAppMark(size: 22)
             }
             if let destination {
+                // One line: the name shrinks rather than being cut.
                 Text(verbatim: destination.name)
                     .font(.headline)
-                    .lineLimit(2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .privacySensitive()
                     .widgetAccentable()
                 Spacer(minLength: 0)
