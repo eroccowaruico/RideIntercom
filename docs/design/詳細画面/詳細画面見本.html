@@ -145,6 +145,13 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .seg2 { display: flex; background: var(--line); border-radius: 7px; padding: 2px; font-size: 10px; margin: 4px 0; }
 .seg2 span { flex: 1; text-align: center; padding: 3px 0; border-radius: 5px; }
 .seg2 span.on { background: var(--card); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+
+/* 参加者ごとの受信のメーター（VoiceMeterView: voiceLevel・voicePeakLevel と値の文 LEVEL・PEAK） */
+.pmeter { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 3px; }
+.pmeter .bar { position: relative; height: 6px; border-radius: 3px; background: var(--line); }
+.pmeter .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--voice); }
+.pmeter .bar b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--label2); }
+.pmeter .val { font: 600 8.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--label2); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -464,16 +471,16 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="hd">Participants <span>You + 3</span></div>
           <div class="card">
             <div class="row"><b>You</b><span class="v">Naohito · local member</span><span class="x"></span></div>
-            <div class="row"><b>Haruka</b><span class="v">Connected · AUTH OK · MPEG-4 AAC-ELD</span><span class="x num">100%</span></div>
-            <div class="row"><b>Kenta</b><span class="v">Connected · AUTH OK · Opus</span><span class="x num">80%</span></div>
-            <div class="row"><b>Mika</b><span class="v">Connected · AUTH OK · PCM 16-bit</span><span class="x num">60%</span></div>
+            <div class="row"><b>Haruka</b><span class="v">Connected · AUTH OK · MPEG-4 AAC-ELD<div class="pmeter"><span class="bar"><i style="width:62%"></i><b style="left:80%"></b></span><span class="val">LEVEL 62  PEAK 80</span></div></span><span class="x num">100%</span></div>
+            <div class="row"><b>Kenta</b><span class="v">Connected · AUTH OK · Opus<div class="pmeter"><span class="bar"><i style="width:0%"></i><b style="left:12%"></b></span><span class="val">LEVEL 0  PEAK 12</span></div></span><span class="x num">80%</span></div>
+            <div class="row"><b>Mika</b><span class="v">Connected · AUTH OK · PCM 16-bit<div class="pmeter"><span class="bar"><i style="width:45%"></i><b style="left:58%"></b></span><span class="val">LEVEL 45  PEAK 58</span></div></span><span class="x num">60%</span></div>
             <div class="row dim"><b>Yu</b><span class="v">Offline</span><span class="x"></span></div>
           </div>
           <div class="btn gl" style="margin-top:2px">Add Saved Users</div>
         </div>
         <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>Call（シート）：グループ通話</b>Call status → Input → Output → Participants。Participants の下でそのまま Add Saved Users。グループの設定は「…」メニュー。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
+      <figcaption><b>Call（シート）：グループ通話</b>Call status → Input → Output → Participants。相手ごとに受信のメーター（<code>voiceLevel</code>のバーと<code>voicePeakLevel</code>の印）と、実装の値の文<code>LEVEL n  PEAK n</code>（相手がミュート中は<code>MUTED</code>）を出す。Participants の下でそのまま Add Saved Users。グループの設定は「…」メニュー。Call status にグループの種類・人数・短縮IDを出し、Participants は自分（local member）を含めて並べる。</figcaption>
     </figure>
 
     <figure>
@@ -497,7 +504,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="hd">Participants <span>You + 1</span></div>
           <div class="card">
             <div class="row"><b>You</b><span class="v">Naohito · local member</span><span class="x"></span></div>
-            <div class="row"><b>Haruka</b><span class="v">Connected · AUTH OK · MPEG-4 AAC-ELD</span><span class="x num">100%</span></div>
+            <div class="row"><b>Haruka</b><span class="v">Connected · AUTH OK · MPEG-4 AAC-ELD<div class="pmeter"><span class="bar"><i style="width:62%"></i><b style="left:80%"></b></span><span class="val">LEVEL 62  PEAK 80</span></div></span><span class="x num">100%</span></div>
           </div>
           <div class="btn gl" style="margin-top:2px">Share Call Invite</div>
         </div>
