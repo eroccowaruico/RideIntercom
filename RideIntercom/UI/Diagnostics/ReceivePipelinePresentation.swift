@@ -57,7 +57,7 @@ struct ReceivePipelinePresentation {
                 id: "codec-decode",
                 package: "Codec",
                 title: "Decode",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "cpu",
                 state: .idle,
                 accessibilityIdentifier: "receive-pipeline-codec-step"
@@ -91,7 +91,7 @@ struct ReceivePipelinePresentation {
                 id: "peer-bus",
                 package: "AudioMixer",
                 title: "Peer Buses",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "person.2.wave.2",
                 state: .idle,
                 accessibilityIdentifier: "receive-pipeline-peer-bus-step"
@@ -114,7 +114,7 @@ struct ReceivePipelinePresentation {
                 id: "receive-mix",
                 package: "AudioMixer",
                 title: "Mix Down",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "arrow.triangle.merge",
                 state: .idle,
                 accessibilityIdentifier: "receive-pipeline-mix-step"
@@ -138,7 +138,7 @@ struct ReceivePipelinePresentation {
                 id: "master-bus",
                 package: "AudioMixer",
                 title: "RX Master",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "waveform.path.ecg",
                 state: .idle,
                 accessibilityIdentifier: "receive-pipeline-master-bus-step"
@@ -163,7 +163,7 @@ struct ReceivePipelinePresentation {
                 id: "master-effects",
                 package: "AudioMixer",
                 title: "Master FX",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "wand.and.sparkles",
                 state: .idle,
                 accessibilityIdentifier: "receive-pipeline-master-effects-step"
@@ -197,7 +197,7 @@ struct ReceivePipelinePresentation {
                 id: "output",
                 package: "SessionManager",
                 title: "Output",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "speaker",
                 state: .idle,
                 accessibilityIdentifier: "receive-pipeline-output-step"

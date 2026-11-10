@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// Advanced's selection of saved users: each row's toggle, rename and delete.
+/// Advanced's selection of saved users: a row only selects, with a checkmark. Renaming and deleting
+/// live in the user's own settings and the Users list.
 struct AdvancedSavedUsersSelection: View {
     @Bindable var viewModel: IntercomViewModel
     let groupID: UUID?
     let onSaved: (UUID?) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var selection: MemberSelection
-    @State private var editingUser: SavedUser?
 
     init(viewModel: IntercomViewModel, groupID: UUID?, onSaved: @escaping (UUID?) -> Void) {
         self.viewModel = viewModel
@@ -25,32 +25,22 @@ struct AdvancedSavedUsersSelection: View {
                 }
             }
             Section {
-                if selection.users.isEmpty {
-                    Text("People you invite directly, or whose invitations you accept, are saved here. Deleting a group does not remove them.")
-                }
                 ForEach(selection.users) { user in
-                    HStack {
-                        Toggle(user.resolvedDisplayName, isOn: Binding(
-                            get: { selection.selected.contains(user.id) },
-                            set: { _ in selection.toggle(user.id) }
-                        ))
-                        .accessibilityIdentifier("selectUser-\(user.id)")
-                        Button { editingUser = user } label: {
-                            Label("Edit \(user.resolvedDisplayName)", systemImage: "pencil")
-                                .labelStyle(.iconOnly)
-                                .frame(minWidth: 44, minHeight: 44)
+                    let isSelected = selection.selected.contains(user.id)
+                    Button { selection.toggle(user.id) } label: {
+                        HStack {
+                            Text(verbatim: user.resolvedDisplayName).foregroundStyle(.primary)
+                            Spacer()
+                            if isSelected { Image(systemName: "checkmark").foregroundStyle(.tint) }
                         }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("editUser-\(user.id)")
+                        .contentShape(Rectangle())
                     }
-                    .appDeleteActions {
-                        if viewModel.removeSavedUser(user.id) { selection.selected.remove(user.id) }
-                    }
+                    .directoryRowButtonStyle()
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityIdentifier("selectUser-\(user.id)")
                 }
             } header: {
                 Text("Saved Users")
-            } footer: {
-                Text("After you add them, send the group invitation so they can join. Selecting a user does not call or notify them. Deleting a saved user keeps existing groups and calls.")
             }
             Section {
                 Text("\(selection.memberCount) of 8 members including you")
@@ -75,9 +65,6 @@ struct AdvancedSavedUsersSelection: View {
                 .disabled(!selection.canSave)
                 .accessibilityIdentifier("saveUserSelectionButton")
             }
-        }
-        .sheet(item: $editingUser) { user in
-            AdvancedUserSettingsView(viewModel: viewModel, user: user)
         }
     }
 }

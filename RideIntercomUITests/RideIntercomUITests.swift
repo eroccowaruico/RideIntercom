@@ -193,24 +193,32 @@ final class RideIntercomUITests: XCTestCase {
         app.buttons["saveLocalDisplayNameButton"].tap()
         XCTAssertTrue(app.staticTexts["localDisplayNameSaved"].waitForExistence(timeout: 3))
         try openSavedUserInvitation(inviter: "ui-name-rider", sharedName: "Mountain Rider")
-        openGroupsTab(); app.buttons["standardCreateGroupButton"].tap()
-        let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 3)); edit.tap()
+        // The name is changed from the user's own settings in the Users list, not from group selection.
+        openUsersTab()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardUser-", "Mountain Rider")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        let userRow = app.buttons[row.identifier].firstMatch
+        let openSettings = {
+            userRow.swipeLeft()
+            let settings = self.app.buttons["User Settings"].firstMatch
+            XCTAssertTrue(settings.waitForExistence(timeout: 3)); settings.tap()
+        }
+        openSettings()
         let original = app.descendants(matching: .any)["savedUserOriginalName"].firstMatch
         XCTAssertTrue(original.waitForExistence(timeout: 3))
         let name = app.textFields["savedUserNameField"]
         name.tap(); name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (name.value as? String ?? "").count) + "Ski Friend")
         app.buttons["saveUserNameButton"].tap()
-        XCTAssertTrue(edit.waitForExistence(timeout: 3)); edit.tap()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 3))
+        openSettings()
         XCTAssertEqual(app.textFields["savedUserNameField"].value as? String, "Ski Friend")
         XCTAssertTrue(original.waitForExistence(timeout: 3))
         attachScreen("Local Alias and Original Shared Name")
         let originalText = original.label + (original.value as? String ?? "") + original.staticTexts.allElementsBoundByIndex.map(\.label).joined()
         XCTAssertTrue(originalText.contains("Mountain Rider"))
         app.buttons["resetUserNameButton"].tap()
-        let user = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
-        XCTAssertTrue(user.waitForExistence(timeout: 3)); XCTAssertTrue(user.label.contains("Mountain Rider"))
-        app.buttons["closeSavedUsersButton"].tap()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(userRow.waitForExistence(timeout: 3)); XCTAssertTrue(userRow.label.contains("Mountain Rider"), userRow.label)
         app.terminate(); app.launch(); app.activate()
         openSettingsTab()
         revealSettingsControl(ownName)
@@ -347,14 +355,16 @@ final class RideIntercomUITests: XCTestCase {
         if app.buttons["connectButton"].exists { app.buttons["connectButton"].tap() }
         XCTAssertTrue(app.buttons["disconnectButton"].waitForExistence(timeout: 3))
         // Removing the directory entry leaves the selected call and its stop control available.
-        openGroupsTab()
-        app.buttons["standardCreateGroupButton"].tap()
-        let toggle = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
-        toggle.swipeLeft()
+        // Deleting the saved user from the Users list, which asks first.
+        openUsersTab()
+        let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "standardUser-")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 3))
+        let entryRow = app.buttons[entry.identifier].firstMatch
+        entryRow.swipeLeft()
         app.buttons["Delete"].firstMatch.tap()
-        XCTAssertTrue(toggle.waitForNonExistence(timeout: 3))
-        app.buttons["closeSavedUsersButton"].tap()
+        let confirmDelete = app.buttons["confirmDeleteDestinationButton"].firstMatch
+        XCTAssertTrue(confirmDelete.waitForExistence(timeout: 3)); confirmDelete.tap()
+        XCTAssertTrue(entryRow.waitForNonExistence(timeout: 3))
         openUsersTab()
         XCTAssertFalse(user.exists)
         XCTAssertFalse(userRow.exists, "Removed users cannot open User Settings")
@@ -395,13 +405,15 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(field.waitForNonExistence(timeout: 3))
         openGroupsTab()
         app.buttons["standardCreateGroupButton"].tap()
-        let firstUser = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
+        // A row only selects: a checkmark and the selected state, no pencil or delete.
+        let firstUser = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "selectUser-")).firstMatch
         XCTAssertTrue(firstUser.waitForExistence(timeout: 3))
-        let toggle = app.switches[firstUser.identifier]
+        let toggle = app.buttons[firstUser.identifier]
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
         XCTAssertTrue(toggle.label.contains("Alex"))
-        toggle.switches.firstMatch.tap()
-        XCTAssertEqual(toggle.value as? String, "1")
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "editUser-")).firstMatch.exists)
+        toggle.tap()
+        XCTAssertTrue(toggle.isSelected)
         XCTAssertTrue(app.navigationBars["New Group"].exists, "The sheet is titled New Group")
         // The name starts empty and suggests the chosen people.
         let groupName = app.textFields["savedUsersGroupNameField"]
@@ -426,8 +438,8 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(add.isEnabled)
         add.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
-        toggle.switches.firstMatch.tap()
-        XCTAssertEqual(toggle.value as? String, "1")
+        toggle.tap()
+        XCTAssertTrue(toggle.isSelected)
         app.buttons["saveUserSelectionButton"].tap()
         finishSendingGroupInvitation("Saved User Added invitation step")
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
@@ -435,16 +447,20 @@ final class RideIntercomUITests: XCTestCase {
         closeManagementAndReturnToCall()
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
         assertAdvancedCallHasNoManagementControls()
-        openGroupsTab()
-        app.buttons["standardCreateGroupButton"].tap()
-        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
-        toggle.swipeLeft()
+        // Deleting the saved user from the Users list (it asks first) keeps the group and its member.
+        openUsersTab()
+        let alexRow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "standardUser-", "Alex")).firstMatch
+        XCTAssertTrue(alexRow.waitForExistence(timeout: 3))
+        let alexEntry = app.buttons[alexRow.identifier].firstMatch
+        alexEntry.swipeLeft()
         let delete = app.buttons["Delete"].firstMatch
         XCTAssertTrue(delete.waitForExistence(timeout: 3))
         delete.tap()
-        XCTAssertTrue(toggle.waitForNonExistence(timeout: 3))
+        let confirmDelete = app.buttons["confirmDeleteDestinationButton"].firstMatch
+        XCTAssertTrue(confirmDelete.waitForExistence(timeout: 3)); confirmDelete.tap()
+        XCTAssertTrue(alexEntry.waitForNonExistence(timeout: 3))
         attachScreen("Saved User Removed while Group Remains")
-        app.buttons["closeSavedUsersButton"].tap()
+        openGroupsTab()
         talkGroupRows.firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Alex"].firstMatch.waitForExistence(timeout: 3))
         assertAdvancedCallHasNoManagementControls()

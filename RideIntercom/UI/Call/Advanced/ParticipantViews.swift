@@ -115,8 +115,8 @@ struct RemoteParticipantRowView: View {
             VoiceMeterView(
                 level: member.isMuted ? 0 : member.voiceLevel,
                 peakLevel: member.isMuted ? 0 : member.voicePeakLevel,
-                isMuted: member.isMuted,
-                showsValueText: false
+                // The implementation's values beside the bar: LEVEL n  PEAK n, or MUTED.
+                isMuted: member.isMuted
             )
         }
         .accessibilityIdentifier("participantVoiceLevel\(index)")

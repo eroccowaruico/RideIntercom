@@ -44,7 +44,7 @@ struct TransmitPipelinePresentation {
             id: "session",
             package: "SessionManager",
             title: "Session",
-            detail: "Idle",
+            detail: "Not available",
             icon: "waveform",
             state: .idle,
             accessibilityIdentifier: "pipeline-session-step"
@@ -68,7 +68,7 @@ struct TransmitPipelinePresentation {
                 id: "input",
                 package: "SessionManager",
                 title: "Input",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "mic",
                 state: .idle,
                 accessibilityIdentifier: "pipeline-input-step"
@@ -93,7 +93,7 @@ struct TransmitPipelinePresentation {
                 id: "mixer",
                 package: "AudioMixer",
                 title: "TX Bus",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "slider.horizontal.3",
                 state: .idle,
                 accessibilityIdentifier: "pipeline-mixer-step"
@@ -117,7 +117,7 @@ struct TransmitPipelinePresentation {
                 id: "effect-chain",
                 package: "AudioMixer",
                 title: "FX Chain",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "wand.and.sparkles",
                 state: .idle,
                 accessibilityIdentifier: "pipeline-effects-step"
@@ -141,7 +141,7 @@ struct TransmitPipelinePresentation {
                 id: "codec",
                 package: "Codec",
                 title: "Codec",
-                detail: "Idle",
+                detail: "Not available",
                 icon: "cpu",
                 state: .idle,
                 accessibilityIdentifier: "pipeline-codec-step"

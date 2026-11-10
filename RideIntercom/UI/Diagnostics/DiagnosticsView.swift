@@ -23,7 +23,7 @@ struct DiagnosticsView: View {
                         ScrollView {
                             GlassEffectContainer(spacing: AppSpacing.l) {
                                 Group {
-                                    if geometry.size.width >= 600 && !dynamicTypeSize.isAccessibilitySize && page != .overview {
+                                    if geometry.size.width >= AppSize.diagnosticsTwoColumnMinimumWidth && !dynamicTypeSize.isAccessibilitySize && page != .overview {
                                         HStack(alignment: .top, spacing: AppSpacing.l) {
                                             overviewContent
                                                 .frame(maxWidth: AppSize.callColumnMaxWidth, alignment: .leading)

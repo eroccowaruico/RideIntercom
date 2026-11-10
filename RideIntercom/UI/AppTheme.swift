@@ -58,6 +58,8 @@ enum AppBorderWidth {
 
 enum AppSize {
     static let twoColumnMinimumWidth: CGFloat = 600
+    /// Diagnostics puts Overview beside the page only when each column stays readable.
+    static let diagnosticsTwoColumnMinimumWidth: CGFloat = 900
     static let callControlDiameter: CGFloat = 64
     static let callControlCompactDiameter: CGFloat = 56
     /// What `.glass`/`.glassProminent` add around a circular button's label (measured: a 64pt label drew a 78pt circle).
