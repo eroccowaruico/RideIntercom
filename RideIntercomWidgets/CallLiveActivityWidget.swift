@@ -16,11 +16,11 @@ struct CallLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) { CallActivityMicrophone(call: presentation(context), iconOnly: true) }
                 DynamicIslandExpandedRegion(.center) { CallActivityStatus(call: presentation(context)) }
             } compactLeading: {
-                RideComGlyph(size: 18)
+                RideComAppMark(size: 18, dark: true)
             } compactTrailing: {
                 CallActivityCompactState(call: presentation(context))
             } minimal: {
-                RideComGlyph(size: 18)
+                RideComAppMark(size: 18, dark: true)
             }
             .widgetURL(URL(string: "rideintercom://call"))
             .keylineTint(RideComColors.accent)

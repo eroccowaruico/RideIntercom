@@ -67,7 +67,8 @@ struct RideIntercomApp: App {
             if callOwner.currentLivePresentation?.isMuted == true {
                 Image(systemName: "mic.slash").accessibilityLabel("RideCom")
             } else {
-                Image("ridecom.glyph").accessibilityLabel("RideCom")
+                // The bubble layer stays translucent so the road shows through, as in the app icon.
+                Image("ridecom.glyph").symbolRenderingMode(.hierarchical).accessibilityLabel("RideCom")
             }
         }
         .menuBarExtraStyle(.menu)

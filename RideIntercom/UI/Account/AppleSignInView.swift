@@ -33,9 +33,9 @@ struct AppleSignInView: View {
 
     private var brand: some View {
         VStack(spacing: AppSpacing.l) {
-            Image("ridecom.glyph")
+            // The app icon itself, so the first screen shows the same mark as the Home Screen.
+            Image("ridecom.appicon")
                 .resizable().scaledToFit().frame(width: 112, height: 112)
-                .foregroundStyle(.tint)
                 .accessibilityLabel("RideCom")
                 .accessibilityIdentifier("signInBrandGlyph")
             Text("RideCom")

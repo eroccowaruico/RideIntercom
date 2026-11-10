@@ -5,15 +5,25 @@ import WidgetKit
 // Widget and Live Activity content. Compiled into the App as well so the same
 // presentation values can be rendered deterministically in tests.
 
-/// App identity on system surfaces: road in rideBlue and waveform in voice.
-struct RideComGlyph: View {
-    var size: CGFloat = 20
+/// App identity on system surfaces: the app icon image itself. Dark backgrounds
+/// (Dynamic Island, the lock screen's Live Activity) use its Dark variant.
+struct RideComAppMark: View {
+    var size: CGFloat = 22
+    var dark = false
+
     var body: some View {
-        Image("ridecom.glyph")
+        if dark {
+            image.environment(\.colorScheme, .dark)
+        } else {
+            image
+        }
+    }
+
+    private var image: some View {
+        Image("ridecom.appicon.small")
             .resizable()
+            .widgetAccentedRenderingMode(.fullColor)
             .scaledToFit()
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(RideComColors.accent, RideComColors.voiceLevel)
             .frame(width: size, height: size)
             .accessibilityLabel("RideCom")
     }
@@ -63,7 +73,7 @@ struct SelectedCallContent: View {
                         .widgetAccentable()
                 }
                 Spacer(minLength: 0)
-                RideComGlyph(size: 22)
+                RideComAppMark(size: 22)
             }
             if let destination {
                 Text(verbatim: destination.name)
@@ -202,7 +212,7 @@ struct CallActivityContent: View {
 
 struct CallActivityBrand: View {
     var body: some View {
-        Label { Text("RideCom") } icon: { RideComGlyph(size: 20) }
+        Label { Text("RideCom") } icon: { RideComAppMark(size: 20, dark: true) }
             .font(.headline)
     }
 }

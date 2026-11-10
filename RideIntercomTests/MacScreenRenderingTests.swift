@@ -28,6 +28,15 @@ struct MacScreenRenderingTests {
         try await record(NavigationStack { SettingsView(viewModel: vm) },
                          size: .init(width: 900, height: 2600), language: "en", named: "settings-advanced")
     }
+    /// The first screen shows the app icon itself, in each appearance.
+    @Test func signIn() async throws {
+        let fixture = AccountFixture()
+        defer { fixture.remove() }
+        for scheme in [ColorScheme.light, .dark] {
+            try await record(AppleSignInView(account: fixture.session).environment(\.colorScheme, scheme),
+                             size: .init(width: 480, height: 620), language: "ja", named: "sign-in-\(scheme == .dark ? "dark" : "light")")
+        }
+    }
     @Test(arguments: ["en", "ja"]) func callColumn(language: String) async throws {
         try await render(.call, language: language)
     }

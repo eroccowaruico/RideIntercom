@@ -56,7 +56,7 @@ struct SystemSurfaceRenderingTests {
                 .background(Color.black)
             try record(lockScreen, scheme: .dark, language: language, named: "live-lock-\(name)")
             let island = HStack {
-                RideComGlyph(size: 18)
+                RideComAppMark(size: 18, dark: true)
                 Spacer()
                 CallActivityCompactState(call: current)
             }
