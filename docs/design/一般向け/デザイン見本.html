@@ -16,8 +16,8 @@
   --accent: #1179C0;
   --green: #34C77B;
   --aqua: #0BA59B;
-  --sky: #E6F1FA;
-  --snow: #ECF2F8;
+  --sky: #CFE5F6;
+  --snow: #EBF1F7;
   --ridge: #0E2238;
   --red: #F5484E;
   --orange: #FFAC33;
@@ -40,7 +40,7 @@
   --accent: #2F95DC;
   --green: #3CC98F;
   --aqua: #5BF3E2;
-  --sky: #050E1A;
+  --sky: #0E2238;
   --snow: #03070D;
   --red: #FF6B6B;
   --orange: #FFB340;
@@ -124,7 +124,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .phone { width: 300px; height: 650px; border-radius: 48px; padding: 9px; background: #1B1D21; box-shadow: 0 18px 40px rgba(14, 34, 56, .22), inset 0 0 0 1.5px #3A3D44; }
 .screen {
   position: relative; height: 100%; border-radius: 40px; overflow: hidden;
-  background: linear-gradient(180deg, var(--sky) 0%, var(--snow) 60%);
+  background: linear-gradient(180deg, var(--sky) 0%, var(--snow) 45%);
   color: var(--label); font-size: 13px; line-height: 1.45;
   line-break: strict; word-break: auto-phrase;
 }
@@ -284,7 +284,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 .land .cbtn { width: 56px; height: 56px; font-size: 22px; }
 .land .sheetgrab { top: 7px; }
 .ipad { width: 820px; height: 540px; border-radius: 30px; padding: 12px; background: #1B1D21; box-shadow: 0 18px 40px rgba(14,34,56,.22), inset 0 0 0 1.5px #3A3D44; }
-.ipad .screen { border-radius: 20px; display: grid; grid-template-columns: 170px 1fr 1.1fr; }
+.ipad .screen { background: linear-gradient(180deg, var(--sky), var(--snow) 25%); border-radius: 20px; display: grid; grid-template-columns: 170px 1fr 1.1fr; }
 .ipad .side { padding: 22px 10px; border-right: .5px solid var(--sep); background: color-mix(in srgb, var(--glass) 70%, transparent); }
 .ipad .side .it { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; }
 .ipad .side .it.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
@@ -434,6 +434,15 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 /* Dynamic Island とロック画面は暗い背景なので、ライト表示でもDarkの書き出しを使う */
 .wall.tinted .appicon-small { filter: grayscale(1) sepia(.35) brightness(1.1); }
 .di .appicon-small, .la .appicon-small { background-image: url(data:image/png;base64,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) !important; }
+
+/* 声のインジケーター: SF Symbolsの可変値（variableValue）で声の大小だけを示す。数値は出さない */
+.vi { display: inline-flex; align-items: center; gap: 2px; height: 16px; color: var(--aqua); flex: none; }
+.vi > svg.i { color: var(--label2); margin-right: 2px; font-size: 14px; }
+.vi i { width: 3px; border-radius: 2px; background: color-mix(in srgb, var(--label2) 35%, transparent); }
+.vi i:nth-of-type(1), .vi i:nth-of-type(5) { height: 5px; } .vi i:nth-of-type(2), .vi i:nth-of-type(4) { height: 10px; } .vi i:nth-of-type(3) { height: 15px; }
+.vi.l1 i:nth-of-type(-n+1), .vi.l2 i:nth-of-type(-n+2), .vi.l3 i:nth-of-type(-n+3), .vi.l4 i:nth-of-type(-n+4), .vi.l5 i { background: currentColor; }
+.vi.muted { color: var(--red); }
+.screen.list-bg { background: linear-gradient(180deg, var(--sky) 0%, var(--snow) 25%); }
 </style>
 </head>
 <body>
@@ -585,17 +594,18 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
             <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
           </div>
-          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg></div>
+          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
           <div class="group-h" style="margin-top:8px">メンバー</div>
           <div class="group glass">
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span><span style="height:5px"></span></span>話しています</div></span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分</span><span class="vi l2" role="img" aria-label="自分の声"><svg class="i"><use href="#mic"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="vi l0" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span><span class="tail"><svg class="i chev"><use href="#chev"/></svg></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span><span class="tail"><span class="link">呼び出す</span></span></div>
           </div>
         </div>
         <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話のシート：会話中</b>下へ閉じても接続は続き、タブバーの上の通話表示から戻れる。ミュート（常に斜線入りのマイクの切替）・消音・切断を円形ガラスボタンで横並び。塗りの主操作は置かない。話している人だけ voice 色の波形と文言。未接続のメンバーで呼び出せる人には「呼び出す」。</figcaption>
+      <figcaption><b>通話のシート：会話中</b>下へ閉じても接続は続き、タブバーの上の通話表示から戻れる。ミュート（常に斜線入りのマイクの切替）・消音・切断を円形ガラスボタンで横並び。塗りの主操作は置かない。自分の行（マイクの入力）、相手ごと（届いている声）、音量の右端（実際の出力）に、声の大小を記号の段で示す（数値は出さない）。止まっている場所が、動いていない記号で分かる。未接続のメンバーで呼び出せる人には「呼び出す」。</figcaption>
     </figure>
 
     <!-- 通話 ミュート -->
@@ -614,7 +624,11 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
             <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
           </div>
-          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:62%"></i><b style="left:62%"></b></span><svg class="i"><use href="#speaker"/></svg><span class="val">大きめ</span></div>
+          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:62%"></i><b style="left:62%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span><span class="val">大きめ</span></div>
+          <div class="group glass" style="margin-top:10px">
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分<div class="sub">ミュート中</div></span><span class="vi muted" role="img" aria-label="ミュート中"><svg class="i" style="color:var(--red)"><use href="#mic-slash"/></svg></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
+          </div>
           <div class="group glass" style="margin-top:10px">
             <div class="row"><span class="grow">受信する声を分離</span><span class="toggle offt"></span></div>
           </div>
@@ -622,7 +636,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         <div class="accessory glass" style="display:none"></div>
         <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話のシート：ミュート中（1対1）</b>ミュートボタンが red の選択状態になり、文言が「ミュート中」に。音量は数値を出さず、100%を超えた位置で「大きめ」。</figcaption>
+      <figcaption><b>通話のシート：ミュート中（1対1）</b>ミュートボタンが red の選択状態になり、文言が「ミュート中」に。音量は数値を出さず、100%を超えた位置で「大きめ」。自分の行は声を送らないので、声の大小の代わりにミュートの記号。</figcaption>
     </figure>
 
     <!-- 通話 音声停止 -->
@@ -651,7 +665,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
     <!-- ユーザー -->
     <figure>
-      <div class="phone"><div class="screen">
+      <div class="phone"><div class="screen list-bg">
         <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
         <div class="navbar"><span class="navbtn" style="color:var(--accent)"><svg class="i"><use href="#plus"/></svg></span></div>
         <div class="ltitle">ユーザー</div>
@@ -684,7 +698,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
     <!-- 招待の詳細 -->
     <figure>
-      <div class="phone"><div class="screen">
+      <div class="phone"><div class="screen list-bg">
         <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
         <div class="navbar" style="justify-content:flex-start"><span class="link" style="display:flex;align-items:center;gap:2px;font-size:14px"><svg class="i"><use href="#back"/></svg>ユーザー</span></div>
         <div class="body" style="padding-top:6px">
@@ -706,7 +720,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
     <!-- グループ -->
     <figure>
-      <div class="phone"><div class="screen">
+      <div class="phone"><div class="screen list-bg">
         <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
         <div class="navbar"><span class="navbtn" style="color:var(--accent)"><svg class="i"><use href="#plus"/></svg></span></div>
         <div class="ltitle">グループ</div>
@@ -923,11 +937,12 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
             </div>
         </div>
         <div class="rcol">
-          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg></div>
+          <div class="slider"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
           <div class="group-h" style="margin-top:6px">メンバー</div>
           <div class="group glass">
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分</span><span class="vi l2" role="img" aria-label="自分の声"><svg class="i"><use href="#mic"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="vi l0" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span><span class="tail"><span class="link">呼び出す</span></span></div>
           </div>
         </div>
@@ -961,11 +976,12 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
               <div class="ctrl"><span class="cbtn gl"><svg class="i"><use href="#speaker-slash"/></svg></span>消音</div>
               <div class="ctrl"><span class="cbtn end"><svg class="i"><use href="#phone-down"/></svg></span>切断</div>
             </div></div>
-          <div class="slider" style="margin-top:8px"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><svg class="i"><use href="#speaker"/></svg></div>
+          <div class="slider" style="margin-top:8px"><svg class="i"><use href="#speaker-low"/></svg><span class="track"><i style="width:50%"></i><b style="left:50%"></b></span><span class="vi l3" role="img" aria-label="出力"><svg class="i"><use href="#speaker"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
                   <div class="group-h">メンバー</div>
           <div class="group glass">
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub talk-tag tag"><span class="wave"><span style="height:6px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span></span>話しています</div></span></div>
-            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">自分</span><span class="vi l2" role="img" aria-label="自分の声"><svg class="i"><use href="#mic"/></svg><i></i><i></i><i></i><i></i><i></i></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ハルカ<div class="sub">話しています</div></span><span class="vi l4" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
+            <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ケンタ</span><span class="vi l0" role="img" aria-label="声"><i></i><i></i><i></i><i></i><i></i></span></div>
             <div class="row"><span class="avatar"><svg class="i"><use href="#person"/></svg></span><span class="grow">ユウ<div class="sub">接続していません</div></span><span class="tail"><span class="link">呼び出す</span></span></div>
           </div>
           <div class="group-h">招待中</div>
