@@ -15,10 +15,14 @@ enum RideComColors {
     static let deepNavy = Color("DeepNavy")
     static let backgroundTop = Color("BackgroundTop")
     static let backgroundBase = Color("BackgroundBase")
+    /// The screen's backdrop: top to base until `end` (a fraction of the height), then base.
+    /// macOS keeps the standard window background.
     #if os(macOS)
-    static let screenBackground = Color(nsColor: .windowBackgroundColor)
+    static func screenBackground(endingAt end: Double) -> Color { Color(nsColor: .windowBackgroundColor) }
     #else
-    static let screenBackground = LinearGradient(colors: [backgroundTop, backgroundBase],
-                                                startPoint: .top, endPoint: .bottom)
+    static func screenBackground(endingAt end: Double) -> LinearGradient {
+        LinearGradient(stops: [.init(color: backgroundTop, location: 0), .init(color: backgroundBase, location: end)],
+                       startPoint: .top, endPoint: .bottom)
+    }
     #endif
 }

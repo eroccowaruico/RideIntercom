@@ -224,4 +224,4 @@ AdvancedではGroups管理画面の参加者名から、StandardではCallの参
 
 ## 共通の操作表現
 
-StandardとAdvancedの接続・音声再開には標準`glassProminent`、補助操作には`glass`のButtonStyleを使う。Advancedの参加者操作と、Form内の設定コントロールを維持する。Standardの背景は淡い空色のグラデーション、Advancedの本文・診断背景は既存のシステムMaterialと背景を保ち、共通の青いtintで揃える。
+StandardとAdvancedの接続・音声再開には標準`glassProminent`、補助操作には`glass`のButtonStyleを使う。Advancedの参加者操作と、Form内の設定コントロールを維持する。画面の背景は、上端のbackgroundTop（ライト`#CFE5F6`、ダーク`#0E2238`）から下へbackgroundBase（ライト`#EBF1F7`、ダーク`#03070D`）に変わり、変化の終わりから下は一定の色にする（`AppColorPalette`の`callScreenBackground`・`listScreenBackground`と`screenBackground(_:)`。List・Formは標準のセルのまま、背景を画面に固定する）。終わりの位置は、StandardのCall・Appleログイン・名前の入力が高さの45%（ガラスのヒーローと操作が変化の上に乗る）、Users・Groups・招待のシート・Settingsとその中の画面・AdvancedのCall・Diagnosticsが25%（行は一定の色の上に並ぶ）。macOSは標準のwindowの背景で、グラデーションを使わない（[背景のグラデーション](../../../design/カラーテーマ.md#背景のグラデーション)）。共通の青いtintで揃える。

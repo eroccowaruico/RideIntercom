@@ -27,7 +27,7 @@ struct AppleSignInView: View {
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }
         }
-        .background(AppColorPalette.standardScreenBackground)
+        .background(AppColorPalette.callScreenBackground)
         .accessibilityIdentifier("appleSignInScreen")
     }
 

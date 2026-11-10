@@ -81,8 +81,7 @@ struct StandardCallView: View {
                 .frame(maxWidth: AppSize.singleColumnMaxWidth)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(AppColorPalette.standardScreenBackground)
+        .screenBackground(AppColorPalette.callScreenBackground)
         .sensoryFeedback(.selection, trigger: viewModel.isMuted)
         .sensoryFeedback(.selection, trigger: viewModel.isOutputMuted)
         .sensoryFeedback(trigger: viewModel.hasAnyActiveGroupConnection) { old, new in

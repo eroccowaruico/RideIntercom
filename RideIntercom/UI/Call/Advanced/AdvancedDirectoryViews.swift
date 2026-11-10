@@ -49,6 +49,7 @@ struct AdvancedUsersView: View {
                     .accessibilityIdentifier("inviteContactButton")
             }
         }
+        .screenBackground(AppColorPalette.listScreenBackground)
         .accessibilityIdentifier("standardUsersList")
         .destinationSettingsSheet($settings, viewModel: viewModel)
         .destinationDeleteConfirmation($pendingDelete)
@@ -131,6 +132,7 @@ struct AdvancedGroupsView: View {
                     .disabled(!viewModel.canEditSavedGroups).accessibilityIdentifier("standardCreateGroupButton")
             }
         }
+        .screenBackground(AppColorPalette.listScreenBackground)
         .sheet(isPresented: $createsGroup, onDismiss: {
             if viewModel.selectedGroup?.id != previousSelection { selectedTab = .call }
         }) { SavedUsersView(viewModel: viewModel) }

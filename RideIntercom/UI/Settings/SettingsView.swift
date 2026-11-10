@@ -13,6 +13,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .screenBackground(AppColorPalette.listScreenBackground)
         .readableScrollWidth()
         .accessibilityIdentifier("settingsScrollView")
         .sheet(isPresented: $isEditingInternet) {
@@ -24,6 +25,8 @@ struct SettingsView: View {
                         AdvancedInternetConnectionEditor(viewModel: viewModel)
                     }
                 }
+                .formStyle(.grouped)
+                .screenBackground(AppColorPalette.listScreenBackground)
                 .navigationTitle("Internet Connection")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {

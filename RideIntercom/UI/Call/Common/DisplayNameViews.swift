@@ -101,6 +101,7 @@ struct DisplayNameChoiceView: View {
                     .padding()
                     .accessibilityIdentifier("displayNameChoiceSaveButton")
             }
+            .screenBackground(AppColorPalette.callScreenBackground)
             .navigationTitle("Your Name")
         }
         .interactiveDismissDisabled()

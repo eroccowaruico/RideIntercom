@@ -50,7 +50,7 @@ struct DiagnosticsView: View {
                 }
             }
         }
-        .background(AppColorPalette.standardScreenBackground)
+        .screenBackground(AppColorPalette.listScreenBackground)
         .onAppear {
             viewModel.isDiagnosticsVisible = true
             viewModel.publishRuntimePackageReports(force: true)

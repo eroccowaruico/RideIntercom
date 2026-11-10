@@ -12,8 +12,10 @@ enum AppColorPalette {
     static let voiceLevel = RideComColors.voiceLevel
     static let neutral: Color = .secondary
 
-    static let standardScreenBackground = RideComColors.screenBackground
-    static let callScreenBackground = RideComColors.screenBackground
+    /// The call sheet, sign-in and name input: the change reaches 45%, under the glass hero and controls.
+    static let callScreenBackground = RideComColors.screenBackground(endingAt: 0.45)
+    /// Lists, Settings and every Advanced screen: the change ends at 25%, so rows sit on one even color.
+    static let listScreenBackground = RideComColors.screenBackground(endingAt: 0.25)
     #if os(macOS)
     static let panelSurface: Color = Color(nsColor: .windowBackgroundColor)
     #else
@@ -144,4 +146,11 @@ private struct ReadableScrollWidth: ViewModifier {
 
 extension View {
     func readableScrollWidth() -> some View { modifier(ReadableScrollWidth()) }
+}
+
+extension View {
+    /// The fixed backdrop behind a screen; a List or Form keeps its standard rows over it.
+    func screenBackground(_ background: some ShapeStyle) -> some View {
+        scrollContentBackground(.hidden).background(background)
+    }
 }

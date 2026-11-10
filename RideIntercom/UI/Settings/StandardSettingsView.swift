@@ -16,6 +16,7 @@ struct StandardSettingsView: View {
             NavigationLink {
                 Form { CommunicationPanel(viewModel: viewModel) }
                     .formStyle(.grouped)
+                    .screenBackground(AppColorPalette.listScreenBackground)
                     .navigationTitle("Communication")
             } label: {
                 LabeledContent("Communication") {
@@ -53,6 +54,7 @@ struct StandardSettingsView: View {
                     StandardInternetConnectionSection(viewModel: viewModel, isEditing: $isEditingInternet)
                 }
                 .formStyle(.grouped)
+                .screenBackground(AppColorPalette.listScreenBackground)
                 .navigationTitle("Advanced Settings for Developers")
             }
             .accessibilityIdentifier("moreSettingsLink")

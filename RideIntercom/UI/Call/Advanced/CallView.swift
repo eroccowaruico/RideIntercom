@@ -40,7 +40,7 @@ struct CallView: View {
             if new == .audioPaused && old != .audioPaused { return .warning }
             return nil
         }
-        .background(AppColorPalette.callScreenBackground)
+        .screenBackground(AppColorPalette.listScreenBackground)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("callScreen")
     }

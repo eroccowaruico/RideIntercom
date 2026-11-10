@@ -53,8 +53,7 @@ struct StandardUsersView: View {
             }
             CallErrorSection(viewModel: viewModel)
         }
-        .scrollContentBackground(.hidden)
-        .background(AppColorPalette.standardScreenBackground)
+        .screenBackground(AppColorPalette.listScreenBackground)
         .readableScrollWidth()
         .navigationTitle("Users")
         .directorySearch($query, count: viewModel.savedRemoteUsers.count)
@@ -118,8 +117,7 @@ struct StandardGroupsView: View {
             }
             CallErrorSection(viewModel: viewModel)
         }
-        .scrollContentBackground(.hidden)
-        .background(AppColorPalette.standardScreenBackground)
+        .screenBackground(AppColorPalette.listScreenBackground)
         .readableScrollWidth()
         .navigationTitle("Groups")
         .directorySearch($query, count: viewModel.regularGroups.count)
