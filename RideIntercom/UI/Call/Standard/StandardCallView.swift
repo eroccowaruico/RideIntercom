@@ -248,9 +248,28 @@ struct StandardCallView: View {
                 StandardVoiceIndicator(kind: .peer, level: member.voiceLevel, isSilenced: member.isMuted,
                                        label: Text("\(member.resolvedDisplayName)'s voice"))
                     .accessibilityIdentifier("standardVoiceIndicator-\(member.id)")
+            } else if group.id == viewModel.activeGroupID, !viewModel.connectedPeerIDs.contains(member.id),
+                      let user = viewModel.ringableUser(in: group) {
+                ringControl(for: user)
             }
         }
         .frame(minHeight: 44)
+    }
+
+    /// Someone away from a one-to-one call: Ring at the row's end, then Cancel while it rings.
+    @ViewBuilder private func ringControl(for user: SavedUser) -> some View {
+        let notifications = viewModel.notifications
+        if notifications.outgoing?.contactID == user.id {
+            Button("Stop Ringing") { Task { await notifications.cancelOutgoing() } }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("cancelCallRequest-\(user.id)")
+        } else if notifications.canNotify(user.id) {
+            Button("Ring") { Task { _ = await notifications.send(to: user.id) } }
+                .buttonStyle(.borderless)
+                .disabled(notifications.isBusy)
+                .accessibilityLabel(Text("Ring \(user.resolvedDisplayName)"))
+                .accessibilityIdentifier("sendCallRequest-\(user.id)")
+        }
     }
 
     /// One state word under the name while in this call: speaking, connecting, or not connected.
@@ -269,6 +288,11 @@ struct StandardCallView: View {
                 Text("Connecting")
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("standardMemberConnecting-\(member.id)")
+            } else if let user = viewModel.selectedGroup.flatMap(viewModel.ringableUser(in:)),
+                      viewModel.notifications.outgoing?.contactID == user.id {
+                Text("Ringing")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("standardMemberRinging-\(member.id)")
             } else {
                 // The live peer sets, not the stored member state, say who has joined.
                 Text("Not connected right now")

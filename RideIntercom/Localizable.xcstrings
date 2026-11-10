@@ -4709,12 +4709,32 @@
         }
       }
     },
+    "Ring" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "呼び出す"
+          }
+        }
+      }
+    },
     "Ring %@" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@を呼び出す"
+          }
+        }
+      }
+    },
+    "Ringing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "呼び出し中"
           }
         }
       }
@@ -5645,6 +5665,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知の再試行を停止しますか？"
+          }
+        }
+      }
+    },
+    "Stop Ringing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取り消す"
           }
         }
       }

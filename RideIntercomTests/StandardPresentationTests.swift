@@ -5,6 +5,19 @@ import Testing
 
 @MainActor @Suite(.serialized)
 struct StandardPresentationTests {
+    /// A one-to-one call can ring the person who is away; a group cannot, since a request names no group.
+    @Test func onlyOneToOneCallsOfferRingingTheAwayPerson() throws {
+        let h = try AppTestSupport.makeHarnessWithSavedUser(), vm = h.viewModel
+        defer { vm.disconnect() }
+        let user = try #require(vm.savedRemoteUsers.first)
+        let group = try #require(vm.regularGroups.first)
+        #expect(vm.ringableUser(in: group) == nil)
+        #expect(vm.startCall(to: .user(user.id), accountAccessID: vm.accountAccessID))
+        let direct = try #require(vm.selectedGroup)
+        #expect(direct.kind == .direct)
+        #expect(vm.ringableUser(in: direct)?.id == user.id)
+    }
+
     /// Standard hides Groups until turned on; the choice survives a restart; Advanced always shows Groups.
     @Test func groupsTabStartsHiddenInStandardAndTheChoiceIsSaved() {
         let namespace = "RideIntercom.GroupsTab." + UUID().uuidString

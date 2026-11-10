@@ -33,15 +33,7 @@ struct StandardUserSettingsView: View {
                         set: { allowed in Task { await viewModel.setCallNotificationsAllowed(allowed, for: user.id) } }))
                         .disabled(!viewModel.notifications.canUseNotifications || viewModel.notifications.isBusy)
                         .accessibilityIdentifier("allowCallRequests-\(user.id)")
-                    // Temporary: ringing lives here until choosing a person rings them (see the design backlog).
-                    if viewModel.notifications.outgoing?.contactID == user.id {
-                        Button("Cancel Ringing") { Task { await viewModel.notifications.cancelOutgoing() } }
-                            .accessibilityIdentifier("cancelCallRequest-\(user.id)")
-                    } else {
-                        Button("Ring \(current.resolvedDisplayName)") { Task { _ = await viewModel.notifications.send(to: user.id) } }
-                            .disabled(!viewModel.notifications.canNotify(user.id) || viewModel.notifications.isBusy)
-                            .accessibilityIdentifier("sendCallRequest-\(user.id)")
-                    }
+                    // Ringing lives in the call: the away person's row has Ring.
                     if let message = viewModel.notifications.message { Text(LocalizedStringKey(message)).foregroundStyle(.secondary) }
                 }
                 if let message = viewModel.groupErrorMessage {

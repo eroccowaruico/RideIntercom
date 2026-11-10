@@ -118,6 +118,16 @@ extension IntercomViewModel {
         return remote
     }
 
+    /// The saved user a one-to-one call is with, so the call sheet can ring them while they are away.
+    /// Groups return nil: a call request names no group, so it would ring them into a different call.
+    func ringableUser(in group: IntercomGroup) -> SavedUser? {
+        guard group.kind == .direct else { return nil }
+        if let principal = directCallAccountRecipient(for: group) {
+            return savedRemoteUsers.first { $0.principal == principal }
+        }
+        return directCallRecipient(for: group).flatMap { peer in savedRemoteUsers.first { $0.memberIDs.contains(peer) } }
+    }
+
     func directCallRecipient(for group: IntercomGroup) -> String? {
         guard group.kind == .direct, group.accountPair == nil,
               let peer = group.members.first(where: { $0.id != localMemberIdentity.memberID }),
