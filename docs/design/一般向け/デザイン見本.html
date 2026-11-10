@@ -576,7 +576,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         </div>
         <div class="sheetgrab"></div>
       </div></div>
-      <figcaption><b>通話のシート：接続待ち</b>一覧で選ぶとこのシートが開く。状態「接続中」と補足の2行。進行表示だけ warning 色。成功・失敗の色を確定表示しない。操作の列は会話中と同じ位置・同じ構成（やめるときも「切断」）。</figcaption>
+      <figcaption><b>通話のシート：接続待ち</b>一覧で選ぶとこのシートが開く。状態「接続中」と補足の2行。相手のいない場所に入って待つ正常な状態で、時間が経っても、通知を送れなくても、圏外で近距離だけでもこのまま。呼び出し中・応答なし・取り消しの表示は足さない。進行表示だけ warning 色。成功・失敗の色を確定表示しない。操作の列は会話中と同じ位置・同じ構成（やめるときも「切断」）。</figcaption>
     </figure>
 
     <!-- 通話 会話中 -->
@@ -694,7 +694,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>ユーザー（最初の画面・会話中）</b>行をタップするとすぐ接続して通話のシートを開く（会話中は切替を確認）。右上 + で新しい相手を招待。成立前は「招待中」に状態の語1つで並べ、タップで招待の詳細を開く（<a href="../招待と登録の設計.md">招待と登録の設計</a>）。タブはグループタブを表示しない既定の2つ。下の通話のアクセサリは縮めず、名前・状態・ミュート・切断（確認付き）を置く。アクセサリの面はOSのガラスで、ミュートと切断は記号だけ（円の面を足さない。ミュート中だけ赤い円）。</figcaption>
+      <figcaption><b>ユーザー（最初の画面・会話中）</b>行をタップするとすぐ接続して通話のシートを開く（接続中は今の通話のシートを開くだけで切り替えない。別の場所へは切断してから）。右上 + で新しい相手を招待。成立前は「招待中」に状態の語1つで並べ、タップで招待の詳細を開く（<a href="../招待と登録の設計.md">招待と登録の設計</a>）。タブはグループタブを表示しない既定の2つ。下の通話のアクセサリは縮めず、名前・状態・ミュート・切断（確認付き）を置く。アクセサリの面はOSのガラスで、ミュートと切断は記号だけ（円の面を足さない。ミュート中だけ赤い円）。</figcaption>
     </figure>
 
     <!-- 招待の詳細 -->
@@ -738,7 +738,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="tab"><svg class="i"><use href="#gear"/></svg>設定</div>
         </div>
       </div></div>
-      <figcaption><b>グループ</b>行をタップするとすぐに接続する（会話中は切替を確認）。設定と削除は長押し・スワイプ。行は名前と人数。接続中は人数の代わりに状態の語（例: 会話中）を出す。</figcaption>
+      <figcaption><b>グループ</b>行をタップするとすぐに接続する（接続中は今の通話のシートを開くだけで切り替えない）。行のスワイプは「グループの設定」だけ。削除（オーナー）・抜ける（オーナー以外）はグループの設定の最後のボタン（長押しのメニューは置かない）。行は名前と人数。接続中は人数の代わりに状態の語（例: 会話中）を出す。</figcaption>
     </figure>
 
     <!-- 設定は下の「設定の構成」へ -->
@@ -753,26 +753,8 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
 
 
   <h2 id="future">将来の状態（backlogの想定）</h2>
-  <p class="note">docs/backlog の将来想定で一般向けに増える状態。呼び出しと応答（通知）、同じユーザーの別端末からの後勝ちの切替、必須アップデート。どれも同じヒーロー・主操作の型に収め、新しい画面構造を増やさない。</p>
+  <p class="note">docs/backlog の将来想定で一般向けに増える状態。同じユーザーの別端末からの後勝ちの切替、必須アップデート。呼び出しの通知は送った側の表示を増やさない（相手を待つ間は「通話のシート：接続待ち」のまま）。どれも同じヒーロー・主操作の型に収め、新しい画面構造を増やさない。</p>
   <div class="gallery">
-    <figure>
-      <div class="phone"><div class="screen">
-        <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
-        <div class="navbar"></div>
-        <div class="body" style="padding-top:4px">
-          <div class="glass card" style="margin-bottom:14px">
-            <div class="kind"><svg class="i"><use href="#person"/></svg>ユーザー</div>
-            <div class="dest">ハルカ</div>
-            <div class="status wait"><span class="spin"></span>呼び出し中</div>
-            <div class="route">応答すると会話を始めます</div>
-          </div>
-          <div class="stack" style="margin-bottom:12px"><div class="btn danger">呼び出しを取り消す</div></div>
-          <p class="note" style="padding:0 4px">応答がないまま期限が過ぎると「応答がありませんでした」と表示し、もう一度呼び出せます。</p>
-        </div>
-        <div class="sheetgrab"></div>
-      </div></div>
-      <figcaption><b>呼び出し中（1対1）</b>通知で相手を呼び出している間。接続待ちと同じ型で、主操作は取り消し。応答・拒否・期限切れはこの位置の状態文で示す。</figcaption>
-    </figure>
     <figure>
       <div class="phone"><div class="screen">
         <div class="sbar"><span>9:41</span><span class="island"></span><span class="sys"><svg class="i"><use href="#antenna"/></svg><span class="bat"></span></span></div>
@@ -1046,7 +1028,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
           <div class="wrow"><span class="ic"><svg class="i"><use href="#person"/></svg></span>ユウ</div>
         </div>
       </div></div>
-      <figcaption><b>接続先一覧</b>行タップで開始。呼び出しと取消は行のスワイプ（watchOSには長押しメニューがない）。</figcaption>
+      <figcaption><b>接続先一覧</b>行タップで開始（1対1ならiPhoneが相手へ通知を1回添える）。呼び出しの送信・取消の操作は置かない。</figcaption>
     </figure>
 
     <figure>

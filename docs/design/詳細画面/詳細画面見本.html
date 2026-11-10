@@ -532,7 +532,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         </div>
         <div style="position:absolute;left:14px;right:14px;bottom:76px;height:38px;border-radius:20px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 10px;font-size:11px"><span class="d ok"></span><b>Weekend Touring</b><span style="color:var(--label2)">Connected</span><span style="margin-left:auto;color:var(--label2)">Unmuted</span><span style="font-size:14px"><svg class="i"><use href="#mic-slash"/></svg></span><span style="font-size:14px;color:var(--err)"><svg class="i"><use href="#phone-down"/></svg></span></div><div class="tabbar"><span class="tab on"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Users（最初の画面）</b>行のタップですぐ接続して呼び出す（会話中は切替を確認）。名前の編集・削除・Share Call Invite は長押し・スワイプの User Settings。並びと値は実装と対（<code>savedRemoteUsers</code> の SavedUser、その下に <code>ContactInvitationRecord</code> の direction・state・expiresAt をそのまま）。一般向けの一覧の部品・語は流用しない。行の選択で Call へ（内部グループを解決）。</figcaption>
+      <figcaption><b>Users（最初の画面）</b>行のタップですぐ接続し、1対1は通知を1回添える（接続中は今の通話を開くだけで切り替えない）。名前の編集・削除・Share Call Invite は行のスワイプの User Settings（長押しのメニューは置かない）。並びと値は実装と対（<code>savedRemoteUsers</code> の SavedUser、その下に <code>ContactInvitationRecord</code> の direction・state・expiresAt をそのまま）。一般向けの一覧の部品・語は流用しない。行の選択で Call へ（内部グループを解決）。</figcaption>
     </figure>
 
     <figure>
@@ -552,7 +552,7 @@ figcaption b { color: var(--label); display: block; font-size: 13px; }
         </div>
         <div class="tabbar"><span class="tab"><svg class="i"><use href="#person2"/></svg>Users</span><span class="tab on"><svg class="i"><use href="#person3"/></svg>Groups</span><span class="tab"><svg class="i"><use href="#gauge"/></svg>Diagnostics</span><span class="tab"><svg class="i"><use href="#gear"/></svg>Settings</span></div>
       </div></div>
-      <figcaption><b>Groups</b>行のタップですぐ接続（会話中は切替を確認）。長押し・スワイプの Group Settings でメンバー・名前・削除を開く。通常グループに人数・鍵の状態・短縮ID・接続中を出す。1対1のための内部の direct グループは別 Section の Direct Groups に並べ、メンバーの追加・削除はできない。保存の復旧操作（Reload Saved Groups 等）もここ。</figcaption>
+      <figcaption><b>Groups</b>行のタップですぐ接続（接続中は今の通話を開くだけで切り替えない）。行のスワイプの Group Settings でメンバー・名前・削除を開く（長押しのメニューは置かない）。通常グループに人数・鍵の状態・短縮ID・接続中を出す。1対1のための内部の direct グループは別 Section の Direct Groups に並べ、メンバーの追加・削除はできない。保存の復旧操作（Reload Saved Groups 等）もここ。</figcaption>
     </figure>
   </div>
 
