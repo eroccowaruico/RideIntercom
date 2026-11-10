@@ -18,7 +18,7 @@ struct AdvancedUserSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Name on this device", text: $name).accessibilityIdentifier("savedUserNameField")
+                TextField("Name on this device", text: $name, prompt: Text(verbatim: currentUser.displayName)).accessibilityIdentifier("savedUserNameField")
                 LabeledContent("Name shared by this person", value: currentUser.displayName)
                     .accessibilityIdentifier("savedUserOriginalName")
                 Button("Use Shared Name") {

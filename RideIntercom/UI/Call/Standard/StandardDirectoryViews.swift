@@ -194,7 +194,7 @@ extension View {
 
     @ViewBuilder func directorySearch(_ query: Binding<String>, count: Int) -> some View {
         if count > directorySearchThreshold {
-            searchable(text: query)
+            searchable(text: query, prompt: Text("Search Names"))
         } else {
             self
         }

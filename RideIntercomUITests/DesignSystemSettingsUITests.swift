@@ -3,6 +3,40 @@ import XCTest
 
 @MainActor
 final class DesignSystemSettingsUITests: XCTestCase {
+    /// Standard shows the name and Edit on one row; the sheet opens with the current name,
+    /// shows "e.g. Nao" when emptied, and keeps Done off until a name is there.
+    func testStandardDisplayNameEditsInItsOwnSheet() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchEnvironment["RIDEINTERCOM_LOCAL_TESTING"] = "1"
+        app.launchEnvironment["RIDEINTERCOM_ACCOUNT_FIXTURE"] = "signed-in"
+        app.launchEnvironment["RIDEINTERCOM_INTERFACE_FIXTURE"] = "standard"
+        app.launch()
+        defer { app.terminate() }
+        let settings = app.tabBars.buttons["Settings"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 8)); settings.tap()
+        let row = app.buttons["localDisplayNameRow"].firstMatch
+        reveal(row, in: app)
+        XCTAssertFalse(app.textFields["localDisplayNameField"].exists, "No inline field on the Settings page")
+        let current = row.label
+        row.tap()
+        let field = app.textFields["localDisplayNameField"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        XCTAssertTrue(current.contains(field.value as? String ?? "-"), "Opens with the current name: \(current)")
+        let done = app.buttons["saveLocalDisplayNameButton"].firstMatch
+        field.tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (field.value as? String ?? "").count))
+        XCTAssertEqual(field.placeholderValue, "e.g. Nao")
+        XCTAssertFalse(done.isEnabled, "Done stays off while the name is empty")
+        field.typeText("Snow Cat")
+        XCTAssertTrue(done.isEnabled)
+        done.tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(row.label.contains("Snow Cat"), row.label)
+        let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = "Standard display name row"
+        attachment.lifetime = .keepAlways; add(attachment)
+    }
+
     func testStandardInternetSetupRemainsReachableInMoreSettings() {
         continueAfterFailure = false
         for japanese in [false, true] {

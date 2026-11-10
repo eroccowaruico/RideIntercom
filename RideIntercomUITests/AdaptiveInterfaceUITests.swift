@@ -41,7 +41,7 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         checkBothOrientations("Users") { self.assertReadableWidth(users.cells.firstMatch, in: users) }
         tab("設定", id: "settingsTab")
         let settings = element("settingsScrollView")
-        let nameCell = app.cells.containing(.textField, identifier: "localDisplayNameField").firstMatch
+        let nameCell = app.cells.containing(.button, identifier: "localDisplayNameRow").firstMatch
         checkBothOrientations("Settings") { self.assertReadableWidth(nameCell, in: settings) }
     }
 
@@ -132,9 +132,9 @@ final class AdaptiveInterfaceUITests: XCTestCase {
         assertVisible(status)
         XCTAssertEqual(status.label, mutedText)
         tab(japanese ? "設定" : "Settings", id: "settingsTab")
-        let nameField = app.textFields["localDisplayNameField"].firstMatch
-        revealInSettings(nameField)
-        assertVisible(nameField)
+        let nameRow = app.buttons["localDisplayNameRow"].firstMatch
+        revealInSettings(nameRow)
+        assertVisible(nameRow)
         screenshot("\(japanese ? "Japanese" : "English") landscape settings")
         // Internet setup lives in Advanced Settings for Developers.
         let developer = app.buttons["moreSettingsLink"].firstMatch

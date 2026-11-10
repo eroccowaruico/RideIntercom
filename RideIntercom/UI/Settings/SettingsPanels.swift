@@ -2,20 +2,31 @@ import SwiftUI
 import RTC
 import Codec
 
+/// Advanced marks the implementation's default so a changed value can be put back.
+/// Standard has no expert choices, so it never shows the mark.
+func settingsOption(_ title: String, isDefault: Bool, marks: Bool = true) -> Text {
+    marks && isDefault ? Text(verbatim: "\(title) (Default)") : Text(verbatim: title)
+}
+
 struct CallDisconnectTimerSection: View {
     let viewModel: IntercomViewModel
+    private var marksDefault: Bool { viewModel.interfaceMode == .advanced }
 
     var body: some View {
         Section {
             Picker("Regular Calls", selection: Binding(get: { viewModel.callDisconnectInterval },
                                                        set: { viewModel.setCallDisconnectInterval($0) })) {
-                ForEach(CallDisconnectInterval.allCases) { interval in Text(interval.title).tag(interval) }
+                ForEach(CallDisconnectInterval.allCases) { interval in
+                    settingsOption(interval.title, isDefault: interval == AppSettings().callDisconnectInterval, marks: marksDefault).tag(interval)
+                }
             }
             .pickerStyle(.menu)
             .accessibilityIdentifier("callDisconnectIntervalPicker")
             Picker("Calls Started from Watch", selection: Binding(get: { viewModel.watchCallDisconnectInterval },
                                                                  set: { viewModel.setCallDisconnectInterval($0, usingWatch: true) })) {
-                ForEach(CallDisconnectInterval.allCases) { interval in Text(interval.title).tag(interval) }
+                ForEach(CallDisconnectInterval.allCases) { interval in
+                    settingsOption(interval.title, isDefault: interval == AppSettings().watchCallDisconnectInterval, marks: marksDefault).tag(interval)
+                }
             }
             .pickerStyle(.menu)
             .accessibilityIdentifier("watchCallDisconnectIntervalPicker")
@@ -73,7 +84,7 @@ struct AudioSessionPanel: View {
                 set: { viewModel.setAudioSessionModeProfile($0) }
             )) {
                 ForEach(AudioSessionProfile.settingsModeCases) { profile in
-                    Text(profile.label).tag(profile)
+                    settingsOption(profile.label, isDefault: profile == IntercomViewModel.defaultAudioSessionProfile).tag(profile)
                 }
             }
             .pickerStyle(.menu)
@@ -183,9 +194,9 @@ struct TransmitCodecPanel: View {
                     get: { viewModel.preferredTransmitCodec },
                     set: { viewModel.setPreferredTransmitCodec($0) }
                 )) {
-                    Text("PCM 16-bit").tag(AudioCodecIdentifier.pcm16)
-                    Text("AAC-ELD").tag(AudioCodecIdentifier.mpeg4AACELD)
-                    Text("Opus").tag(AudioCodecIdentifier.opus)
+                    ForEach([(AudioCodecIdentifier.pcm16, "PCM 16-bit"), (.mpeg4AACELD, "AAC-ELD"), (.opus, "Opus")], id: \.0) { codec, name in
+                        settingsOption(name, isDefault: codec == IntercomViewModel.defaultTransmitCodec).tag(codec)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .accessibilityElement(children: .contain)
@@ -200,7 +211,7 @@ struct TransmitCodecPanel: View {
                     set: { viewModel.setRTCAudioFormatPreset($0) }
                 )) {
                     ForEach(RTCAudioFormatPreset.allCases) { preset in
-                        Text(preset.label).tag(preset)
+                        settingsOption(preset.label, isDefault: preset == IntercomViewModel.defaultRTCAudioFormatPreset).tag(preset)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -214,11 +225,9 @@ struct TransmitCodecPanel: View {
                         set: { viewModel.setAACELDv2BitRate($0) }
                     )) {
                     ForEach(viewModel.availableAACBitRates, id: \.self) { bitRate in
-                        if AppAudioCodecBridge.isLowBandwidthAACBitRate(bitRate, format: viewModel.rtcAudioFormatPreset.audioFormat) {
-                            Text("\(bitRate / 1_000) kbps (Lower Quality)").tag(bitRate)
-                        } else {
-                            Text("\(bitRate / 1_000) kbps").tag(bitRate)
-                        }
+                        let low = AppAudioCodecBridge.isLowBandwidthAACBitRate(bitRate, format: viewModel.rtcAudioFormatPreset.audioFormat)
+                        settingsOption("\(bitRate / 1_000) kbps\(low ? " (Lower Quality)" : "")",
+                                       isDefault: bitRate == IntercomViewModel.defaultAACELDv2BitRate).tag(bitRate)
                     }
                 }
                 .pickerStyle(.menu)
@@ -292,7 +301,15 @@ struct VoiceActivityPanel: View {
                 set: { viewModel.setVADSensitivity($0) }
             )) {
                 ForEach(VoiceActivitySensitivity.allCases) { sensitivity in
-                    Text(LocalizedStringKey(sensitivity.label)).tag(sensitivity)
+                    // Standard reads the word in the person's language; Advanced adds the default's mark.
+                    Group {
+                        if viewModel.interfaceMode == .advanced, sensitivity == IntercomViewModel.defaultVADSensitivity {
+                            settingsOption(sensitivity.label, isDefault: true)
+                        } else {
+                            Text(LocalizedStringKey(sensitivity.label))
+                        }
+                    }
+                    .tag(sensitivity)
                 }
             }
             .pickerStyle(.segmented)

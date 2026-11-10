@@ -185,6 +185,7 @@ final class RideIntercomUITests: XCTestCase {
     @MainActor
     func testPersonalAndReceivedNamesCanBeEditedAndRestored() throws {
         openSettingsTab()
+        // Advanced keeps the name inline with Save Name.
         let ownName = app.textFields["localDisplayNameField"]
         revealSettingsControl(ownName)
         ownName.tap()

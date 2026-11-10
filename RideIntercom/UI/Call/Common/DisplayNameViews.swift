@@ -36,7 +36,11 @@ struct GroupMemberNameView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Name on this device", text: $name).accessibilityIdentifier("groupMemberNameField")
+                Section("Name on this device") {
+                    // Empty shows and saves the name this person shares.
+                    TextField("Name on this device", text: $name, prompt: Text(verbatim: currentMember.displayName))
+                        .accessibilityIdentifier("groupMemberNameField")
+                }
                 LabeledContent("Name shared by this person", value: currentMember.displayName)
                     .accessibilityIdentifier("groupMemberOriginalName")
                 Button("Use Shared Name") {
@@ -51,9 +55,12 @@ struct GroupMemberNameView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        if viewModel.renameGroupMember(member.id, in: groupID, displayName: name) { dismiss() }
+                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let saved = trimmed.isEmpty ? viewModel.resetGroupMemberName(member.id, in: groupID)
+                                                    : viewModel.renameGroupMember(member.id, in: groupID, displayName: trimmed)
+                        if saved { dismiss() }
                     }
-                    .disabled(!IntercomGroup.isValidName(name.trimmingCharacters(in: .whitespacesAndNewlines)))
+                    .disabled({ let t = name.trimmingCharacters(in: .whitespacesAndNewlines); return !t.isEmpty && !IntercomGroup.isValidName(t) }())
                     .accessibilityIdentifier("saveGroupMemberNameButton")
                 }
             }

@@ -6,6 +6,8 @@ StandardとAdvancedの設定トップとその中の画面（通信、開発者�
 
 本書は Settings タブの UI 項目を定義する。
 
+Standardの設定トップは、同じ目的のSection（自分・接続・通信・音声・高度な設定・リセット）を並べ、Section間は`.listSectionSpacing(.compact)`にし、1つのSectionだけのグループ（通信、開発者向けの高度な設定、リセット）を36pt（`.custom(36)`）にして、その前後のグループの切れ目を一段広くする（iOS。macOSは標準のForm）。SwiftUIは隣り合う2つのSectionの大きい方の間隔を使うため、自分と接続の切れ目は広げていない（[バックログ](../../../backlog/画面実装とデザイン見本の差分.md#着手順)にデザインへの確認を記録）。Advancedの選択肢は、実装の既定値に「(Default)」を付ける（自動切断、Mode、Codec、Sample Rate、AAC-ELD Bitrate、VAD Sensitivity）。Standardの選択肢には付けない。Advancedのインターネット接続のWorker URLのプレースホルダーは`https://example.workers.dev`、Device access tokenは`Paste the token`。
+
 ## 表示切替と共通設定
 
 App Layout（`interfaceModePicker`）は2つを並べた標準の`Picker(.segmented)`（Standardは「標準／詳細」、Advancedは`Standard`／`Advanced`）。初期値Standard、アカウント別端末設定として保持する。切替だけでは通話・選択・ミュートを変更しない。Standardはアカウント・本人の表示名・利用権、通話設定、通信経路への入口、音声入出力・VAD・録音再生チェックの順に表示し、リセットを最下部に置く。通信経路はCommunication（`communicationSettingsLink`）に有効な経路を表示し、別画面で設定する。Advanced Settings for Developers（`moreSettingsLink`）には見出し（`advancedSettingsWarningTitle`）と設定変更の注意（`advancedSettingsWarning`）、App Layout、Internet接続だけを置く。Audio Session・送信codecは[絶対ルール](../../../policies/開発方針.md#standardとadvancedの設計の絶対ルール)によりStandardに置かず、Advancedの設定だけで扱う。Internet接続は自動化が未実装の間もここから設定できる。AdvancedはApp Layoutを先頭、通信経路とInternet接続を主画面に表示し、音声設定をAudio Session・Audio I/O・Voice Activity・Transmit Codec・Audio Checkの順に表示する。録音チェックの接続状態やmeterはAdvancedに限る。Sectionの見出しは両表示とも文字だけで、記号を付けない。Standardと同じ語・部品をAdvancedで使い回さないよう、表示が分かれるSection（App Layout、Internet接続、Audio Check）はStandardが`StandardSettingsSections.swift`、Advancedが`AdvancedSettingsSections.swift`に別の型で持つ。
@@ -31,11 +33,13 @@ Settings はアカウントのサインアウトと削除、通信経路、Audio
 
 ## 自分の表示名
 
+Standard（`StandardLocalDisplayNameSection`）は、現在の名前と「編集」の1行（`localDisplayNameRow`）だけを置き、押すと編集のシートを開く。Advanced（`LocalDisplayNameSection`）は行内の入力欄と保存を維持する。
+
 | 項目 | ID | 操作 |
 |---|---|---|
-| Your name | `localDisplayNameField` | 本人が相手へ伝える名前を入力 |
-| Save Name | `saveLocalDisplayNameButton` | 前後空白を除き保存。通話を維持して参加者へ更新を送る |
-| 保存済み | `localDisplayNameSaved` | 保存成功を表示。再編集すると表示を消す |
+| 名前（Standardのシート、Advancedは`Your name`） | `localDisplayNameField` | 本人が相手へ伝える名前を入力。Standardは現在の名前で開き、空のときのプレースホルダーは「例: ナオ」 |
+| 完了（Standard）／Save Name（Advanced） | `saveLocalDisplayNameButton` | 前後空白を除き保存。空の間は押せない。通話を維持して参加者へ更新を送る。Standardは保存でシートを閉じ、行の名前が替わる |
+| 保存済み（Advanced） | `localDisplayNameSaved` | 保存成功を表示。再編集すると表示を消す |
 
 ## 利用権の状態・購入・復元
 

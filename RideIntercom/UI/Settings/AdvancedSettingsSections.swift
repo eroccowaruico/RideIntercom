@@ -127,14 +127,14 @@ struct AdvancedInternetConnectionEditor: View {
     var body: some View {
         Form {
             Section {
-                TextField("Worker URL", text: $workerURL)
+                TextField("Worker URL", text: $workerURL, prompt: Text(verbatim: "https://example.workers.dev"))
                     .focused($focusedField, equals: .url)
                     .internetAddressInput()
                     .accessibilityIdentifier("internetWorkerURL")
             }
             InternetAppleSignInSection(viewModel: viewModel, workerURL: workerURL)
             Section {
-                SecureField("Device access token", text: $token)
+                SecureField("Device access token", text: $token, prompt: Text(verbatim: "Paste the token"))
                     .focused($focusedField, equals: .token)
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("internetDeviceToken")

@@ -132,3 +132,68 @@ struct StandardInternetConnectionEditor: View {
         .onAppear { address = viewModel.internetWorkerURL }
     }
 }
+
+/// The current name and Edit on one row; editing happens in its own sheet, as the design shows.
+struct StandardLocalDisplayNameSection: View {
+    let viewModel: IntercomViewModel
+    @State private var isEditing = false
+
+    var body: some View {
+        Section {
+            Button { isEditing = true } label: {
+                LabeledContent {
+                    Text("Edit")
+                } label: {
+                    Text(verbatim: viewModel.localMemberIdentity.displayName).foregroundStyle(.primary)
+                }
+            }
+            // The name in the text color, "Edit" in the secondary color, as the design shows.
+            .foregroundStyle(.primary)
+            .accessibilityIdentifier("localDisplayNameRow")
+            // On the row: a sheet on the Section itself does not present from inside a Form.
+            .sheet(isPresented: $isEditing) { StandardDisplayNameEditor(viewModel: viewModel) }
+        } header: {
+            Text("Your Display Name")
+        } footer: {
+            Text("Choose the name you share with people in your groups. They can keep a different name for you on their own device.")
+        }
+    }
+}
+
+/// Opens with the current name; Done stays off while the field is empty.
+private struct StandardDisplayNameEditor: View {
+    let viewModel: IntercomViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+
+    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Name") {
+                    TextField("Name", text: $name, prompt: Text("e.g. Nao"))
+                        #if os(iOS)
+                        .textContentType(.nickname)
+                        #endif
+                        .accessibilityIdentifier("localDisplayNameField")
+                }
+            }
+            .formStyle(.grouped)
+            .screenBackground(AppColorPalette.listScreenBackground)
+            .navigationTitle("Your Display Name")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { if viewModel.setLocalDisplayName(trimmed) { dismiss() } }
+                        .disabled(!IntercomGroup.isValidName(trimmed))
+                        .accessibilityIdentifier("saveLocalDisplayNameButton")
+                }
+            }
+        }
+        .onAppear { name = viewModel.localMemberIdentity.displayName }
+        #if os(macOS)
+        .frame(minWidth: 320, idealWidth: 420, minHeight: 200)
+        #endif
+    }
+}
