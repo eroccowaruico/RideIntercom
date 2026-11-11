@@ -24,6 +24,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: owner.callPresentationID) { _, _ in selectedTab = .call }
+        .onChange(of: owner.usersPresentationID) { _, _ in selectedTab = .users }
         .task { await owner.refreshAccountForForeground() }
         // The OS asks once, at the first launch; afterwards this returns the choice without asking.
         .task { if (try? await NotificationSystem.requestAuthorization()) == true { await viewModel?.startNotifications() } }

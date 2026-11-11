@@ -10,11 +10,17 @@ import UIKit
 @MainActor
 enum NotificationSystem {
     static let callRequestCategoryIdentifier = "RIDEINTERCOM_CALL_REQUEST"
-    static let respondOnPhoneActionIdentifier = "RIDEINTERCOM_RESPOND_ON_IPHONE"
+    static let connectActionIdentifier = "RIDEINTERCOM_CONNECT"
+    static let ignoreActionIdentifier = "RIDEINTERCOM_IGNORE"
+    /// The expanded notification and Apple Watch offer Connect (opens the app, unlocking first, the same as
+    /// tapping the notification) and Ignore (closes it in the background; nothing is sent to the sender).
     static var callRequestCategory: UNNotificationCategory {
-        let action = UNNotificationAction(identifier: respondOnPhoneActionIdentifier,
-            title: String(localized: "Respond on iPhone"), options: [])
-        return UNNotificationCategory(identifier: callRequestCategoryIdentifier, actions: [action], intentIdentifiers: [], options: [])
+        let connect = UNNotificationAction(identifier: connectActionIdentifier, title: String(localized: "Connect"),
+                                           options: [.foreground], icon: UNNotificationActionIcon(systemImageName: "phone.fill"))
+        let ignore = UNNotificationAction(identifier: ignoreActionIdentifier, title: String(localized: "Ignore"),
+                                          options: [], icon: UNNotificationActionIcon(systemImageName: "xmark"))
+        return UNNotificationCategory(identifier: callRequestCategoryIdentifier, actions: [connect, ignore],
+                                      intentIdentifiers: [], options: [])
     }
     static var permitsSystemAccess: Bool {
         let environment = ProcessInfo.processInfo.environment

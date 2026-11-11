@@ -23,7 +23,7 @@ Widgetとの違いは、Watchでは登録済みの通話先を選べることと
 | 通話先 | 既存`callTargets`を再利用。groupで会っただけの参加者と内部1対1groupを独立した宛先にしない。名前は本人名／端末側の別名をそのまま表示し、翻訳keyにしない |
 | 音声 | WatchのSessionManager入出力とAACを、暗号化した端末pairでiPhoneの既存TX／合成済みRXへ接続。iPhoneの入力captureを開始せず、最終機器出力だけを消音する。実Watchの媒体成立は未受入 |
 | 到達不能 | 操作をqueueへ積まず、未接続を表示する。接続復帰時に現在状態を取得し、古い開始・マイクONを自動実行しない |
-| 着信 | iPhone宛APNsの標準転送を利用する。通知内の「iPhoneで応答」はiPhoneの既存通知検証と通話開始へ渡す。Watch上の通常tapはWatch Appを開くだけで、通知到着では通話を開始しない |
+| 着信 | iPhone宛APNsの標準転送を利用する。通知には「接続」「無視」が出る。「接続」は`.foreground`のため、Watchへ転送された通知ではWatch Appを開く（Appleのaction規則）。Watch AppからiPhoneの通知検証と通話開始へ渡す処理は未実装（[通知の設計の実装](../../backlog/未実装課題.md)）。「無視」は通知を閉じるだけ。Watch上の通常tapはWatch Appを開くだけで、通知到着では通話を開始しない |
 
 watchOS targetはiPhone依存の単一Appとし、最低OSは27.0。iPhone/iPad・macOSを含む各製品targetも同じ最低OSへ揃える。`WKApplication=true`、`WKCompanionAppBundleIdentifier=com.yowamushi-inc.RideIntercom.RideIntercom`、`WKRunsIndependentlyOfCompanionApp=false`。Watch音声にはマイク・ローカルネットワークの用途説明、`_ride-audio._udp`、標準のaudio background modeを設定する。APNs・CarPlay専用の外部登録は追加しない。
 
@@ -81,9 +81,9 @@ Digital Crownと`handGestureShortcut`には送話を割り当てない。文言�
 | `WatchControlClient` | 応答待ちに重複タップをqueueへ追加しない。古い応答が新しいcontextを上書きしない。送信受付だけで接続済み・マイクONと表示しない |
 | 呼出し先と結果 | `canNotify`は現在の保存ユーザーの用途別許可から投影し、通常groupには付けない。iPhoneで要求時にSavedUserを再解決し、既存`notifications.send`へ渡す。既存outgoingのrequestID・固定status・取消可否だけを表示し、acceptedを配送・応答・通話成立と表示しない。古いrequestIDによる新しい呼出しの取消を拒否する |
 
-通知応答の固定categoryは`RIDEINTERCOM_CALL_REQUEST`、actionは`RIDEINTERCOM_RESPOND_ON_IPHONE`。iOSで`UNNotificationAction`のoptionsを空として登録し、Watchへ転送された通知の背景actionを元の通知先であるiPhoneで処理する。Appの通知bridgeから[共通の通知検証](通知仕様.md)へ渡し、受信ON・recipient・120秒期限・取消・保存関係・ログイン世代・別通話の維持を再利用する。未知action・dismiss・別categoryのactionを通話開始へ渡さない。Watch側に通知資格、APNs token、応答待ちqueue、再送・pollingを追加しない。
+通知応答の固定categoryは`RIDEINTERCOM_CALL_REQUEST`、actionは「接続」（`RIDEINTERCOM_CONNECT`、`.foreground`）と「無視」（`RIDEINTERCOM_IGNORE`、optionsなし）。iPhoneでは「接続」と本体のタップをAppの通知bridgeから[共通の通知検証](通知仕様.md)へ渡し、受信ON・recipient・120秒期限・取消・保存関係・ログイン世代・別通話の維持を再利用する。未知action・dismiss・別categoryのactionを通話開始へ渡さない。Watch側に通知資格、APNs token、応答待ちqueue、再送・pollingを追加しない。
 
-この配送先の区別は[Appleのaction規則](https://developer.apple.com/documentation/watchos-apps/adding-actions-to-notifications-on-watchos)による。通常tapがWatch Appを開く動作は[標準通知の表示仕様](https://developer.apple.com/documentation/watchos-apps/presenting-notifications-on-apple-watch)と分ける。「iPhoneで応答」の登録はWatch自身の音声やOS背景起動の実機成立を保証しない。
+この配送先の区別は[Appleのaction規則](https://developer.apple.com/documentation/watchos-apps/adding-actions-to-notifications-on-watchos)による。通常tapがWatch Appを開く動作は[標準通知の表示仕様](https://developer.apple.com/documentation/watchos-apps/presenting-notifications-on-apple-watch)と分ける。「接続」の登録はWatchからの接続やOS背景起動の実機成立を保証しない。
 
 snapshotの現在通話は閲覧中groupと分ける。表示状態は未ログイン、待機、接続待ち、通話中、音声一時停止、音声利用不能を区別し、現在のiPhone状態から導く。失敗は古い操作・宛先消失・現在アカウントなし・操作不可・到達不能に分け、必要時はiPhoneを開くよう案内する。英語と日本語の標準SwiftUI表示を用意する。
 

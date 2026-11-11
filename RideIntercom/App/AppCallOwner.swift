@@ -12,6 +12,8 @@ final class AppCallOwner: CallSurfaceActions {
     let notificationBridge = AppNotificationBridge()
     var viewModel: IntercomViewModel?
     var callPresentationID: UUID?
+    /// Asks the window to show the Users list (a notification whose sender could not be resolved).
+    var usersPresentationID: UUID?
     @ObservationIgnored private let makeViewModel: @MainActor (AppleAccountSession) -> IntercomViewModel?
     @ObservationIgnored private var credentialRevocationObserver: NSObjectProtocol?
     #if os(iOS)

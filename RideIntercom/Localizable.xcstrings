@@ -2817,6 +2817,16 @@
         }
       }
     },
+    "Ignore" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無視"
+          }
+        }
+      }
+    },
     "In a call" : {
       "extractionState" : "manual",
       "localizations" : {

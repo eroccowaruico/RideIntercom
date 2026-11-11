@@ -343,6 +343,6 @@ final class CallNotifications {
                   let user = contacts().first(where: { $0.principal?.userID == reply.senderUserID && $0.principal?.issuer == context.principal.issuer }),
                   allowsIncoming(from: user.id) else { return nil }
             return user.id
-        } catch { if current(context, generation: expected) { message = "This call request is no longer available." }; return nil }
+        } catch { return nil }
     }
 }

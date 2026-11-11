@@ -14,9 +14,7 @@ final class AppNotificationBridge: NSObject, UNUserNotificationCenterDelegate {
         self.owner = owner
         if NotificationSystem.permitsSystemAccess {
             UNUserNotificationCenter.current().delegate = self
-            #if os(iOS)
             UNUserNotificationCenter.current().setNotificationCategories([NotificationSystem.callRequestCategory])
-            #endif
         }
     }
     func receivedDeviceToken(_ token: Data) {
@@ -32,8 +30,9 @@ final class AppNotificationBridge: NSObject, UNUserNotificationCenterDelegate {
     }
     @discardableResult
     func respond(to tap: CallNotificationTap, actionIdentifier: String, categoryIdentifier: String) async -> Bool {
+        // Ignore (and anything else) only closes the notification: nothing is read or sent.
         guard actionIdentifier == UNNotificationDefaultActionIdentifier
-                || (actionIdentifier == NotificationSystem.respondOnPhoneActionIdentifier
+                || (actionIdentifier == NotificationSystem.connectActionIdentifier
                     && categoryIdentifier == NotificationSystem.callRequestCategoryIdentifier) else { return false }
         return await owner?.respondToCallNotification(tap) ?? false
     }

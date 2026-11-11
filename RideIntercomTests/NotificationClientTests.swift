@@ -219,6 +219,27 @@ struct NotificationClientTests {
         #expect(owner.callPresentationID != nil)
     }
 
+    /// An old notice whose sender cannot be resolved opens your users without an error, and starts nothing.
+    @Test func expiredNotificationOpensUsersWithoutAnError() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        fixture.store.notificationRegistrationEnabled = true
+        let h = notificationHarness(fixture); defer { h.viewModel.disconnect() }
+        let owner = AppCallOwner(account: h.viewModel.accountSession, viewModel: h.viewModel)
+        let grant = try testCallNotificationGrant(owner: fixture.local, allowedSender: fixture.peer)
+        NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(grant), as: UTF8.self)
+        #expect(await fixture.notifications.setIncomingAllowed(true, contactID: fixture.user.id))
+        let id = UUID()
+        let reply = CallNotificationReply(requestID: id, expiresAt: fixture.now.addingTimeInterval(-1).timeIntervalSince1970 * 1000,
+            status: .accepted, senderUserID: fixture.peer.userID)
+        NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(reply), as: UTF8.self)
+        owner.notificationBridge.bind(to: owner)
+        #expect(!(await owner.notificationBridge.respond(to: .init(requestID: id, recipientID: fixture.local.userID),
+            actionIdentifier: UNNotificationDefaultActionIdentifier, categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST")))
+        #expect(h.callSession.connectedGroup == nil && owner.callPresentationID == nil)
+        #expect(owner.usersPresentationID != nil)
+        #expect(h.viewModel.groupErrorMessage == nil)
+    }
+
     @Test func delayedNotificationTapCannotStartAfterTheAppChangesItsModel() async throws {
         let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
         fixture.store.notificationRegistrationEnabled = true
@@ -234,7 +255,7 @@ struct NotificationClientTests {
         let gate = ManualAsyncGate(); NotificationHTTPStub.delayGate = gate
         owner.notificationBridge.bind(to: owner)
         let responding = Task { await owner.notificationBridge.respond(to: .init(requestID: id, recipientID: fixture.local.userID),
-            actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST") }
+            actionIdentifier: "RIDEINTERCOM_CONNECT", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST") }
         await gate.waitForEntry(); owner.viewModel = nil
         await gate.release()
         #expect(!(await responding.value))
@@ -561,13 +582,15 @@ struct NotificationClientTests {
         #expect(try fixture.store.notificationPermissions().isEmpty)
     }
 
-    @Test func iphoneResponseCategoryHasOneBackgroundActionWithoutRequiringUnlock() throws {
+    /// Connect opens the app (unlocking first), the same as tapping; Ignore only closes the notification.
+    @Test func callRequestCategoryOffersConnectAndIgnore() throws {
         let category = NotificationSystem.callRequestCategory
         #expect(category.identifier == "RIDEINTERCOM_CALL_REQUEST")
-        let action = try #require(category.actions.first)
-        #expect(category.actions.count == 1 && action.identifier == "RIDEINTERCOM_RESPOND_ON_IPHONE")
-        #expect(action.options.isEmpty)
-        #expect(action.title == String(localized: "Respond on iPhone"))
+        #expect(category.actions.map(\.identifier) == ["RIDEINTERCOM_CONNECT", "RIDEINTERCOM_IGNORE"])
+        let connect = category.actions[0], ignore = category.actions[1]
+        #expect(connect.options == [.foreground] && connect.title == String(localized: "Connect"))
+        #expect(ignore.options.isEmpty && ignore.title == String(localized: "Ignore"))
+        #expect(!ignore.options.contains(.destructive), "Ignoring is not a refusal")
     }
 
     @Test func backgroundResponseUsesTheCommonValidatedTapAndRejectsUnknownDismissAndWrongCategory() async throws {
@@ -581,21 +604,21 @@ struct NotificationClientTests {
         #expect(await fixture.notifications.setIncomingAllowed(true, contactID: fixture.user.id))
         let id = UUID(), tap = CallNotificationTap(requestID: id, recipientID: fixture.local.userID)
         let before = NotificationHTTPStub.requests.count
-        for action in ["unrecognized", UNNotificationDismissActionIdentifier] {
+        for action in ["unrecognized", UNNotificationDismissActionIdentifier, "RIDEINTERCOM_IGNORE"] {
             #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: action, categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST")))
         }
-        #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "other")))
+        #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_CONNECT", categoryIdentifier: "other")))
         #expect(NotificationHTTPStub.requests.count == before && h.callSession.connectedGroup == nil)
         let reply = CallNotificationReply(requestID: id, expiresAt: fixture.now.addingTimeInterval(120).timeIntervalSince1970 * 1000,
             status: .accepted, senderUserID: fixture.peer.userID)
         NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(reply), as: UTF8.self)
-        #expect(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST"))
+        #expect(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_CONNECT", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST"))
         #expect(h.callSession.connectedGroup?.kind == .direct)
         #expect(h.viewModel.createTalkGroup(name: "Another call"))
         let groupID = try #require(h.viewModel.regularGroups.first?.id)
         #expect(h.viewModel.startCall(to: .group(groupID), accountAccessID: h.viewModel.accountAccessID, allowSwitchingCall: true))
         let current = h.viewModel.currentCallReference
-        #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_RESPOND_ON_IPHONE", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST")))
+        #expect(!(await owner.notificationBridge.respond(to: tap, actionIdentifier: "RIDEINTERCOM_CONNECT", categoryIdentifier: "RIDEINTERCOM_CALL_REQUEST")))
         #expect(h.viewModel.currentCallReference == current)
         // One place at a time: the notice only opens the live call, with no error.
         #expect(h.viewModel.selectedGroup?.id == groupID && h.viewModel.groupErrorMessage == nil)
