@@ -99,7 +99,7 @@ struct SignedInContentView: View {
         }
         .onDisappear { viewModel.stopContactInvitationSession() }
         .task { await viewModel.storeAccess.start() }
-        .task { await viewModel.notifications.refresh() }
+        .task { await viewModel.startNotifications() }
         .onChange(of: viewModel.interfaceMode) { _, mode in selectedTab = selectedTab.available(in: mode) }
         .onAppear { selectedTab = selectedTab.available(in: viewModel.interfaceMode) }
     }

@@ -26,7 +26,6 @@ struct AdvancedUserSettingsView: View {
                 }
                 .accessibilityIdentifier("resetUserNameButton")
                 Text("Your name for this person stays on this device. Use Shared Name removes your edit and follows their name updates.").font(.footnote)
-                CallNotificationContactSection(viewModel: viewModel, userID: user.id)
                 if let call = viewModel.existingDirectCall(for: user.id), viewModel.canShareGroup(call.id) {
                     Section {
                         CallInvitationButton(viewModel: viewModel, group: call, accessibilityIdentifier: "userSettingsInviteButton",

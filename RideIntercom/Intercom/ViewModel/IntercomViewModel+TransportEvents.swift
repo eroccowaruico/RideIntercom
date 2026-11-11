@@ -106,7 +106,10 @@ extension IntercomViewModel {
             receiveCallAccess(peerID: peerID, message: message)
             receiveNotificationPermission(peerID: peerID, message: message)
             if [PeerProfileChallenge.namespace, SharedDisplayName.namespace, DirectInvitationReceipt.namespace].contains(message.namespace) {
-                sendNotificationPermissions()
+                // A person met for the first time gets their grant before it is shared.
+                Task { [weak self, weak notifications] in
+                    await notifications?.allowEveryContact(); self?.sendNotificationPermissions()
+                }
             }
         case .disconnected:
             connectionGeneration = UUID()

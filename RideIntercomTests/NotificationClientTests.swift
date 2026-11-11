@@ -75,6 +75,31 @@ struct NotificationClientTests {
         fixture.remove()
     }
 
+    /// No switch in the app: once the OS allows notifications, starting registers this device and lets every
+    /// saved person notify you. When the OS turns them off, starting again removes the registration.
+    @Test func startFollowsTheOSAndAllowsEverySavedPerson() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        let grant = try testCallNotificationGrant(owner: fixture.local, allowedSender: fixture.peer)
+        NotificationHTTPStub.response = String(decoding: try JSONEncoder().encode(grant), as: UTF8.self)
+        await fixture.notifications.start()
+        #expect(fixture.notifications.isEnabled && fixture.registerCount == 1)
+        #expect(fixture.notifications.allowsIncoming(from: fixture.user.id), "Everyone you registered may notify you")
+        let requests = NotificationHTTPStub.requests.count
+        await fixture.notifications.start()
+        #expect(NotificationHTTPStub.requests.count == requests, "An existing grant is not issued again")
+        fixture.permission = false
+        await fixture.notifications.start()
+        #expect(!fixture.notifications.isEnabled && fixture.unregisterCount == 1 && fixture.notifications.authorizationDenied)
+    }
+
+    @Test func startNeverRegistersWithoutTheOSPermission() async throws {
+        let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
+        fixture.permission = false
+        await fixture.notifications.start()
+        #expect(!fixture.notifications.isEnabled && fixture.registerCount == 0)
+        #expect(!fixture.notifications.allowsIncoming(from: fixture.user.id) && NotificationHTTPStub.requests.isEmpty)
+    }
+
     @Test func explicitContactPermissionPersistsAndSignedRevocationCannotBeReplayed() async throws {
         let fixture = try NotificationModelFixture(client: makeClient()); defer { fixture.remove() }
         let grant = try testCallNotificationGrant(owner: fixture.local, allowedSender: fixture.peer)

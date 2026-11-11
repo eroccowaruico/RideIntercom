@@ -13,7 +13,6 @@ struct StandardSettingsView: View {
         StandardLocalDisplayNameSection(viewModel: viewModel).groupedSettingsSpacing()
         StoreAccessSection(access: viewModel.storeAccess).groupedSettingsSpacing()
         CallDisconnectTimerSection(viewModel: viewModel).groupedSettingsSpacing()
-        CallNotificationSettingsSection(notifications: viewModel.notifications).groupedSettingsSpacing()
         CallStatusDisplaySection(viewModel: viewModel).groupedSettingsSpacing()
         Section {
             NavigationLink {

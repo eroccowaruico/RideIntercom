@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The person's settings: your name for them, their own name, whether they can ring you, and deleting.
+/// The person's settings: your name for them, their own name, and deleting. Everyone you registered may notify
+/// you; notifications are set in the OS alone, so there is no switch per person.
 struct StandardUserSettingsView: View {
     @Bindable var viewModel: IntercomViewModel
     let user: SavedUser
@@ -24,17 +25,11 @@ struct StandardUserSettingsView: View {
                 Section("Name on This Device") {
                     TextField("Name on This Device", text: $name, prompt: Text(verbatim: current.displayName))
                         .accessibilityIdentifier("savedUserNameField")
-                    LabeledContent("Their Own Name", value: current.displayName)
-                        .accessibilityIdentifier("savedUserOriginalName")
                 }
-                Section {
-                    Toggle("Receive Calls from This Person", isOn: Binding(
-                        get: { viewModel.notifications.allowsIncoming(from: user.id) },
-                        set: { allowed in Task { await viewModel.setCallNotificationsAllowed(allowed, for: user.id) } }))
-                        .disabled(!viewModel.notifications.canUseNotifications || viewModel.notifications.isBusy)
-                        .accessibilityIdentifier("allowCallRequests-\(user.id)")
-                    // Choosing this person rings them; the call sheet shows how it went.
-                    if let message = viewModel.notifications.message { Text(LocalizedStringKey(message)).foregroundStyle(.secondary) }
+                // Their own name, its own group as in the design: read only, in the secondary color.
+                Section("Their Own Name") {
+                    Text(verbatim: current.displayName).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("savedUserOriginalName")
                 }
                 if let message = viewModel.groupErrorMessage {
                     Section { Text(LocalizedStringKey(message)).foregroundStyle(AppColorPalette.danger) }

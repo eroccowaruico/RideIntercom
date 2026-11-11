@@ -57,12 +57,7 @@ Standard（`StandardLocalDisplayNameSection`）は、現在の名前と「編集
 
 ## 通話の通知
 
-| 項目 | ID | 操作・状態 |
-|---|---|---|
-| Receive Call Requests | `receiveCallNotificationsToggle` | 端末の受信希望を切り替える。ONは明示的にOS許可を要求して登録し、OFFは即時に受信を止め取消を試みる。資格未設定かつOFFでは無効。すでにONのまま資格を失った場合はOFFにできる |
-| 状態 | `callNotificationsStatus` | 設定を開いたときと前景復帰に状態を確認する。許可シートは自動で出さない。OS拒否は設定画面への入口、登録失敗は再試行を示す |
-
-Standard/Advancedで同じモデルを使用する。SavedUserの編集には相手ごとのAllow Call Requests、Send Call Request、Cancel Call Requestを置く。許可は相手と1対1で接続すると共有する。group内だけの相手や自分の別端末を候補へ昇格させず、通知の受付を通話成立と表示しない。詳細は[通知仕様](../通知仕様.md)を参照する。
+通知の設定はOSだけで、Standardの設定に通知のSection・切替・状態・「設定を開く」を置かない（[通知の許可を求める時点](../../../design/通知の設計.md#通知の許可を求める時点)）。許可は初回の起動でOSの許可シートを1回だけ出し、端末の登録はサインインの後に自動で行う。相手ごとの切替も置かず、個人で登録した相手は全員通知を送ってよい。Advancedは`Call Notifications`（`AdvancedCallNotificationStatusSection`、`advancedCallNotificationStatus`）に`CallNotifications`の値（`authorizationDenied`・`receivesNotifications`・`isBusy`・`removalPending`・`message`）を読むだけで並べ、表示のたびに`refresh()`で確かめる。詳細は[通知仕様](../通知仕様.md)を参照する。
 
 ## 自動切断
 

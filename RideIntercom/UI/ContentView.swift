@@ -25,6 +25,8 @@ struct ContentView: View {
         }
         .onChange(of: owner.callPresentationID) { _, _ in selectedTab = .call }
         .task { await owner.refreshAccountForForeground() }
+        // The OS asks once, at the first launch; afterwards this returns the choice without asking.
+        .task { if (try? await NotificationSystem.requestAuthorization()) == true { await viewModel?.startNotifications() } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await owner.refreshAccountForForeground() } }
             if phase == .background { viewModel?.stopContactInvitationSession() }

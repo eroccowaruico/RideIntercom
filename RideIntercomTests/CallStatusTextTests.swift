@@ -23,7 +23,6 @@ struct CallStatusTextTests {
         #expect(ja("Voice Isolation") == "受信する声を分離")
         #expect(ja("Transmit Voice Isolation Effect") == "送信する声を分離")
         #expect(ja("Unmuted") == "オフ")
-        #expect(ja("Allow Call Requests") == "この相手からの呼び出しを受け取る")
         #expect(ja("Cancel Call Request") == "呼び出しを取り消す")
         #expect(ja("Share Call Invite") == "招待を共有")
         #expect(ja("Name shared by this person") == "本人の名前")

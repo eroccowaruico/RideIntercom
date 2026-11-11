@@ -470,7 +470,7 @@ final class StandardInterfaceUITests: XCTestCase {
         XCTAssertFalse(app.buttons["userSettingsInviteButton"].exists, "No invitation sharing in a person's settings")
         let name = app.textFields["savedUserNameField"].firstMatch
         XCTAssertEqual(name.placeholderValue, inviterName, "Empty shows their own name")
-        XCTAssertTrue(app.switches.matching(NSPredicate(format: "label == %@", "Receive Calls from This Person")).firstMatch.exists)
+        XCTAssertEqual(app.switches.count, 0, "No notification switch per person: notifications are set in the OS")
         XCTAssertTrue(app.staticTexts["Their Own Name"].exists)
         screenshot("Standard user settings")
         name.tap()

@@ -70,7 +70,7 @@ final class AppCallOwner: CallSurfaceActions {
         synchronizeAccountModel()
         guard let model = viewModel, model.hasCurrentAccountAccess else { return }
         async let purchases: Void = model.storeAccess.refresh()
-        async let notifications: Void = model.notifications.refresh()
+        async let notifications: Void = model.startNotifications()
         _ = await (purchases, notifications)
     }
 

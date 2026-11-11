@@ -10,7 +10,7 @@ struct AdvancedSettingsView: View {
         StoreAccessSection(access: viewModel.storeAccess)
         LocalDisplayNameSection(viewModel: viewModel)
         CallDisconnectTimerSection(viewModel: viewModel)
-        CallNotificationSettingsSection(notifications: viewModel.notifications)
+        AdvancedCallNotificationStatusSection(notifications: viewModel.notifications)
         CallStatusDisplaySection(viewModel: viewModel)
         CommunicationPanel(viewModel: viewModel)
         AdvancedInternetConnectionPanel(viewModel: viewModel, isEditing: $isEditingInternet)

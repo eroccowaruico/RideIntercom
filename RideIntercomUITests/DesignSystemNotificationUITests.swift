@@ -3,7 +3,9 @@ import XCTest
 
 @MainActor
 final class DesignSystemNotificationUITests: XCTestCase {
-    func testCallNotificationUsesOneDisabledToggleWithoutInternet() {
+    /// Notifications are set in the OS alone: the OS asks once at the first launch, and Settings has no
+    /// notification section, switch or status.
+    func testSettingsHaveNoNotificationSection() {
         continueAfterFailure = false
         for japanese in [false, true] {
             let app = XCUIApplication()
@@ -28,22 +30,19 @@ final class DesignSystemNotificationUITests: XCTestCase {
             XCTAssertTrue(settings.waitForExistence(timeout: 8)); settings.tap()
             let form = app.collectionViews.firstMatch
             XCTAssertTrue(form.waitForExistence(timeout: 5))
-            let toggle = app.switches["receiveCallNotificationsToggle"].firstMatch
+            // Scroll through the whole form: no notification section, switch or status anywhere.
             let lower = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
             let upper = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-            for _ in 0..<12 where !toggle.isHittable { lower.press(forDuration: 0.05, thenDragTo: upper) }
-            XCTAssertTrue(toggle.isHittable, app.debugDescription)
-            XCTAssertEqual(toggle.label, japanese ? "呼び出しを受け取る" : "Receive Call Requests")
-            XCTAssertEqual(toggle.value as? String, "0")
-            XCTAssertFalse(toggle.isEnabled)
-            let status = app.staticTexts["callNotificationsStatus"].firstMatch
-            XCTAssertTrue(status.exists)
-            for _ in 0..<4 where !status.isHittable { lower.press(forDuration: 0.05, thenDragTo: upper) }
-            XCTAssertTrue(toggle.isHittable && status.isHittable, app.debugDescription)
-            XCTAssertEqual(status.label, japanese ? "呼び出しを受け取るにはインターネット接続が必要です。" : "Internet connection is required to receive call requests.")
-            XCTAssertFalse(app.buttons["checkCallNotifications"].exists)
-            XCTAssertFalse(app.buttons["enableCallNotifications"].exists)
-            XCTAssertFalse(app.buttons["disableCallNotifications"].exists)
+            let reset = app.buttons["moreSettingsLink"].firstMatch
+            for _ in 0..<15 {
+                for id in ["receiveCallNotificationsToggle", "callNotificationsStatus", "openNotificationSettings", "retryCallNotifications"] {
+                    XCTAssertFalse(app.descendants(matching: .any)[id].exists, id)
+                }
+                XCTAssertFalse(app.staticTexts[japanese ? "呼び出しの通知" : "Call Notifications"].exists)
+                if reset.isHittable { break }
+                lower.press(forDuration: 0.05, thenDragTo: upper)
+            }
+            XCTAssertTrue(reset.isHittable, "Reached the end of the settings")
         }
     }
 }

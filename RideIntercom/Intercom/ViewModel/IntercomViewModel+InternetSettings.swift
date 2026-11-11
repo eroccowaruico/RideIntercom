@@ -71,7 +71,7 @@ extension IntercomViewModel {
         internetWorkerURL = configuration.workerURL.absoluteString
         hasInternetCredentials = true
         internetCheckMessage = "Device token saved. Service not checked."
-        Task { await notifications.refresh() }
+        Task { await startNotifications() }
     }
 
     func beginAccountDataReset() throws {

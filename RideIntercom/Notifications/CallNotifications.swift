@@ -46,6 +46,8 @@ final class CallNotifications {
         }
     }
     var isEnabled: Bool { store.notificationRegistrationEnabled }
+    /// Turning notifications off in the OS left a server removal that has not finished yet.
+    var removalPending: Bool { store.notificationRemovalPending }
     private func serviceAccess() -> CallNotificationServiceAccess? {
         guard isCurrentUser() else { return nil }
         return try? store.notificationAccess(memberID: memberID)
@@ -101,6 +103,23 @@ final class CallNotifications {
         } catch {
             guard current(context, generation: expected) else { return }
             message = "Notification permission could not be checked. Please try again."
+        }
+    }
+    /// Notifications follow the OS alone: there is no switch in the app. Once the OS allows them, this device
+    /// registers by itself after sign-in, and everyone you registered may notify you (the grant is shared at the
+    /// next one-to-one connection). When the OS turns them off, `refresh` removes the registration.
+    func start() async {
+        guard serviceAccess() != nil else { await refresh(); return }
+        let granted = await authorizationGranted()
+        if granted && !isEnabled && !isBusy { await enable() } else { await refresh() }
+        if granted { await allowEveryContact() }
+    }
+    /// Issues the receiving grant for every saved person who does not have one yet. Stops at the first failure
+    /// (usually offline) and tries again at the next start.
+    func allowEveryContact() async {
+        guard let context = access() else { return }
+        for user in contacts() where contact(user.id, context: context) != nil && !allowsIncoming(from: user.id) {
+            guard await setIncomingAllowed(true, contactID: user.id) else { return }
         }
     }
     func refresh() async {

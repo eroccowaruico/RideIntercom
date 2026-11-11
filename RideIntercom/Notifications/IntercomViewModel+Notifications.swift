@@ -2,8 +2,10 @@ import Foundation
 import RTC
 
 extension IntercomViewModel {
-    func setCallNotificationsAllowed(_ allowed: Bool, for userID: UUID) async {
-        if await notifications.setIncomingAllowed(allowed, contactID: userID) { sendNotificationPermissions() }
+    /// Registers for notifications by itself when the OS allows them and lets every saved person notify you.
+    func startNotifications() async {
+        await notifications.start()
+        sendNotificationPermissions()
     }
     /// Application data is a broadcast API. Personal grants therefore use only
     /// an account-bound direct call with exactly its intended peer connected.
