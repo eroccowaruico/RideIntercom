@@ -212,9 +212,10 @@ struct StandardCallView: View {
                     }
                 }
             }
-            if group.kind == .group {
+            // Only those with the usage right invite; others see no invite button.
+            if group.kind == .group && viewModel.canManageRegularGroups {
                 Button("Invite Members", systemImage: "person.badge.plus") { addingUsers = group }
-                    .disabled(!viewModel.canEditSavedGroups || viewModel.availableUsers(for: group.id).isEmpty
+                    .disabled(viewModel.availableUsers(for: group.id).isEmpty
                               || group.members.count >= IntercomGroup.maximumMemberCount)
                     .accessibilityIdentifier("addSavedUsersButton")
             }

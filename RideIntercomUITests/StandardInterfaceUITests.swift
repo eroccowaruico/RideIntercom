@@ -204,10 +204,12 @@ final class StandardInterfaceUITests: XCTestCase {
         // The detail: one state word, one sentence, one main action, the name and cancelling.
         let state = app.descendants(matching: .any)["contactInvitationState"].firstMatch
         XCTAssertTrue(state.waitForExistence(timeout: 3))
-        XCTAssertEqual(state.label, "Waiting to be accepted")
+        // Closed before any share destination took the link: not sent yet, and the main action sends it.
+        XCTAssertEqual(state.label, "Not sent yet")
+        XCTAssertTrue(app.staticTexts["This invitation has not been sent to anyone yet."].exists)
         XCTAssertTrue(app.staticTexts["You sent this invitation"].exists)
-        XCTAssertEqual(app.buttons["shareContactInvitationButton"].firstMatch.label, "Send Again")
-        XCTAssertFalse(app.buttons["retryContactInvitationButton"].exists, "Resending a sent invitation is sharing it again")
+        XCTAssertEqual(app.buttons["shareContactInvitationButton"].firstMatch.label, "Send Invitation")
+        XCTAssertFalse(app.buttons["retryContactInvitationButton"].exists, "Sending is sharing the invitation")
         let nameField = app.textFields["contactInvitationNameField"].firstMatch
         XCTAssertTrue(nameField.exists)
         XCTAssertFalse((nameField.value as? String ?? "").isEmpty, "The name given when sending is kept")

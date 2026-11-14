@@ -33,6 +33,22 @@ struct GroupSettingsTests {
         #expect(vm.groupErrorMessage != nil)
     }
 
+    /// Whoever made a group owns it and deletes it; someone who joined through an invitation can only leave.
+    @Test func theGroupsMakerOwnsItAndAJoinerOnlyLeaves() throws {
+        let a = AppTestSupport.makeHarness(groups: [], localMemberID: "owner-maker")
+        let b = AppTestSupport.makeHarness(groups: [], localMemberID: "owner-joiner")
+        defer { a.viewModel.disconnect(); b.viewModel.disconnect() }
+        #expect(a.viewModel.createTalkGroup(name: "Weekend"))
+        let groupID = try #require(a.viewModel.selectedGroup?.id)
+        try b.viewModel.acceptInviteURL(#require(a.viewModel.makeSelectedGroupInviteURL()))
+        #expect(a.viewModel.groupRepository.ownsGroup(groupID))
+        #expect(!b.viewModel.groupRepository.ownsGroup(groupID))
+        // Leaving removes it from this device only.
+        b.viewModel.deleteGroup(groupID)
+        #expect(!b.viewModel.groups.contains { $0.id == groupID })
+        #expect(a.viewModel.groups.contains { $0.id == groupID })
+    }
+
     private func harness() throws -> AppTestSupport.Harness {
         let first = try IntercomGroup(name: "First", members: [.init(id: "local", displayName: "You")], accessSecret: "group-key")
         return AppTestSupport.makeHarness(groups: [first])

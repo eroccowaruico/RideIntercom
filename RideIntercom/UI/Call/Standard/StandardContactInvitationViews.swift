@@ -73,7 +73,8 @@ struct StandardContactInvitationDetail: View {
 
     private var person: String { viewModel.contactInvitationName(for: record) }
     private var outgoing: Bool { record.direction == .outgoing }
-    private var isAwaitingAcceptance: Bool { outgoing && record.state == .pending }
+    private var isExpired: Bool { viewModel.contactInvitationIsExpired(record) }
+    private var isAwaitingAcceptance: Bool { outgoing && record.state == .pending && !isExpired }
 
     var body: some View {
         Form {
@@ -97,6 +98,13 @@ struct StandardContactInvitationDetail: View {
                         .accessibilityIdentifier("contactInvitationNameField")
                 }
             }
+            // A received invitation shows the name the inviter chose for themselves, read only.
+            if let ownName = viewModel.contactInvitationOwnName(for: record) {
+                Section("Their Own Name") {
+                    Text(verbatim: ownName).foregroundStyle(Color.secondary)
+                        .accessibilityIdentifier("contactInvitationOwnName")
+                }
+            }
             Section {
                 Button(outgoing ? "Cancel Invitation" : "Delete This Person", role: .destructive) { confirmsCancellation = true }
                     .accessibilityIdentifier("cancelPendingContactInvitationButton")
@@ -111,13 +119,26 @@ struct StandardContactInvitationDetail: View {
             if outgoing { Text("An invitation already sent may still be accepted until it expires.") }
         }
         // Keeps listening for, or delivering, the reply while the detail is open.
-        .onAppear { viewModel.retryPresentedContactInvitation(record.id) }
+        .onAppear { if !isExpired { viewModel.retryPresentedContactInvitation(record.id) } }
         .onDisappear(perform: saveName)
     }
 
     @ViewBuilder private var stateAndAction: some View {
         let inCall = viewModel.activeGroupID != nil || viewModel.hasAnyActiveGroupConnection
-        if isAwaitingAcceptance {
+        if isExpired {
+            stateWord("Expired", busy: false)
+            sentence("This invitation can no longer be used.")
+            Button("Send a New Invitation", systemImage: "square.and.arrow.up") {
+                viewModel.sendNewContactInvitation(replacing: record.id)
+            }
+            .appProminentButtonStyle()
+            .accessibilityIdentifier("sendNewContactInvitationButton")
+        } else if viewModel.contactInvitationIsUnsent(record) {
+            stateWord("Not sent yet", busy: false)
+            sentence("This invitation has not been sent to anyone yet.")
+            ContactInvitationShareLink(viewModel: viewModel, invitationID: record.id, title: "Send Invitation", personName: person)
+                .appProminentButtonStyle()
+        } else if isAwaitingAcceptance {
             stateWord("Waiting to be accepted", busy: false)
             sentence("\(person) joins your Users after opening and accepting this invitation.")
             ContactInvitationShareLink(viewModel: viewModel, invitationID: record.id, title: "Send Again", personName: person)

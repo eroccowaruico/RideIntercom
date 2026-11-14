@@ -77,8 +77,16 @@ final class GroupRepository {
 
     func save(_ groups: [IntercomGroup]) throws { try update(groups, credential: nil) }
     func save(_ groups: [IntercomGroup], credential: GroupAccessCredential, acceptedInvitation: AcceptedDirectInvitation? = nil, inviterName: String? = nil) throws {
+        let previousGroupIDs = Set(snapshot?.groups.map(\.id) ?? [])
         try update(groups, credential: credential) { next in
-            if let receipt = acceptedInvitation { try self.storeAcceptedInvitation(receipt, inviterName: inviterName, in: &next) }
+            if let receipt = acceptedInvitation {
+                try self.storeAcceptedInvitation(receipt, inviterName: inviterName, in: &next)
+                // Joined through someone's invitation: they own a regular group, and you can only leave it.
+                if let index = next.groups.firstIndex(where: { $0.id == receipt.receipt.groupID }), next.groups[index].kind != .direct,
+                   previousGroupIDs.contains(receipt.receipt.groupID) == false {
+                    next.groups[index].joinedByInvitation = true
+                }
+            }
         }
     }
     func delete(_ id: UUID, remaining: [IntercomGroup]) throws { try update(remaining, credential: nil) }
@@ -225,6 +233,11 @@ final class GroupRepository {
         return true
     }
 
+    /// You own a regular group you made here; one you joined through an invitation is someone else's.
+    func ownsGroup(_ groupID: UUID) -> Bool {
+        snapshot?.groups.first { $0.id == groupID }?.joinedByInvitation != true
+    }
+
     func storedGroup(_ groupID: UUID) -> IntercomGroup? {
         snapshot?.groups.first { $0.id == groupID }.flatMap { try? $0.group() }
     }
@@ -366,6 +379,7 @@ final class GroupRepository {
             record.lastSponsoredStart = old?.lastSponsoredStart
             record.pendingInvitation = old?.pendingInvitation
             record.receivedInvitationIDs = old?.receivedInvitationIDs ?? []
+            record.joinedByInvitation = old?.joinedByInvitation
             return record
         }, users: users ?? previous.users, contactInvitations: previous.contactInvitations)
         try modify(&next)
@@ -425,10 +439,10 @@ extension GroupRepository {
         _ = try proof.verify(Data(token.signature.utf8), purpose: .issueInvitation, memberID: token.inviterMemberID)
         let payload = ContactInvitationPayload(token: token)
         try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
-            next.contactInvitations.removeAll { $0.expiresAt <= now }
+            ContactInvitationRecord.expire(&next.contactInvitations, now: now)
             let reference = try self.prepareKey(payload.encodedSecret())
             next.contactInvitations.append(.init(id: context.id, direction: .outgoing,
-                expiresAt: context.expiresAt, credentialReference: reference))
+                expiresAt: context.expiresAt, credentialReference: reference, sent: false))
         }
     }
 
@@ -451,7 +465,7 @@ extension GroupRepository {
         let call = try contactDirectCall(with: inviter, localDisplayName: localDisplayName, token: token,
                                          groups: try snapshot.groups.map { try $0.group() })
         try update(call.groups, credential: call.credential) { next in
-            next.contactInvitations.removeAll { $0.expiresAt <= now }
+            ContactInvitationRecord.expire(&next.contactInvitations, now: now)
             try Self.remember(inviter, identity: accepted.inviter, in: &next)
             let reference = try self.prepareKey(payload.encodedSecret())
             next.contactInvitations.append(.init(id: context.id, direction: .incoming, expiresAt: context.expiresAt,
@@ -523,9 +537,9 @@ extension GroupRepository {
 
     func removeExpiredContactInvitations(now: TimeInterval) throws {
         guard now.isFinite, let snapshot else { throw GroupStorageError.invalidUpdate }
-        guard snapshot.contactInvitations.contains(where: { $0.expiresAt <= now }) else { return }
+        guard snapshot.contactInvitations.contains(where: { $0.expiresAt <= now && $0.state != .expired }) else { return }
         try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
-            next.contactInvitations.removeAll { $0.expiresAt <= now }
+            ContactInvitationRecord.expire(&next.contactInvitations, now: now)
         }
     }
 
@@ -537,6 +551,27 @@ extension GroupRepository {
 
     func cancelContactInvitation(_ id: UUID) throws {
         try setContactInvitationState(id, state: .cancelled)
+    }
+
+    /// A share destination took the link: the invitation now waits to be accepted.
+    func markContactInvitationSent(_ id: UUID) throws {
+        guard let snapshot, let record = snapshot.contactInvitations.first(where: { $0.id == id }),
+              record.direction == .outgoing, record.state == .pending else { throw GroupStorageError.invalidUpdate }
+        guard record.sent == false else { return }
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            guard let index = next.contactInvitations.firstIndex(where: { $0.id == id }) else { throw GroupStorageError.invalidUpdate }
+            next.contactInvitations[index].sent = true
+        }
+    }
+
+    /// Removes an expired invitation's record (after a new one is sent for the same person, or on cancel).
+    func removeExpiredContactInvitation(_ id: UUID) throws {
+        guard let snapshot, snapshot.contactInvitations.contains(where: { $0.id == id && $0.isExpiredTombstone }) else {
+            throw GroupStorageError.invalidUpdate
+        }
+        try update(try snapshot.groups.map { try $0.group() }, credential: nil) { next in
+            next.contactInvitations.removeAll { $0.id == id }
+        }
     }
 
     /// Names an outgoing invitation before it completes; nil clears the name.

@@ -4,7 +4,8 @@ extension IntercomViewModel {
     var pendingContactInvitations: [ContactInvitationRecord] {
         _ = contactInvitationRevision
         let now = callAccessNow().timeIntervalSince1970
-        return groupRepository.contactInvitations.filter { $0.canResume && now < $0.expiresAt }
+        // Expired sent invitations stay (as "Expired") until a new one is sent or they are cancelled.
+        return groupRepository.contactInvitations.filter { ($0.canResume && now < $0.expiresAt) || contactInvitationIsExpired($0) }
             .sorted { $0.expiresAt > $1.expiresAt }
     }
 

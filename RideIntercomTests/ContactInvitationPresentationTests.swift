@@ -55,7 +55,7 @@ struct ContactInvitationPresentationTests {
             let actualDigest = SHA256.hash(data: Data(exported.absoluteString.utf8))
             #expect(actualDigest == expectedDigest)
         }
-        #expect(h.groupStore.saveCount == before)
+        #expect(h.groupStore.saveCount == before + 1, "Only the first export records that it was sent")
         #expect(h.viewModel.pendingContactInvitations.count == 1)
         now = now.addingTimeInterval(8 * 24 * 60 * 60)
         await #expect(throws: (any Error).self) { _ = try await share.exported(as: .url) }
@@ -67,6 +67,36 @@ struct ContactInvitationPresentationTests {
         let currentShare = InvitationShare(viewModel: h.viewModel, contactInvitationID: anotherID)
         h.viewModel.accountSession.signOut()
         await #expect(throws: (any Error).self) { _ = try await currentShare.exported(as: .url) }
+    }
+
+    /// Not sent until a share destination takes the link; expired sent invitations stay, as Expired, until a new
+    /// one with the same name replaces them.
+    @Test func invitationIsNotSentUntilSharedAndExpiredOnesOfferANewOne() async throws {
+        var now = Date()
+        let h = AppTestSupport.makeHarness(groups: [], localMemberID: "state-author", callAccessNow: { now })
+        h.viewModel.contactSessionFactory = { RecordingCallSession() }
+        defer { h.viewModel.disconnect() }
+        let url = try #require(h.viewModel.makeContactInviteURL())
+        let id = try #require(GroupInviteTokenCodec.decodeJoinURL(url, contactBootstrap: true).directInvitation).context.id
+        #expect(h.viewModel.setContactInvitationNickname(id, "Haruka"))
+        var record = try #require(h.viewModel.contactInvitationRecord(id))
+        #expect(h.viewModel.contactInvitationStateWord(for: record) == "Not sent yet")
+        _ = try await InvitationShare(viewModel: h.viewModel, contactInvitationID: id).exported(as: .url)
+        record = try #require(h.viewModel.contactInvitationRecord(id))
+        #expect(h.viewModel.contactInvitationStateWord(for: record) == "Waiting to be accepted")
+        now = now.addingTimeInterval(8 * 24 * 60 * 60)
+        record = try #require(h.viewModel.pendingContactInvitations.first { $0.id == id }, "An expired sent invitation stays listed")
+        #expect(h.viewModel.contactInvitationStateWord(for: record) == "Expired")
+        try h.viewModel.groupRepository.removeExpiredContactInvitations(now: now.timeIntervalSince1970)
+        record = try #require(h.viewModel.contactInvitationRecord(id))
+        #expect(record.state == .expired && record.credentialReference == nil, "The secret is gone; only the name is kept")
+        h.viewModel.contactInvitationPresentation = .sharing(id)
+        h.viewModel.sendNewContactInvitation(replacing: id)
+        #expect(h.viewModel.contactInvitationRecord(id) == nil, "The new invitation replaces the expired one")
+        let replacement = try #require(h.viewModel.pendingContactInvitations.first)
+        #expect(replacement.id != id && replacement.nickname == "Haruka")
+        #expect(h.viewModel.contactInvitationStateWord(for: replacement) == "Not sent yet")
+        #expect(h.viewModel.contactInvitationPresentation?.id == "share-" + replacement.id.uuidString)
     }
 
     @Test func acceptingAPreviewRegistersTheInviterWithoutInterruptingAnExistingCall() throws {

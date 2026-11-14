@@ -3,7 +3,9 @@ import Foundation
 /// Public pending metadata; complete signed token and secrets live in Keychain.
 struct ContactInvitationRecord: Codable, Equatable, Identifiable {
     enum Direction: String, Codable { case outgoing, incoming }
-    enum State: String, Codable { case pending, confirmed, delivered, cancelled }
+    /// `expired`: a sent invitation nobody accepted in time. Its secret is gone; the record only keeps the
+    /// name so the person can send a new invitation (removed when they do, or cancel it).
+    enum State: String, Codable { case pending, confirmed, delivered, cancelled, expired }
     let id: UUID
     let direction: Direction
     let expiresAt: TimeInterval
@@ -15,11 +17,25 @@ struct ContactInvitationRecord: Codable, Equatable, Identifiable {
     /// The inviter's own word for the person, kept on this device only. Becomes the saved user's
     /// local name when the invitation completes; never sent or shown to the other person.
     var nickname: String?
+    /// False from creation until a share destination took the link (the share sheet asks for it only then).
+    /// Nil on records saved before this was kept: those were treated as sent.
+    var sent: Bool?
 
     var canResume: Bool { (state == .pending || state == .confirmed) && credentialReference != nil }
+    var isExpiredTombstone: Bool { state == .expired && direction == .outgoing }
+    /// Past its time: a sent invitation still waiting becomes an expired record; anything else goes.
+    static func expire(_ records: inout [ContactInvitationRecord], now: TimeInterval) {
+        records = records.compactMap { record in
+            guard record.expiresAt <= now, record.state != .expired else { return record }
+            guard record.direction == .outgoing, record.state == .pending else { return nil }
+            var expired = record
+            expired.state = .expired; expired.credentialReference = nil
+            return expired
+        }
+    }
     var isValid: Bool {
         guard expiresAt.isFinite, expiresAt >= 0 else { return false }
-        guard state != .confirmed || direction == .outgoing,
+        guard state != .expired || direction == .outgoing, state != .confirmed || direction == .outgoing,
               state != .delivered || direction == .incoming else { return false }
         if direction == .outgoing && state == .pending {
             guard receiptID == nil, peerMemberID == nil, peerDeviceKey == nil else { return false }

@@ -70,7 +70,7 @@ final class RideIntercomUITests: XCTestCase {
 
     #if os(iOS)
     @MainActor
-    func testStandardInvitationCancelAndCopyPreservePeople() throws {
+    func testStandardHasNoBareGroupLinkAndKeepsPeople() throws {
         let suffix = UUID().uuidString
         let existingRider = "Existing Rider \(suffix)"
         try openSavedUserInvitation(inviter: "ui-share-\(suffix)", sharedName: existingRider)
@@ -85,41 +85,20 @@ final class RideIntercomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["standardCallScreen"].firstMatch.waitForExistence(timeout: 5))
         revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
-        // Standard's call shares no bare link: the temporary group link lives in Group Settings only.
+        // Standard shares no bare group link: not in the call, not in Group Settings (Advanced keeps it).
         XCTAssertFalse(app.buttons["inviteButton"].exists)
         XCTAssertFalse(app.buttons["callMoreMenu"].exists)
-        let openSettings = {
-            self.app.buttons["callGroupSettingsButton"].firstMatch.tap()
-            let invite = self.app.buttons["groupSettingsInviteButton"].firstMatch
-            XCTAssertTrue(invite.waitForExistence(timeout: 3))
-            invite.tap()
-        }
-        let closeSettings = {
-            let close = self.app.buttons["closeGroupSettingsButton"].firstMatch
-            XCTAssertTrue(close.waitForExistence(timeout: 3))
-            close.tap()
-            XCTAssertTrue(close.waitForNonExistence(timeout: 3))
-        }
-        openSettings()
-        let copy = app.cells.matching(NSPredicate(format: "label == 'Copy' OR label == 'Copy Link'")).firstMatch
-        XCTAssertTrue(copy.waitForExistence(timeout: 5))
-        // Dismiss without choosing a share destination.
-        let outside = app.otherElements["PopoverDismissRegion"].firstMatch
-        if outside.exists { outside.tap() } else { copy.swipeDown() }
-        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
-        closeSettings()
+        app.buttons["callGroupSettingsButton"].firstMatch.tap()
+        let close = app.buttons["closeGroupSettingsButton"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["groupSettingsInviteButton"].exists, "No link without a recipient in Standard")
+        // This group came from someone's invitation: only its maker deletes it, everyone else leaves.
+        XCTAssertTrue(app.buttons["leaveGroupButton"].exists, app.debugDescription)
+        XCTAssertFalse(app.buttons["deleteGroupButton"].exists)
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 3))
         revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
-        XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
-        openSettings()
-        XCTAssertTrue(copy.waitForExistence(timeout: 5))
-        copy.tap()
-        XCTAssertTrue(copy.waitForNonExistence(timeout: 5))
-        closeSettings()
-        revealStandardCallElement(app.staticTexts[existingRider].firstMatch)
-        XCTAssertTrue(app.staticTexts[existingRider].firstMatch.exists)
-        XCTAssertFalse(app.staticTexts["Invited Rider 2"].exists)
-        XCTAssertFalse(app.staticTexts["Invited Rider 3"].exists)
         app.closeCallIfOpen()
         app.tabBars.buttons["Users"].tap()
         XCTAssertTrue(app.staticTexts[existingRider].firstMatch.waitForExistence(timeout: 3))

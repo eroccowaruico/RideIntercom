@@ -74,12 +74,17 @@ extension IntercomViewModel {
     func contactInvitationURLForSharing(_ id: UUID, expectedAccountAccessID: UUID) throws -> URL {
         guard canEditSavedGroups, expectedAccountAccessID == accountAccessID,
               let record = pendingContactInvitations.first(where: { $0.id == id }),
-              record.direction == .outgoing, record.state == .pending else { throw ContactInvitationError.unavailable }
+              record.direction == .outgoing, record.state == .pending,
+              !contactInvitationIsExpired(record) else { throw ContactInvitationError.unavailable }
         let payload = try groupRepository.contactInvitationPayload(id)
         // Validate a retained signing key without creating or replacing one.
         _ = try internetSettingsStore.invitationSigner(memberID: localMemberIdentity.memberID,
                                                        expectedPublicKey: payload.token.identityProof?.publicKey)
-        return try GroupInviteTokenCodec.joinURL(for: payload.token, contactBootstrap: true)
+        let url = try GroupInviteTokenCodec.joinURL(for: payload.token, contactBootstrap: true)
+        // The share sheet asks for the link only when a destination takes it. Not republished here, so the
+        // open share sheet is not redrawn; the list reads it again when the sheet closes.
+        try? groupRepository.markContactInvitationSent(id)
+        return url
     }
 
     func retryPresentedContactInvitation(_ id: UUID) {
@@ -105,6 +110,7 @@ extension IntercomViewModel {
     func contactInvitationRecord(_ id: UUID) -> ContactInvitationRecord? {
         _ = contactInvitationRevision
         guard let record = groupRepository.contactInvitations.first(where: { $0.id == id }) else { return nil }
+        if contactInvitationIsExpired(record) { return record }
         if record.canResume && callAccessNow().timeIntervalSince1970 >= record.expiresAt { return nil }
         return record
     }
@@ -121,9 +127,45 @@ extension IntercomViewModel {
         record.direction == .incoming || record.state == .confirmed
     }
 
+    /// A sent invitation nobody accepted in time (kept, or not yet tidied up).
+    func contactInvitationIsExpired(_ record: ContactInvitationRecord) -> Bool {
+        record.isExpiredTombstone
+            || (record.direction == .outgoing && record.state == .pending && callAccessNow().timeIntervalSince1970 >= record.expiresAt)
+    }
+
+    /// Created, but no share destination took the link yet.
+    func contactInvitationIsUnsent(_ record: ContactInvitationRecord) -> Bool {
+        record.direction == .outgoing && record.state == .pending && record.sent == false && !contactInvitationIsExpired(record)
+    }
+
     /// One state word for the list row; the detail explains it.
     func contactInvitationStateWord(for record: ContactInvitationRecord) -> String {
-        contactInvitationIsSending(record) ? "Sending a reply" : "Waiting to be accepted"
+        if contactInvitationIsExpired(record) { return "Expired" }
+        if contactInvitationIsUnsent(record) { return "Not sent yet" }
+        return contactInvitationIsSending(record) ? "Sending a reply" : "Waiting to be accepted"
+    }
+
+    /// The name the inviter shares, for a received invitation (shown read only under your own name for them).
+    func contactInvitationOwnName(for record: ContactInvitationRecord) -> String? {
+        guard record.direction == .incoming, let peer = record.peerMemberID else { return nil }
+        return savedRemoteUsers.first { $0.memberIDs.contains(peer) }?.displayName
+    }
+
+    /// Expired: makes a new invitation with the same name and opens it to send; the old record goes.
+    func sendNewContactInvitation(replacing id: UUID) {
+        guard canEditSavedGroups, let old = contactInvitationRecord(id), contactInvitationIsExpired(old) else { return }
+        contactInvitationMessage = nil
+        guard let url = makeContactInviteURL(),
+              let token = try? GroupInviteTokenCodec.decodeJoinURL(url, contactBootstrap: true),
+              let newID = token.directInvitation?.context.id else {
+            contactInvitationMessage = "Could not save this invitation. Try again."
+            return
+        }
+        if let name = old.nickname { _ = setContactInvitationNickname(newID, name, refresh: false) }
+        if old.isExpiredTombstone { try? groupRepository.removeExpiredContactInvitation(id) }
+        else { try? groupRepository.cancelContactInvitation(id) }
+        refreshGroupStorageStatus()
+        contactInvitationPresentation = .sharing(newID)
     }
 
     func contactInvitationStatus(for record: ContactInvitationRecord) -> String {
